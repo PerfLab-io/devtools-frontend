@@ -664,6 +664,9 @@ class TabbedLocation extends Location implements TabbedViewLocation {
 
     for (const view of views) {
       const id = view.viewId();
+
+      if (view.title() !== 'Performance') continue;
+
       this.views.set(id, view);
       locationForView.set(view, this);
       if (view.isTransient()) {
@@ -697,22 +700,22 @@ class TabbedLocation extends Location implements TabbedViewLocation {
   }
 
   private appendTabsToMenu(contextMenu: ContextMenu): void {
-    const views = Array.from(this.views.values());
-    views.sort((viewa, viewb) => viewa.title().localeCompare(viewb.title()));
-    for (const view of views) {
-      const title = view.title();
+    // const views = Array.from(this.views.values());
+    // views.sort((viewa, viewb) => viewa.title().localeCompare(viewb.title()));
+    // for (const view of views) {
+    //   const title = view.title();
 
-      if (view.viewId() === 'issues-pane') {
-        contextMenu.defaultSection().appendItem(title, () => {
-          Host.userMetrics.issuesPanelOpenedFrom(Host.UserMetrics.IssueOpener.HamburgerMenu);
-          void this.showView(view, undefined, true);
-        }, {jslogContext: 'issues-pane'});
-        continue;
-      }
+    //   if (view.viewId() === 'issues-pane') {
+    //     contextMenu.defaultSection().appendItem(title, () => {
+    //       Host.userMetrics.issuesPanelOpenedFrom(Host.UserMetrics.IssueOpener.HamburgerMenu);
+    //       void this.showView(view, undefined, true);
+    //     }, {jslogContext: 'issues-pane'});
+    //     continue;
+    //   }
 
-      contextMenu.defaultSection().appendItem(
-          title, this.showView.bind(this, view, undefined, true), {jslogContext: view.viewId()});
-    }
+    //   contextMenu.defaultSection().appendItem(
+    //       title, this.showView.bind(this, view, undefined, true), {jslogContext: view.viewId()});
+    // }
   }
 
   private appendTab(view: View, index?: number): void {

@@ -38,24 +38,24 @@ Bindings.IgnoreListManager.IgnoreListManager.instance({
 });
 SDK.CPUThrottlingManager.CPUThrottlingManager.instance().setHardwareConcurrency(128);
 
-UI.ActionRegistration.registerActionExtension({
-  actionId: 'timeline.record-reload',
-  iconClass: UI.ActionRegistration.IconClass.REFRESH,
-  category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
-  contextTypes() {
-    return [Timeline.TimelinePanel.TimelinePanel];
-  },
-  bindings: [
-    {
-      platform: UI.ActionRegistration.Platforms.WindowsLinux,
-      shortcut: 'Ctrl+Shift+E',
-    },
-    {
-      platform: UI.ActionRegistration.Platforms.Mac,
-      shortcut: 'Meta+Shift+E',
-    },
-  ],
-});
+// UI.ActionRegistration.registerActionExtension({
+//   actionId: 'timeline.record-reload',
+//   iconClass: UI.ActionRegistration.IconClass.REFRESH,
+//   category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
+//   contextTypes() {
+//     return [Timeline.TimelinePanel.TimelinePanel];
+//   },
+//   bindings: [
+//     {
+//       platform: UI.ActionRegistration.Platforms.WindowsLinux,
+//       shortcut: 'Ctrl+Shift+E',
+//     },
+//     {
+//       platform: UI.ActionRegistration.Platforms.Mac,
+//       shortcut: 'Meta+Shift+E',
+//     },
+//   ],
+// });
 UI.ActionRegistration.registerActionExtension({
   actionId: 'timeline.show-history',
   category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
@@ -66,31 +66,31 @@ UI.ActionRegistration.registerActionExtension({
     return new Timeline.TimelinePanel.ActionDelegate();
   },
 });
-UI.ActionRegistration.registerActionExtension({
-  actionId: 'components.collect-garbage',
-  category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
-  iconClass: UI.ActionRegistration.IconClass.MOP,
-});
-UI.ActionRegistration.registerActionExtension({
-  actionId: 'timeline.toggle-recording',
-  title: () => 'Toggle recording' as Common.UIString.LocalizedString,
-  toggleable: true,
-  category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
-  iconClass: UI.ActionRegistration.IconClass.START_RECORDING,
-  contextTypes() {
-    return [Timeline.TimelinePanel.TimelinePanel];
-  },
-  bindings: [
-    {
-      platform: UI.ActionRegistration.Platforms.WindowsLinux,
-      shortcut: 'Ctrl+E',
-    },
-    {
-      platform: UI.ActionRegistration.Platforms.Mac,
-      shortcut: 'Meta+E',
-    },
-  ],
-});
+// UI.ActionRegistration.registerActionExtension({
+//   actionId: 'components.collect-garbage',
+//   category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
+  // iconClass: UI.ActionRegistration.IconClass.MOP,
+// });
+// UI.ActionRegistration.registerActionExtension({
+//   actionId: 'timeline.toggle-recording',
+//   title: () => 'Toggle recording' as Common.UIString.LocalizedString,
+//   toggleable: true,
+//   category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
+//   iconClass: UI.ActionRegistration.IconClass.START_RECORDING,
+//   contextTypes() {
+//     return [Timeline.TimelinePanel.TimelinePanel];
+//   },
+//   bindings: [
+//     {
+//       platform: UI.ActionRegistration.Platforms.WindowsLinux,
+//       shortcut: 'Ctrl+E',
+//     },
+//     {
+//       platform: UI.ActionRegistration.Platforms.Mac,
+//       shortcut: 'Meta+E',
+//     },
+//   ],
+// });
 
 const actionRegistry = UI.ActionRegistry.ActionRegistry.instance();
 UI.ShortcutRegistry.ShortcutRegistry.instance({forceNew: true, actionRegistry: actionRegistry});
