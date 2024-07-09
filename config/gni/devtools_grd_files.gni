@@ -261,7 +261,7 @@ grd_files_release_sources = [
   "front_end/core/root/root.js",
   "front_end/core/sdk/sdk-meta.js",
   "front_end/core/sdk/sdk.js",
-  "front_end/device_mode_emulation_frame.html",
+  # "front_end/device_mode_emulation_frame.html",
   "front_end/devtools_app.html",
   "front_end/devtools_compatibility.js",
   "front_end/emulated_devices/optimized/MotoG4-landscape.avif",
@@ -324,7 +324,7 @@ grd_files_release_sources = [
   "front_end/entrypoints/wasmparser_worker/wasmparser_worker-entrypoint.js",
   "front_end/entrypoints/wasmparser_worker/wasmparser_worker.js",
   "front_end/entrypoints/worker_app/worker_app.js",
-  "front_end/inspector.html",
+  # "front_end/inspector.html",
   "front_end/integration_test_runner.html",
   "front_end/js_app.html",
   "front_end/legacy_test_runner/legacy_test_runner.js",
@@ -503,8 +503,8 @@ grd_files_release_sources = [
   "front_end/models/trace/types/types.js",
   "front_end/models/workspace/workspace.js",
   "front_end/models/workspace_diff/workspace_diff.js",
-  "front_end/ndb_app.html",
-  "front_end/node_app.html",
+  # "front_end/ndb_app.html",
+  # "front_end/node_app.html",
   "front_end/panels/accessibility/accessibility-meta.js",
   "front_end/panels/accessibility/accessibility.js",
   "front_end/panels/animation/animation-meta.js",
@@ -692,7 +692,7 @@ grd_files_release_sources = [
   "front_end/ui/legacy/theme_support/theme_support.js",
   "front_end/ui/lit-html/lit-html.js",
   "front_end/ui/visual_logging/visual_logging.js",
-  "front_end/worker_app.html",
+  # "front_end/worker_app.html",
 ]
 
 grd_files_debug_sources = [

@@ -48,12 +48,12 @@ interface Options {
 }
 
 export class TimelineLandingPage extends UI.Widget.VBox {
-  private readonly toggleRecordAction: UI.ActionRegistration.Action;
+  // private readonly toggleRecordAction: UI.ActionRegistration.Action;
 
-  constructor(toggleRecordAction: UI.ActionRegistration.Action, options?: Options) {
+  constructor(options?: Options) {
     super();
 
-    this.toggleRecordAction = toggleRecordAction;
+    // this.toggleRecordAction = toggleRecordAction;
 
     this.contentElement.classList.add('timeline-landing-page', 'fill');
     if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_OBSERVATIONS)) {
@@ -90,15 +90,15 @@ export class TimelineLandingPage extends UI.Widget.VBox {
     this.contentElement.classList.add('legacy');
     const centered = this.contentElement.createChild('div');
 
-    const recordButton = UI.UIUtils.createInlineButton(UI.Toolbar.Toolbar.createActionButton(this.toggleRecordAction));
-    const reloadButton =
-        UI.UIUtils.createInlineButton(UI.Toolbar.Toolbar.createActionButtonForId('timeline.record-reload'));
+    // const recordButton = UI.UIUtils.createInlineButton(UI.Toolbar.Toolbar.createActionButton(this.toggleRecordAction));
+    // const reloadButton =
+    //     UI.UIUtils.createInlineButton(UI.Toolbar.Toolbar.createActionButtonForId('timeline.record-reload'));
 
-    centered.createChild('p').appendChild(i18n.i18n.getFormatLocalizedString(
-        str_, UIStrings.clickTheRecordButtonSOrHitSTo, {PH1: recordButton, PH2: recordKey}));
+    // centered.createChild('p').appendChild(i18n.i18n.getFormatLocalizedString(
+    //     str_, UIStrings.clickTheRecordButtonSOrHitSTo, {PH1: recordButton, PH2: recordKey}));
 
-    centered.createChild('p').appendChild(i18n.i18n.getFormatLocalizedString(
-        str_, UIStrings.clickTheReloadButtonSOrHitSTo, {PH1: reloadButton, PH2: reloadKey}));
+    // centered.createChild('p').appendChild(i18n.i18n.getFormatLocalizedString(
+        // str_, UIStrings.clickTheReloadButtonSOrHitSTo, {PH1: reloadButton, PH2: reloadKey}));
 
     centered.createChild('p').appendChild(i18n.i18n.getFormatLocalizedString(
         str_, UIStrings.afterRecordingSelectAnAreaOf, {PH1: navigateNode, PH2: learnMoreNode}));

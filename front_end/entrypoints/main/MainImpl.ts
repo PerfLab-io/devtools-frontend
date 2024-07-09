@@ -914,6 +914,16 @@ export class MainMenuItem implements UI.Toolbar.Provider {
       const title = viewExtension.title();
       const id = viewExtension.viewId();
 
+      // Quick hack to show performance tab by default
+      if (title === 'Performance') {
+        UI.ViewManager.ViewManager.instance().showView(id, true, false);
+      }
+
+      // Quick hack to disable other tabs except Performance.
+      if (title !== 'Performance') {
+        continue;
+      }
+
       if (id === 'issues-pane') {
         moreTools.defaultSection().appendItem(title, () => {
           Host.userMetrics.issuesPanelOpenedFrom(Host.UserMetrics.IssueOpener.HamburgerMenu);

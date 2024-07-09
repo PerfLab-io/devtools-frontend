@@ -51,12 +51,12 @@ node_action("html_entrypoints") {
 
   _devtools_templates = [
     "devtools_app",
-    "inspector",
+    # "inspector",
     "js_app",
-    "ndb_app",
-    "node_app",
-    "worker_app",
-    "device_mode_emulation_frame",
+    # "ndb_app",
+    # "node_app",
+    # "worker_app",
+    # "device_mode_emulation_frame",
   ]
   args = [
     "--template",
