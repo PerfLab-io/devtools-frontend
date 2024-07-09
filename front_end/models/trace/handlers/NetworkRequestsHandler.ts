@@ -110,7 +110,8 @@ export function reset(): void {
   requestsByTime.length = 0;
   networkRequestEventByInitiatorUrl.clear();
   eventToInitiatorMap.clear();
-
+  webSocketData.clear();
+  
   handlerState = HandlerState.UNINITIALIZED;
 }
 
