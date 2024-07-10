@@ -250,6 +250,8 @@ export class InspectorView extends VBox implements ViewLocationResolver {
       infobar.setParentView(this);
       this.attachInfobar(infobar);
     }
+
+    this.tabbedPane.removeTabs();
   }
 
   static instance(opts: {
@@ -604,26 +606,26 @@ function reloadDevTools(): void {
 
 export class ActionDelegate implements ActionDelegateInterface {
   handleAction(context: Context, actionId: string): boolean {
-    switch (actionId) {
-      case 'main.toggle-drawer':
-        if (InspectorView.instance().drawerVisible()) {
-          InspectorView.instance().closeDrawer();
-        } else {
-          InspectorView.instance().showDrawer({
-            focus: true,
-            hasTargetDrawer: false,
-          });
-        }
-        return true;
-      case 'main.next-tab':
-        InspectorView.instance().tabbedPane.selectNextTab();
-        InspectorView.instance().tabbedPane.focus();
-        return true;
-      case 'main.previous-tab':
-        InspectorView.instance().tabbedPane.selectPrevTab();
-        InspectorView.instance().tabbedPane.focus();
-        return true;
-    }
+    // switch (actionId) {
+    //   case 'main.toggle-drawer':
+    //     if (InspectorView.instance().drawerVisible()) {
+    //       InspectorView.instance().closeDrawer();
+    //     } else {
+    //       InspectorView.instance().showDrawer({
+    //         focus: true,
+    //         hasTargetDrawer: false,
+    //       });
+    //     }
+    //     return true;
+    //   case 'main.next-tab':
+    //     InspectorView.instance().tabbedPane.selectNextTab();
+    //     InspectorView.instance().tabbedPane.focus();
+    //     return true;
+    //   case 'main.previous-tab':
+    //     InspectorView.instance().tabbedPane.selectPrevTab();
+    //     InspectorView.instance().tabbedPane.focus();
+    //     return true;
+    // }
     return false;
   }
 }
