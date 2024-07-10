@@ -547,7 +547,7 @@ export class MainImpl {
     new PauseListener();
 
     const actionRegistryInstance = UI.ActionRegistry.ActionRegistry.instance({forceNew: true});
-    // Required for legacy a11y layout tests
+    // // Required for legacy a11y layout tests
     UI.ShortcutRegistry.ShortcutRegistry.instance({forceNew: true, actionRegistry: actionRegistryInstance});
     this.#registerMessageSinkListener();
 
@@ -568,19 +568,19 @@ export class MainImpl {
     ThemeSupport.ThemeSupport.instance().fetchColorsAndApplyHostTheme();
     app.presentUI(document);
 
-    if (UI.ActionRegistry.ActionRegistry.instance().hasAction('elements.toggle-element-search')) {
-      const toggleSearchNodeAction =
-          UI.ActionRegistry.ActionRegistry.instance().getAction('elements.toggle-element-search');
-      // TODO: we should not access actions from other modules.
-      Host.InspectorFrontendHost.InspectorFrontendHostInstance.events.addEventListener(
-          Host.InspectorFrontendHostAPI.Events.EnterInspectElementMode, () => {
-            void toggleSearchNodeAction.execute();
-          }, this);
-    }
-    Host.InspectorFrontendHost.InspectorFrontendHostInstance.events.addEventListener(
-        Host.InspectorFrontendHostAPI.Events.RevealSourceLine, this.#revealSourceLine, this);
+    // if (UI.ActionRegistry.ActionRegistry.instance().hasAction('elements.toggle-element-search')) {
+    //   const toggleSearchNodeAction =
+    //       UI.ActionRegistry.ActionRegistry.instance().getAction('elements.toggle-element-search');
+    //   // TODO: we should not access actions from other modules.
+    //   Host.InspectorFrontendHost.InspectorFrontendHostInstance.events.addEventListener(
+    //       Host.InspectorFrontendHostAPI.Events.EnterInspectElementMode, () => {
+    //         void toggleSearchNodeAction.execute();
+    //       }, this);
+    // }
+    // Host.InspectorFrontendHost.InspectorFrontendHostInstance.events.addEventListener(
+    //     Host.InspectorFrontendHostAPI.Events.RevealSourceLine, this.#revealSourceLine, this);
 
-    await UI.InspectorView.InspectorView.instance().createToolbars();
+    // await UI.InspectorView.InspectorView.instance().createToolbars();
     Host.InspectorFrontendHost.InspectorFrontendHostInstance.loadCompleted();
 
     const value = Root.Runtime.Runtime.queryParam('loadTimelineFromURL');
