@@ -104,11 +104,11 @@ export class QuickOpenImpl {
 
 export class ShowActionDelegate implements UI.ActionRegistration.ActionDelegate {
   handleAction(_context: UI.Context.Context, actionId: string): boolean {
-    switch (actionId) {
-      case 'quick-open.show':
-        QuickOpenImpl.show('');
-        return true;
-    }
+    // switch (actionId) {
+    //   case 'quick-open.show':
+    //     QuickOpenImpl.show('');
+    //     return true;
+    // }
     return false;
   }
 }
