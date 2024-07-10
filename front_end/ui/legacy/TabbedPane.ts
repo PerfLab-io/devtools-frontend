@@ -590,6 +590,10 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
     tab.shown = false;
   }
 
+  removeTabs(): void {
+    this.headerElementInternal.remove();
+  }
+
   private createDropDownButton(): HTMLDivElement {
     const dropDownContainer = document.createElement('div');
     dropDownContainer.classList.add('tabbed-pane-header-tabs-drop-down-container');
