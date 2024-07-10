@@ -159,6 +159,8 @@ export class ViewManager {
 
     const viewsByLocation = new Map<ViewLocationValues|'none', PreRegisteredView[]>();
     for (const view of getRegisteredViewExtensions(Common.Settings.Settings.instance().getHostConfig())) {
+      if (view.viewId() !== 'timeline') {continue;}
+
       const location = view.location() || 'none';
       const views = viewsByLocation.get(location) || [];
       views.push(view);
@@ -210,14 +212,15 @@ export class ViewManager {
   }
 
   static createToolbar(toolbarItems: ToolbarItem[]): Element|null {
-    if (!toolbarItems.length) {
+    // if (!toolbarItems.length) {
+    //   return null;
+    // }
+    // const toolbar = new Toolbar('');
+    // for (const item of toolbarItems) {
+    //   toolbar.appendToolbarItem(item);
+    // }
+    // return toolbar.element;
       return null;
-    }
-    const toolbar = new Toolbar('');
-    for (const item of toolbarItems) {
-      toolbar.appendToolbarItem(item);
-    }
-    return toolbar.element;
   }
 
   locationNameForViewId(viewId: string): string {
@@ -614,7 +617,7 @@ class TabbedLocation extends Location implements TabbedViewLocation {
     if (restoreSelection) {
       this.lastSelectedTabSetting = Common.Settings.Settings.instance().createSetting(location + '-selected-tab', '');
     }
-    this.defaultTab = defaultTab;
+    this.defaultTab = 'timeline';
 
     this.views = new Map();
 
@@ -644,9 +647,9 @@ class TabbedLocation extends Location implements TabbedViewLocation {
   enableMoreTabsButton(): ToolbarMenuButton {
     const moreTabsButton =
         new ToolbarMenuButton(this.appendTabsToMenu.bind(this), /* isIconDropdown */ true, undefined, 'more-tabs');
-    moreTabsButton.setGlyph('dots-vertical');
-    this.tabbedPaneInternal.leftToolbar().appendToolbarItem(moreTabsButton);
-    this.tabbedPaneInternal.disableOverflowMenu();
+    // moreTabsButton.setGlyph('dots-vertical');
+    // this.tabbedPaneInternal.leftToolbar().appendToolbarItem(moreTabsButton);
+    // this.tabbedPaneInternal.disableOverflowMenu();
     return moreTabsButton;
   }
 
@@ -665,7 +668,7 @@ class TabbedLocation extends Location implements TabbedViewLocation {
     for (const view of views) {
       const id = view.viewId();
 
-      if (view.title() !== 'Performance') continue;
+      if (view.title() !== 'Performance') {continue;}
 
       this.views.set(id, view);
       locationForView.set(view, this);
@@ -680,23 +683,23 @@ class TabbedLocation extends Location implements TabbedViewLocation {
     }
 
     // If a default tab was provided we open or select it
-    if (this.defaultTab) {
-      if (this.tabbedPaneInternal.hasTab(this.defaultTab)) {
-        // If the tabbed pane already has the tab we just have to select it
-        this.tabbedPaneInternal.selectTab(this.defaultTab);
-      } else {
-        // If the tab is not present already it can be because:
-        // it doesn't correspond to this tabbed location
-        // or because it is closed
-        const view = Array.from(this.views.values()).find(view => view.viewId() === this.defaultTab);
-        if (view) {
-          // defaultTab is indeed part of the views for this tabbed location
-          void this.showView(view);
-        }
-      }
-    } else if (this.lastSelectedTabSetting && this.tabbedPaneInternal.hasTab(this.lastSelectedTabSetting.get())) {
-      this.tabbedPaneInternal.selectTab(this.lastSelectedTabSetting.get());
-    }
+    // if (this.defaultTab) {
+    //   if (this.tabbedPaneInternal.hasTab(this.defaultTab)) {
+    //     // If the tabbed pane already has the tab we just have to select it
+    //     this.tabbedPaneInternal.selectTab(this.defaultTab);
+    //   } else {
+    //     // If the tab is not present already it can be because:
+    //     // it doesn't correspond to this tabbed location
+    //     // or because it is closed
+    //     const view = Array.from(this.views.values()).find(view => view.viewId() === this.defaultTab);
+    //     if (view) {
+    //       // defaultTab is indeed part of the views for this tabbed location
+    //       void this.showView(view);
+    //     }
+    //   }
+    // } else if (this.lastSelectedTabSetting && this.tabbedPaneInternal.hasTab(this.lastSelectedTabSetting.get())) {
+    //   this.tabbedPaneInternal.selectTab(this.lastSelectedTabSetting.get());
+    // }
   }
 
   private appendTabsToMenu(contextMenu: ContextMenu): void {
@@ -730,60 +733,61 @@ class TabbedLocation extends Location implements TabbedViewLocation {
   }
 
   appendView(view: View, insertBefore?: View|null): void {
-    if (this.tabbedPaneInternal.hasTab(view.viewId())) {
-      return;
-    }
-    const oldLocation = locationForView.get(view);
-    if (oldLocation && oldLocation !== this) {
-      oldLocation.removeView(view);
-    }
-    locationForView.set(view, this);
-    this.manager.views.set(view.viewId(), view);
-    this.views.set(view.viewId(), view);
-    let index: number|undefined = undefined;
-    const tabIds = this.tabbedPaneInternal.tabIds();
-    if (this.allowReorder) {
-      const orderSetting = this.tabOrderSetting.get();
-      const order = orderSetting[view.viewId()];
-      for (let i = 0; order && i < tabIds.length; ++i) {
-        if (orderSetting[tabIds[i]] && orderSetting[tabIds[i]] > order) {
-          index = i;
-          break;
-        }
-      }
-    } else if (insertBefore) {
-      for (let i = 0; i < tabIds.length; ++i) {
-        if (tabIds[i] === insertBefore.viewId()) {
-          index = i;
-          break;
-        }
-      }
-    }
-    this.appendTab(view, index);
+    // if (this.tabbedPaneInternal.hasTab(view.viewId())) {
+    //   return;
+    // }
+    // const oldLocation = locationForView.get(view);
+    // if (oldLocation && oldLocation !== this) {
+    //   oldLocation.removeView(view);
+    // }
+    // locationForView.set(view, this);
+    // this.manager.views.set(view.viewId(), view);
+    // this.views.set(view.viewId(), view);
 
-    if (view.isCloseable()) {
-      const tabs = this.closeableTabSetting.get();
-      const tabId = view.viewId();
-      if (!tabs[tabId]) {
-        tabs[tabId] = true;
-        this.closeableTabSetting.set(tabs);
-      }
-    }
+    // let index: number|undefined = undefined;
+    // const tabIds = this.tabbedPaneInternal.tabIds();
+    // if (this.allowReorder) {
+    //   const orderSetting = this.tabOrderSetting.get();
+    //   const order = orderSetting[view.viewId()];
+    //   for (let i = 0; order && i < tabIds.length; ++i) {
+    //     if (orderSetting[tabIds[i]] && orderSetting[tabIds[i]] > order) {
+    //       index = i;
+    //       break;
+    //     }
+    //   }
+    // } else if (insertBefore) {
+    //   for (let i = 0; i < tabIds.length; ++i) {
+    //     if (tabIds[i] === insertBefore.viewId()) {
+    //       index = i;
+    //       break;
+    //     }
+    //   }
+    // }
+    // this.appendTab(view, index);
+
+    // if (view.isCloseable()) {
+    //   const tabs = this.closeableTabSetting.get();
+    //   const tabId = view.viewId();
+    //   if (!tabs[tabId]) {
+    //     tabs[tabId] = true;
+    //     this.closeableTabSetting.set(tabs);
+    //   }
+    // }
     this.persistTabOrder();
   }
 
   override async showView(
       view: View, insertBefore?: View|null, userGesture?: boolean, omitFocus?: boolean,
       shouldSelectTab: boolean|undefined = true): Promise<void> {
-    this.appendView(view, insertBefore);
-    if (shouldSelectTab) {
-      this.tabbedPaneInternal.selectTab(view.viewId(), userGesture);
-    }
-    if (!omitFocus) {
-      this.tabbedPaneInternal.focus();
-    }
-    const widget = (this.tabbedPaneInternal.tabView(view.viewId()) as ContainerWidget);
-    await widget.materialize();
+    // this.appendView(view, insertBefore);
+    // if (shouldSelectTab) {
+    //   this.tabbedPaneInternal.selectTab(view.viewId(), userGesture);
+    // }
+    // if (!omitFocus) {
+    //   this.tabbedPaneInternal.focus();
+    // }
+    // const widget = (this.tabbedPaneInternal.tabView(view.viewId()) as ContainerWidget);
+    // await widget.materialize();
   }
 
   override removeView(view: View): void {
