@@ -66,7 +66,8 @@ export async function getFileContent(url: URL): Promise<string> {
 }
 
 export async function getMarkdownFileContent(filename: string): Promise<string> {
-  return getFileContent(new URL(`descriptions/${filename}`, import.meta.url));
+  // return getFileContent(new URL(`descriptions/${filename}`, import.meta.url));
+  return '';
 }
 
 export async function createIssueDescriptionFromMarkdown(description: MarkdownIssueDescription):
