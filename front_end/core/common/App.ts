@@ -3,5 +3,5 @@
 // found in the LICENSE file.
 
 export interface App {
-  presentUI(document: Document): void;
+  presentUI(document: Document | Element): void;
 }
