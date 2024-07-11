@@ -123,6 +123,7 @@ export class MainImpl {
   #lateInitDonePromise!: Promise<void>;
   #readyForTestPromise: Promise<void>;
   #resolveReadyForTestPromise!: () => void;
+  #container: Element;
 
   constructor() {
     MainImpl.instanceForTest = this;
@@ -130,6 +131,10 @@ export class MainImpl {
       this.#resolveReadyForTestPromise = resolve;
     });
     void this.#loaded();
+    const container = document.createElement('div');
+    container.id = '-blink-dev-tools';
+
+    this.#container = document.getElementById('-blink-dev-tools') || document.appendChild(container);
   }
 
   static time(label: string): void {
@@ -448,22 +453,22 @@ export class MainImpl {
 
     const defaultThemeSetting = 'systemPreferred';
     const themeSetting = Common.Settings.Settings.instance().createSetting('ui-theme', defaultThemeSetting);
-    UI.UIUtils.initializeUIUtils(document);
+    UI.UIUtils.initializeUIUtils(this.#container);
 
     // Initialize theme support and apply it.
     if (!ThemeSupport.ThemeSupport.hasInstance()) {
       ThemeSupport.ThemeSupport.instance({forceNew: true, setting: themeSetting});
     }
 
-    UI.UIUtils.installComponentRootStyles((document.body as Element));
+    UI.UIUtils.installComponentRootStyles(this.#container);
 
-    this.#addMainEventListeners(document);
+    // this.#addMainEventListeners(this.#container);
 
     const canDock = Boolean(Root.Runtime.Runtime.queryParam('can_dock'));
     UI.ZoomManager.ZoomManager.instance(
         {forceNew: true, win: window, frontendHost: Host.InspectorFrontendHost.InspectorFrontendHostInstance});
     UI.ContextMenu.ContextMenu.initialize();
-    UI.ContextMenu.ContextMenu.installHandler(document);
+    UI.ContextMenu.ContextMenu.installHandler(this.#container);
 
     // These instances need to be created early so they don't miss any events about requests/issues/etc.
     Logs.NetworkLog.NetworkLog.instance();
@@ -566,7 +571,7 @@ export class MainImpl {
     // It is important to kick controller lifetime after apps are instantiated.
     UI.DockController.DockController.instance().initialize();
     ThemeSupport.ThemeSupport.instance().fetchColorsAndApplyHostTheme();
-    app.presentUI(document);
+    app.presentUI(this.#container);
 
     // if (UI.ActionRegistry.ActionRegistry.instance().hasAction('elements.toggle-element-search')) {
     //   const toggleSearchNodeAction =
@@ -691,6 +696,7 @@ export class MainImpl {
     const eventCopy = new CustomEvent('clipboard-' + event.type, {bubbles: true});
     // @ts-ignore Used in ElementsTreeOutline
     eventCopy['original'] = event;
+    // TODO: FIXME: this guy to dispatch clipboard events to the #container instead
     const document = event.target && (event.target as HTMLElement).ownerDocument;
     const target = document ? Platform.DOMUtilities.deepActiveElement(document) : null;
     if (target) {
@@ -707,13 +713,13 @@ export class MainImpl {
     }
   }
 
-  #addMainEventListeners(document: Document): void {
-    document.addEventListener('keydown', this.#postDocumentKeyDown.bind(this), false);
-    document.addEventListener('beforecopy', this.#redispatchClipboardEvent.bind(this), true);
-    document.addEventListener('copy', this.#redispatchClipboardEvent.bind(this), false);
-    document.addEventListener('cut', this.#redispatchClipboardEvent.bind(this), false);
-    document.addEventListener('paste', this.#redispatchClipboardEvent.bind(this), false);
-    document.addEventListener('contextmenu', this.#contextMenuEventFired.bind(this), true);
+  #addMainEventListeners(document: Element): void {
+    this.#container.addEventListener('keydown', this.#postDocumentKeyDown.bind(this), false);
+    this.#container.addEventListener('beforecopy', this.#redispatchClipboardEvent.bind(this), true);
+    this.#container.addEventListener('copy', this.#redispatchClipboardEvent.bind(this), false);
+    this.#container.addEventListener('cut', this.#redispatchClipboardEvent.bind(this), false);
+    this.#container.addEventListener('paste', this.#redispatchClipboardEvent.bind(this), false);
+    this.#container.addEventListener('contextmenu', this.#contextMenuEventFired.bind(this), true);
   }
 
   #onSuspendStateChanged(): void {

@@ -1045,16 +1045,25 @@ export class LongClickController {
   static readonly TIME_MS = 200;
 }
 
-export function initializeUIUtils(document: Document): void {
-  document.body.classList.toggle('inactive', !document.hasFocus());
-  if (document.defaultView) {
-    document.defaultView.addEventListener('focus', windowFocused.bind(undefined, document), false);
-    document.defaultView.addEventListener('blur', windowBlurred.bind(undefined, document), false);
-  }
-  document.addEventListener('focus', focusChanged.bind(undefined), true);
+export function initializeUIUtils(document: Document | Element): void {
+  if (document.nodeType === Node.DOCUMENT_NODE) {
+    const doc = document as Document;
+    doc.body.classList.toggle('inactive', !document.hasFocus());
+    if (doc.defaultView) {
+      doc.defaultView.addEventListener('focus', windowFocused.bind(undefined, doc), false);
+      doc.defaultView.addEventListener('blur', windowBlurred.bind(undefined, doc), false);
+    }
+    doc.addEventListener('focus', focusChanged.bind(undefined), true);
 
-  const body = (document.body as Element);
-  GlassPane.setContainer(body);
+    const body = (doc.body as Element);
+    GlassPane.setContainer(body);
+  } else {
+    const doc = document as Element;
+    doc.classList.toggle('inactive', !doc.hasFocus());
+    document.addEventListener('focus', focusChanged.bind(undefined), true);
+
+    GlassPane.setContainer(doc);
+  }
 }
 
 export function beautifyFunctionName(name: string): string {

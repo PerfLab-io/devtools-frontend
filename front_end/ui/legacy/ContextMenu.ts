@@ -430,8 +430,9 @@ export class ContextMenu extends SubMenu {
     }
   }
 
-  static installHandler(doc: Document): void {
-    doc.body.addEventListener('contextmenu', handler, false);
+  static installHandler(doc: Document | Element): void {
+    // @ts-ignore
+    (doc.body || doc).addEventListener('contextmenu', handler, false);
 
     function handler(event: Event): void {
       const contextMenu = new ContextMenu(event);
