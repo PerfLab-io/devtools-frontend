@@ -152,6 +152,12 @@ export class MainImpl {
     console.timeEnd(label);
   }
 
+  reApplyTheme(): void {
+    if (ThemeSupport.ThemeSupport.hasInstance()) {
+      ThemeSupport.ThemeSupport.instance().dispatchEvent(new ThemeSupport.ThemeChangeEvent());
+    }
+  }
+
   async #loaded(): Promise<void> {
     console.timeStamp('Main._loaded');
     Root.Runtime.Runtime.setPlatform(Host.Platform.platform());
