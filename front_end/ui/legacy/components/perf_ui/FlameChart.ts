@@ -1941,7 +1941,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     // TimelineFlameChartView constructor (L161-165)
     // This at least works for now by dispatching a custom event to the dom element (container)
 
-    document.getElementById('-blink-dev-tools')?.dispatchEvent(new CustomEvent('time-range-changed', {
+    document.getElementById('-blink-dev-tools')?.dispatchEvent(new CustomEvent('timeRangeChanged', {
       detail: {
         chart: {
           widthPixels: this.offsetWidth,
