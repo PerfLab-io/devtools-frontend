@@ -490,7 +490,7 @@
   }
 }
 
-.dark #-blink-dev-tools {
+:root.dark #-blink-dev-tools {
   --color-primary-old: rgb(138 180 248);
   --color-primary-variant: rgb(102 157 246);
   --color-background: rgb(32 33 36);

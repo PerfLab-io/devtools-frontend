@@ -155,6 +155,7 @@ export class MainImpl {
   reApplyTheme(): void {
     if (ThemeSupport.ThemeSupport.hasInstance()) {
       ThemeSupport.ThemeSupport.instance().dispatchEvent(new ThemeSupport.ThemeChangeEvent());
+      this.#container.dispatchEvent(new ThemeSupport.ThemeChangeEvent());
     }
   }
 
