@@ -141,6 +141,9 @@ export class TimelineFlameChartDataProvider extends Common.ObjectWrapper.ObjectW
         this.framesHeader,
         this.screenshotsHeader,
       ];
+
+      // TODO: Figure out how to trigger this.
+      // Manually triggering the event seem not to yield any result.
       for (const header of headers) {
         header.color = ThemeSupport.ThemeSupport.instance().getComputedValue('--sys-color-on-surface');
         header.backgroundColor =
