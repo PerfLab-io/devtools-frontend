@@ -33,6 +33,25 @@ import {TimelineSelection} from './TimelineSelection.js';
 import {AggregatedTimelineTreeView} from './TimelineTreeView.js';
 import {type TimelineMarkerStyle} from './TimelineUIUtils.js';
 
+export const enum Events {
+  TraceDataChange = 'tracedatachange',
+}
+
+export type EventTypes = {
+  [Events.TraceDataChange]: {
+    traceEngineData: TraceEngine.Handlers.Types.TraceParseData | null,
+    isCpuProfile: boolean,
+  },
+};
+
+export class TraceDataChange extends CustomEvent<EventTypes[Events.TraceDataChange]>{
+  static readonly eventName = Events.TraceDataChange;
+
+  constructor(options: EventTypes[Events.TraceDataChange]) {
+    super(TraceDataChange.eventName, { detail: options });
+  }
+}
+
 const UIStrings = {
   /**
    *@description Text in Timeline Flame Chart View of the Performance panel
@@ -429,6 +448,8 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     this.updateSearchResults(false, false);
     this.refreshMainFlameChart();
     this.#updateFlameCharts();
+
+    document.getElementById('-blink-dev-tools')?.dispatchEvent(new TraceDataChange({ traceEngineData: newTraceEngineData, isCpuProfile }));
   }
 
   setInsights(insights: TraceEngine.Insights.Types.TraceInsightData|null): void {
