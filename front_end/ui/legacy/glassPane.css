@@ -66,6 +66,6 @@
   display: none;
 }
 
-:host-context(.theme-with-dark-background) .arrow {
+:host-context(.dark #-blink-dev-tools) .arrow {
   filter: invert(80%);
 }

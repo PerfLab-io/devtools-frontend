@@ -131,10 +131,11 @@ export class MainImpl {
       this.#resolveReadyForTestPromise = resolve;
     });
     void this.#loaded();
+    const containerID = '-blink-dev-tools';
     const container = document.createElement('div');
-    container.id = '-blink-dev-tools';
+    container.id = containerID;
 
-    this.#container = document.getElementById('-blink-dev-tools') || document.appendChild(container);
+    this.#container = document.getElementById(containerID) || document.appendChild(container);
   }
 
   static time(label: string): void {

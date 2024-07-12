@@ -4,23 +4,23 @@
  * found in the LICENSE file.
  */
 
-body {
+#-blink-dev-tools {
   margin: 0;
   padding: 0;
   font-size: 13px;
   color: #222;
 }
 
-body.platform-linux {
+#-blink-dev-tools.platform-linux {
   font-family: "Google Sans Text", "Google Sans", system-ui, sans-serif;
 }
 
-body.platform-mac {
+#-blink-dev-tools.platform-mac {
   color: rgb(48 57 66);
   font-family: system-ui, sans-serif;
 }
 
-body.platform-windows {
+#-blink-dev-tools.platform-windows {
   font-family: system-ui, sans-serif;
 }
 
@@ -36,6 +36,6 @@ body.platform-windows {
   pointer-events: none;
 }
 
-.hidden {
+#-blink-dev-tools .hidden {
   display: none !important; /* stylelint-disable-line declaration-no-important */
 }

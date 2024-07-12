@@ -179,8 +179,8 @@
   background-color: var(--sys-color-state-hover-on-subtle);
 }
 
-.theme-with-dark-background .tabbed-pane-header-tab.dragging,
-:host-context(.theme-with-dark-background) .tabbed-pane-header-tab.dragging {
+.dark #-blink-dev-tools .tabbed-pane-header-tab.dragging,
+:host-context(.dark #-blink-dev-tools) .tabbed-pane-header-tab.dragging {
   --override-dragging-box-shadow-color: rgb(230 230 230 / 37%);
 }
 
