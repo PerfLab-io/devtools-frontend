@@ -133,7 +133,7 @@ export class TimelineFlameChartDataProvider extends Common.ObjectWrapper.ObjectW
     this.screenshotsHeader =
         this.buildGroupStyle({useFirstLineForOverview: true, nestingLevel: 1, collapsible: false, itemsHeight: 150});
 
-    ThemeSupport.ThemeSupport.instance().addEventListener(ThemeSupport.ThemeChangeEvent.eventName, () => {
+    const changeTheme = (): void => {
       const headers = [
         this.headerLevel1,
         this.headerLevel2,
@@ -149,7 +149,11 @@ export class TimelineFlameChartDataProvider extends Common.ObjectWrapper.ObjectW
         header.backgroundColor =
             ThemeSupport.ThemeSupport.instance().getComputedValue('--sys-color-cdt-base-container');
       }
-    });
+    };
+
+    ThemeSupport.ThemeSupport.instance().addEventListener(ThemeSupport.ThemeChangeEvent.eventName, changeTheme);
+    document.getElementById('--blink-devtools')?.addEventListener(ThemeSupport.ThemeChangeEvent.eventName, changeTheme);
+
   }
 
   hasTrackConfigurationMode(): boolean {
