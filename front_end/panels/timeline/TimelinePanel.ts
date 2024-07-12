@@ -44,8 +44,8 @@ import type * as TimelineModel from '../../models/timeline_model/timeline_model.
 import * as TraceEngine from '../../models/trace/trace.js';
 import * as Workspace from '../../models/workspace/workspace.js';
 import * as TraceBounds from '../../services/trace_bounds/trace_bounds.js';
-import * as Adorners from '../../ui/components/adorners/adorners.js';
-import type * as Buttons from '../../ui/components/buttons/buttons.js';
+// import * as Adorners from '../../ui/components/adorners/adorners.js';
+// import type * as Buttons from '../../ui/components/buttons/buttons.js';
 import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
@@ -55,14 +55,14 @@ import {ActiveFilters} from './ActiveFilters.js';
 import {TraceLoadEvent} from './BenchmarkEvents.js';
 import * as TimelineComponents from './components/components.js';
 import * as TimelineInsights from './components/insights/insights.js';
-import {SHOULD_SHOW_EASTER_EGG} from './EasterEgg.js';
+// import {SHOULD_SHOW_EASTER_EGG} from './EasterEgg.js';
 import {Tracker} from './FreshRecording.js';
-import historyToolbarButtonStyles from './historyToolbarButton.css.js';
+// import historyToolbarButtonStyles from './historyToolbarButton.css.js';
 import {IsolateSelector} from './IsolateSelector.js';
 import {AnnotationModifiedEvent, ModificationsManager} from './ModificationsManager.js';
 import {cpuprofileJsonGenerator, traceJsonGenerator} from './SaveFileFormatter.js';
 import {NodeNamesUpdated, SourceMapsResolver} from './SourceMapsResolver.js';
-import {type Client, TimelineController} from './TimelineController.js';
+import {type Client, type TimelineController} from './TimelineController.js';
 import {TimelineFlameChartView} from './TimelineFlameChartView.js';
 import {TimelineHistoryManager} from './TimelineHistoryManager.js';
 import {TimelineLandingPage} from './TimelineLandingPage.js';
@@ -72,8 +72,8 @@ import timelinePanelStyles from './timelinePanel.css.js';
 import {TimelineSelection} from './TimelineSelection.js';
 import timelineStatusDialogStyles from './timelineStatusDialog.css.js';
 import {TimelineUIUtils} from './TimelineUIUtils.js';
-import {UIDevtoolsController} from './UIDevtoolsController.js';
-import {UIDevtoolsUtils} from './UIDevtoolsUtils.js';
+// import {UIDevtoolsController} from './UIDevtoolsController.js';
+// import {UIDevtoolsUtils} from './UIDevtoolsUtils.js';
 
 const UIStrings = {
   /**
@@ -125,60 +125,6 @@ const UIStrings = {
    */
   showMemoryTimeline: 'Show memory timeline',
   /**
-   *@description Tooltip text that appears when hovering over the largeicon settings gear in show settings pane setting in timeline panel of the performance panel
-   */
-  // captureSettings: 'Capture settings',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  // disablesJavascriptSampling: 'Disables JavaScript sampling, reduces overhead when running against mobile devices',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  // capturesAdvancedPaint: 'Captures advanced paint instrumentation, introduces significant performance overhead',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  // capturesSelectorStats: 'Captures CSS selector statistics',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  // network: 'Network:',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  // cpu: 'CPU:',
-  /**
-   *@description Title of the 'Network conditions' tool in the bottom drawer
-   */
-  // networkConditions: 'Network conditions',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   *@example {wrong format} PH1
-   *@example {ERROR_FILE_NOT_FOUND} PH2
-   */
-  // failedToSaveTimelineSS: 'Failed to save timeline: {PH1} ({PH2})',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  // CpuThrottlingIsEnabled: '- CPU throttling is enabled',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  // NetworkThrottlingIsEnabled: '- Network throttling is enabled',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  // HardwareConcurrencyIsEnabled: '- Hardware concurrency override is enabled',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  SignificantOverheadDueToPaint: '- Significant overhead due to paint instrumentation',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  SelectorStatsEnabled: '- Selector stats is enabled',
-  /**
    *@description Text in Timeline Panel of the Performance panel
    */
   // JavascriptSamplingIsDisabled: '- JavaScript sampling is disabled',
@@ -190,10 +136,6 @@ const UIStrings = {
    *@description Text in Timeline Panel of the Performance panel
    */
   received: 'Received',
-  /**
-   *@description Text to close something
-   */
-  close: 'Close',
   /**
    *@description Text to download the raw trace files after an error
    */
@@ -219,10 +161,6 @@ const UIStrings = {
    *@description Text in Timeline Panel of the Performance panel
    */
   processingProfile: 'Processing profile…',
-  /**
-   *@description Text in Timeline Panel of the Performance panel
-   */
-  initializingProfiler: 'Initializing profiler…',
   /**
    *@description Text for the status of something
    */
@@ -630,25 +568,25 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     return checkboxItem;
   }
 
-  #addSidebarIconToToolbar(): void {
-    if (!Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_SIDEBAR)) {
-      return;
-    }
+  // #addSidebarIconToToolbar(): void {
+  //   if (!Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_SIDEBAR)) {
+  //     return;
+  //   }
 
-    if (this.panelToolbar.hasItem(this.#sidebarToggleButton)) {
-      return;
-    }
+  //   if (this.panelToolbar.hasItem(this.#sidebarToggleButton)) {
+  //     return;
+  //   }
 
-    this.panelToolbar.prependToolbarItem(this.#sidebarToggleButton);
-  }
+  //   this.panelToolbar.prependToolbarItem(this.#sidebarToggleButton);
+  // }
 
   /**
    * Used when the user deletes their last trace and is taken back to the
    * landing page - we don't add this icon until there is a trace loaded.
    */
-  #removeSidebarIconFromToolbar(): void {
-    this.panelToolbar.removeToolbarItem(this.#sidebarToggleButton);
-  }
+  // #removeSidebarIconFromToolbar(): void {
+  //   this.panelToolbar.removeToolbarItem(this.#sidebarToggleButton);
+  // }
 
   private populateToolbar(): void {
     // Record
@@ -1276,9 +1214,9 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.dropTarget.setEnabled(this.state === State.Idle);
     this.loadButton.setEnabled(this.state === State.Idle);
     // this.saveButton.setEnabled(this.state === State.Idle && this.#hasActiveTrace());
-    if (this.#traceEngineActiveTraceIndex > -1) {
-      this.#addSidebarIconToToolbar();
-    }
+    // if (this.#traceEngineActiveTraceIndex > -1) {
+    //   this.#addSidebarIconToToolbar();
+    // }
   }
 
   // async toggleRecording(): Promise<void> {
@@ -1506,7 +1444,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
   private showLandingPage(): void {
     this.updateSettingsPaneVisibility();
-    this.#removeSidebarIconFromToolbar();
+    // this.#removeSidebarIconFromToolbar();
+    this.#sideBar.hideSidebar();
     if (this.landingPage) {
       this.landingPage.show(this.statusPaneContainer);
       return;
@@ -1538,7 +1477,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
           buttonText: undefined,
           description: undefined,
         },
-        () => undefined
+        () => undefined,
       );
     this.statusPane.showPane(this.statusPaneContainer);
     this.statusPane.updateStatus(i18nString(UIStrings.loadingProfile));
