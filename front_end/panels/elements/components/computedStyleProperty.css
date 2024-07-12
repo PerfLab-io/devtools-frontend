@@ -67,9 +67,10 @@
   display: inline-block;
 }
 
-.hidden {
+#-blink-dev-tools .hidden {
   display: none;
 }
+
 /* narrowed styles */
 :host-context(.computed-narrow) .computed-style-property {
   white-space: normal;
@@ -98,6 +99,7 @@
     display: inline-block;
   }
 }
+
 /* high-contrast styles */
 @media (forced-colors: active) {
   .computed-style-property.inherited {
