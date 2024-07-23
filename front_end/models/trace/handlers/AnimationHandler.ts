@@ -9,9 +9,17 @@ import {HandlerState} from './types.js';
 
 const animations: Types.TraceEvents.TraceEventAnimation[] = [];
 const animationsSyntheticEvents: Types.TraceEvents.SyntheticAnimationPair[] = [];
+const animationFrames: Array<
+                        Types.TraceEvents.TraceEventAnimationFrameGroupingEvent |
+                        Types.TraceEvents.TraceEventAnimationFrameInstantEvent |
+                        Types.TraceEvents.TraceEventAnimationFramePaintGroupingEvent |
+                        Types.TraceEvents.TraceEventAnimationFrameScriptGroupingEvent
+                        > = [];
+const animationFramesSyntheticEvents: Types.TraceEvents.SyntheticAnimationFramePair[] = [];
 
 export interface AnimationData {
   animations: readonly Types.TraceEvents.SyntheticAnimationPair[];
+  animationFrames: readonly Types.TraceEvents.SyntheticAnimationFramePair[];
 }
 let handlerState = HandlerState.UNINITIALIZED;
 
@@ -20,9 +28,25 @@ export function reset(): void {
   animationsSyntheticEvents.length = 0;
 }
 
+function isAnimationFrameGrouping(event: Types.TraceEvents.TraceEventData): event is
+  Types.TraceEvents.TraceEventAnimationFrameGroupingEvent |
+  Types.TraceEvents.TraceEventAnimationFrameInstantEvent |
+  Types.TraceEvents.TraceEventAnimationFramePaintGroupingEvent |
+  Types.TraceEvents.TraceEventAnimationFrameScriptGroupingEvent {
+  return Types.TraceEvents.isTraceEventAnimationFrame(event) ||
+    Types.TraceEvents.isTraceEventAnimationFramePaint(event) ||
+    Types.TraceEvents.isTraceEventAnimationFrameScript(event) ||
+    Types.TraceEvents.isTraceEventAnimationFrameInstant(event);
+}
+
 export function handleEvent(event: Types.TraceEvents.TraceEventData): void {
   if (Types.TraceEvents.isTraceEventAnimation(event)) {
     animations.push(event);
+    return;
+  }
+
+  if (isAnimationFrameGrouping(event)) {
+    animationFrames.push(event);
     return;
   }
 }
@@ -30,6 +54,10 @@ export function handleEvent(event: Types.TraceEvents.TraceEventData): void {
 export async function finalize(): Promise<void> {
   const syntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animations);
   animationsSyntheticEvents.push(...syntheticEvents);
+
+  const afSyntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animationFrames);
+  animationFramesSyntheticEvents.push(...afSyntheticEvents);
+
   handlerState = HandlerState.FINALIZED;
 }
 
@@ -40,5 +68,6 @@ export function data(): AnimationData {
 
   return {
     animations: animationsSyntheticEvents,
+    animationFrames: animationFramesSyntheticEvents,
   };
 }
