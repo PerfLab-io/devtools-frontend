@@ -39,6 +39,8 @@ function isAnimationFrameGrouping(event: Types.TraceEvents.TraceEventData): even
     Types.TraceEvents.isTraceEventAnimationFrameInstant(event);
 }
 
+let currentBeginEventSulfix: string | null = null;
+
 export function handleEvent(event: Types.TraceEvents.TraceEventData): void {
   if (Types.TraceEvents.isTraceEventAnimation(event)) {
     animations.push(event);
@@ -46,7 +48,18 @@ export function handleEvent(event: Types.TraceEvents.TraceEventData): void {
   }
 
   if (isAnimationFrameGrouping(event)) {
+    // INFO: Hack to correctly pair AnimationFrame nestable groupings. Since the current
+    // local id is not correctly set.
+    const isStartEvent = event.ph === Types.TraceEvents.Phase.ASYNC_NESTABLE_START;
+
+    if (isStartEvent && event.name === Types.TraceEvents.KnownEventName.AnimationFrame) {
+      currentBeginEventSulfix = `${event.ts}`;
+    }
+
+    event.id2 = { local: `${event.id2?.local}-${currentBeginEventSulfix}` };
+
     animationFrames.push(event);
+
     return;
   }
 }
