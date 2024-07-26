@@ -29,7 +29,27 @@ import '../../panels/timeline/timeline-meta.js';
 
 import * as Root from '../../core/root/root.js';
 import * as Main from '../main/main.js';
+// eslint-disable-next-line rulesdir/es_modules_import
+import {
+  ThemeSupport,
+  ThemeChangeEvent,
+} from '../../ui/legacy/theme_support/theme_support.js';
 
 // @ts-ignore Exposed for legacy layout tests
 self.runtime = Root.Runtime.Runtime.instance({forceNew: true});
-export const mainInstance = new Main.MainImpl.MainImpl();
+// export const mainInstance = new Main.MainImpl.MainImpl();
+// @ts-ignore
+window.initDevtools = () => {
+  // @ts-ignore
+  window.mainInstance = new Main.MainImpl.MainImpl();
+};
+
+// @ts-ignore
+window.dispatchThemeChange = () => {
+  if (ThemeSupport.hasInstance()) {
+    ThemeSupport.instance().dispatchEvent(new ThemeChangeEvent());
+  }
+};
+
+document.body.dispatchEvent(new Event('devtools-initialized'));
+document.body.classList.add('dt-ready');
