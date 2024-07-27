@@ -22,6 +22,8 @@ export class RootView extends VBox {
     // }
     // this.window = document.defaultView;
     // this.doResize();
+
+    document.addEventListener('resize', this.doResize.bind(this), false);
     // @ts-ignore
     this.show((document.body as Element) || document);
   }
