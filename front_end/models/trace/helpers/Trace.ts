@@ -270,6 +270,14 @@ export function matchEvents(unpairedEvents: Types.TraceEvents.TraceEventPairable
         otherEventsWithID.instant = [];
       }
       otherEventsWithID.instant.push(event as Types.TraceEvents.TraceEventPairableAsyncInstant);
+
+      if(Types.TraceEvents.isTraceEventAnimationFrameInstant(event)){
+        // INFO: Hack to correctly pair AnimationFrame instant events with the
+        // corresponding groupings. Since the local id is not correctly set and the
+        // synthetic id generated will be unique, thus lacking the begin event.
+        // @ts-ignore
+        otherEventsWithID.begin = event as Types.TraceEvents.TraceEventPairableAsyncInstant;
+      }
     }
   }
   return matchedPairs;
