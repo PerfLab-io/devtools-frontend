@@ -2005,6 +2005,28 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
       traceWindow:
           TraceEngine.Helpers.Timing.traceWindowFromMilliSeconds(this.minimumBoundary(), this.maximumBoundary()),
     });
+
+    // TODO: FIXME: Gotta figure out on how to hook up to the actual event being dispatched by the
+    // eventMixin.dispatchEventToListeners. But we'd need to change the initialization of the
+    // TimelineFlameChartView constructor (L161-165)
+    // This at least works for now by dispatching a custom event to the dom element (container)
+
+    document.getElementById('-blink-dev-tools')?.dispatchEvent(new TimeRangeChanged({
+      chart: {
+        widthPixels: this.offsetWidth,
+        heightPixels: this.offsetHeight,
+        scrollOffsetPixels: this.chartViewport.scrollOffset(),
+        // If there are no groups because we have no timeline data, we treat
+        // that as all being collapsed.
+        allGroupsCollapsed: this.rawTimelineData?.groups.every(g => !g.expanded) ?? true,
+      },
+      traceWindow: TraceEngine.Helpers.Timing.traceWindowFromMilliSeconds(
+          this.minimumBoundary(),
+          this.maximumBoundary(),
+          ),
+      timelineData: timelineData,
+    }));
+
     const canvasWidth = this.offsetWidth;
     const canvasHeight = this.offsetHeight;
     const context = (this.canvas.getContext('2d') as CanvasRenderingContext2D);
@@ -3963,7 +3985,18 @@ export const enum Events {
   LatestDrawDimensions = 'LatestDrawDimensions',
 
   MouseMove = 'MouseMove',
+  TimeRangeChanged = 'timerangechanged',
 }
+
+type ChartDimentionchangedEventData = {
+    chart: {
+      widthPixels: number,
+      heightPixels: number,
+      scrollOffsetPixels: number,
+      allGroupsCollapsed: boolean,
+    },
+    traceWindow: TraceEngine.Types.Timing.TraceWindowMicroSeconds,
+  };
 
 export type EventTypes = {
   [Events.AnnotateEntry]: number,
@@ -3972,20 +4005,23 @@ export type EventTypes = {
   [Events.EntrySelected]: number,
   [Events.EntryHighlighted]: number,
   [Events.ChartPlayableStateChange]: boolean,
-  [Events.LatestDrawDimensions]: {
-    chart: {
-      widthPixels: number,
-      heightPixels: number,
-      scrollOffsetPixels: number,
-      allGroupsCollapsed: boolean,
-    },
-    traceWindow: TraceEngine.Types.Timing.TraceWindowMicroSeconds,
-  },
+  [Events.LatestDrawDimensions]: ChartDimentionchangedEventData,
   [Events.MouseMove]: {
     mouseEvent: MouseEvent,
     timeInMicroSeconds: TraceEngine.Types.Timing.MicroSeconds,
   },
+  [Events.TimeRangeChanged]: ChartDimentionchangedEventData & {
+    timelineData: FlameChartTimelineData,
+  },
 };
+
+export class TimeRangeChanged extends CustomEvent<EventTypes[Events.TimeRangeChanged]>{
+  static readonly eventName = Events.TimeRangeChanged;
+
+  constructor(options: EventTypes[Events.TimeRangeChanged]) {
+    super(TimeRangeChanged.eventName, { detail: options });
+  }
+}
 
 export interface Group {
   name: Common.UIString.LocalizedString;

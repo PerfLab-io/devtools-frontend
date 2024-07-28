@@ -17,6 +17,8 @@
 /front_end/panels/timeline/fixtures/traces/*.json
 /front_end/panels/timeline/fixtures/traces/*.cpuprofile
 
+node_modules/
+
 /release
 /scripts/visualize_deps/out
 config.gypi

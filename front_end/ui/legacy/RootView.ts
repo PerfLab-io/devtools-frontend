@@ -16,13 +16,16 @@ export class RootView extends VBox {
     this.element.setAttribute('spellcheck', 'false');
   }
 
-  attachToDocument(document: Document): void {
-    if (document.defaultView) {
-      document.defaultView.addEventListener('resize', this.doResize.bind(this), false);
-    }
-    this.window = document.defaultView;
-    this.doResize();
-    this.show((document.body as Element));
+  attachToDocument(document: Document | Element): void {
+    // if (document.defaultView) {
+    //   document.defaultView.addEventListener('resize', this.doResize.bind(this), false);
+    // }
+    // this.window = document.defaultView;
+    // this.doResize();
+
+    document.addEventListener('resize', this.doResize.bind(this), false);
+    // @ts-ignore
+    this.show((document.body as Element) || document);
   }
 
   override doResize(): void {

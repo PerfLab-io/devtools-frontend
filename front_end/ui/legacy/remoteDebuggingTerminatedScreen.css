@@ -26,7 +26,7 @@
   color: var(--override-reason-color);
 }
 
-.theme-with-dark-background .reason,
-:host-context(.theme-with-dark-background) .reason {
+.dark #-blink-dev-tools .reason,
+:host-context(.dark #-blink-dev-tools) .reason {
   --override-reason-color: rgb(255 116 116);
 }

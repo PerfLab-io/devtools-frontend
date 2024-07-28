@@ -550,6 +550,55 @@ export interface TraceEventAnimation extends TraceEventData {
   ph: Phase.ASYNC_NESTABLE_START|Phase.ASYNC_NESTABLE_END|Phase.ASYNC_NESTABLE_INSTANT;
 }
 
+export interface TraceEventAnimationFramePaintGroupingEvent extends TraceEventData {
+  name: KnownEventName.AnimationFrameStyleAndLayout |
+        KnownEventName.AnimationFrameRender;
+  id2?: {
+    local?: string,
+  };
+  ph: Phase.ASYNC_NESTABLE_START|Phase.ASYNC_NESTABLE_END;
+}
+export interface TraceEventAnimationFrameGroupingEvent extends TraceEventData {
+  args?: TraceEventArgs&{
+    ['animation_frame_timing_info']: TraceEventArgsData & {
+      ['blocking_duration_ms']?: number,
+      ['duration_ms']?: number,
+      ['num_scripts']?: number,
+    },
+  };
+  name: KnownEventName.AnimationFrame;
+  id2?: {
+    local?: string,
+  };
+  ph: Phase.ASYNC_NESTABLE_START|Phase.ASYNC_NESTABLE_END;
+}
+export interface TraceEventAnimationFrameScriptGroupingEvent extends TraceEventData {
+  args?: TraceEventArgs&{
+    ['animation_frame_script_timing_info']: TraceEventArgsData & {
+      ['class_like_name']?: string,
+      ['invoker_type']?: string,
+      ['layout_duration_ms']?: number,
+      ['pause_duration_ms']?: number,
+      ['property_like_name']?: string,
+      ['source_location_char_position']?: number,
+      ['style_duration_ms']?: number,
+    },
+  };
+  name: KnownEventName.AnimationFrameScriptExecute;
+  id2?: {
+    local?: string,
+  };
+  ph: Phase.ASYNC_NESTABLE_START|Phase.ASYNC_NESTABLE_END;
+}
+export interface TraceEventAnimationFrameInstantEvent extends TraceEventData {
+  name: KnownEventName.AnimationFramePresentation |
+        KnownEventName.AnimationFrameFirstUIEvent;
+  id2?: {
+    local?: string,
+  };
+  ph: Phase.ASYNC_NESTABLE_INSTANT;
+}
+
 // Metadata events.
 
 export interface TraceEventMetadata extends TraceEventData {
@@ -1444,6 +1493,13 @@ export type SyntheticConsoleTimingPair = SyntheticEventPair<TraceEventConsoleTim
 
 export type SyntheticAnimationPair = SyntheticEventPair<TraceEventAnimation>;
 
+export type SyntheticAnimationFramePair = SyntheticEventPair<TraceEventAnimationFrameGroupingEvent> & {
+  phases: Array<
+  TraceEventAnimationFramePaintGroupingEvent |
+  TraceEventAnimationFrameScriptGroupingEvent |
+  TraceEventAnimationFrameInstantEvent>,
+};
+
 export interface SyntheticInteractionPair extends SyntheticEventPair<TraceEventEventTiming> {
   // InteractionID and type are available within the beginEvent's data, but we
   // put them on the top level for ease of access.
@@ -1920,6 +1976,22 @@ export function isTraceEventAnimation(
     ): traceEventData is TraceEventAnimation {
   // We've found some rare traces with an Animtation trace event from a different category: https://crbug.com/1472375#comment7
   return traceEventData.name === 'Animation' && traceEventData.cat.includes('devtools.timeline');
+}
+
+export function isTraceEventAnimationFrame(traceEventData: TraceEventData): traceEventData is TraceEventAnimationFrameGroupingEvent {
+  return traceEventData.name === KnownEventName.AnimationFrame;
+}
+
+export function isTraceEventAnimationFrameScript(traceEventData: TraceEventData): traceEventData is TraceEventAnimationFrameScriptGroupingEvent {
+  return traceEventData.name === KnownEventName.AnimationFrameScriptExecute;
+}
+
+export function isTraceEventAnimationFramePaint(traceEventData: TraceEventData): traceEventData is TraceEventAnimationFramePaintGroupingEvent {
+  return traceEventData.name === KnownEventName.AnimationFrameStyleAndLayout || traceEventData.name === KnownEventName.AnimationFrameRender;
+}
+
+export function isTraceEventAnimationFrameInstant(traceEventData: TraceEventData): traceEventData is TraceEventAnimationFrameInstantEvent {
+  return traceEventData.name === KnownEventName.AnimationFrameFirstUIEvent || traceEventData.name === KnownEventName.AnimationFramePresentation;
 }
 
 export function isTraceEventLayoutShift(
@@ -2719,6 +2791,14 @@ export const enum KnownEventName {
   FrameStartedLoading = 'FrameStartedLoading',
   PipelineReporter = 'PipelineReporter',
   Screenshot = 'Screenshot',
+
+  /* Animation Frame */
+  AnimationFrame = 'AnimationFrame',
+  AnimationFramePresentation = 'AnimationFrame::Presentation',
+  AnimationFrameFirstUIEvent = 'AnimationFrame::FirstUIEvent',
+  AnimationFrameStyleAndLayout = 'AnimationFrame::StyleAndLayout',
+  AnimationFrameRender = 'AnimationFrame::Render',
+  AnimationFrameScriptExecute = 'AnimationFrame::Script::Execute',
 
   /* Network request events */
   ResourceWillSendRequest = 'ResourceWillSendRequest',

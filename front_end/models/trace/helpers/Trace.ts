@@ -270,6 +270,14 @@ export function matchEvents(unpairedEvents: Types.TraceEvents.TraceEventPairable
         otherEventsWithID.instant = [];
       }
       otherEventsWithID.instant.push(event as Types.TraceEvents.TraceEventPairableAsyncInstant);
+
+      if(Types.TraceEvents.isTraceEventAnimationFrameInstant(event)){
+        // INFO: Hack to correctly pair AnimationFrame instant events with the
+        // corresponding groupings. Since the local id is not correctly set and the
+        // synthetic id generated will be unique, thus lacking the begin event.
+        // @ts-ignore
+        otherEventsWithID.begin = event as Types.TraceEvents.TraceEventPairableAsyncInstant;
+      }
     }
   }
   return matchedPairs;
@@ -289,6 +297,9 @@ export function createSortedSyntheticEvents<T extends Types.TraceEvents.TraceEve
     syntheticEventCallback?: (syntheticEvent: MatchedPairType<T>) => void,
     ): MatchedPairType<T>[] {
   const syntheticEvents: MatchedPairType<T>[] = [];
+  let currentAnimationFrame: MatchedPairType<T> & {
+    phases?: Array<MatchedPairType<T>>,
+  } = {} as MatchedPairType<T>;
   for (const [id, eventsTriplet] of matchedPairs.entries()) {
     const beginEvent = eventsTriplet.begin;
     const endEvent = eventsTriplet.end;
@@ -299,6 +310,7 @@ export function createSortedSyntheticEvents<T extends Types.TraceEvents.TraceEve
       // If we do, something is very wrong, so let's just drop that problematic event.
       continue;
     }
+
     const triplet = {beginEvent, endEvent, instantEvents};
     /**
      * When trying to pair events with instant events present, there are times when these
@@ -343,8 +355,26 @@ export function createSortedSyntheticEvents<T extends Types.TraceEvents.TraceEve
       // crbug.com/1472375
       continue;
     }
+
+    // INFO: Hack to make sure the AnimationFrame groupings are nested correctly.
+    // Instead of having the synthetic event for each phase done separately
+    if (Types.TraceEvents.isTraceEventAnimationFrameInstant(beginEvent)
+        || Types.TraceEvents.isTraceEventAnimationFramePaint(beginEvent)
+        || Types.TraceEvents.isTraceEventAnimationFrameScript(beginEvent)) {
+      if (!currentAnimationFrame.phases) {
+        currentAnimationFrame.phases = [];
+      }
+
+      currentAnimationFrame.phases.push(event);
+      continue;
+    }
+
     syntheticEventCallback?.(event);
     syntheticEvents.push(event);
+
+    if (Types.TraceEvents.isTraceEventAnimationFrame(beginEvent)) {
+      currentAnimationFrame = event;
+    }
   }
   return syntheticEvents.sort((a, b) => a.ts - b.ts);
 }
