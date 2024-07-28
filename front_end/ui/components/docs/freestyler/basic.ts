@@ -47,7 +47,7 @@ const messages: Freestyler.ChatMessage[] = [
 const component = new Freestyler.FreestylerChatUi({
   onTextSubmit: noop,
   onInspectElementClick: noop,
-  onRateClick: noop,
+  onFeedbackSubmit: noop,
   onAcceptConsentClick: noop,
   onCancelClick: noop,
   onFixThisIssueClick: noop,
@@ -57,6 +57,7 @@ const component = new Freestyler.FreestylerChatUi({
   messages,
   selectedNode: {} as unknown as SDK.DOMModel.DOMNode,
   isLoading: false,
+  canShowFeedbackForm: false,
 });
 
 document.getElementById('container')?.appendChild(component);

@@ -1,14 +1,18 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import * as Platform from '../../core/platform/platform.js';
-import * as TraceEngine from '../../models/trace/trace.js';
-import type * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
+import * as Platform from '../../../core/platform/platform.js';
+import * as TraceEngine from '../../../models/trace/trace.js';
+import type * as PerfUI from '../../../ui/legacy/components/perf_ui/perf_ui.js';
 
 import * as Components from './components/components.js';
-import {LAYOUT_SHIFT_SYNTHETIC_DURATION} from './LayoutShiftsTrackAppender.js';
-import {type TimelineFlameChartDataProvider} from './TimelineFlameChartDataProvider.js';
-import {type TimelineFlameChartNetworkDataProvider} from './TimelineFlameChartNetworkDataProvider.js';
+
+// Bit of a hack: LayoutShifts are instant events, so have no duration. But
+// OPP doesn't do well at making tiny events easy to spot and click. So we
+// set it to a small duration so that the user is able to see and click
+// them more easily. Long term we will explore a better UI solution to
+// allow us to do this properly and not hack around it.
+export const LAYOUT_SHIFT_SYNTHETIC_DURATION = TraceEngine.Types.Timing.MicroSeconds(5_000);
 
 /**
  * Below the network track there is a resize bar the user can click and drag.
@@ -70,10 +74,25 @@ export interface TimespanBreakdown {
   sections: Array<Components.TimespanBreakdownOverlay.EntryBreakdown>;
 }
 
+export interface CursorTimestampMarker {
+  type: 'CURSOR_TIMESTAMP_MARKER';
+  timestamp: TraceEngine.Types.Timing.MicroSeconds;
+}
+
 /**
  * All supported overlay types. Expected to grow in time!
  */
-export type TimelineOverlay = EntrySelected|TimeRangeLabel|EntryLabel|TimespanBreakdown;
+export type TimelineOverlay = EntrySelected|TimeRangeLabel|EntryLabel|TimespanBreakdown|CursorTimestampMarker;
+
+/**
+ * Denotes overlays that are singletons; only one of these will be allowed to
+ * exist at any given time. If one exists and the add() method is called, the
+ * new overlay will replace the existing one.
+ */
+type SingletonOverlay = EntrySelected|CursorTimestampMarker;
+export function overlayIsSingleton(overlay: TimelineOverlay): overlay is SingletonOverlay {
+  return overlay.type === 'CURSOR_TIMESTAMP_MARKER' || overlay.type === 'ENTRY_SELECTED';
+}
 
 /**
  * To be able to draw overlays accurately at the correct pixel position, we
@@ -116,22 +135,30 @@ interface FlameChartDimensions {
 
 export interface TimelineCharts {
   mainChart: PerfUI.FlameChart.FlameChart;
-  mainProvider: TimelineFlameChartDataProvider;
+  mainProvider: PerfUI.FlameChart.FlameChartDataProvider;
   networkChart: PerfUI.FlameChart.FlameChart;
-  networkProvider: TimelineFlameChartNetworkDataProvider;
+  networkProvider: PerfUI.FlameChart.FlameChartDataProvider;
 }
 
 // An event dispatched when one of the Annotation Overlays (overlay created by the user,
-// ex. EntryLabel) is removed. When one of the Annotation Overlays is removed,
+// ex. EntryLabel) is removed or updated. When one of the Annotation Overlays is removed or updated,
 // ModificationsManager listens to this event and updates the current annotations.
-export class AnnotationOverlayRemoveEvent extends Event {
-  static readonly eventName = 'annotationoverlayremoveevent';
+export type UpdateAction = 'Remove'|'Update';
+export class AnnotationOverlayActionEvent extends Event {
+  static readonly eventName = 'annotationoverlayactionsevent';
 
-  constructor(public overlay: TimelineOverlay) {
-    super(AnnotationOverlayRemoveEvent.eventName);
+  constructor(public overlay: TimelineOverlay, public action: UpdateAction) {
+    super(AnnotationOverlayActionEvent.eventName);
   }
 }
 
+/**
+ * This class manages all the overlays that get drawn onto the performance
+ * timeline. Overlays are DOM and are drawn above the network and main flame
+ * chart.
+ *
+ * For more documentation, see `timeline/README.md` which has a section on overlays.
+ */
 export class Overlays extends EventTarget {
   /**
    * The list of active overlays. Overlays can't be marked as visible or
@@ -217,15 +244,26 @@ export class Overlays extends EventTarget {
   /**
    * Add a new overlay to the view.
    */
-  add<T extends TimelineOverlay>(overlay: T): T {
-    if (this.#overlaysToElements.has(overlay)) {
-      return overlay;
+  add<T extends TimelineOverlay>(newOverlay: T): T {
+    if (this.#overlaysToElements.has(newOverlay)) {
+      return newOverlay;
+    }
+
+    /**
+     * If the overlay type is a singleton, and we already have one, we update
+     * the existing one, rather than create a new one. This ensures you can only
+     * ever have one instance of the overlay type.
+     */
+    const existing = this.overlaysOfType<T>(newOverlay.type);
+    if (overlayIsSingleton(newOverlay) && existing[0]) {
+      this.updateExisting(existing[0], newOverlay);
+      return existing[0];
     }
 
     // By setting the value to null, we ensure that on the next render that the
     // overlay will have a new HTML element created for it.
-    this.#overlaysToElements.set(overlay, null);
-    return overlay;
+    this.#overlaysToElements.set(newOverlay, null);
+    return newOverlay;
   }
 
   /**
@@ -265,14 +303,34 @@ export class Overlays extends EventTarget {
 
   /**
    * Removes any active overlays that match the provided type.
+   * @returns the number of overlays that were removed.
    */
-  removeOverlaysOfType(type: TimelineOverlay['type']): void {
+  removeOverlaysOfType(type: TimelineOverlay['type']): number {
     const overlaysToRemove = Array.from(this.#overlaysToElements.keys()).filter(overlay => {
       return overlay.type === type;
     });
     for (const overlay of overlaysToRemove) {
       this.remove(overlay);
     }
+    return overlaysToRemove.length;
+  }
+
+  /**
+   * @returns all overlays that match the provided type.
+   */
+  overlaysOfType<T extends TimelineOverlay>(type: T['type']): NoInfer<T>[] {
+    const matches: T[] = [];
+
+    function overlayIsOfType(overlay: TimelineOverlay): overlay is T {
+      return overlay.type === type;
+    }
+
+    for (const [overlay] of this.#overlaysToElements) {
+      if (overlayIsOfType(overlay)) {
+        matches.push(overlay);
+      }
+    }
+    return matches;
   }
 
   /**
@@ -427,10 +485,10 @@ export class Overlays extends EventTarget {
       case 'ENTRY_LABEL': {
         if (this.entryIsVisibleOnChart(overlay.entry)) {
           element.style.visibility = 'visible';
-          const entryDimensions = this.#positionEntryLabelOverlay(overlay, element);
+          const entryLabelParams = this.#positionEntryLabelOverlay(overlay, element);
           const component = element.querySelector('devtools-entry-label-overlay');
-          if (component && entryDimensions) {
-            component.entryDimensions = entryDimensions;
+          if (component && entryLabelParams) {
+            component.entryLabelParams = entryLabelParams;
           } else {
             element.style.visibility = 'hidden';
             console.error('Cannot calculate entry width and height values required to draw a label overlay.');
@@ -449,10 +507,29 @@ export class Overlays extends EventTarget {
         break;
       }
 
+      case 'CURSOR_TIMESTAMP_MARKER': {
+        const {visibleWindow} = this.#dimensions.trace;
+        // Only update the position if the timestamp of this marker is within
+        // the visible bounds.
+        if (visibleWindow && TraceEngine.Helpers.Timing.timestampIsInBounds(visibleWindow, overlay.timestamp)) {
+          element.style.visibility = 'visible';
+          this.#positionTimestampMarker(overlay, element);
+        } else {
+          element.style.visibility = 'hidden';
+        }
+        break;
+      }
+
       default: {
         Platform.TypeScriptUtilities.assertNever(overlay, `Unknown overlay: ${JSON.stringify(overlay)}`);
       }
     }
+  }
+
+  #positionTimestampMarker(overlay: CursorTimestampMarker, element: HTMLElement): void {
+    // Because we are adjusting the x position, we can use either chart here.
+    const x = this.#xPixelForMicroSeconds('main', overlay.timestamp);
+    element.style.left = `${x}px`;
   }
 
   #positionTimespanBreakdownOverlay(overlay: TimespanBreakdown, element: HTMLElement): void {
@@ -521,32 +598,47 @@ export class Overlays extends EventTarget {
    * @param overlay - the EntrySelected overlay that we need to position.
    * @param element - the DOM element representing the overlay
    */
-  #positionEntryLabelOverlay(overlay: EntryLabel, element: HTMLElement): {height: number, width: number}|null {
+  #positionEntryLabelOverlay(overlay: EntryLabel, element: HTMLElement):
+      {height: number, width: number, cutOffEntryHeight: number, chart: string}|null {
     const chartName = this.#chartForOverlayEntry(overlay.entry);
     const x = this.xPixelForEventOnChart(overlay.entry);
     const y = this.yPixelForEventOnChart(overlay.entry);
     const {endTime} = this.#timingsForOverlayEntry(overlay.entry);
     const endX = this.#xPixelForMicroSeconds(chartName, endTime);
+    const entryHeight = this.pixelHeightForEventOnChart(overlay.entry) ?? 0;
 
     if (x === null || y === null || endX === null) {
       return null;
     }
 
-    const entryHeight = this.pixelHeightForEventOnChart(overlay.entry) ?? 0;
-
     // The width of the overlay is by default the width of the entry. However
     // we modify that for instant events like LCP markers, and also ensure a
     // minimum width.
     const widthPixels = endX - x;
-
     // The part of the overlay that draws a box around an entry is always at least 2px wide.
     const entryWidth = Math.max(2, widthPixels);
+    const networkHeight = this.#dimensions.charts.network?.heightPixels ?? 0;
+
+    // Find the part of the entry that is covered by resizer to not draw it over the resizer.
+    // If the entry is in the main flamechart, find the part of the entry that is covered from the top.
+    // If it is in the network track, find the part covered by the resizer from the bottom.
+    const entryHiddenTop = this.networkChartOffsetHeight() - y;
+    const entryHiddenBottom = entryHeight + y - networkHeight;
+    // If the covered part is negative, the entry is fully visible and the cut off part is 0.
+    const cutOffEntryHeight = Math.max((chartName === 'main') ? entryHiddenTop : entryHiddenBottom, 0);
+
+    let topOffset = y - Components.EntryLabelOverlay.EntryLabelOverlay.LABEL_AND_CONNECTOR_HEIGHT;
+    // If part of the entry height is not visible in the main flamechart, take that into the account in the top offset.
+    if (chartName === 'main') {
+      topOffset += cutOffEntryHeight;
+    }
+
     // Position the start of label overlay at the start of the entry + length of connector + legth of the label element
-    element.style.top = `${y - Components.EntryLabelOverlay.EntryLabelOverlay.LABEL_AND_CONNECTOR_HEIGHT}px`;
+    element.style.top = `${topOffset}px`;
     // Position the start of the entry label overlay in the the middle of the entry.
     element.style.left = `${x + entryWidth / 2}px`;
 
-    return {height: entryHeight, width: entryWidth};
+    return {height: entryHeight, width: entryWidth, cutOffEntryHeight, chart: chartName};
   }
 
   /**
@@ -592,7 +684,7 @@ export class Overlays extends EventTarget {
       // which have the same timestamp are rendered next to each other, so
       // the timestamp is not necessarily exactly where the marker was
       // rendered.
-      const index = provider.indexForEvent(overlay.entry);
+      const index = provider.indexForEvent?.(overlay.entry);
       const markerPixels = chart.getMarkerPixelsForEntryIndex(index ?? -1);
       if (markerPixels) {
         x = markerPixels.x;
@@ -654,9 +746,15 @@ export class Overlays extends EventTarget {
     div.classList.add('overlay-item', `overlay-type-${overlay.type}`);
     switch (overlay.type) {
       case 'ENTRY_LABEL': {
-        const component = new Components.EntryLabelOverlay.EntryLabelOverlay(overlay.label);
+        const component = new Components.EntryLabelOverlay.EntryLabelOverlay(
+            overlay.label, this.#chartForOverlayEntry(overlay.entry) === 'main');
         component.addEventListener(Components.EntryLabelOverlay.EmptyEntryLabelRemoveEvent.eventName, () => {
-          this.dispatchEvent(new AnnotationOverlayRemoveEvent(overlay));
+          this.dispatchEvent(new AnnotationOverlayActionEvent(overlay, 'Remove'));
+        });
+        component.addEventListener(Components.EntryLabelOverlay.EntryLabelChangeEvent.eventName, event => {
+          const newLabel = (event as Components.EntryLabelOverlay.EntryLabelChangeEvent).newLabel;
+          overlay.label = newLabel;
+          this.dispatchEvent(new AnnotationOverlayActionEvent(overlay, 'Update'));
         });
         div.appendChild(component);
         return div;
@@ -713,6 +811,9 @@ export class Overlays extends EventTarget {
         }
         break;
       }
+      case 'CURSOR_TIMESTAMP_MARKER':
+        // No contents within this that need updating.
+        break;
       default:
         Platform.TypeScriptUtilities.assertNever(overlay, `Unexpected overlay ${overlay}`);
     }
@@ -739,34 +840,12 @@ export class Overlays extends EventTarget {
     }
     const {startTime, endTime} = this.#timingsForOverlayEntry(entry);
 
-    const {min: visibleMin, max: visibleMax} = this.#dimensions.trace.visibleWindow;
+    const entryTimeRange = TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(startTime, endTime);
 
-    // The event is visible if
-    // 1. Its endTime is within the visible window
-    // OR
-    // 2. Its startTime is within the visible window
-    // OR
-    // 3. Its startTime is less than the visible window, and its endTime is
-    // greater than it. This means that the event spans the entire visible
-    // window but starts and ends outside of it.
-    // If none of these cases are true, the event must be off screen.
-
-    // 1. End time is within the visible window.
-    if (endTime >= visibleMin && endTime <= visibleMax) {
-      return true;
-    }
-
-    // 2. Start time is within the visible window.
-    if (startTime >= visibleMin && startTime <= visibleMax) {
-      return true;
-    }
-
-    // 3. Start time is before the visible window and end time is after.
-    if (startTime <= visibleMin && endTime >= visibleMax) {
-      return true;
-    }
-
-    return false;
+    return TraceEngine.Helpers.Timing.boundsIncludeTimeRange({
+      bounds: this.#dimensions.trace.visibleWindow,
+      timeRange: entryTimeRange,
+    });
   }
 
   /**
@@ -888,7 +967,7 @@ export class Overlays extends EventTarget {
     const chart = chartName === 'main' ? this.#charts.mainChart : this.#charts.networkChart;
     const provider = chartName === 'main' ? this.#charts.mainProvider : this.#charts.networkProvider;
 
-    const indexForEntry = provider.indexForEvent(event);
+    const indexForEntry = provider.indexForEvent?.(event);
     if (typeof indexForEntry !== 'number') {
       return null;
     }
@@ -926,7 +1005,7 @@ export class Overlays extends EventTarget {
     const chart = chartName === 'main' ? this.#charts.mainChart : this.#charts.networkChart;
     const provider = chartName === 'main' ? this.#charts.mainProvider : this.#charts.networkProvider;
 
-    const indexForEntry = provider.indexForEvent(event);
+    const indexForEntry = provider.indexForEvent?.(event);
     if (typeof indexForEntry !== 'number') {
       return null;
     }

@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import * as Common from '../../core/common/common.js';
-import * as i18n from '../../core/i18n/i18n.js';
 import * as TraceEngine from '../../models/trace/trace.js';
 import * as TraceBounds from '../../services/trace_bounds/trace_bounds.js';
 import * as IconButton from '../../ui/components/icon_button/icon_button.js';
@@ -33,15 +32,6 @@ export interface OverviewData {
   };
 }
 
-const UIStrings = {
-  /**
-   * @description label used to tell screenreaders about the floating button they can click to open the sidebar
-   */
-  openSidebarButton: 'Open the sidebar',
-};
-
-const str_ = i18n.i18n.registerUIStrings('panels/timeline/TimelineMiniMap.ts', UIStrings);
-const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 /**
  * This component wraps the generic PerfUI Overview component and configures it
  * specifically for the Performance Panel, including injecting the CSS we use
@@ -62,8 +52,6 @@ export class TimelineMiniMap extends
 
   #onTraceBoundsChangeBound = this.#onTraceBoundsChange.bind(this);
 
-  #sidebarFloatingIcon = document.createElement('button');
-
   constructor() {
     super();
     this.element.classList.add('timeline-minimap');
@@ -71,16 +59,10 @@ export class TimelineMiniMap extends
 
     const icon = new IconButton.Icon.Icon();
     icon.setAttribute('name', 'left-panel-open');
-    icon.setAttribute('jslog', `${VisualLogging.action('performance.sidebar-open').track({click: true})}`);
+    icon.setAttribute('jslog', `${VisualLogging.action('timeline.sidebar-open').track({click: true})}`);
     icon.addEventListener('click', () => {
       this.dispatchEventToListeners(PerfUI.TimelineOverviewPane.Events.OpenSidebarButtonClicked, {});
     });
-    this.#sidebarFloatingIcon.setAttribute('aria-label', i18nString(UIStrings.openSidebarButton));
-    this.#sidebarFloatingIcon.appendChild(icon);
-    this.#sidebarFloatingIcon.classList.add('timeline-sidebar-floating-icon');
-
-    this.element.appendChild(this.#sidebarFloatingIcon);
-
     this.#overviewComponent.show(this.element);
 
     this.#overviewComponent.addEventListener(PerfUI.TimelineOverviewPane.Events.OverviewPaneWindowChanged, event => {
@@ -89,14 +71,6 @@ export class TimelineMiniMap extends
     this.#activateBreadcrumbs();
 
     TraceBounds.TraceBounds.onChange(this.#onTraceBoundsChangeBound);
-  }
-
-  showSidebarFloatingIcon(): void {
-    this.#sidebarFloatingIcon.removeAttribute('hidden');
-  }
-
-  hideSidebarFloatingIcon(): void {
-    this.#sidebarFloatingIcon.setAttribute('hidden', 'hidden');
   }
 
   #onOverviewPanelWindowChanged(

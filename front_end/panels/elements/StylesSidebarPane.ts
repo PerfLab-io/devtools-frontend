@@ -67,7 +67,6 @@ import {
   PositionTryRuleSection,
   RegisteredPropertiesSection,
   StylePropertiesSection,
-  TryRuleSection,
 } from './StylePropertiesSection.js';
 import {StylePropertyHighlighter} from './StylePropertyHighlighter.js';
 import {activeHints, type StylePropertyTreeElement} from './StylePropertyTreeElement.js';
@@ -109,15 +108,17 @@ const UIStrings = {
   /**
    *@description Title of  in styles sidebar pane of the elements panel
    *@example {Ctrl} PH1
+   *@example {Alt} PH2
    */
   incrementdecrementWithMousewheelOne:
-      'Increment/decrement with mousewheel or up/down keys. {PH1}: R ±1, Shift: G ±1, Alt: B ±1',
+      'Increment/decrement with mousewheel or up/down keys. {PH1}: R ±1, Shift: G ±1, {PH2}: B ±1',
   /**
    *@description Title of  in styles sidebar pane of the elements panel
    *@example {Ctrl} PH1
+   *@example {Alt} PH2
    */
   incrementdecrementWithMousewheelHundred:
-      'Increment/decrement with mousewheel or up/down keys. {PH1}: ±100, Shift: ±10, Alt: ±0.1',
+      'Increment/decrement with mousewheel or up/down keys. {PH1}: ±100, Shift: ±10, {PH2}: ±0.1',
   /**
    *@description Announcement string for invalid properties.
    *@example {Invalid property value} PH1
@@ -1180,22 +1181,11 @@ export class StylesSidebarPane extends Common.ObjectWrapper.eventMixin<EventType
       blocks.push(block);
     }
 
-    for (const positionFallbackRule of matchedStyles.positionFallbackRules()) {
-      const block = SectionBlock.createPositionFallbackBlock(positionFallbackRule.name().text);
-      for (const tryRule of positionFallbackRule.tryRules()) {
-        this.idleCallbackManager.schedule(() => {
-          block.sections.push(new TryRuleSection(
-              this, matchedStyles, tryRule.style, sectionIdx, computedStyles, parentsComputedStyles));
-          sectionIdx++;
-        });
-      }
-      blocks.push(block);
-    }
-
     for (const positionTryRule of matchedStyles.positionTryRules()) {
       const block = SectionBlock.createPositionTryBlock(positionTryRule.name().text);
       this.idleCallbackManager.schedule(() => {
-        block.sections.push(new PositionTryRuleSection(this, matchedStyles, positionTryRule.style, sectionIdx));
+        block.sections.push(new PositionTryRuleSection(
+            this, matchedStyles, positionTryRule.style, sectionIdx, positionTryRule.active()));
         sectionIdx++;
       });
       blocks.push(block);
@@ -1459,7 +1449,6 @@ export class StylesSidebarPane extends Common.ObjectWrapper.eventMixin<EventType
     const filterInput = new UI.Toolbar.ToolbarFilter(undefined, 1, 1, undefined, undefined, false);
     filterInput.addEventListener(UI.Toolbar.ToolbarInput.Event.TextChanged, this.onFilterChanged, this);
     toolbar.appendToolbarItem(filterInput);
-    toolbar.makeToggledGray();
     void toolbar.appendItemsAtLocation('styles-sidebarpane-toolbar');
     this.toolbar = toolbar;
 
@@ -1551,8 +1540,8 @@ export class StylesSidebarPane extends Common.ObjectWrapper.eventMixin<EventType
     const autoDarkModeSetting = Common.Settings.Settings.instance().moduleSetting('emulate-auto-dark-mode');
     const decorateStatus = (condition: boolean, title: string): string => `${condition ? '✓ ' : ''}${title}`;
 
-    const button =
-        new UI.Toolbar.ToolbarToggle(i18nString(UIStrings.toggleRenderingEmulations), 'brush', 'brush-filled');
+    const button = new UI.Toolbar.ToolbarToggle(
+        i18nString(UIStrings.toggleRenderingEmulations), 'brush', 'brush-filled', undefined, false);
     button.element.setAttribute('jslog', `${VisualLogging.dropDown('rendering-emulations').track({click: true})}`);
     button.element.addEventListener('click', event => {
       const boundingRect = button.element.getBoundingClientRect();
@@ -1723,14 +1712,6 @@ export class SectionBlock {
     return new SectionBlock(separatorElement);
   }
 
-  static createPositionFallbackBlock(positionFallbackName: string): SectionBlock {
-    const separatorElement = document.createElement('div');
-    separatorElement.className = 'sidebar-separator';
-    separatorElement.setAttribute('jslog', `${VisualLogging.sectionHeader('position-fallback')}`);
-    separatorElement.textContent = `@position-fallback ${positionFallbackName}`;
-    return new SectionBlock(separatorElement);
-  }
-
   static createPositionTryBlock(positionTryName: string): SectionBlock {
     const separatorElement = document.createElement('div');
     separatorElement.className = 'sidebar-separator';
@@ -1895,11 +1876,14 @@ export class CSSPropertyPrompt extends UI.TextPrompt.TextPrompt {
       if (treeElement && treeElement.valueElement) {
         const cssValueText = treeElement.valueElement.textContent;
         const cmdOrCtrl = Host.Platform.isMac() ? 'Cmd' : 'Ctrl';
+        const optionOrAlt = Host.Platform.isMac() ? 'Option' : 'Alt';
         if (cssValueText !== null) {
           if (cssValueText.match(/#[\da-f]{3,6}$/i)) {
-            this.setTitle(i18nString(UIStrings.incrementdecrementWithMousewheelOne, {PH1: cmdOrCtrl}));
+            this.setTitle(
+                i18nString(UIStrings.incrementdecrementWithMousewheelOne, {PH1: cmdOrCtrl, PH2: optionOrAlt}));
           } else if (cssValueText.match(/\d+/)) {
-            this.setTitle(i18nString(UIStrings.incrementdecrementWithMousewheelHundred, {PH1: cmdOrCtrl}));
+            this.setTitle(
+                i18nString(UIStrings.incrementdecrementWithMousewheelHundred, {PH1: cmdOrCtrl, PH2: optionOrAlt}));
           }
         }
       }
@@ -2225,8 +2209,7 @@ export class ButtonProvider implements UI.Toolbar.Provider {
   private readonly button: UI.Toolbar.ToolbarButton;
   private constructor() {
     this.button = UI.Toolbar.Toolbar.createActionButtonForId('elements.new-style-rule');
-    const longclickTriangle = IconButton.Icon.create('triangle-bottom-right', 'long-click-glyph');
-    this.button.element.appendChild(longclickTriangle);
+    this.button.setLongClickable(true);
 
     new UI.UIUtils.LongClickController(this.button.element, this.longClicked.bind(this));
     UI.Context.Context.instance().addFlavorChangeListener(SDK.DOMModel.DOMNode, onNodeChanged.bind(this));

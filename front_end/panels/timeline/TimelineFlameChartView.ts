@@ -14,16 +14,11 @@ import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
+import type * as TimelineComponents from './components/components.js';
 import {CountersGraph} from './CountersGraph.js';
 import {SHOULD_SHOW_EASTER_EGG} from './EasterEgg.js';
 import {ModificationsManager} from './ModificationsManager.js';
-import {
-  AnnotationOverlayRemoveEvent,
-  Overlays,
-  type TimelineOverlay,
-  type TimeRangeLabel,
-  type TimespanBreakdown,
-} from './Overlays.js';
+import * as Overlays from './overlays/overlays.js';
 import {targetForEvent} from './TargetForEvent.js';
 import {TimelineDetailsView} from './TimelineDetailsView.js';
 import {TimelineRegExp} from './TimelineFilters.js';
@@ -45,22 +40,6 @@ const UIStrings = {
    *@example {10ms} PH2
    */
   sAtS: '{PH1} at {PH2}',
-  /**
-   *@description Time to first byte title for the Largest Contentful Paint's phases timespan breakdown.
-   */
-  timeToFirstByte: 'Time to first byte',
-  /**
-   *@description Resource load delay title for the Largest Contentful Paint phases timespan breakdown.
-   */
-  resourceLoadDelay: 'Resource load delay',
-  /**
-   *@description Resource load time title for the Largest Contentful Paint phases timespan breakdown.
-   */
-  resourceLoadTime: 'Resource load time',
-  /**
-   *@description Element render delay title for the Largest Contentful Paint phases timespan breakdown.
-   */
-  elementRenderDelay: 'Element render delay',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/TimelineFlameChartView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -102,22 +81,28 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
   private selectedSearchResult?: number;
   private searchRegex?: RegExp;
   #traceEngineData: TraceEngine.Handlers.Types.TraceParseData|null;
-  #traceInsightsData: TraceEngine.Insights.Types.TraceInsightData<typeof TraceEngine.Handlers.ModelHandlers>|null =
-      null;
+  #traceInsightsData: TraceEngine.Insights.Types.TraceInsightData|null = null;
   #selectedGroupName: string|null = null;
   #onTraceBoundsChangeBound = this.#onTraceBoundsChange.bind(this);
   #gameKeyMatches = 0;
   #gameTimeout = setTimeout(() => ({}), 0);
 
   #overlaysContainer: HTMLElement = document.createElement('div');
-  #overlays: Overlays;
+  #overlays: Overlays.Overlays.Overlays;
 
-  #timeRangeSelectionOverlay: TimeRangeLabel|null = null;
+  #timeRangeSelectionOverlay: Overlays.Overlays.TimeRangeLabel|null = null;
 
-  #timespanBreakdownOverlay: TimespanBreakdown|null = null;
-  #sidebarInsightToggled: Boolean = false;
+  #currentInsightOverlays: Array<Overlays.Overlays.TimelineOverlay> = [];
+  #activeInsight: TimelineComponents.Sidebar.ActiveInsight|null = null;
 
   #tooltipElement = document.createElement('div');
+
+  // We use an symbol as the loggable for each group. This is because
+  // groups can get re-built at times and we need a common reference to act as
+  // the reference for each group that we log. By storing these symbols in
+  // a map keyed off the context of the group, we ensure we persist the
+  // loggable even if the group gets rebuilt at some point in time.
+  #loggableForGroupByLogContext: Map<string, Symbol> = new Map();
 
   constructor(delegate: TimelineModeViewDelegate) {
     super();
@@ -146,7 +131,6 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     const mainViewGroupExpansionSetting =
         Common.Settings.Settings.instance().createSetting('timeline-flamechart-main-view-group-expansion', {});
     this.mainDataProvider = new TimelineFlameChartDataProvider();
-    this.mainDataProvider.setVisualElementLoggingParent(this.delegate.element);
     this.mainDataProvider.addEventListener(
         TimelineFlameChartDataProviderEvents.DataChanged, () => this.mainFlameChart.scheduleUpdate());
     this.mainFlameChart = new PerfUI.FlameChart.FlameChart(this.mainDataProvider, this, {
@@ -154,6 +138,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
       // The TimelineOverlays are used for selected elements
       selectedElementOutline: false,
       tooltipElement: this.#tooltipElement,
+      useOverlaysForCursorRuler: true,
     });
     this.mainFlameChart.alwaysShowVerticalScroll();
     this.mainFlameChart.enableRuler(false);
@@ -167,12 +152,12 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     this.networkFlameChartGroupExpansionSetting =
         Common.Settings.Settings.instance().createSetting('timeline-flamechart-network-view-group-expansion', {});
     this.networkDataProvider = new TimelineFlameChartNetworkDataProvider();
-    this.networkDataProvider.setVisualElementLoggingParent(this.delegate.element);
     this.networkFlameChart = new PerfUI.FlameChart.FlameChart(this.networkDataProvider, this, {
       groupExpansionSetting: this.networkFlameChartGroupExpansionSetting,
       // The TimelineOverlays are used for selected elements
       selectedElementOutline: false,
       tooltipElement: this.#tooltipElement,
+      useOverlaysForCursorRuler: true,
     });
     this.networkFlameChart.alwaysShowVerticalScroll();
     this.networkFlameChart.addEventListener(PerfUI.FlameChart.Events.LatestDrawDimensions, dimensions => {
@@ -186,7 +171,15 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
       this.mainFlameChart.setTooltipYPixelAdjustment(this.#overlays.networkChartOffsetHeight());
     });
 
-    this.#overlays = new Overlays({
+    this.mainFlameChart.addEventListener(PerfUI.FlameChart.Events.MouseMove, event => {
+      this.#processFlameChartMouseMoveEvent(event.data);
+    });
+
+    this.networkFlameChart.addEventListener(PerfUI.FlameChart.Events.MouseMove, event => {
+      this.#processFlameChartMouseMoveEvent(event.data);
+    });
+
+    this.#overlays = new Overlays.Overlays.Overlays({
       container: this.#overlaysContainer,
       charts: {
         mainChart: this.mainFlameChart,
@@ -196,9 +189,13 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
       },
     });
 
-    this.#overlays.addEventListener(AnnotationOverlayRemoveEvent.eventName, event => {
-      const overlay = (event as AnnotationOverlayRemoveEvent).overlay;
-      ModificationsManager.activeManager()?.removeAnnotationOverlay(overlay);
+    this.#overlays.addEventListener(Overlays.Overlays.AnnotationOverlayActionEvent.eventName, event => {
+      const {overlay, action} = (event as Overlays.Overlays.AnnotationOverlayActionEvent);
+      if (action === 'Remove') {
+        ModificationsManager.activeManager()?.removeAnnotationOverlay(overlay);
+      } else if (action === 'Update') {
+        ModificationsManager.activeManager()?.updateAnnotationOverlay(overlay);
+      }
     });
 
     this.networkPane = new UI.Widget.VBox();
@@ -253,17 +250,46 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     TraceBounds.TraceBounds.onChange(this.#onTraceBoundsChangeBound);
   }
 
-  toggleSidebarInsights(): void {
-    this.#sidebarInsightToggled = !this.#sidebarInsightToggled;
-    if (this.#sidebarInsightToggled) {
-      this.#timespanBreakdownOverlay = this.createLCPPhaseOverlay();
-      if (this.#timespanBreakdownOverlay) {
-        this.addOverlay(this.#timespanBreakdownOverlay);
+  setActiveInsight(insight: TimelineComponents.Sidebar.ActiveInsight|null): void {
+    this.#activeInsight = insight;
+
+    for (const overlay of this.#currentInsightOverlays) {
+      this.removeOverlay(overlay);
+    }
+
+    if (!this.#activeInsight) {
+      return;
+    }
+
+    if (insight) {
+      const newInsightOverlays = insight.createOverlayFn();
+      this.#currentInsightOverlays = newInsightOverlays;
+      for (const overlay of this.#currentInsightOverlays) {
+        this.addOverlay(overlay);
       }
-    } else {
-      if (this.#timespanBreakdownOverlay) {
-        this.removeOverlay(this.#timespanBreakdownOverlay);
+    }
+  }
+
+  #processFlameChartMouseMoveEvent(data: PerfUI.FlameChart.EventTypes['MouseMove']): void {
+    const {mouseEvent, timeInMicroSeconds} = data;
+
+    // If the user is no longer holding shift, remove any existing marker.
+    if (!mouseEvent.shiftKey) {
+      const removedCount = this.#overlays.removeOverlaysOfType('CURSOR_TIMESTAMP_MARKER');
+      if (removedCount > 0) {
+        // Don't trigger lots of updates on a mouse move if we didn't actually
+        // remove any overlays.
+        this.#overlays.update();
       }
+    }
+
+    if (!mouseEvent.metaKey && mouseEvent.shiftKey) {
+      // CURSOR_TIMESTAMP_MARKER is a singleton; if one already exists it will
+      // be updated rather than create an entirely new one.
+      this.addOverlay({
+        type: 'CURSOR_TIMESTAMP_MARKER',
+        timestamp: timeInMicroSeconds,
+      });
     }
   }
 
@@ -322,6 +348,13 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
 
   refreshMainFlameChart(): void {
     this.mainFlameChart.update();
+  }
+
+  extensionDataVisibilityChanged(): void {
+    this.#reset();
+    this.mainDataProvider.reset(true);
+    this.mainDataProvider.timelineData(true);
+    this.refreshMainFlameChart();
   }
 
   windowChanged(
@@ -398,102 +431,10 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     this.#updateFlameCharts();
   }
 
-  setInsights(insights: TraceEngine.Insights.Types.TraceInsightData<typeof TraceEngine.Handlers.ModelHandlers>|
-              null): void {
+  setInsights(insights: TraceEngine.Insights.Types.TraceInsightData|null): void {
     if (this.#traceInsightsData !== insights) {
       this.#traceInsightsData = insights;
     }
-    // Disable selected insight overlay by default with new insight data.
-    this.#sidebarInsightToggled = false;
-  }
-
-  /**
-   * This creates and returns a new timespanBreakdownOverlay with LCP phases data.
-   */
-  createLCPPhaseOverlay(): TimespanBreakdown|null {
-    if (!this.#traceInsightsData || !this.#traceEngineData) {
-      return null;
-    }
-
-    // For now use the first navigation of the trace.
-    const firstNav: TraceEngine.Insights.Types.NavigationInsightData<typeof TraceEngine.Handlers.ModelHandlers> =
-        this.#traceInsightsData.values().next().value;
-    if (!firstNav) {
-      return null;
-    }
-
-    const lcpInsight: Error|TraceEngine.Insights.Types.LCPInsightResult = firstNav.LargestContentfulPaint;
-    if (lcpInsight instanceof Error) {
-      return null;
-    }
-
-    const phases = lcpInsight.phases;
-    const lcpTs = lcpInsight.lcpTs;
-    if (!phases || !lcpTs) {
-      return null;
-    }
-    const lcpMicroseconds =
-        TraceEngine.Types.Timing.MicroSeconds(TraceEngine.Helpers.Timing.millisecondsToMicroseconds(lcpTs));
-
-    const sections = [];
-    // For text LCP, we should only have ttfb and renderDelay sections.
-    if (!phases?.loadDelay && !phases?.loadTime) {
-      const renderBegin: TraceEngine.Types.Timing.MicroSeconds = TraceEngine.Types.Timing.MicroSeconds(
-          lcpMicroseconds - TraceEngine.Helpers.Timing.millisecondsToMicroseconds(phases.renderDelay));
-      const renderDelay = TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(
-          renderBegin,
-          lcpMicroseconds,
-      );
-
-      const mainReqStart = TraceEngine.Types.Timing.MicroSeconds(
-          renderBegin - TraceEngine.Helpers.Timing.millisecondsToMicroseconds(phases.ttfb));
-      const ttfb = TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(
-          mainReqStart,
-          renderBegin,
-      );
-      sections.push(
-          {bounds: ttfb, label: i18nString(UIStrings.timeToFirstByte)},
-          {bounds: renderDelay, label: i18nString(UIStrings.elementRenderDelay)});
-    } else if (phases?.loadDelay && phases?.loadTime) {
-      const renderBegin: TraceEngine.Types.Timing.MicroSeconds = TraceEngine.Types.Timing.MicroSeconds(
-          lcpMicroseconds - TraceEngine.Helpers.Timing.millisecondsToMicroseconds(phases.renderDelay));
-      const renderDelay = TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(
-          renderBegin,
-          lcpMicroseconds,
-      );
-
-      const loadBegin = TraceEngine.Types.Timing.MicroSeconds(
-          renderBegin - TraceEngine.Helpers.Timing.millisecondsToMicroseconds(phases.loadTime));
-      const loadTime = TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(
-          loadBegin,
-          renderBegin,
-      );
-
-      const loadDelayStart = TraceEngine.Types.Timing.MicroSeconds(
-          loadBegin - TraceEngine.Helpers.Timing.millisecondsToMicroseconds(phases.loadDelay));
-      const loadDelay = TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(
-          loadDelayStart,
-          loadBegin,
-      );
-
-      const mainReqStart = TraceEngine.Types.Timing.MicroSeconds(
-          loadDelayStart - TraceEngine.Helpers.Timing.millisecondsToMicroseconds(phases.ttfb));
-      const ttfb = TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(
-          mainReqStart,
-          loadDelayStart,
-      );
-
-      sections.push(
-          {bounds: ttfb, label: i18nString(UIStrings.timeToFirstByte)},
-          {bounds: loadDelay, label: i18nString(UIStrings.resourceLoadDelay)},
-          {bounds: loadTime, label: i18nString(UIStrings.resourceLoadTime)},
-          {bounds: renderDelay, label: i18nString(UIStrings.elementRenderDelay)},
-      );
-    }
-    return {
-      type: 'TIMESPAN_BREAKDOWN',
-      sections,
-    };
   }
 
   #reset(): void {
@@ -535,6 +476,28 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
   #updateFlameCharts(): void {
     this.mainFlameChart.scheduleUpdate();
     this.networkFlameChart.scheduleUpdate();
+
+    this.#registerLoggableGroups();
+  }
+
+  #registerLoggableGroups(): void {
+    const groups = [
+      ...this.mainFlameChart.timelineData()?.groups ?? [],
+      ...this.networkFlameChart.timelineData()?.groups ?? [],
+    ];
+    for (const group of groups) {
+      if (!group.jslogContext) {
+        continue;
+      }
+      const loggable = this.#loggableForGroupByLogContext.get(group.jslogContext) ?? Symbol(group.jslogContext);
+
+      if (!this.#loggableForGroupByLogContext.has(group.jslogContext)) {
+        // This is the first time this group has been created, so register its loggable.
+        this.#loggableForGroupByLogContext.set(group.jslogContext, loggable);
+        VisualLogging.registerLoggable(
+            loggable, `${VisualLogging.section().context(`timeline.${group.jslogContext}`)}`, this.delegate.element);
+      }
+    }
   }
 
   private onEntryHighlighted(commonEvent: Common.EventTarget.EventTargetEvent<number>): void {
@@ -631,18 +594,18 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     }
   }
 
-  addOverlay<T extends TimelineOverlay>(newOverlay: T): T {
+  addOverlay<T extends Overlays.Overlays.TimelineOverlay>(newOverlay: T): T {
     const overlay = this.#overlays.add(newOverlay);
     this.#overlays.update();
     return overlay;
   }
 
-  removeOverlay(removedOverlay: TimelineOverlay): void {
+  removeOverlay(removedOverlay: Overlays.Overlays.TimelineOverlay): void {
     this.#overlays.remove(removedOverlay);
     this.#overlays.update();
   }
 
-  updateExistingOverlay<T extends TimelineOverlay>(existingOverlay: T, newData: Partial<T>): void {
+  updateExistingOverlay<T extends Overlays.Overlays.TimelineOverlay>(existingOverlay: T, newData: Partial<T>): void {
     this.#overlays.updateExisting(existingOverlay, newData);
     this.#overlays.update();
   }
@@ -677,7 +640,10 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     // Find the group that contains this level and log a click for it.
     const group = groupForLevel(data.groups, entryLevel);
     if (group && group.jslogContext) {
-      VisualLogging.logClick(groupForLevel, new MouseEvent('click'));
+      const loggable = this.#loggableForGroupByLogContext.get(group.jslogContext) ?? null;
+      if (loggable) {
+        VisualLogging.logClick(loggable, new MouseEvent('click'));
+      }
     }
 
     dataProvider.buildFlowForInitiator(entryIndex);

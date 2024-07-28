@@ -1084,7 +1084,6 @@ export namespace Audits {
   }
 
   export const enum GenericIssueErrorType {
-    CrossOriginPortalPostMessageError = 'CrossOriginPortalPostMessageError',
     FormLabelForNameError = 'FormLabelForNameError',
     FormDuplicateIdForInputError = 'FormDuplicateIdForInputError',
     FormInputWithNoLabelError = 'FormInputWithNoLabelError',
@@ -3162,6 +3161,11 @@ export namespace CSS {
      * A list of CSS @position-try rules matching this node, based on the position-try-fallbacks property.
      */
     cssPositionTryRules?: CSSPositionTryRule[];
+    /**
+     * Index of the active fallback in the applied position-try-fallback property,
+     * will not be set if there is no active position-try fallback.
+     */
+    activePositionFallbackIndex?: integer;
     /**
      * A list of CSS at-property rules matching this node.
      */
@@ -5995,6 +5999,21 @@ export namespace Emulation {
     quaternion?: SensorReadingQuaternion;
   }
 
+  export const enum PressureSource {
+    Cpu = 'cpu',
+  }
+
+  export const enum PressureState {
+    Nominal = 'nominal',
+    Fair = 'fair',
+    Serious = 'serious',
+    Critical = 'critical',
+  }
+
+  export interface PressureMetadata {
+    available?: boolean;
+  }
+
   /**
    * Enum of image types that can be disabled.
    */
@@ -6199,6 +6218,17 @@ export namespace Emulation {
   export interface SetSensorOverrideReadingsRequest {
     type: SensorType;
     reading: SensorReading;
+  }
+
+  export interface SetPressureSourceOverrideEnabledRequest {
+    enabled: boolean;
+    source: PressureSource;
+    metadata?: PressureMetadata;
+  }
+
+  export interface SetPressureStateOverrideRequest {
+    source: PressureSource;
+    state: PressureState;
   }
 
   export interface SetIdleOverrideRequest {
@@ -6466,6 +6496,57 @@ export namespace IO {
      * UUID of the specified Blob.
      */
     uuid: string;
+  }
+}
+
+export namespace FileSystem {
+
+  export interface File {
+    name: string;
+    /**
+     * Timestamp
+     */
+    lastModified: Network.TimeSinceEpoch;
+    /**
+     * Size in bytes
+     */
+    size: number;
+    type: string;
+  }
+
+  export interface Directory {
+    name: string;
+    nestedDirectories: string[];
+    /**
+     * Files that are directly nested under this directory.
+     */
+    nestedFiles: File[];
+  }
+
+  export interface BucketFileSystemLocator {
+    /**
+     * Storage key
+     */
+    storageKey: Storage.SerializedStorageKey;
+    /**
+     * Bucket name. Not passing a `bucketName` will retrieve the default Bucket. (https://developer.mozilla.org/en-US/docs/Web/API/Storage_API#storage_buckets)
+     */
+    bucketName?: string;
+    /**
+     * Path to the directory using each path component as an array item.
+     */
+    pathComponents: string[];
+  }
+
+  export interface GetDirectoryRequest {
+    bucketFileSystemLocator: BucketFileSystemLocator;
+  }
+
+  export interface GetDirectoryResponse extends ProtocolResponseWithError {
+    /**
+     * Returns the directory object at the path.
+     */
+    directory: Directory;
   }
 }
 
@@ -9221,6 +9302,7 @@ export namespace Network {
     UnsafeNone = 'UnsafeNone',
     SameOriginPlusCoep = 'SameOriginPlusCoep',
     RestrictPropertiesPlusCoep = 'RestrictPropertiesPlusCoep',
+    NoopenerAllowPopups = 'NoopenerAllowPopups',
   }
 
   export interface CrossOriginOpenerPolicyStatus {
@@ -11384,6 +11466,7 @@ export namespace Page {
     ComputePressure = 'compute-pressure',
     CrossOriginIsolated = 'cross-origin-isolated',
     DeferredFetch = 'deferred-fetch',
+    DigitalCredentialsGet = 'digital-credentials-get',
     DirectSockets = 'direct-sockets',
     DisplayCapture = 'display-capture',
     DocumentDomain = 'document-domain',
@@ -12235,7 +12318,6 @@ export namespace Page {
     Printing = 'Printing',
     WebDatabase = 'WebDatabase',
     PictureInPicture = 'PictureInPicture',
-    Portal = 'Portal',
     SpeechRecognizer = 'SpeechRecognizer',
     IdleManager = 'IdleManager',
     PaymentManager = 'PaymentManager',
@@ -14361,6 +14443,27 @@ export namespace Storage {
     Modulus = 'modulus',
   }
 
+  export interface AttributionReportingAggregatableDebugReportingData {
+    keyPiece: UnsignedInt128AsBase16;
+    /**
+     * number instead of integer because not all uint32 can be represented by
+     * int
+     */
+    value: number;
+    types: string[];
+  }
+
+  export interface AttributionReportingAggregatableDebugReportingConfig {
+    /**
+     * number instead of integer because not all uint32 can be represented by
+     * int, only present for source registrations
+     */
+    budget?: number;
+    keyPiece: UnsignedInt128AsBase16;
+    debugData: AttributionReportingAggregatableDebugReportingData[];
+    aggregationCoordinatorOrigin?: string;
+  }
+
   export interface AttributionReportingSourceRegistration {
     time: Network.TimeSinceEpoch;
     /**
@@ -14382,6 +14485,8 @@ export namespace Storage {
     aggregationKeys: AttributionReportingAggregationKeysEntry[];
     debugKey?: UnsignedInt64AsBase10;
     triggerDataMatching: AttributionReportingTriggerDataMatching;
+    destinationLimitPriority: SignedInt64AsBase10;
+    aggregatableDebugReportingConfig: AttributionReportingAggregatableDebugReportingConfig;
   }
 
   export const enum AttributionReportingSourceRegistrationResult {
@@ -14413,6 +14518,7 @@ export namespace Storage {
      * int
      */
     value: number;
+    filteringId: UnsignedInt64AsBase10;
   }
 
   export interface AttributionReportingAggregatableValueEntry {
@@ -14445,10 +14551,12 @@ export namespace Storage {
     eventTriggerData: AttributionReportingEventTriggerData[];
     aggregatableTriggerData: AttributionReportingAggregatableTriggerData[];
     aggregatableValues: AttributionReportingAggregatableValueEntry[];
+    aggregatableFilteringIdMaxBytes: integer;
     debugReporting: boolean;
     aggregationCoordinatorOrigin?: string;
     sourceRegistrationTimeConfig: AttributionReportingSourceRegistrationTimeConfig;
     triggerContextId?: string;
+    aggregatableDebugReportingConfig: AttributionReportingAggregatableDebugReportingConfig;
   }
 
   export const enum AttributionReportingEventLevelResult {
@@ -15247,7 +15355,7 @@ export namespace Target {
     browserContextId?: Browser.BrowserContextID;
     /**
      * Provides additional details for specific target types. For example, for
-     * the type of "page", this may be set to "portal" or "prerender".
+     * the type of "page", this may be set to "prerender".
      */
     subtype?: string;
   }
@@ -17045,6 +17153,7 @@ export namespace Preload {
     JavaScriptInterfaceAdded = 'JavaScriptInterfaceAdded',
     JavaScriptInterfaceRemoved = 'JavaScriptInterfaceRemoved',
     AllPrerenderingCanceled = 'AllPrerenderingCanceled',
+    WindowClosed = 'WindowClosed',
   }
 
   /**

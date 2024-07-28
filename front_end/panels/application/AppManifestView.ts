@@ -702,12 +702,14 @@ export class AppManifestView extends Common.ObjectWrapper.eventMixin<EventTypes,
         suggestedIdSpan.textContent = recommendedId;
 
         const copyButton = new Buttons.Button.Button();
+        copyButton.data = {
+          variant: Buttons.Button.Variant.ICON,
+          iconName: 'copy',
+          size: Buttons.Button.Size.SMALL,
+          jslogContext: 'manifest.copy-id',
+          title: i18nString(UIStrings.copyToClipboard),
+        };
         copyButton.className = 'inline-button';
-        copyButton.variant = Buttons.Button.Variant.ICON;
-        copyButton.size = Buttons.Button.Size.SMALL;
-        copyButton.iconName = 'copy';
-        copyButton.jslogContext = 'manifest.copy-id';
-        copyButton.title = i18nString(UIStrings.copyToClipboard);
         copyButton.addEventListener('click', () => {
           UI.ARIAUtils.alert(i18nString(UIStrings.copiedToClipboard, {PH1: recommendedId}));
           Host.InspectorFrontendHost.InspectorFrontendHostInstance.copyText(recommendedId);
@@ -735,13 +737,13 @@ export class AppManifestView extends Common.ObjectWrapper.eventMixin<EventTypes,
     this.themeColorSwatch.classList.toggle('hidden', !stringProperty('theme_color'));
     const themeColor = Common.Color.parse(stringProperty('theme_color') || 'white') || Common.Color.parse('white');
     if (themeColor) {
-      this.themeColorSwatch.renderColor(themeColor, true);
+      this.themeColorSwatch.renderColor(themeColor);
     }
     this.backgroundColorSwatch.classList.toggle('hidden', !stringProperty('background_color'));
     const backgroundColor =
         Common.Color.parse(stringProperty('background_color') || 'white') || Common.Color.parse('white');
     if (backgroundColor) {
-      this.backgroundColorSwatch.renderColor(backgroundColor, true);
+      this.backgroundColorSwatch.renderColor(backgroundColor);
     }
 
     this.orientationField.textContent = stringProperty('orientation');

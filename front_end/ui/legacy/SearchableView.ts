@@ -355,7 +355,7 @@ export class SearchableView extends VBox {
   }
 
   private toggleReplace(): void {
-    const replaceEnabled = !this.replaceToggleButton.toggled();
+    const replaceEnabled = !this.replaceToggleButton.isToggled();
     this.replaceToggleButton.setToggled(replaceEnabled);
     const label =
         replaceEnabled ? i18nString(UIStrings.disableFindAndReplace) : i18nString(UIStrings.enableFindAndReplace);
@@ -633,7 +633,7 @@ export class SearchableView extends VBox {
   }
 
   private updateSecondRowVisibility(): void {
-    const secondRowVisible = this.replaceToggleButton.toggled();
+    const secondRowVisible = this.replaceToggleButton.isToggled();
     this.footerElementContainer.classList.toggle('replaceable', secondRowVisible);
 
     if (secondRowVisible) {
@@ -723,14 +723,16 @@ export class SearchConfig {
     if (global) {
       modifiers += 'g';
     }
-    const query = this.isRegex ? '/' + this.query + '/' : this.query;
 
+    // Check if query is surrounded by forward slashes
+    const isRegexFormatted = this.query.startsWith('/') && this.query.endsWith('/');
+    const query = this.isRegex && !isRegexFormatted ? '/' + this.query + '/' : this.query;
     let regex: RegExp|undefined;
     let fromQuery = false;
 
     // First try creating regex if user knows the / / hint.
     try {
-      if (/^\/.+\/$/.test(query)) {
+      if (/^\/.+\/$/.test(query) && this.isRegex) {
         regex = new RegExp(query.substring(1, query.length - 1), modifiers);
         fromQuery = true;
       }

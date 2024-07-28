@@ -8,6 +8,7 @@ import * as BenchmarkEvents from './BenchmarkEvents.js';
 import * as CLSLinkifier from './CLSLinkifier.js';
 import * as CompatibilityTracksAppender from './CompatibilityTracksAppender.js';
 import * as CountersGraph from './CountersGraph.js';
+import * as EntriesFilter from './EntriesFilter.js';
 import * as EventsSerializer from './EventsSerializer.js';
 import * as EventsTimelineTreeView from './EventsTimelineTreeView.js';
 import * as EventUICategory from './EventUICategory.js';
@@ -20,9 +21,9 @@ import * as InteractionsTrackAppender from './InteractionsTrackAppender.js';
 import * as LayoutShiftsTrackAppender from './LayoutShiftsTrackAppender.js';
 import * as ModificationsManager from './ModificationsManager.js';
 import * as NetworkTrackAppender from './NetworkTrackAppender.js';
-import * as Overlays from './Overlays.js';
 import * as SaveFileFormatter from './SaveFileFormatter.js';
 import * as SourceMapsResolver from './SourceMapsResolver.js';
+import * as TargetForEvent from './TargetForEvent.js';
 import * as ThreadAppender from './ThreadAppender.js';
 import * as TimelineController from './TimelineController.js';
 import * as TimelineDetailsView from './TimelineDetailsView.js';
@@ -51,6 +52,7 @@ export {
   CLSLinkifier,
   CompatibilityTracksAppender,
   CountersGraph,
+  EntriesFilter,
   EventsSerializer,
   EventsTimelineTreeView,
   EventUICategory,
@@ -63,9 +65,9 @@ export {
   LayoutShiftsTrackAppender,
   ModificationsManager,
   NetworkTrackAppender,
-  Overlays,
   SaveFileFormatter,
   SourceMapsResolver,
+  TargetForEvent,
   ThreadAppender,
   TimelineController,
   TimelineDetailsView,
