@@ -183,20 +183,6 @@ const UIStrings = {
    */
   ssec: '{PH1} sec',
   /**
-   *
-   * @description Text for exporting basic traces
-   */
-  exportNormalTraces: 'Basic Performance Traces',
-  /**
-   *
-   * @description Text for exporting enhanced traces
-   */
-  exportEnhancedTraces: 'Enhanced Performance Traces',
-  /**
-   *@description Tooltip description for a checkbox that toggles the visibility of data added by extensions of this panel (Performance).
-   */
-  showDataAddedByExtensions: 'Show data added by extensions of the Performance panel',
-  /**
    Label for a checkbox that toggles the visibility of data added by extensions of this panel (Performance).
    */
   performanceExtension: 'Extension data',
@@ -240,7 +226,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   readonly #thirdPartyTracksSetting: Common.Settings.Setting<boolean>;
   private showScreenshotsSetting: Common.Settings.Setting<boolean>;
   private showMemorySetting: Common.Settings.Setting<boolean>;
-  // private readonly panelToolbar: UI.Toolbar.Toolbar;
+  private readonly panelToolbar: UI.Toolbar.Toolbar;
   // private readonly panelRightToolbar: UI.Toolbar.Toolbar;
   private readonly timelinePane: UI.Widget.VBox;
   readonly #minimapComponent = new TimelineMiniMap();
@@ -355,8 +341,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
     const timelineToolbarContainer = this.element.createChild('div', 'timeline-toolbar-container');
     timelineToolbarContainer.setAttribute('jslog', `${VisualLogging.toolbar()}`);
-    // this.panelToolbar = new UI.Toolbar.Toolbar('timeline-main-toolbar', timelineToolbarContainer);
-    // this.panelToolbar.makeWrappable(true);
+    this.panelToolbar = new UI.Toolbar.Toolbar('timeline-main-toolbar', timelineToolbarContainer);
+    this.panelToolbar.makeWrappable(true);
     // this.panelRightToolbar = new UI.Toolbar.Toolbar('', timelineToolbarContainer);
     if (!isNode) {
       this.createSettingsPane();
@@ -533,16 +519,16 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   #onChartPlayableStateChange(event: Common.EventTarget.EventTargetEvent<boolean, unknown>): void {
-    if (event.data) {
-      const dateObj = new Date();
-      const month = dateObj.getUTCMonth() + 1;
-      const day = dateObj.getUTCDate();
-      const isAprilFools = (month === 4 && (day === 1 || day === 2));  // Show only on April fools and the next day
+    // if (event.data) {
+      // const dateObj = new Date();
+      // const month = dateObj.getUTCMonth() + 1;
+      // const day = dateObj.getUTCDate();
+      // const isAprilFools = (month === 4 && (day === 1 || day === 2));  // Show only on April fools and the next day
       // if (isAprilFools && !this.fixMeButtonAdded && SHOULD_SHOW_EASTER_EGG) {
       //   this.fixMeButtonAdded = true;
       //   this.panelToolbar.appendToolbarItem(this.fixMeButton);
       // }
-    }
+    // }
     // else {
       // this.fixMeButtonAdded = false;
       // this.panelToolbar.removeToolbarItem(this.fixMeButton);
@@ -568,25 +554,25 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     return checkboxItem;
   }
 
-  // #addSidebarIconToToolbar(): void {
-  //   if (!Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_SIDEBAR)) {
-  //     return;
-  //   }
+  #addSidebarIconToToolbar(): void {
+    // if (!Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_SIDEBAR)) {
+    //   return;
+    // }
 
-  //   if (this.panelToolbar.hasItem(this.#sidebarToggleButton)) {
-  //     return;
-  //   }
+    if (this.panelToolbar.hasItem(this.#sidebarToggleButton)) {
+      return;
+    }
 
-  //   this.panelToolbar.prependToolbarItem(this.#sidebarToggleButton);
-  // }
+    this.panelToolbar.prependToolbarItem(this.#sidebarToggleButton);
+  }
 
   /**
    * Used when the user deletes their last trace and is taken back to the
    * landing page - we don't add this icon until there is a trace loaded.
    */
-  // #removeSidebarIconFromToolbar(): void {
-  //   this.panelToolbar.removeToolbarItem(this.#sidebarToggleButton);
-  // }
+  #removeSidebarIconFromToolbar(): void {
+    this.panelToolbar.removeToolbarItem(this.#sidebarToggleButton);
+  }
 
   private populateToolbar(): void {
     // Record
@@ -1214,9 +1200,9 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.dropTarget.setEnabled(this.state === State.Idle);
     this.loadButton.setEnabled(this.state === State.Idle);
     // this.saveButton.setEnabled(this.state === State.Idle && this.#hasActiveTrace());
-    // if (this.#traceEngineActiveTraceIndex > -1) {
-    //   this.#addSidebarIconToToolbar();
-    // }
+    if (this.#traceEngineActiveTraceIndex > -1) {
+      this.#addSidebarIconToToolbar();
+    }
   }
 
   // async toggleRecording(): Promise<void> {
@@ -1444,8 +1430,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
   private showLandingPage(): void {
     this.updateSettingsPaneVisibility();
-    // this.#removeSidebarIconFromToolbar();
-    this.#sideBar.hideSidebar();
+    this.#removeSidebarIconFromToolbar();
+    // this.#sideBar.hideSidebar();
     if (this.landingPage) {
       this.landingPage.show(this.statusPaneContainer);
       return;
