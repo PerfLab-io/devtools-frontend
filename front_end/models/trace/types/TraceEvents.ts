@@ -1489,11 +1489,12 @@ export type SyntheticConsoleTimingPair = SyntheticEventPair<TraceEventConsoleTim
 
 export type SyntheticAnimationPair = SyntheticEventPair<TraceEventAnimation>;
 
-export type SyntheticAnimationFramePair = SyntheticEventPair<
+export type SyntheticAnimationFramePair = SyntheticEventPair<TraceEventAnimationFrameGroupingEvent> & {
+  phases: Array<
   TraceEventAnimationFramePaintGroupingEvent |
-  TraceEventAnimationFrameGroupingEvent |
   TraceEventAnimationFrameScriptGroupingEvent |
-  TraceEventAnimationFrameInstantEvent>;
+  TraceEventAnimationFrameInstantEvent>,
+};
 
 export interface SyntheticInteractionPair extends SyntheticEventPair<TraceEventEventTiming> {
   // InteractionID and type are available within the beginEvent's data, but we
