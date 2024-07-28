@@ -68,7 +68,7 @@ export async function finalize(): Promise<void> {
   const syntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animations);
   animationsSyntheticEvents.push(...syntheticEvents);
 
-  const afSyntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animationFrames);
+  const afSyntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animationFrames) as Types.TraceEvents.SyntheticAnimationFramePair[];
   animationFramesSyntheticEvents.push(...afSyntheticEvents);
 
   handlerState = HandlerState.FINALIZED;
