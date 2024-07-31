@@ -35,12 +35,16 @@ import {type TimelineMarkerStyle} from './TimelineUIUtils.js';
 
 export const enum Events {
   TraceDataChange = 'tracedatachange',
+  TraceInsightsChange = 'traceinsightschange',
 }
 
 export type EventTypes = {
   [Events.TraceDataChange]: {
     traceEngineData: TraceEngine.Handlers.Types.TraceParseData | null,
     isCpuProfile: boolean,
+  },
+  [Events.TraceInsightsChange]: {
+    insights: TraceEngine.Insights.Types.TraceInsightData | null,
   },
 };
 
@@ -49,6 +53,14 @@ export class TraceDataChange extends CustomEvent<EventTypes[Events.TraceDataChan
 
   constructor(options: EventTypes[Events.TraceDataChange]) {
     super(TraceDataChange.eventName, { detail: options });
+  }
+}
+
+export class TraceInsightsChange extends CustomEvent<EventTypes[Events.TraceInsightsChange]>{
+  static readonly eventName = Events.TraceInsightsChange;
+
+  constructor(options: EventTypes[Events.TraceInsightsChange]) {
+    super(TraceInsightsChange.eventName, { detail: options });
   }
 }
 
@@ -455,7 +467,9 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
   setInsights(insights: TraceEngine.Insights.Types.TraceInsightData|null): void {
     if (this.#traceInsightsData !== insights) {
       this.#traceInsightsData = insights;
+
     }
+    document.getElementById('-blink-dev-tools')?.dispatchEvent(new TraceInsightsChange({ insights: this.#traceInsightsData }));
   }
 
   #reset(): void {
