@@ -466,7 +466,7 @@ export class MainImpl {
     }
   }
   async #createAppUI(): Promise<void> {
-    MainImpl.time('Main._createAppUI');
+    // MainImpl.time('Main._createAppUI');
 
     // Request filesystems early, we won't create connections until callback is fired. Things will happen in parallel.
     Persistence.IsolatedFileSystemManager.IsolatedFileSystemManager.instance();
@@ -576,7 +576,7 @@ export class MainImpl {
     UI.ShortcutRegistry.ShortcutRegistry.instance({forceNew: true, actionRegistry: actionRegistryInstance});
     this.#registerMessageSinkListener();
 
-    MainImpl.timeEnd('Main._createAppUI');
+    // MainImpl.timeEnd('Main._createAppUI');
 
     const appProvider = Common.AppProvider.getRegisteredAppProviders()[0];
     if (!appProvider) {
@@ -586,7 +586,7 @@ export class MainImpl {
   }
 
   async #showAppUI(appProvider: Object): Promise<void> {
-    MainImpl.time('Main._showAppUI');
+    // MainImpl.time('Main._showAppUI');
     const app = (appProvider as Common.AppProvider.AppProvider).createApp();
     // It is important to kick controller lifetime after apps are instantiated.
     UI.DockController.DockController.instance().initialize();
@@ -619,11 +619,11 @@ export class MainImpl {
 
     // Allow UI cycles to repaint prior to creating connection.
     window.setTimeout(this.#initializeTarget.bind(this), 0);
-    MainImpl.timeEnd('Main._showAppUI');
+    // MainImpl.timeEnd('Main._showAppUI');
   }
 
   async #initializeTarget(): Promise<void> {
-    MainImpl.time('Main._initializeTarget');
+    // MainImpl.time('Main._initializeTarget');
 
     // We rely on having the early initialization runnables registered in Common when an app loads its
     // modules, so that we don't have to exhaustively check the app DevTools is running as to
@@ -636,11 +636,11 @@ export class MainImpl {
     this.#resolveReadyForTestPromise();
     // Asynchronously run the extensions.
     window.setTimeout(this.#lateInitialization.bind(this), 100);
-    MainImpl.timeEnd('Main._initializeTarget');
+    // MainImpl.timeEnd('Main._initializeTarget');
   }
 
   #lateInitialization(): void {
-    MainImpl.time('Main._lateInitialization');
+    // MainImpl.time('Main._lateInitialization');
     Extensions.ExtensionServer.ExtensionServer.instance().initializeExtensions();
     const promises: Promise<void>[] =
         Common.Runnable.lateInitializationRunnables().map(async lateInitializationLoader => {
@@ -663,7 +663,7 @@ export class MainImpl {
       }
     }
     this.#lateInitDonePromise = Promise.all(promises).then(() => undefined);
-    MainImpl.timeEnd('Main._lateInitialization');
+    // MainImpl.timeEnd('Main._lateInitialization');
   }
 
   lateInitDonePromiseForTest(): Promise<void>|null {
