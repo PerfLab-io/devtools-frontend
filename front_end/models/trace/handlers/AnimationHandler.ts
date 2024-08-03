@@ -39,7 +39,8 @@ function isAnimationFrameGrouping(event: Types.TraceEvents.TraceEventData): even
     Types.TraceEvents.isTraceEventAnimationFrameInstant(event);
 }
 
-let currentBeginEventSulfix: string | null = null;
+const eventSulfixes: Array<string> = [];
+let currentGroupingEventSulfix: string | null = null;
 
 export function handleEvent(event: Types.TraceEvents.TraceEventData): void {
   if (Types.TraceEvents.isTraceEventAnimation(event)) {
@@ -53,10 +54,25 @@ export function handleEvent(event: Types.TraceEvents.TraceEventData): void {
     const isStartEvent = event.ph === Types.TraceEvents.Phase.ASYNC_NESTABLE_START;
 
     if (isStartEvent && event.name === Types.TraceEvents.KnownEventName.AnimationFrame) {
-      currentBeginEventSulfix = `${event.ts}`;
+      currentGroupingEventSulfix = `${event.ts}`;
     }
 
-    event.id2 = { local: `${event.id2?.local}-${currentBeginEventSulfix}` };
+    // INFO: Add a sulfix to each event to correctly pair AnimationFrame nestable groupings.
+    // Since we can have multiple script and instant entries in the same animation frame.
+    if (isStartEvent && event.name !== Types.TraceEvents.KnownEventName.AnimationFrame) {
+      const currentBeginEventSulfix = `${event.ts}`;
+      eventSulfixes.push(currentBeginEventSulfix);
+    }
+
+    if (event.name === Types.TraceEvents.KnownEventName.AnimationFrame) {
+      event.id2 = { local: `${event.id2?.local}-${currentGroupingEventSulfix}` };
+    } else {
+      // INFO: Hack to correctly pair AnimationFrame nestable groupings. Since the current
+      // Has to be unique for each event but correclty match the begining and end events to form
+      // the pairs.
+      const currentBeginEventSulfix = !isStartEvent ? eventSulfixes.pop() : eventSulfixes.at(-1);
+      event.id2 = { local: `${event.id2?.local}-${currentGroupingEventSulfix}-${currentBeginEventSulfix}` };
+    }
 
     animationFrames.push(event);
 
