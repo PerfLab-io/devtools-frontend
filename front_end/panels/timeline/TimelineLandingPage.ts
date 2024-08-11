@@ -21,23 +21,9 @@ const UIStrings = {
   wasd: 'WASD',
   /**
    * @description Text in Timeline Panel of the Performance panel
-   * @example {record} PH1
-   * @example {Ctrl + R} PH2
-   */
-  clickTheRecordButtonSOrHitSTo: 'Click the record button {PH1} or hit {PH2} to start a new recording.',
-  /**
-   * @description Text in Timeline Panel of the Performance panel
-   * @example {reload button} PH1
-   * @example {Ctrl + R} PH2
-   */
-  clickTheReloadButtonSOrHitSTo: 'Click the reload button {PH1} or hit {PH2} to record the page load.',
-  /**
-   * @description Text in Timeline Panel of the Performance panel
-   * @example {Ctrl + U} PH1
-   * @example {Learn more} PH2
    */
   afterRecordingSelectAnAreaOf:
-      'After recording, select an area of interest in the overview by dragging. Then, zoom and pan the timeline with the mousewheel or {PH1} keys. {PH2}',
+      'Drag and drop or right click to load a Chrome profile trace file here.',
 };
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/TimelineLandingPage.ts', UIStrings);
