@@ -555,9 +555,9 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   #addSidebarIconToToolbar(): void {
-    // if (!Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_SIDEBAR)) {
-    //   return;
-    // }
+    if (!Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_SIDEBAR)) {
+      return;
+    }
 
     if (this.panelToolbar.hasItem(this.#sidebarToggleButton)) {
       return;
@@ -1431,7 +1431,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   private showLandingPage(): void {
     this.updateSettingsPaneVisibility();
     this.#removeSidebarIconFromToolbar();
-    // this.#sideBar.hideSidebar();
+    this.#sideBar.hideSidebar();
     if (this.landingPage) {
       this.landingPage.show(this.statusPaneContainer);
       return;
