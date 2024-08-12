@@ -40,8 +40,11 @@ self.runtime = Root.Runtime.Runtime.instance({forceNew: true});
 // export const mainInstance = new Main.MainImpl.MainImpl();
 // @ts-ignore
 window.initDevtools = () => {
-  // @ts-ignore
-  window.mainInstance = new Main.MainImpl.MainImpl();
+    // @ts-ignore
+  if (!window.mainInstance) {
+    // @ts-ignore
+    window.mainInstance = new Main.MainImpl.MainImpl();
+  }
 };
 
 // @ts-ignore
