@@ -10,8 +10,9 @@ import * as SDK from '../../core/sdk/sdk.js';
 const CRUX_API_KEY = 'AIzaSyCCSOx25vrb5z0tbedCB3_JRzzbVW6Uwgw';
 const DEFAULT_ENDPOINT = `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_API_KEY}`;
 
-export type MetricNames = 'cumulative_layout_shift'|'first_contentful_paint'|'first_input_delay'|
+export type StandardMetricNames = 'cumulative_layout_shift'|'first_contentful_paint'|'first_input_delay'|
     'interaction_to_next_paint'|'largest_contentful_paint'|'experimental_time_to_first_byte'|'round_trip_time';
+export type MetricNames = StandardMetricNames|'form_factors';
 export type FormFactor = 'DESKTOP'|'PHONE'|'TABLET';
 export type DeviceScope = FormFactor|'ALL';
 export type PageScope = 'url'|'origin';
@@ -30,15 +31,26 @@ export interface MetricResponse {
   percentiles?: {p75: number|string};
 }
 
+export interface FormFactorsResponse {
+  fractions?: {
+    desktop: number,
+    phone: number,
+    tablet: number,
+  };
+}
+
 interface CollectionDate {
   year: number;
   month: number;
   day: number;
 }
 
-interface Record {
+interface CrUXRecord {
   key: Omit<CrUXRequest, 'metrics'>;
-  metrics: {[K in MetricNames]?: MetricResponse;};
+  metrics: {[K in StandardMetricNames]?: MetricResponse;}&{
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    form_factors?: FormFactorsResponse,
+  };
   collectionPeriod: {
     firstDate: CollectionDate,
     lastDate: CollectionDate,
@@ -46,7 +58,7 @@ interface Record {
 }
 
 export interface CrUXResponse {
-  record: Record;
+  record: CrUXRecord;
   urlNormalizationDetails?: {
     originalUrl: string,
     normalizedUrl: string,
@@ -57,9 +69,15 @@ export type PageResult = {
   [K in`${PageScope}-${DeviceScope}`]: CrUXResponse|null;
 };
 
+export interface OriginMapping {
+  developmentOrigin: string;
+  productionOrigin: string;
+}
+
 export interface ConfigSetting {
   enabled: boolean;
   override: string;
+  originMappings?: OriginMapping[];
 }
 
 let cruxManagerInstance: CrUXManager;
@@ -68,19 +86,42 @@ let cruxManagerInstance: CrUXManager;
 export const DEVICE_SCOPE_LIST: DeviceScope[] = ['ALL', 'DESKTOP', 'PHONE'];
 
 const pageScopeList: PageScope[] = ['origin', 'url'];
-const metrics: MetricNames[] =
-    ['largest_contentful_paint', 'cumulative_layout_shift', 'interaction_to_next_paint', 'round_trip_time'];
+const metrics: MetricNames[] = [
+  'largest_contentful_paint',
+  'cumulative_layout_shift',
+  'interaction_to_next_paint',
+  'round_trip_time',
+  'form_factors',
+];
 
 export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
   #originCache = new Map<string, CrUXResponse|null>();
   #urlCache = new Map<string, CrUXResponse|null>();
   #mainDocumentUrl?: string;
-  #configSetting =
-      Common.Settings.Settings.instance().createSetting<ConfigSetting>('field-data', {enabled: false, override: ''});
+  #configSetting: Common.Settings.Setting<ConfigSetting>;
   #endpoint = DEFAULT_ENDPOINT;
 
   private constructor() {
     super();
+
+    /**
+     * In an incognito or guest window - which is called an "OffTheRecord"
+     * profile in Chromium -, we do not want to persist the user consent and
+     * should ask for it every time. This is why we see what window type the
+     * user is in before choosing where to look/create this setting. If the
+     * user is in OTR, we store it in the session, which uses sessionStorage
+     * and is short-lived. If the user is not in OTR, we use global, which is
+     * the default behaviour and persists the value to the Chrome profile.
+     * This behaviour has been approved by Chrome Privacy as part of the launch
+     * review.
+     */
+    const hostConfig = Common.Settings.Settings.instance().getHostConfig();
+    const useSessionStorage = !hostConfig || hostConfig.isOffTheRecord === true;
+    const storageTypeForConsent =
+        useSessionStorage ? Common.Settings.SettingStorageType.Session : Common.Settings.SettingStorageType.Global;
+
+    this.#configSetting = Common.Settings.Settings.instance().createSetting<ConfigSetting>(
+        'field-data', {enabled: false, override: '', originMappings: []}, storageTypeForConsent);
 
     this.#configSetting.addChangeListener(() => {
       void this.#automaticRefresh();
@@ -102,6 +143,10 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
 
   getConfigSetting(): Common.Settings.Setting<ConfigSetting> {
     return this.#configSetting;
+  }
+
+  isEnabled(): boolean {
+    return this.#configSetting.get().enabled;
   }
 
   async getFieldDataForPage(pageUrl: string): Promise<PageResult> {
@@ -137,6 +182,24 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
     }
   }
 
+  #getMappedUrl(unmappedUrl: string): string {
+    try {
+      const unmapped = new URL(unmappedUrl);
+      const mappings = this.#configSetting.get().originMappings || [];
+      const mapping = mappings.find(m => m.developmentOrigin === unmapped.origin);
+      if (!mapping) {
+        return unmappedUrl;
+      }
+
+      const mapped = new URL(mapping.productionOrigin);
+      mapped.pathname = unmapped.pathname;
+
+      return mapped.href;
+    } catch {
+      return unmappedUrl;
+    }
+  }
+
   /**
    * In general, this function should use the main document URL
    * (i.e. the URL after all redirects but before SPA navigations)
@@ -147,7 +210,8 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
    * the main document URL cannot be found.
    */
   async getFieldDataForCurrentPage(): Promise<PageResult> {
-    const pageUrl = this.#configSetting.get().override || this.#mainDocumentUrl || await this.#getInspectedURL();
+    const pageUrl = this.#configSetting.get().override ||
+        this.#getMappedUrl(this.#mainDocumentUrl || await this.#getInspectedURL());
     return this.getFieldDataForPage(pageUrl);
   }
 

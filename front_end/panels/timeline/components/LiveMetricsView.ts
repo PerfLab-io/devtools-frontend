@@ -4,12 +4,12 @@
 
 import * as Common from '../../../core/common/common.js';
 import * as i18n from '../../../core/i18n/i18n.js';
+import * as Platform from '../../../core/platform/platform.js';
 import * as SDK from '../../../core/sdk/sdk.js';
 import * as CrUXManager from '../../../models/crux-manager/crux-manager.js';
 import * as EmulationModel from '../../../models/emulation/emulation.js';
 import * as LiveMetrics from '../../../models/live-metrics/live-metrics.js';
 import * as Buttons from '../../../ui/components/buttons/buttons.js';
-import * as Dialogs from '../../../ui/components/dialogs/dialogs.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
 import * as Menus from '../../../ui/components/menus/menus.js';
 import * as UI from '../../../ui/legacy/legacy.js';
@@ -19,6 +19,7 @@ import * as MobileThrottling from '../../mobile_throttling/mobile_throttling.js'
 import {CPUThrottlingSelector} from './CPUThrottlingSelector.js';
 import {FieldSettingsDialog} from './FieldSettingsDialog.js';
 import liveMetricsViewStyles from './liveMetricsView.css.js';
+import {renderCompareText, renderDetailedCompareText} from './MetricCompareStrings.js';
 import {NetworkThrottlingSelector} from './NetworkThrottlingSelector.js';
 
 const {html, nothing, Directives} = LitHtml;
@@ -40,9 +41,13 @@ const RTT_MINIMUM = 60;
 
 const UIStrings = {
   /**
-   * @description Title of a view that shows metrics from the local environment and field metrics collected from real users in the field.
+   * @description Title of a view that shows performance metrics from the local environment and field metrics collected from real users in the field.
    */
-  localAndFieldMetrics: 'Local and Field Metrics',
+  localAndFieldMetrics: 'Local and field metrics',
+  /**
+   * @description Title of a view that shows performance metrics from the local environment.
+   */
+  localMetrics: 'Local metrics',
   /**
    * @description Title of a section that lists user interactions.
    */
@@ -56,9 +61,9 @@ const UIStrings = {
    */
   fieldData: 'Field data',
   /**
-   * @description Title of a section that shows throttling settings.
+   * @description Title of a section that shows recording settings.
    */
-  throttling: 'Throttling',
+  recordingSettings: 'Recording settings',
   /**
    * @description Title of a report section for the largest contentful paint metric.
    */
@@ -80,21 +85,15 @@ const UIStrings = {
    */
   field75thPercentile: 'Field 75th Percentile',
   /**
-   * @description Label for an select box that selects which device type should be used for field data (e.g. desktop/mobile/etc).
+   * @description Label for an select box that selects which device type field data be shown for (e.g. desktop/mobile/all devices/etc).
+   * @example {Mobile} PH1
    */
-  deviceType: 'Device type:',
+  showFieldDataForDevice: 'Show field data for device type: {PH1}',
   /**
-   * @description Label for an select box that selects either the page URL or page origin for field data collection.
+   * @description Label for an select box that selects which device type field data be shown for (e.g. desktop/mobile/all devices/etc).
+   * @example {Mobile} PH1
    */
-  urlOrOrigin: 'URL/Origin:',
-  /**
-   * @description Label for an select box that selects which network throttling preset to use.
-   */
-  networkThrottling: 'Network throttling:',
-  /**
-   * @description Label for an select box that selects which CPU throttling preset to use.
-   */
-  cpuThrottling: 'CPU throttling:',
+  device: 'Device: {PH1}',
   /**
    * @description Label for an option to select all device form factors.
    */
@@ -138,12 +137,17 @@ const UIStrings = {
    * @description Label for an option that selects the page's specific URL as opposed to it's entire origin/domain.
    * @example {https://example.com/} PH1
    */
-  urlOptionWithKey: 'URL ({PH1})',
+  urlOptionWithKey: 'URL: {PH1}',
   /**
    * @description Label for an option that selects the page's entire origin/domain as opposed to it's specific URL.
    * @example {https://example.com} PH1
    */
-  originOptionWithKey: 'Origin ({PH1})',
+  originOptionWithKey: 'Origin: {PH1}',
+  /**
+   * @description Label for an combo-box that indicates if field data should be taken from the page's URL or it's origin/domain.
+   * @example {Origin: https://example.com} PH1
+   */
+  showFieldDataForPage: 'Show field data for {PH1}',
   /**
    * @description Text block recommendation instructing the user to disable network throttling to best match real user network data.
    */
@@ -154,9 +158,17 @@ const UIStrings = {
    */
   tryUsingThrottling: 'Try using {PH1} network throttling to approximate the network latency measured by real users.',
   /**
-   * @description Text label for a link to a DOM node.
+   * @description Text block recommendation instructing the user to emulate a mobile device to match most real users.
    */
-  relatedNode: 'Related node',
+  mostUsersMobile: 'A majority of users are on mobile. Try emulating a mobile device that matches real users.',
+  /**
+   * @description Text block recommendation instructing the user to emulate different desktop window sizes to match most real users.
+   */
+  mostUsersDesktop: 'A majority of users are on desktop. Try emulating a desktop window size that matches real users.',
+  /**
+   * @description Text label for a link to the Largest Contentful Paint (LCP) related DOM node.
+   */
+  lcpElement: 'LCP Element',
   /**
    * @description Text label for values that are classified as "good".
    */
@@ -190,10 +202,90 @@ const UIStrings = {
    * @example {13} PH1
    */
   percentage: '{PH1}%',
+  /**
+   * @description Text instructing the user to interact with the page because a user interaction is required to measure Interaction to Next Paint (INP).
+   */
+  interactToMeasure: 'Interact with the page to measure INP.',
+  /**
+   * @description Label for a tooltip that provides more details.
+   */
+  viewCardDetails: 'View card details',
+  /**
+   * @description Label for a a range of dates that represents the period of time a set of field data is collected from.
+   */
+  collectionPeriod: 'Collection period:',
+  /**
+   * @description Text showing a range of dates meant to represent a period of time.
+   * @example {Oct 1, 2024} PH1
+   * @example {Nov 1, 2024} PH2
+   */
+  dateRange: '{PH1} - {PH2}',
+  /**
+   * @description Text block telling the user to see how performance metrics measured on their local computer compare to data collected from real users. PH1 will be a link to more information about the Chrome UX Report and the link text will be untranslated because it is a product name.
+   * @example {Chrome UX Report} PH1
+   */
+  seeHowYourLocalMetricsCompare: 'See how your local metrics compare to real user data in the {PH1}.',
+  /**
+   * @description Text block explaining that local metrics are collected from the local environment used to load the page being tested. PH1 will be a link with text that will be translated separately.
+   * @example {local metrics} PH1
+   */
+  theLocalMetricsAre: 'The {PH1} are captured from the current page using your network connection and device.',
+  /**
+   * @description Link text that is inserted in another translated text block that describes performance metrics measured in the developers local environment.
+   */
+  localMetricsLink: 'local metrics',
+  /**
+   * @description Text block explaining that field metrics are measured by real users using many different connections and hardware over a 28 period. PH1 will be a link with text that will be translated separately.
+   * @example {field data} PH1
+   */
+  theFieldMetricsAre: 'The {PH1} is measured by real users using many different network connections and devices.',
+  /**
+   * @description Link text that is inserted in another translated text block that describes performance data measured by real users in the field.
+   */
+  fieldDataLink: 'field data',
 };
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/LiveMetricsView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+
+function rateMetric(value: number, thresholds: MetricThresholds): MetricRating {
+  if (value <= thresholds[0]) {
+    return 'good';
+  }
+  if (value <= thresholds[1]) {
+    return 'needs-improvement';
+  }
+  return 'poor';
+}
+
+function renderMetricValue(
+    value: number|undefined, thresholds: MetricThresholds, format: (value: number) => string,
+    options?: {dim?: boolean}): HTMLElement {
+  const metricValueEl = document.createElement('span');
+  metricValueEl.classList.add('metric-value');
+  if (value === undefined) {
+    metricValueEl.classList.add('waiting');
+    metricValueEl.textContent = '-';
+    return metricValueEl;
+  }
+
+  metricValueEl.textContent = format(value);
+  const rating = rateMetric(value, thresholds);
+  metricValueEl.classList.add(rating);
+  if (options?.dim) {
+    metricValueEl.classList.add('dim');
+  }
+
+  return metricValueEl;
+}
+
+export interface MetricCardData {
+  metric: 'LCP'|'CLS'|'INP';
+  localValue?: number;
+  fieldValue?: number|string;
+  histogram?: CrUXManager.MetricResponse['histogram'];
+  tooltipContainer?: HTMLElement;
+}
 
 export class MetricCard extends HTMLElement {
   static readonly litTagName = LitHtml.literal`devtools-metric-card`;
@@ -205,8 +297,16 @@ export class MetricCard extends HTMLElement {
     this.#render();
   }
 
-  #metricValuesEl?: Element;
-  #dialog?: Dialogs.Dialog.Dialog|null;
+  #tooltipEl?: HTMLElement;
+
+  #data: MetricCardData = {
+    metric: 'LCP',
+  };
+
+  set data(data: MetricCardData) {
+    this.#data = data;
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
+  }
 
   connectedCallback(): void {
     this.#shadow.adoptedStyleSheets = [liveMetricsViewStyles];
@@ -214,79 +314,334 @@ export class MetricCard extends HTMLElement {
     void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
-  #showDialog(): void {
-    if (!this.#dialog) {
+  #hideTooltipOnEsc = (event: KeyboardEvent): void => {
+    if (Platform.KeyboardUtilities.isEscKey(event)) {
+      event.stopPropagation();
+      this.#hideTooltip();
+    }
+  };
+
+  #hideTooltipOnMouseLeave(event: Event): void {
+    const target = event.target as HTMLElement;
+    if (target?.hasFocus()) {
       return;
     }
-    void this.#dialog.setDialogVisible(true);
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
+
+    this.#hideTooltip();
   }
 
-  #closeDialog(event?: Event): void {
-    if (!this.#dialog || !this.#metricValuesEl) {
+  #hideTooltipOnFocusOut(event: FocusEvent): void {
+    const target = event.target as HTMLElement;
+    if (target?.hasFocus()) {
       return;
     }
 
-    if (event) {
-      const path = event.composedPath();
-      if (path.includes(this.#metricValuesEl)) {
-        return;
-      }
-      if (path.includes(this.#dialog)) {
-        return;
-      }
+    const relatedTarget = event.relatedTarget;
+    if (relatedTarget instanceof Node && target.contains(relatedTarget)) {
+      // `focusout` bubbles so we should get another event once focus leaves `relatedTarget`
+      return;
     }
 
-    void this.#dialog.setDialogVisible(false);
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
+    this.#hideTooltip();
+  }
+
+  #hideTooltip(): void {
+    const tooltipEl = this.#tooltipEl;
+    if (!tooltipEl) {
+      return;
+    }
+
+    document.body.removeEventListener('keydown', this.#hideTooltipOnEsc);
+
+    tooltipEl.style.left = '';
+    tooltipEl.style.maxWidth = '';
+    tooltipEl.style.display = 'none';
+  }
+
+  #showTooltip(): void {
+    const tooltipEl = this.#tooltipEl;
+    if (!tooltipEl || tooltipEl.style.display === 'block') {
+      return;
+    }
+
+    document.body.addEventListener('keydown', this.#hideTooltipOnEsc);
+
+    tooltipEl.style.display = 'block';
+
+    const container = this.#data.tooltipContainer;
+    if (!container) {
+      return;
+    }
+
+    const containerBox = container.getBoundingClientRect();
+    tooltipEl.style.maxWidth = `${Math.round(containerBox.width)}px`;
+
+    requestAnimationFrame(() => {
+      let offset = 0;
+
+      const tooltipBox = tooltipEl.getBoundingClientRect();
+
+      const rightDiff = tooltipBox.right - containerBox.right;
+      const leftDiff = tooltipBox.left - containerBox.left;
+
+      if (leftDiff < 0) {
+        offset = Math.round(leftDiff);
+      } else if (rightDiff > 0) {
+        offset = Math.round(rightDiff);
+      }
+
+      tooltipEl.style.left = `calc(50% - ${offset}px)`;
+    });
+  }
+
+  #getTitle(): string {
+    switch (this.#data.metric) {
+      case 'LCP':
+        return i18nString(UIStrings.lcpTitle);
+      case 'CLS':
+        return i18nString(UIStrings.clsTitle);
+      case 'INP':
+        return i18nString(UIStrings.inpTitle);
+    }
+  }
+
+  #getThresholds(): MetricThresholds {
+    switch (this.#data.metric) {
+      case 'LCP':
+        return LCP_THRESHOLDS;
+      case 'CLS':
+        return CLS_THRESHOLDS;
+      case 'INP':
+        return INP_THRESHOLDS;
+    }
+  }
+
+  #getFormatFn(): (value: number) => string {
+    switch (this.#data.metric) {
+      case 'LCP':
+        return v => i18n.TimeUtilities.millisToString(v);
+      case 'CLS':
+        return v => v === 0 ? '0' : v.toFixed(2);
+      case 'INP':
+        return v => i18n.TimeUtilities.millisToString(v);
+    }
+  }
+
+  #getLocalValue(): number|undefined {
+    const {localValue} = this.#data;
+    if (localValue === undefined) {
+      return;
+    }
+
+    return localValue;
+  }
+
+  #getFieldValue(): number|undefined {
+    let {fieldValue} = this.#data;
+    if (fieldValue === undefined) {
+      return;
+    }
+
+    if (typeof fieldValue === 'string') {
+      fieldValue = Number(fieldValue);
+    }
+
+    if (!Number.isFinite(fieldValue)) {
+      return;
+    }
+
+    return fieldValue;
+  }
+
+  #getCompareRating(): 'better'|'worse'|'similar'|undefined {
+    const localValue = this.#getLocalValue();
+    const fieldValue = this.#getFieldValue();
+    if (localValue === undefined || fieldValue === undefined) {
+      return;
+    }
+
+    const threshold = this.#getThresholds()[0];
+    if (localValue - fieldValue > threshold) {
+      return 'worse';
+    }
+    if (fieldValue - localValue > threshold) {
+      return 'better';
+    }
+
+    return 'similar';
+  }
+
+  #renderCompareString(): LitHtml.LitTemplate {
+    const localValue = this.#getLocalValue();
+    if (localValue === undefined) {
+      if (this.#data.metric === 'INP') {
+        return html`
+          <div class="compare-text">${i18nString(UIStrings.interactToMeasure)}</div>
+        `;
+      }
+      return LitHtml.nothing;
+    }
+
+    const compare = this.#getCompareRating();
+    const rating = rateMetric(localValue, this.#getThresholds());
+
+    const valueEl = renderMetricValue(localValue, this.#getThresholds(), this.#getFormatFn(), {dim: true});
+
+    // clang-format off
+    return html`
+      <div class="compare-text">
+        ${renderCompareText(rating, compare, {
+          PH1: this.#data.metric,
+          PH2: valueEl,
+        })}
+      </div>
+    `;
+    // clang-format on
+  }
+
+  #renderDetailedCompareString(): LitHtml.LitTemplate {
+    const localValue = this.#getLocalValue();
+    if (localValue === undefined) {
+      if (this.#data.metric === 'INP') {
+        return html`
+          <div class="detailed-compare-text">${i18nString(UIStrings.interactToMeasure)}</div>
+        `;
+      }
+      return LitHtml.nothing;
+    }
+
+    const localRating = rateMetric(localValue, this.#getThresholds());
+
+    const fieldValue = this.#getFieldValue();
+    const fieldRating = fieldValue !== undefined ? rateMetric(fieldValue, this.#getThresholds()) : undefined;
+
+    const localValueEl = renderMetricValue(localValue, this.#getThresholds(), this.#getFormatFn(), {dim: true});
+    const fieldValueEl = renderMetricValue(fieldValue, this.#getThresholds(), this.#getFormatFn(), {dim: true});
+
+    // clang-format off
+    return html`
+      <div class="detailed-compare-text">${renderDetailedCompareText(localRating, fieldRating, {
+        PH1: this.#data.metric,
+        PH2: localValueEl,
+        PH3: fieldValueEl,
+        PH4: this.#getBucketLabel(localRating),
+      })}</div>
+    `;
+    // clang-format on
+  }
+
+  #densityToCSSPercent(density?: number): string {
+    if (density === undefined) {
+      density = 0;
+    }
+    const percent = Math.round(density * 100);
+    return `${percent}%`;
+  }
+
+  #getBucketLabel(rating: MetricRating): string {
+    const histogram = this.#data.histogram;
+    if (histogram === undefined) {
+      return '-';
+    }
+
+    let bucket;
+    switch (rating) {
+      case 'good':
+        bucket = 0;
+        break;
+      case 'needs-improvement':
+        bucket = 1;
+        break;
+      case 'poor':
+        bucket = 2;
+        break;
+    }
+
+    // A missing density value should be interpreted as 0%
+    const density = histogram[bucket].density || 0;
+    const percent = Math.round(density * 100);
+    return i18nString(UIStrings.percentage, {PH1: percent});
+  }
+
+  #renderFieldHistogram(): LitHtml.LitTemplate {
+    const histogram = this.#data.histogram;
+
+    const goodPercent = this.#densityToCSSPercent(histogram?.[0].density);
+    const needsImprovementPercent = this.#densityToCSSPercent(histogram?.[1].density);
+    const poorPercent = this.#densityToCSSPercent(histogram?.[2].density);
+
+    const format = this.#getFormatFn();
+    const thresholds = this.#getThresholds();
+
+    // clang-format off
+    return html`
+      <div class="field-data-histogram">
+        <span class="histogram-label">
+          ${i18nString(UIStrings.good)}
+          <span class="histogram-range">${i18nString(UIStrings.leqRange, {PH1: format(thresholds[0])})}</span>
+        </span>
+        <span class="histogram-bar good-bg" style="width: ${goodPercent}"></span>
+        <span class="histogram-percent">${this.#getBucketLabel('good')}</span>
+        <span class="histogram-label">
+          ${i18nString(UIStrings.needsImprovement)}
+          <span class="histogram-range">${i18nString(UIStrings.betweenRange, {PH1: format(thresholds[0]), PH2: format(thresholds[1])})}</span>
+        </span>
+        <span class="histogram-bar needs-improvement-bg" style="width: ${needsImprovementPercent}"></span>
+        <span class="histogram-percent">${this.#getBucketLabel('needs-improvement')}</span>
+        <span class="histogram-label">
+          ${i18nString(UIStrings.poor)}
+          <span class="histogram-range">${i18nString(UIStrings.gtRange, {PH1: format(thresholds[1])})}</span>
+        </span>
+        <span class="histogram-bar poor-bg" style="width: ${poorPercent}"></span>
+        <span class="histogram-percent">${this.#getBucketLabel('poor')}</span>
+      </div>
+    `;
+    // clang-format on
   }
 
   #render = (): void => {
+    const fieldEnabled = CrUXManager.CrUXManager.instance().getConfigSetting().get().enabled;
+
     // clang-format off
     const output = html`
-      <div class="card metric-card">
-        <div class="card-title">
-          <slot name="headline"></slot>
-        </div>
-        <div class="card-metric-values"
-          @mouseenter=${this.#showDialog}
-          @mouseleave=${this.#closeDialog}
-          on-render=${ComponentHelpers.Directives.nodeRenderedCallback(node => {
-            this.#metricValuesEl = node;
-          })}
+      <div class="metric-card">
+        <h3 class="card-title">
+          ${this.#getTitle()}
+        </h3>
+        <div tabindex="0" class="card-values"
+          @mouseenter=${this.#showTooltip}
+          @mouseleave=${this.#hideTooltipOnMouseLeave}
+          @focusin=${this.#showTooltip}
+          @focusout=${this.#hideTooltipOnFocusOut}
+          aria-describedby="tooltip"
         >
-          <span class="local-value">
-            <slot name="local-value"></slot>
-          </span>
-          <span class="field-value">
-            <slot name="field-value"></slot>
-          </span>
-          <span class="metric-value-label">${i18nString(UIStrings.localValue)}</span>
-          <span class="metric-value-label">${i18nString(UIStrings.field75thPercentile)}</span>
-        </div>
-        <${Dialogs.Dialog.Dialog.litTagName}
-          @pointerleftdialog=${() => this.#closeDialog()}
-          .showConnector=${true}
-          .centered=${true}
-          .closeOnScroll=${false}
-          .origin=${() => {
-            if (!this.#metricValuesEl) {
-              throw new Error('No metric values element');
-            }
-            return this.#metricValuesEl;
-          }}
-          on-render=${ComponentHelpers.Directives.nodeRenderedCallback(node => {
-            this.#dialog = node as Dialogs.Dialog.Dialog;
-          })}
-        >
-          <div class="tooltip-content">
-            <slot name="tooltip"></slot>
+          <div class="card-value-block">
+            <div class="card-value" id="local-value">${renderMetricValue(this.#getLocalValue(), this.#getThresholds(), this.#getFormatFn())}</div>
+            ${fieldEnabled ? html`<div class="card-metric-label">${i18nString(UIStrings.localValue)}</div>` : nothing}
           </div>
-        </${Dialogs.Dialog.Dialog.litTagName}>
-        <hr class="divider">
-        <div class="metric-card-element">
-          <slot name="related-element"><slot>
+          ${fieldEnabled ? html`
+            <div class="card-value-block">
+              <div class="card-value" id="field-value">${renderMetricValue(this.#getFieldValue(), this.#getThresholds(), this.#getFormatFn())}</div>
+              <div class="card-value-label">${i18nString(UIStrings.field75thPercentile)}</div>
+            </div>
+          `: nothing}
+          <div
+            id="tooltip"
+            class="tooltip"
+            role="tooltip"
+            aria-label=${i18nString(UIStrings.viewCardDetails)}
+            on-render=${ComponentHelpers.Directives.nodeRenderedCallback(node => {
+              this.#tooltipEl = node as HTMLElement;
+            })}
+          >
+            ${this.#renderDetailedCompareString()}
+            <hr class="divider">
+            ${this.#renderFieldHistogram()}
+          </div>
         </div>
+        ${fieldEnabled ? html`<hr class="divider">` : nothing}
+        ${this.#renderCompareString()}
+        <slot name="extra-info"><slot>
       </div>
     `;
     LitHtml.render(output, this.#shadow, {host: this});
@@ -310,6 +665,8 @@ export class LiveMetricsView extends HTMLElement {
 
   #toggleRecordAction: UI.ActionRegistration.Action;
   #recordReloadAction: UI.ActionRegistration.Action;
+
+  #tooltipContainerEl?: Element;
 
   constructor() {
     super();
@@ -342,9 +699,13 @@ export class LiveMetricsView extends HTMLElement {
     void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
-  #getFieldMetricData(fieldMetric: CrUXManager.MetricNames): CrUXManager.MetricResponse|undefined {
+  #getSelectedFieldResponse(): CrUXManager.CrUXResponse|null|undefined {
     const deviceScope = this.#fieldDeviceOption === 'AUTO' ? this.#getAutoDeviceScope() : this.#fieldDeviceOption;
-    return this.#cruxPageResult?.[`${this.#fieldPageScope}-${deviceScope}`]?.record.metrics[fieldMetric];
+    return this.#cruxPageResult?.[`${this.#fieldPageScope}-${deviceScope}`];
+  }
+
+  #getFieldMetricData(fieldMetric: CrUXManager.StandardMetricNames): CrUXManager.MetricResponse|undefined {
+    return this.#getSelectedFieldResponse()?.record.metrics[fieldMetric];
   }
 
   connectedCallback(): void {
@@ -380,143 +741,60 @@ export class LiveMetricsView extends HTMLElement {
     emulationModel.removeEventListener(EmulationModel.DeviceModeModel.Events.Updated, this.#onEmulationChanged, this);
   }
 
-  #renderMetricValue(value: number|string|undefined, thresholds: MetricThresholds, format: (value: number) => string):
-      LitHtml.LitTemplate {
-    if (value === undefined) {
-      return html`<span class="metric-value waiting">-<span>`;
-    }
-
-    if (typeof value === 'string') {
-      value = Number(value);
-    }
-
-    const rating = this.#rateMetric(value, thresholds);
-    const valueString = format(value);
-    return html`
-      <span class=${`metric-value ${rating}`}>${valueString}</span>
-    `;
-  }
-
   #renderLcpCard(): LitHtml.LitTemplate {
     const fieldData = this.#getFieldMetricData('largest_contentful_paint');
+    const node = this.#lcpValue?.node;
 
-    return this.#renderMetricCard(
-        i18nString(UIStrings.lcpTitle),
-        this.#lcpValue?.value,
-        fieldData?.percentiles?.p75,
-        fieldData?.histogram,
-        LCP_THRESHOLDS,
-        v => i18n.TimeUtilities.millisToString(v),
-        this.#lcpValue?.node,
-    );
+    // clang-format off
+    return html`
+      <${MetricCard.litTagName} .data=${{
+        metric: 'LCP',
+        localValue: this.#lcpValue?.value,
+        fieldValue: fieldData?.percentiles?.p75,
+        histogram: fieldData?.histogram,
+        tooltipContainer: this.#tooltipContainerEl,
+      } as MetricCardData}>
+        ${node ? html`
+            <div class="related-element-info" slot="extra-info">
+              <span class="related-element-label">${i18nString(UIStrings.lcpElement)}</span>
+              <span class="related-element-link">${until(Common.Linkifier.Linkifier.linkify(node))}</span>
+            </div>
+          `
+          : nothing}
+      </${MetricCard.litTagName}>
+    `;
+    // clang-format on
   }
 
   #renderClsCard(): LitHtml.LitTemplate {
     const fieldData = this.#getFieldMetricData('cumulative_layout_shift');
 
-    return this.#renderMetricCard(
-        i18nString(UIStrings.clsTitle),
-        this.#clsValue?.value,
-        fieldData?.percentiles?.p75,
-        fieldData?.histogram,
-        CLS_THRESHOLDS,
-        v => v === 0 ? '0' : v.toFixed(2),
-    );
+    // clang-format off
+    return html`
+      <${MetricCard.litTagName} .data=${{
+        metric: 'CLS',
+        localValue: this.#clsValue?.value,
+        fieldValue: fieldData?.percentiles?.p75,
+        histogram: fieldData?.histogram,
+        tooltipContainer: this.#tooltipContainerEl,
+      } as MetricCardData}>
+      </${MetricCard.litTagName}>
+    `;
+    // clang-format on
   }
 
   #renderInpCard(): LitHtml.LitTemplate {
     const fieldData = this.#getFieldMetricData('interaction_to_next_paint');
 
-    return this.#renderMetricCard(
-        i18nString(UIStrings.inpTitle),
-        this.#inpValue?.value,
-        fieldData?.percentiles?.p75,
-        fieldData?.histogram,
-        INP_THRESHOLDS,
-        v => i18n.TimeUtilities.millisToString(v),
-    );
-  }
-
-  #densityToCSSPercent(density?: number): string {
-    if (density === undefined) {
-      density = 0;
-    }
-    const percent = Math.round(density * 100);
-    return `${percent}%`;
-  }
-
-  #getBucketLabel(histogram: CrUXManager.MetricResponse['histogram']|undefined, bucket: number): string {
-    if (histogram === undefined) {
-      return '-';
-    }
-
-    // A missing density value should be interpreted as 0%
-    const density = histogram[bucket].density || 0;
-    const percent = Math.round(density * 100);
-    return i18nString(UIStrings.percentage, {PH1: percent});
-  }
-
-  #renderFieldHistogram(
-      histogram: CrUXManager.MetricResponse['histogram']|undefined, thresholds: MetricThresholds,
-      format: (value: number) => string): LitHtml.LitTemplate {
-    const goodPercent = this.#densityToCSSPercent(histogram?.[0].density);
-    const needsImprovementPercent = this.#densityToCSSPercent(histogram?.[1].density);
-    const poorPercent = this.#densityToCSSPercent(histogram?.[2].density);
     // clang-format off
     return html`
-      <div class="field-data-histogram">
-        <span class="histogram-label">
-          ${i18nString(UIStrings.good)}
-          <span class="histogram-range">${i18nString(UIStrings.leqRange, {PH1: format(thresholds[0])})}</span>
-        </span>
-        <span class="histogram-bar good-bg" style="width: ${goodPercent}"></span>
-        <span class="histogram-percent">${this.#getBucketLabel(histogram, 0)}</span>
-        <span class="histogram-label">
-          ${i18nString(UIStrings.needsImprovement)}
-          <span class="histogram-range">${i18nString(UIStrings.betweenRange, {PH1: format(thresholds[0]), PH2: format(thresholds[1])})}</span>
-        </span>
-        <span class="histogram-bar needs-improvement-bg" style="width: ${needsImprovementPercent}"></span>
-        <span class="histogram-percent">${this.#getBucketLabel(histogram, 1)}</span>
-        <span class="histogram-label">
-          ${i18nString(UIStrings.poor)}
-          <span class="histogram-range">${i18nString(UIStrings.gtRange, {PH1: format(thresholds[1])})}</span>
-        </span>
-        <span class="histogram-bar poor-bg" style="width: ${poorPercent}"></span>
-        <span class="histogram-percent">${this.#getBucketLabel(histogram, 2)}</span>
-      </div>
-    `;
-    // clang-format on
-  }
-
-  #rateMetric(value: number, thresholds: MetricThresholds): MetricRating {
-    if (value <= thresholds[0]) {
-      return 'good';
-    }
-    if (value <= thresholds[1]) {
-      return 'needs-improvement';
-    }
-    return 'poor';
-  }
-
-  #renderMetricCard(
-      title: string, localValue: number|undefined, fieldValue: number|string|undefined,
-      histogram: CrUXManager.MetricResponse['histogram']|undefined, thresholds: MetricThresholds,
-      format: (value: number) => string, node?: SDK.DOMModel.DOMNode): LitHtml.LitTemplate {
-    // clang-format off
-    return html`
-      <${MetricCard.litTagName}>
-        <div slot="headline">${title}</div>
-        <span slot="local-value">${this.#renderMetricValue(localValue, thresholds, format)}</span>
-        <span slot="field-value">${this.#renderMetricValue(fieldValue, thresholds, format)}</span>
-        <div slot="tooltip">
-          ${this.#renderFieldHistogram(histogram, thresholds, format)}
-        </div>
-        <div slot="related-element">
-          ${node ? html`
-              <div class="card-section-title">${i18nString(UIStrings.relatedNode)}</div>
-              <div>${until(Common.Linkifier.Linkifier.linkify(node))}</div>`
-            : nothing}
-        </div>
+      <${MetricCard.litTagName} .data=${{
+        metric: 'INP',
+        localValue: this.#inpValue?.value,
+        fieldValue: fieldData?.percentiles?.p75,
+        histogram: fieldData?.histogram,
+        tooltipContainer: this.#tooltipContainerEl,
+      } as MetricCardData}>
       </${MetricCard.litTagName}>
     `;
     // clang-format on
@@ -584,31 +862,50 @@ export class LiveMetricsView extends HTMLElement {
     return closestPreset;
   }
 
-  #renderThrottlingSettings(): LitHtml.LitTemplate {
-    const throttlingRec = this.#getClosestNetworkPreset();
+  #getDeviceRec(): Common.UIString.LocalizedString|null {
+    // `form_factors` metric is only populated if CrUX data is fetched for all devices.
+    const fractions = this.#cruxPageResult?.[`${this.#fieldPageScope}-ALL`]?.record.metrics.form_factors?.fractions;
+    if (!fractions) {
+      return null;
+    }
 
-    let recStr;
+    if (fractions.desktop > 0.5) {
+      return i18nString(UIStrings.mostUsersDesktop);
+    }
+
+    if (fractions.phone > 0.5) {
+      return i18nString(UIStrings.mostUsersMobile);
+    }
+
+    return null;
+  }
+
+  #renderRecordingSettings(): LitHtml.LitTemplate {
+    const throttlingRec = this.#getClosestNetworkPreset();
+    const deviceRec = this.#getDeviceRec();
+
+    let networkRecEl;
     if (throttlingRec) {
       if (throttlingRec === SDK.NetworkManager.NoThrottlingConditions) {
-        recStr = i18nString(UIStrings.tryDisablingThrottling);
+        networkRecEl = i18nString(UIStrings.tryDisablingThrottling);
       } else {
         const title = typeof throttlingRec.title === 'function' ? throttlingRec.title() : throttlingRec.title;
-        recStr = i18nString(UIStrings.tryUsingThrottling, {PH1: title});
+
+        const recValueEl = document.createElement('span');
+        recValueEl.classList.add('throttling-recommendation-value');
+        recValueEl.textContent = title;
+
+        networkRecEl = i18n.i18n.getFormatLocalizedString(str_, UIStrings.tryUsingThrottling, {PH1: recValueEl});
       }
     }
 
     // clang-format off
     return html`
-      <div class="card-title">${i18nString(UIStrings.throttling)}</div>
-      ${recStr ? html`<div class="throttling-recommendation">${recStr}</div>` : nothing}
-      <span class="live-metrics-option">
-        ${i18nString(UIStrings.cpuThrottling)}<${CPUThrottlingSelector.litTagName}>
-        </${CPUThrottlingSelector.litTagName}>
-      </span>
-      <span class="live-metrics-option">
-        ${i18nString(UIStrings.networkThrottling)}
-        <${NetworkThrottlingSelector.litTagName}></${NetworkThrottlingSelector.litTagName}>
-      </span>
+      <h3 class="card-title">${i18nString(UIStrings.recordingSettings)}</h3>
+      ${deviceRec ? html`<div id="device-recommendation" class="setting-recommendation">${deviceRec}</div>` : nothing}
+      ${networkRecEl ? html`<div id="network-recommendation" class="setting-recommendation">${networkRecEl}</div>` : nothing}
+      <${CPUThrottlingSelector.litTagName} class="live-metrics-option"></${CPUThrottlingSelector.litTagName}>
+      <${NetworkThrottlingSelector.litTagName} class="live-metrics-option"></${NetworkThrottlingSelector.litTagName}>
     `;
     // clang-format on
   }
@@ -641,32 +938,35 @@ export class LiveMetricsView extends HTMLElement {
     const urlLabel = this.#getPageScopeLabel('url');
     const originLabel = this.#getPageScopeLabel('origin');
 
+    const buttonTitle = this.#fieldPageScope === 'url' ? urlLabel : originLabel;
+    const accessibleTitle = i18nString(UIStrings.showFieldDataForPage, {PH1: buttonTitle});
+
     return html`
-      <span id="page-scope-select" class="live-metrics-option">
-        ${i18nString(UIStrings.urlOrOrigin)}
-        <${Menus.SelectMenu.SelectMenu.litTagName}
-          @selectmenuselected=${this.#onPageScopeMenuItemSelected}
-          .showDivider=${true}
-          .showArrow=${true}
-          .sideButton=${false}
-          .showSelectedItem=${true}
-          .showConnector=${false}
-          .buttonTitle=${this.#fieldPageScope === 'url' ? urlLabel : originLabel}
+      <${Menus.SelectMenu.SelectMenu.litTagName}
+        id="page-scope-select"
+        class="live-metrics-option"
+        @selectmenuselected=${this.#onPageScopeMenuItemSelected}
+        .showDivider=${true}
+        .showArrow=${true}
+        .sideButton=${false}
+        .showSelectedItem=${true}
+        .showConnector=${false}
+        .buttonTitle=${buttonTitle}
+        title=${accessibleTitle}
+      >
+        <${Menus.Menu.MenuItem.litTagName}
+          .value=${'url'}
+          .selected=${this.#fieldPageScope === 'url'}
         >
-          <${Menus.Menu.MenuItem.litTagName}
-            .value=${'url'}
-            .selected=${this.#fieldPageScope === 'url'}
-          >
-            ${urlLabel}
-          </${Menus.Menu.MenuItem.litTagName}>
-          <${Menus.Menu.MenuItem.litTagName}
-            .value=${'origin'}
-            .selected=${this.#fieldPageScope === 'origin'}
-          >
-            ${originLabel}
-          </${Menus.Menu.MenuItem.litTagName}>
-        </${Menus.SelectMenu.SelectMenu.litTagName}>
-      </span>
+          ${urlLabel}
+        </${Menus.Menu.MenuItem.litTagName}>
+        <${Menus.Menu.MenuItem.litTagName}
+          .value=${'origin'}
+          .selected=${this.#fieldPageScope === 'origin'}
+        >
+          ${originLabel}
+        </${Menus.Menu.MenuItem.litTagName}>
+      </${Menus.SelectMenu.SelectMenu.litTagName}>
     `;
   }
 
@@ -730,44 +1030,130 @@ export class LiveMetricsView extends HTMLElement {
     // before coming back to this option.
     const shouldDisable = !this.#cruxPageResult?.[`${this.#fieldPageScope}-ALL`];
 
+    const currentDeviceLabel = this.#getLabelForDeviceOption(this.#fieldDeviceOption);
+
     // clang-format off
     return html`
-      <span id="device-scope-select" class="live-metrics-option">
-        ${i18nString(UIStrings.deviceType)}
-        <${Menus.SelectMenu.SelectMenu.litTagName}
-          @selectmenuselected=${this.#onDeviceOptionMenuItemSelected}
-          .showDivider=${true}
-          .showArrow=${true}
-          .sideButton=${false}
-          .showSelectedItem=${true}
-          .showConnector=${false}
-          .buttonTitle=${this.#getLabelForDeviceOption(this.#fieldDeviceOption)}
-          .disabled=${shouldDisable}
-        >
-          ${DEVICE_OPTION_LIST.map(deviceOption => {
-            return html`
-              <${Menus.Menu.MenuItem.litTagName}
-                .value=${deviceOption}
-                .selected=${this.#fieldDeviceOption === deviceOption}
-              >
-                ${this.#getLabelForDeviceOption(deviceOption)}
-              </${Menus.Menu.MenuItem.litTagName}>
-            `;
-          })}
-        </${Menus.SelectMenu.SelectMenu.litTagName}>
-      </span>
+      <${Menus.SelectMenu.SelectMenu.litTagName}
+        id="device-scope-select"
+        class="live-metrics-option"
+        @selectmenuselected=${this.#onDeviceOptionMenuItemSelected}
+        .showDivider=${true}
+        .showArrow=${true}
+        .sideButton=${false}
+        .showSelectedItem=${true}
+        .showConnector=${false}
+        .buttonTitle=${i18nString(UIStrings.device, {PH1: currentDeviceLabel})}
+        .disabled=${shouldDisable}
+        title=${i18nString(UIStrings.showFieldDataForDevice, {PH1: currentDeviceLabel})}
+      >
+        ${DEVICE_OPTION_LIST.map(deviceOption => {
+          return html`
+            <${Menus.Menu.MenuItem.litTagName}
+              .value=${deviceOption}
+              .selected=${this.#fieldDeviceOption === deviceOption}
+            >
+              ${this.#getLabelForDeviceOption(deviceOption)}
+            </${Menus.Menu.MenuItem.litTagName}>
+          `;
+        })}
+      </${Menus.SelectMenu.SelectMenu.litTagName}>
     `;
     // clang-format on
   }
 
+  #renderCollectionPeriod(): LitHtml.LitTemplate {
+    const selectedResponse = this.#getSelectedFieldResponse();
+    if (!selectedResponse) {
+      return LitHtml.nothing;
+    }
+
+    const {firstDate, lastDate} = selectedResponse.record.collectionPeriod;
+
+    const formattedFirstDate = new Date(
+        firstDate.year,
+        // CrUX month is 1-indexed but `Date` month is 0-indexed
+        firstDate.month - 1,
+        firstDate.day,
+    );
+    const formattedLastDate = new Date(
+        lastDate.year,
+        // CrUX month is 1-indexed but `Date` month is 0-indexed
+        lastDate.month - 1,
+        lastDate.day,
+    );
+
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    };
+
+    const dateEl = document.createElement('span');
+    dateEl.classList.add('collection-period-range');
+    dateEl.textContent = i18nString(UIStrings.dateRange, {
+      PH1: formattedFirstDate.toLocaleDateString(undefined, options),
+      PH2: formattedLastDate.toLocaleDateString(undefined, options),
+    });
+
+    return html`
+      <div class="field-data-message">
+        ${i18nString(UIStrings.collectionPeriod)}
+        ${dateEl}
+      </div>
+    `;
+  }
+
+  #renderFieldDataMessage(): LitHtml.LitTemplate {
+    if (CrUXManager.CrUXManager.instance().getConfigSetting().get().enabled) {
+      return this.#renderCollectionPeriod();
+    }
+
+    // "Chrome UX Report" is intentionally left untranslated because it is a product name.
+    const linkEl = UI.XLink.XLink.create('https://developer.chrome.com/docs/crux', 'Chrome UX Report');
+    const messageEl = i18n.i18n.getFormatLocalizedString(str_, UIStrings.seeHowYourLocalMetricsCompare, {PH1: linkEl});
+
+    return html`
+      <div class="field-data-message">${messageEl}</div>
+    `;
+  }
+
+  #renderDataDescriptions(): LitHtml.LitTemplate {
+    const fieldEnabled = CrUXManager.CrUXManager.instance().getConfigSetting().get().enabled;
+
+    const localLink = UI.XLink.XLink.create(
+        'https://web.dev/articles/lab-and-field-data-differences#lab_data', i18nString(UIStrings.localMetricsLink));
+    const localEl = i18n.i18n.getFormatLocalizedString(str_, UIStrings.theLocalMetricsAre, {PH1: localLink});
+
+    const fieldLink = UI.XLink.XLink.create(
+        'https://web.dev/articles/lab-and-field-data-differences#field_data', i18nString(UIStrings.fieldDataLink));
+    const fieldEl = i18n.i18n.getFormatLocalizedString(str_, UIStrings.theFieldMetricsAre, {PH1: fieldLink});
+
+    return html`
+      <div class="data-descriptions">
+        <div>${localEl}</div>
+        ${fieldEnabled ? html`<div>${fieldEl}</div>` : nothing}
+      </div>
+    `;
+  }
+
   #render = (): void => {
+    const fieldEnabled = CrUXManager.CrUXManager.instance().getConfigSetting().get().enabled;
+    const liveMetricsTitle =
+        fieldEnabled ? i18nString(UIStrings.localAndFieldMetrics) : i18nString(UIStrings.localMetrics);
+
     // clang-format off
     const output = html`
       <div class="container">
         <div class="live-metrics-view">
-          <div class="live-metrics" slot="main">
-            <h3>${i18nString(UIStrings.localAndFieldMetrics)}</h3>
-            <div class="metric-cards">
+          <main class="live-metrics"
+          >
+            <h2 class="section-title">${liveMetricsTitle}</h2>
+            <div class="metric-cards"
+              on-render=${ComponentHelpers.Directives.nodeRenderedCallback(node => {
+                this.#tooltipContainerEl = node;
+              })}
+            >
               <div id="lcp">
                 ${this.#renderLcpCard()}
               </div>
@@ -778,40 +1164,46 @@ export class LiveMetricsView extends HTMLElement {
                 ${this.#renderInpCard()}
               </div>
             </div>
-            <h3>${i18nString(UIStrings.interactions)}</h3>
-            <ol class="interactions-list">
-              ${this.#interactions.map((interaction, index) => html`
-                ${index === 0 ? html`<hr class="divider">` : nothing}
-                <li class="interaction">
-                  <span class="interaction-type">${interaction.interactionType}</span>
-                  <span class="interaction-node">${
-                    interaction.node && until(Common.Linkifier.Linkifier.linkify(interaction.node))}</span>
-                  <span class="interaction-duration">
-                    ${this.#renderMetricValue(interaction.duration, INP_THRESHOLDS, v => i18n.TimeUtilities.millisToString(v))}
-                  </span>
-                </li>
-                <hr class="divider">
-              `)}
-            </ol>
-          </div>
-          <div class="next-steps" slot="sidebar">
-            <h3>${i18nString(UIStrings.nextSteps)}</h3>
-            <div id="field-setup" class="card">
-              <div class="card-title">${i18nString(UIStrings.fieldData)}</div>
+            ${this.#renderDataDescriptions()}
+            ${this.#interactions.length > 0 ? html`
+              <section class="interactions-section" aria-labelledby="interactions-section-title">
+                <h2 id="interactions-section-title" class="section-title">${i18nString(UIStrings.interactions)}</h2>
+                <ol class="interactions-list">
+                  ${this.#interactions.map(interaction => html`
+                    <li class="interaction">
+                      <span class="interaction-type">${interaction.interactionType}</span>
+                      <span class="interaction-node">${
+                        interaction.node && until(Common.Linkifier.Linkifier.linkify(interaction.node))}</span>
+                      <span class="interaction-duration">
+                        ${renderMetricValue(interaction.duration, INP_THRESHOLDS, v => i18n.TimeUtilities.millisToString(v), {dim: true})}
+                      </span>
+                    </li>
+                  `)}
+                </ol>
+              </section>
+            ` : nothing}
+          </main>
+          <aside class="next-steps" aria-labelledby="next-steps-section-title">
+            <h2 id="next-steps-section-title" class="section-title">${i18nString(UIStrings.nextSteps)}</h2>
+            <div id="field-setup" class="settings-card">
+              <h3 class="card-title">${i18nString(UIStrings.fieldData)}</h3>
+              ${this.#renderFieldDataMessage()}
               ${this.#renderPageScopeSetting()}
               ${this.#renderDeviceScopeSetting()}
-              <${FieldSettingsDialog.litTagName}></${FieldSettingsDialog.litTagName}>
+              <div class="field-setup-buttons">
+                <${FieldSettingsDialog.litTagName}></${FieldSettingsDialog.litTagName}>
+              </div>
             </div>
-            <div id="throttling" class="card">
-              ${this.#renderThrottlingSettings()}
+            <div id="recording-settings" class="settings-card">
+              ${this.#renderRecordingSettings()}
             </div>
-            <div id="record" class="card">
+            <div id="record" class="record-action-card">
               ${this.#renderRecordAction(this.#toggleRecordAction)}
             </div>
-            <div id="record-page-load" class="card">
+            <div id="record-page-load" class="record-action-card">
               ${this.#renderRecordAction(this.#recordReloadAction)}
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     `;

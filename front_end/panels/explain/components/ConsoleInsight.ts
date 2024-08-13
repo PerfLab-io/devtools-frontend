@@ -233,7 +233,7 @@ type StateData = {
 
 export class ConsoleInsight extends HTMLElement {
   static async create(promptBuilder: PublicPromptBuilder, aidaClient: PublicAidaClient): Promise<ConsoleInsight> {
-    const aidaAvailability = await Host.AidaClient.AidaClient.getAidaClientAvailability();
+    const aidaAvailability = await Host.AidaClient.AidaClient.checkAccessPreconditions();
     return new ConsoleInsight(promptBuilder, aidaClient, aidaAvailability);
   }
 
@@ -252,29 +252,29 @@ export class ConsoleInsight extends HTMLElement {
 
   constructor(
       promptBuilder: PublicPromptBuilder, aidaClient: PublicAidaClient,
-      aidaAvailability: Host.AidaClient.AidaAvailability) {
+      aidaAvailability: Host.AidaClient.AidaAccessPreconditions) {
     super();
     this.#promptBuilder = promptBuilder;
     this.#aidaClient = aidaClient;
     switch (aidaAvailability) {
-      case Host.AidaClient.AidaAvailability.AVAILABLE:
+      case Host.AidaClient.AidaAccessPreconditions.AVAILABLE:
         this.#state = {
           type: State.LOADING,
           consentReminderConfirmed: false,
           consentOnboardingFinished: this.#getOnboardingCompletedSetting().get(),
         };
         break;
-      case Host.AidaClient.AidaAvailability.NO_ACCOUNT_EMAIL:
+      case Host.AidaClient.AidaAccessPreconditions.NO_ACCOUNT_EMAIL:
         this.#state = {
           type: State.NOT_LOGGED_IN,
         };
         break;
-      case Host.AidaClient.AidaAvailability.NO_ACTIVE_SYNC:
+      case Host.AidaClient.AidaAccessPreconditions.NO_ACTIVE_SYNC:
         this.#state = {
           type: State.SYNC_IS_OFF,
         };
         break;
-      case Host.AidaClient.AidaAvailability.NO_INTERNET:
+      case Host.AidaClient.AidaAccessPreconditions.NO_INTERNET:
         this.#state = {
           type: State.OFFLINE,
         };
@@ -384,7 +384,7 @@ export class ConsoleInsight extends HTMLElement {
       Host.userMetrics.actionTaken(Host.UserMetrics.Action.InsightRatedNegative);
     }
     const disallowLogging =
-        Common.Settings.Settings.instance().getHostConfig()?.devToolsConsoleInsights.disallowLogging === true;
+        Common.Settings.Settings.instance().getHostConfig().devToolsConsoleInsights?.disallowLogging ?? true;
     void this.#aidaClient.registerClientEvent({
       corresponding_aida_rpc_global_id: this.#state.metadata.rpcGlobalId,
       disable_user_content_logging: disallowLogging,
@@ -663,7 +663,7 @@ export class ConsoleInsight extends HTMLElement {
   #renderMain(): LitHtml.TemplateResult {
     const jslog = `${VisualLogging.section(this.#state.type).track({resize: true})}`;
     const disallowLogging =
-        Common.Settings.Settings.instance().getHostConfig()?.devToolsConsoleInsights.disallowLogging === true;
+        Common.Settings.Settings.instance().getHostConfig().devToolsConsoleInsights?.disallowLogging ?? true;
     // clang-format off
     switch (this.#state.type) {
       case State.LOADING:
@@ -761,7 +761,7 @@ export class ConsoleInsight extends HTMLElement {
 
   #renderFooter(): LitHtml.LitTemplate {
     const showThumbsUpDownButtons =
-        Common.Settings.Settings.instance().getHostConfig()?.devToolsConsoleInsights.disallowLogging !== true;
+        !(Common.Settings.Settings.instance().getHostConfig().devToolsConsoleInsights?.disallowLogging ?? true);
     // clang-format off
     const disclaimer = LitHtml.html`<span>
               This feature may display inaccurate or offensive information that doesn't represent Google's views.

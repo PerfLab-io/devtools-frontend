@@ -60,6 +60,7 @@ import {Tracker} from './FreshRecording.js';
 import historyToolbarButtonStyles from './historyToolbarButton.css.js';
 import {IsolateSelector} from './IsolateSelector.js';
 import {AnnotationModifiedEvent, ModificationsManager} from './ModificationsManager.js';
+import * as Overlays from './overlays/overlays.js';
 import {cpuprofileJsonGenerator, traceJsonGenerator} from './SaveFileFormatter.js';
 import {NodeNamesUpdated, SourceMapsResolver} from './SourceMapsResolver.js';
 import {type Client, TimelineController} from './TimelineController.js';
@@ -287,6 +288,26 @@ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 let timelinePanelInstance: TimelinePanel;
 let isNode: boolean;
 
+const DEFAULT_SIDEBAR_WIDTH_PX = 240;
+
+/**
+ * Represents the states that the timeline panel can be in.
+ * If you need to change the panel's view, use the {@see #changeView} method.
+ * Note that we do not represent the "Loading/Processing" view here. The
+ * StatusPane is managed in the code that handles file import/recording, and
+ * when it is visible it is rendered on top of the UI so obscures what is behind
+ * it. When it completes, we will set the view mode to the trace that has been
+ * loaded.
+ */
+type ViewMode = {
+  mode: 'LANDING_PAGE',
+}|{
+  mode: 'VIEWING_TRACE',
+  traceIndex: number,
+}|{
+  mode: 'STATUS_PANE_OVERLAY',
+};
+
 export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineModeViewDelegate {
   private readonly dropTarget: UI.DropTarget.DropTarget;
   private readonly recordingOptionUIControls: UI.Toolbar.ToolbarItem[];
@@ -306,7 +327,25 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   private readonly panelRightToolbar: UI.Toolbar.Toolbar;
   private readonly timelinePane: UI.Widget.VBox;
   readonly #minimapComponent = new TimelineMiniMap();
-  readonly #sideBar = new TimelineComponents.Sidebar.SidebarWidget();
+  #viewMode: ViewMode = {mode: 'LANDING_PAGE'};
+
+  /**
+   * We get given any filters for a new trace when it is recorded/imported.
+   * Because the user can then use the dropdown to navigate to another trace,
+   * we store the filters by the trace index, so if the user then navigates back
+   * to a previous trace we can reinstate the filters from this map.
+   */
+  #exclusiveFilterPerTrace: Map<number, TimelineModel.TimelineModelFilter.TimelineModelFilter> = new Map();
+  /**
+   * This widget holds the timeline sidebar which shows Insights & Annotations,
+   * and the main UI which shows the timeline
+   */
+  readonly #splitWidget = new UI.SplitWidget.SplitWidget(
+      true,       // isVertical
+      false,      // secondIsSidebar
+      undefined,  // settingName (we don't want to persist this state to a setting)
+      DEFAULT_SIDEBAR_WIDTH_PX,
+  );
   private readonly statusPaneContainer: HTMLElement;
   private readonly flameChart: TimelineFlameChartView;
   private readonly searchableViewInternal: UI.SearchableView.SearchableView;
@@ -316,8 +355,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   private controller!: TimelineController|null;
   private cpuProfiler!: SDK.CPUProfilerModel.CPUProfilerModel|null;
   private clearButton!: UI.Toolbar.ToolbarButton;
-  private fixMeButton: UI.Toolbar.ToolbarButton;
-  private fixMeButtonAdded = false;
+  private brickBreakerToolbarButton: UI.Toolbar.ToolbarButton;
+  private brickBreakerToolbarButtonAdded = false;
   private loadButton!: UI.Toolbar.ToolbarButton;
   private saveButton!: UI.Toolbar.ToolbarButton;
   private statusPane!: StatusPane|null;
@@ -337,12 +376,10 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   });
 
   #traceEngineModel: TraceEngine.TraceModel.Model;
-  // Tracks the index of the trace that the user is currently viewing.
-  #traceEngineActiveTraceIndex = -1;
   #sourceMapsResolver: SourceMapsResolver|null = null;
   #onSourceMapsNodeNamesResolvedBound = this.#onSourceMapsNodeNamesResolved.bind(this);
   readonly #onChartPlayableStateChangeBound: (event: Common.EventTarget.EventTargetEvent<boolean>) => void;
-  #sidebarToggleButton = this.#sideBar.createShowHideSidebarButton(
+  #sidebarToggleButton = this.#splitWidget.createShowHideSidebarButton(
       i18nString(UIStrings.showSidebar),
       i18nString(UIStrings.hideSidebar),
       // These are used to announce to screen-readers and not shown visibly.
@@ -350,6 +387,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       i18nString(UIStrings.sidebarHidden),
       'timeline.sidebar',  // jslog context
   );
+
+  #sideBar = new TimelineComponents.Sidebar.SidebarWidget();
 
   constructor() {
     super('timeline');
@@ -367,8 +406,9 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       name: i18nString(UIStrings.fixMe),
       content: adornerContent,
     };
-    this.fixMeButton = new UI.Toolbar.ToolbarButton(i18nString(UIStrings.fixMe), adorner);
-    this.fixMeButton.addEventListener(UI.Toolbar.ToolbarButton.Events.Click, () => this.onFixMe());
+    this.brickBreakerToolbarButton = new UI.Toolbar.ToolbarButton(i18nString(UIStrings.fixMe), adorner);
+    this.brickBreakerToolbarButton.addEventListener(
+        UI.Toolbar.ToolbarButton.Events.Click, () => this.#onBrickBreakerEasterEggClick());
     const config = TraceEngine.Types.Configuration.defaults();
     config.showAllEvents = Root.Runtime.experiments.isEnabled('timeline-show-all-events');
     config.includeRuntimeCallStats = Root.Runtime.experiments.isEnabled('timeline-v8-runtime-call-stats');
@@ -451,26 +491,29 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.flameChart.setSearchableView(this.searchableViewInternal);
     this.searchableViewInternal.hideWidget();
 
-    this.#sideBar.setMainWidget(this.timelinePane);
-    this.#sideBar.show(this.element);
+    this.#splitWidget.setMainWidget(this.timelinePane);
+    this.#splitWidget.show(this.element);
+    this.#splitWidget.setSidebarWidget(this.#sideBar);
 
-    this.#sideBar.contentElement.addEventListener(TimelineInsights.SidebarInsight.InsightDeactivated.eventName, () => {
+    this.#sideBar.element.addEventListener(TimelineInsights.SidebarInsight.InsightDeactivated.eventName, () => {
       this.#setActiveInsight(null);
     });
 
-    this.#sideBar.contentElement.addEventListener(TimelineInsights.SidebarInsight.InsightActivated.eventName, event => {
+    this.#sideBar.element.addEventListener(TimelineInsights.SidebarInsight.InsightActivated.eventName, event => {
       const {name, navigationId, createOverlayFn} = event;
       this.#setActiveInsight({name, navigationId, createOverlayFn});
     });
 
-    this.#sideBar.contentElement.addEventListener(TimelineComponents.Sidebar.RemoveAnnotation.eventName, event => {
+    this.#sideBar.element.addEventListener(TimelineComponents.Sidebar.RemoveAnnotation.eventName, event => {
       const {removedAnnotation} = (event as TimelineComponents.Sidebar.RemoveAnnotation);
       ModificationsManager.activeManager()?.removeAnnotation(removedAnnotation);
     });
 
     this.onModeChanged();
     this.populateToolbar();
-    this.showLandingPage();
+    // The viewMode is set by default to the landing page, so we don't call
+    // `#changeView` here and can instead directly call showLandingPage();
+    this.#showLandingPage();
     this.updateTimelineControls();
 
     SDK.TargetManager.TargetManager.instance().addEventListener(
@@ -542,7 +585,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     // The sidebar state is by-default persisted across reloads; we do not want
     // that as if you come back to the panel you see the landing page, and the
     // sidebar is empty in that state.
-    this.#sideBar.hideSidebar();
+    this.#splitWidget.hideSidebar();
   }
 
   override willHide(): void {
@@ -567,13 +610,142 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   /**
+   * Determine if two view modes are equivalent. Useful because if {@see
+   * #changeView} gets called and the new mode is identical to the current,
+   * we can bail without doing any UI updates.
+   */
+  #viewModesEquivalent(m1: ViewMode, m2: ViewMode): boolean {
+    if (m1.mode === 'LANDING_PAGE' && m2.mode === 'LANDING_PAGE') {
+      return true;
+    }
+
+    if (m1.mode === 'STATUS_PANE_OVERLAY' && m2.mode === 'STATUS_PANE_OVERLAY') {
+      return true;
+    }
+
+    // VIEWING_TRACE views are only equivalent if their traceIndex is the same.
+    if (m1.mode === 'VIEWING_TRACE' && m2.mode === 'VIEWING_TRACE' && m1.traceIndex === m2.traceIndex) {
+      return true;
+    }
+    return false;
+  }
+
+  #uninstallSourceMapsResolver(): void {
+    if (this.#sourceMapsResolver) {
+      // this set of NodeNames is cached by PIDs, so we clear it so we don't
+      // use incorrect names from another trace that might happen to share
+      // PID/TIDs.
+      SourceMapsResolver.clearResolvedNodeNames();
+
+      this.#sourceMapsResolver.removeEventListener(
+          NodeNamesUpdated.eventName, this.#onSourceMapsNodeNamesResolvedBound);
+      this.#sourceMapsResolver.uninstall();
+      this.#sourceMapsResolver = null;
+    }
+  }
+
+  #removeStatusPane(): void {
+    if (this.statusPane) {
+      this.statusPane.remove();
+    }
+    this.statusPane = null;
+  }
+
+  #changeView(newMode: ViewMode): void {
+    if (this.#viewModesEquivalent(this.#viewMode, newMode)) {
+      return;
+    }
+
+    if (this.#viewMode.mode === 'VIEWING_TRACE') {
+      // If the current / about to be "old" view was viewing a trace
+      // we also uninstall any source maps resolver for the trace that was active.
+      // If the user swaps back to this trace via the history dropdown, this will be reinstated.
+      this.#uninstallSourceMapsResolver();
+
+      // Store any modifications (e.g. annotations) that the user has created
+      // on the current trace before we move away to a new view.
+      this.#saveModificationsForActiveTrace();
+    }
+
+    this.#viewMode = newMode;
+
+    /**
+     * Note that the TimelinePanel UI is really rendered in two distinct layers.
+     * 1. status-pane-container: this is what renders both the StatusPane
+     *    loading modal AND the landing page.
+     *    What is important to note is that this renders ON TOP of the
+     *    SearchableView widget, which is what holds the FlameChartView.
+     *
+     * 2. SearchableView: this is the container that renders
+     *    TimelineFlameChartView and the rest of the flame chart code.
+     *
+     * What this layering means is that when we swap to the LANDING_PAGE or
+     * STATUS_PANE_OVERLAY view, we don't actually need to reset the
+     * SearchableView that is rendered behind it, because it won't be visible
+     * and will be hidden behind the StatusPane/Landing Page.
+     *
+     * So the only time we update this SearchableView is when the user goes to
+     * view a trace. That is why in the switch() statement below you won't see
+     * any code that resets the SearchableView because we don't need to. We do
+     * mark it as hidden, but mainly so the user can't accidentally use Cmd-F
+     * to search a hidden view.
+     */
+    switch (newMode.mode) {
+      case 'LANDING_PAGE': {
+        this.#removeStatusPane();
+        this.#showLandingPage();
+
+        // Whilst we don't reset this, we hide it, mainly so the user cannot
+        // hit Ctrl/Cmd-F and try to search when it isn't visible.
+        this.searchableViewInternal.hideWidget();
+
+        // Hide the brick-breaker easter egg
+        this.brickBreakerToolbarButtonAdded = false;
+        this.panelToolbar.removeToolbarItem(this.brickBreakerToolbarButton);
+        return;
+      }
+
+      case 'VIEWING_TRACE': {
+        this.#removeStatusPane();
+        this.#hideLandingPage();
+        this.#setModelForActiveTrace();
+        return;
+      }
+      case 'STATUS_PANE_OVERLAY': {
+        // We don't manage the StatusPane UI here; it is done in the
+        // recordingStarted/recordingProgress callbacks, but we do make sure we
+        // hide the landing page.
+        this.#hideLandingPage();
+
+        // We also hide the sidebar - else if the user is viewing a trace and
+        // then load/record another, the sidebar remains visible.
+        this.#splitWidget.hideSidebar();
+        return;
+      }
+      default:
+        Platform.assertNever(newMode, 'Unsupported TimelinePanel viewMode');
+    }
+  }
+
+  #activeTraceIndex(): number|null {
+    if (this.#viewMode.mode === 'VIEWING_TRACE') {
+      return this.#viewMode.traceIndex;
+    }
+    return null;
+  }
+
+  /**
    * NOTE: this method only exists to enable some layout tests to be migrated to the new engine.
    * DO NOT use this method within DevTools. It is marked as deprecated so
    * within DevTools you are warned when using the method.
    * @deprecated
    **/
   getTraceEngineDataForLayoutTests(): TraceEngine.Handlers.Types.TraceParseData {
-    const data = this.#traceEngineModel.traceParsedData(this.#traceEngineActiveTraceIndex);
+    const traceIndex = this.#activeTraceIndex();
+    if (traceIndex === null) {
+      throw new Error('No trace index active.');
+    }
+    const data = this.#traceEngineModel.traceParsedData(traceIndex);
     if (data === null) {
       throw new Error('No trace engine data found.');
     }
@@ -587,7 +759,11 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
    * @deprecated
    **/
   getTraceEngineRawTraceEventsForLayoutTests(): readonly TraceEngine.Types.TraceEvents.TraceEventData[] {
-    const data = this.#traceEngineModel.rawTraceEvents(this.#traceEngineActiveTraceIndex);
+    const traceIndex = this.#activeTraceIndex();
+    if (traceIndex === null) {
+      throw new Error('No trace index active.');
+    }
+    const data = this.#traceEngineModel.rawTraceEvents(traceIndex);
     if (data === null) {
       throw new Error('No trace engine data found.');
     }
@@ -600,13 +776,13 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       const month = dateObj.getUTCMonth() + 1;
       const day = dateObj.getUTCDate();
       const isAprilFools = (month === 4 && (day === 1 || day === 2));  // Show only on April fools and the next day
-      if (isAprilFools && !this.fixMeButtonAdded && SHOULD_SHOW_EASTER_EGG) {
-        this.fixMeButtonAdded = true;
-        this.panelToolbar.appendToolbarItem(this.fixMeButton);
+      if (isAprilFools && !this.brickBreakerToolbarButtonAdded && SHOULD_SHOW_EASTER_EGG) {
+        this.brickBreakerToolbarButtonAdded = true;
+        this.panelToolbar.appendToolbarItem(this.brickBreakerToolbarButton);
       }
     } else {
-      this.fixMeButtonAdded = false;
-      this.panelToolbar.removeToolbarItem(this.fixMeButton);
+      this.brickBreakerToolbarButtonAdded = false;
+      this.panelToolbar.removeToolbarItem(this.brickBreakerToolbarButton);
     }
   }
 
@@ -629,8 +805,17 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     return checkboxItem;
   }
 
+  /**
+   * Users don't explicitly opt in to the sidebar, but if they opt into either
+   * Insights or Annotations, we will show the sidebar.
+   */
+  #panelSidebarEnabled(): boolean {
+    const sidebarEnabled = Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_INSIGHTS) ||
+        Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS);
+    return sidebarEnabled;
+  }
   #addSidebarIconToToolbar(): void {
-    if (!Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_SIDEBAR)) {
+    if (!this.#panelSidebarEnabled()) {
       return;
     }
 
@@ -840,10 +1025,13 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     if (this.state !== State.Idle) {
       return;
     }
-    const traceEvents = this.#traceEngineModel.rawTraceEvents(this.#traceEngineActiveTraceIndex);
-    const metadata = this.#traceEngineModel.metadata(this.#traceEngineActiveTraceIndex);
+    if (this.#viewMode.mode !== 'VIEWING_TRACE') {
+      return;
+    }
+    const traceEvents = this.#traceEngineModel.rawTraceEvents(this.#viewMode.traceIndex);
+    const metadata = this.#traceEngineModel.metadata(this.#viewMode.traceIndex);
     // Save modifications into the metadata if modifications experiment is on
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS_OVERLAYS) && metadata) {
+    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS) && metadata) {
       metadata.modifications = ModificationsManager.activeManager()?.toJSON();
     }
     if (metadata && isEnhancedTraces) {
@@ -903,27 +1091,40 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     }
   }
 
-  async showHistory(): Promise<void> {
+  async showHistoryDropdown(): Promise<void> {
     const recordingData = await this.#historyManager.showHistoryDropDown();
-    this.#saveModificationsForActiveTrace();
-    if (recordingData && recordingData.traceParseDataIndex !== this.#traceEngineActiveTraceIndex) {
-      this.setModel(recordingData.traceParseDataIndex);
+    if (recordingData) {
+      if (recordingData.type === 'LANDING_PAGE') {
+        this.#changeView({mode: 'LANDING_PAGE'});
+      } else {
+        this.#changeView({
+          mode: 'VIEWING_TRACE',
+          traceIndex: recordingData.traceParseDataIndex,
+        });
+      }
     }
   }
 
   navigateHistory(direction: number): boolean {
-    this.#saveModificationsForActiveTrace();
     const recordingData = this.#historyManager.navigate(direction);
-    if (recordingData && recordingData.traceParseDataIndex !== this.#traceEngineActiveTraceIndex) {
-      this.setModel(recordingData.traceParseDataIndex);
+    // When navigating programatically, you cannot navigate to the landing page
+    // view, so we can discount that possibility here.
+    if (recordingData && recordingData.type === 'TRACE_INDEX') {
+      this.#changeView({
+        mode: 'VIEWING_TRACE',
+        traceIndex: recordingData.traceParseDataIndex,
+      });
     }
     return true;
   }
 
   #saveModificationsForActiveTrace(): void {
+    if (this.#viewMode.mode !== 'VIEWING_TRACE') {
+      return;
+    }
     const newModifications = ModificationsManager.activeManager()?.toJSON();
     if (newModifications) {
-      this.#traceEngineModel.overrideModifications(this.#traceEngineActiveTraceIndex, newModifications);
+      this.#traceEngineModel.overrideModifications(this.#viewMode.traceIndex, newModifications);
     }
   }
 
@@ -951,8 +1152,12 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   private updateMiniMap(): void {
-    const traceParsedData = this.#traceEngineModel.traceParsedData(this.#traceEngineActiveTraceIndex);
-    const isCpuProfile = this.#traceEngineModel.metadata(this.#traceEngineActiveTraceIndex)?.dataOrigin ===
+    if (this.#viewMode.mode !== 'VIEWING_TRACE') {
+      return;
+    }
+
+    const traceParsedData = this.#traceEngineModel.traceParsedData(this.#viewMode.traceIndex);
+    const isCpuProfile = this.#traceEngineModel.metadata(this.#viewMode.traceIndex)?.dataOrigin ===
         TraceEngine.Types.File.DataOrigin.CPUProfile;
     if (!traceParsedData) {
       return;
@@ -1105,7 +1310,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       }
 
       this.setUIControlsEnabled(false);
-      this.hideLandingPage();
+      this.#changeView({mode: 'STATUS_PANE_OVERLAY'});
       if (!this.cpuProfiler) {
         throw new Error('No Node target is found.');
       }
@@ -1139,7 +1344,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
         this.controller = new TimelineController(rootTarget, primaryPageTarget, this);
       }
       this.setUIControlsEnabled(false);
-      this.hideLandingPage();
+      this.#changeView({mode: 'STATUS_PANE_OVERLAY'});
       if (!this.controller) {
         throw new Error('Could not create Timeline controller');
       }
@@ -1175,7 +1380,6 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   private async startRecording(): Promise<void> {
-    this.#saveModificationsForActiveTrace();
     console.assert(!this.statusPane, 'Status pane is already opened.');
     this.setState(State.StartPending);
     this.showRecordingStarted();
@@ -1274,7 +1478,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.dropTarget.setEnabled(this.state === State.Idle);
     this.loadButton.setEnabled(this.state === State.Idle);
     this.saveButton.setEnabled(this.state === State.Idle && this.#hasActiveTrace());
-    if (this.#traceEngineActiveTraceIndex > -1) {
+    if (this.#viewMode.mode === 'VIEWING_TRACE') {
       this.#addSidebarIconToToolbar();
     }
   }
@@ -1300,37 +1504,18 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
   private onClearButton(): void {
     this.#historyManager.clear();
-    this.clear();
+    this.#changeView({mode: 'LANDING_PAGE'});
   }
 
   #hasActiveTrace(): boolean {
-    return this.#traceEngineActiveTraceIndex > -1;
+    return this.#viewMode.mode === 'VIEWING_TRACE';
   }
 
-  private onFixMe(): void {
+  #onBrickBreakerEasterEggClick(): void {
     if (!this.#hasActiveTrace()) {
       return;
     }
-    this.flameChart.fixMe();
-  }
-
-  private clear(): void {
-    if (this.statusPane) {
-      this.statusPane.remove();
-    }
-    this.showLandingPage();
-    this.reset();
-  }
-
-  private reset(): void {
-    PerfUI.LineLevelProfile.Performance.instance().reset();
-    if (this.#sourceMapsResolver) {
-      this.#sourceMapsResolver.removeEventListener(
-          NodeNamesUpdated.eventName, this.#onSourceMapsNodeNamesResolvedBound);
-      this.#sourceMapsResolver.uninstall();
-      this.#sourceMapsResolver = null;
-    }
-    this.setModel(-1);
+    this.flameChart.runBrickBreakerGame();
   }
 
   #applyActiveFilters(
@@ -1349,88 +1534,90 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
   /**
    * Called when we update the active trace that is being shown to the user.
-   * This is called from {@see loadingComplete} when a trace is
-   * imported/recorded, but it can also be called when the user uses the history
-   * dropdown.
+   * This is called from {@see changeView} when we change the UI to show a
+   * trace - either one the user has just recorded/imported, or one they have
+   * navigated to via the dropdown.
    *
    * If you need code to execute whenever the active trace changes, this is the method to use.
    * If you need code to execute ONLY ON NEW TRACES, then use {@see loadingComplete}
+   * You should not call this method directly if you want the UI to update; use
+   * {@see changeView} to control what is shown to the user.
    */
-  setModel(
-      traceEngineIndex: number,
-      exclusiveFilter: TimelineModel.TimelineModelFilter.TimelineModelFilter|null = null,
-      ): void {
-    // Before loading a new trace, update modifications of the previous one
-    this.#saveModificationsForActiveTrace();
+  #setModelForActiveTrace(): void {
+    if (this.#viewMode.mode !== 'VIEWING_TRACE') {
+      return;
+    }
+    const {traceIndex} = this.#viewMode;
+    const traceParsedData = this.#traceEngineModel.traceParsedData(traceIndex);
 
-    this.#traceEngineActiveTraceIndex = traceEngineIndex;
-    const traceParsedData = this.#traceEngineModel.traceParsedData(this.#traceEngineActiveTraceIndex);
-    const isCpuProfile = this.#traceEngineModel.metadata(this.#traceEngineActiveTraceIndex)?.dataOrigin ===
-        TraceEngine.Types.File.DataOrigin.CPUProfile;
-
-    this.#minimapComponent.reset();
-    // Order is important: the bounds must be set before we initiate any UI
-    // rendering. This is why we pull this out into its own block.
-    if (traceParsedData) {
-      TraceBounds.TraceBounds.BoundsManager.instance().resetWithNewBounds(
-          traceParsedData.Meta.traceBounds,
-      );
+    if (!traceParsedData) {
+      // This should not happen, because you can only get into the
+      // VIEWING_TRACE viewMode if you have a valid trace index from the
+      // TraceEngine. If it does, let's bail back to the landing page.
+      console.error(`setModelForActiveTrace was called with an invalid trace index: ${traceIndex}`);
+      this.#changeView({mode: 'LANDING_PAGE'});
+      return;
     }
 
+    // Clear the line level profile that could exist from the previous trace.
+    PerfUI.LineLevelProfile.Performance.instance().reset();
+
+    this.#minimapComponent.reset();
+
+    // Order is important: the bounds must be set before we initiate any UI
+    // rendering.
+    TraceBounds.TraceBounds.BoundsManager.instance().resetWithNewBounds(
+        traceParsedData.Meta.traceBounds,
+    );
+
+    const isCpuProfile =
+        this.#traceEngineModel.metadata(traceIndex)?.dataOrigin === TraceEngine.Types.File.DataOrigin.CPUProfile;
     this.flameChart.setModel(traceParsedData, isCpuProfile);
     this.flameChart.resizeToPreferredHeights();
     // Reset the visual selection as we've just swapped to a new trace.
     this.flameChart.setSelection(null);
     this.#sideBar.setTraceParsedData(traceParsedData);
 
-    // Hide/show the searchable UI depending on if we have a trace active or not.
-    // Also apply any filters to the data.
-    if (traceParsedData) {
-      this.searchableViewInternal.showWidget();
-      this.#applyActiveFilters(traceParsedData.Meta.traceIsGeneric, exclusiveFilter);
-    } else {
-      this.searchableViewInternal.hideWidget();
-    }
+    this.searchableViewInternal.showWidget();
+
+    const exclusiveFilter = this.#exclusiveFilterPerTrace.get(traceIndex) ?? null;
+    this.#applyActiveFilters(traceParsedData.Meta.traceIsGeneric, exclusiveFilter);
 
     // Set up the modifications manager for the newly active trace.
-    if (traceParsedData) {
-      const currentManager = ModificationsManager.initAndActivateModificationsManager(
-          this.#traceEngineModel, this.#traceEngineActiveTraceIndex);
-      if (!currentManager) {
-        console.error('ModificationsManager could not be created or activated.');
-      }
+    const currentManager = ModificationsManager.initAndActivateModificationsManager(this.#traceEngineModel, traceIndex);
 
-      // Add ModificationsManager listeners for annotations change to update the Annotation Overlays.
-      currentManager?.addEventListener(AnnotationModifiedEvent.eventName, event => {
-        const {overlay, action} = (event as AnnotationModifiedEvent);
-        if (action === 'Add') {
-          this.flameChart.addOverlay(overlay);
-        } else if (action === 'Remove') {
-          this.flameChart.removeOverlay(overlay);
-        }
-        this.#sideBar.setAnnotationsTabContent(currentManager.getAnnotations());
-      });
-
-      // Create breadcrumbs.
-      if (this.#minimapComponent.breadcrumbsActivated) {
-        this.#minimapComponent.addInitialBreadcrumb();
-      }
-
-      // To calculate the activity we might want to zoom in, we use the top-most main-thread track
-      const topMostMainThreadAppender =
-          this.flameChart.getMainDataProvider().compatibilityTracksAppenderInstance().threadAppenders().at(0);
-      if (topMostMainThreadAppender) {
-        const zoomedInBounds = TraceEngine.Extras.MainThreadActivity.calculateWindow(
-            traceParsedData.Meta.traceBounds, topMostMainThreadAppender.getEntries());
-
-        TraceBounds.TraceBounds.BoundsManager.instance().setTimelineVisibleWindow(zoomedInBounds);
-      }
+    if (!currentManager) {
+      console.error('ModificationsManager could not be created or activated.');
     }
 
-    if (!traceParsedData) {
-      // Hide the brick-breaker easter egg
-      this.fixMeButtonAdded = false;
-      this.panelToolbar.removeToolbarItem(this.fixMeButton);
+    // Add ModificationsManager listeners for annotations change to update the Annotation Overlays.
+    currentManager?.addEventListener(AnnotationModifiedEvent.eventName, event => {
+      const {overlay, action} = (event as AnnotationModifiedEvent);
+      if (action === 'Add') {
+        this.flameChart.addOverlay(overlay);
+      } else if (action === 'Remove') {
+        this.flameChart.removeOverlay(overlay);
+      } else if (action === 'UpdateTimeRange' && Overlays.Overlays.isTimeRangeLabel(overlay)) {
+        this.flameChart.updateExistingOverlay(overlay, {
+          bounds: overlay.bounds,
+        });
+      }
+      this.#sideBar.setAnnotations(currentManager.getAnnotations());
+    });
+
+    // Create breadcrumbs.
+    if (this.#minimapComponent.breadcrumbsActivated) {
+      this.#minimapComponent.addInitialBreadcrumb();
+    }
+
+    // To calculate the activity we might want to zoom in, we use the top-most main-thread track
+    const topMostMainThreadAppender =
+        this.flameChart.getMainDataProvider().compatibilityTracksAppenderInstance().threadAppenders().at(0);
+    if (topMostMainThreadAppender) {
+      const zoomedInBounds = TraceEngine.Extras.MainThreadActivity.calculateWindow(
+          traceParsedData.Meta.traceBounds, topMostMainThreadAppender.getEntries());
+
+      TraceBounds.TraceBounds.BoundsManager.instance().setTimelineVisibleWindow(zoomedInBounds);
     }
 
     // Add overlays for annotations loaded from the trace file
@@ -1439,7 +1626,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       currModificationManager.getOverlays().forEach(overlay => {
         this.flameChart.addOverlay(overlay);
       });
-      this.#sideBar.setAnnotationsTabContent(currModificationManager.getAnnotations());
+      this.#sideBar.setAnnotations(currModificationManager.getAnnotations());
     }
 
     // Set up line level profiling with CPU profiles, if we found any.
@@ -1457,14 +1644,32 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       }
     }
 
+    // Set up SourceMapsResolver to ensure we resolve any function names in
+    // profile calls.
+    this.#sourceMapsResolver = new SourceMapsResolver(traceParsedData);
+    this.#sourceMapsResolver.addEventListener(NodeNamesUpdated.eventName, this.#onSourceMapsNodeNamesResolvedBound);
+    void this.#sourceMapsResolver.install();
+
     this.updateMiniMap();
     this.updateTimelineControls();
 
-    const traceInsightsData = this.#traceEngineModel.traceInsights(this.#traceEngineActiveTraceIndex);
+    this.#setActiveInsight(null);
+
+    const traceInsightsData = this.#traceEngineModel.traceInsights(traceIndex);
     if (traceInsightsData) {
       this.flameChart.setInsights(traceInsightsData);
       this.#sideBar.setInsights(traceInsightsData);
-      this.#setActiveInsight(null);
+    }
+
+    // Automatically show the sidebar when a trace is loaded if we have data.
+    // Or hide it when we do not have data (which likely means we are back on the landing page)
+    const hasInsights = traceInsightsData !== null && traceInsightsData.size > 0;
+    const hasAnnotations = (currModificationManager?.getAnnotations().length ?? 0) > 0;
+    const shouldOpenSidebar = this.#panelSidebarEnabled() && (hasInsights || hasAnnotations);
+    if (shouldOpenSidebar) {
+      this.#splitWidget.showBoth();
+    } else {
+      this.#splitWidget.hideSidebar();
     }
   }
 
@@ -1484,7 +1689,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       void resourceModel.navigate(config.navigateToUrl);
     }
 
-    this.reset();
+    this.#changeView({mode: 'STATUS_PANE_OVERLAY'});
     this.setState(State.Recording);
     this.showRecordingStarted();
     if (this.statusPane) {
@@ -1493,7 +1698,6 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       this.statusPane.updateProgressBar(i18nString(UIStrings.bufferUsage), 0);
       this.statusPane.startTimer();
     }
-    this.hideLandingPage();
   }
 
   recordingProgress(usage: number): void {
@@ -1502,9 +1706,11 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     }
   }
 
-  private showLandingPage(): void {
+  #showLandingPage(): void {
     this.updateSettingsPaneVisibility();
     this.#removeSidebarIconFromToolbar();
+    this.#splitWidget.hideSidebar();
+
     if (this.landingPage) {
       this.landingPage.show(this.statusPaneContainer);
       return;
@@ -1514,7 +1720,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.landingPage.show(this.statusPaneContainer);
   }
 
-  private hideLandingPage(): void {
+  #hideLandingPage(): void {
     this.landingPage.detach();
 
     // Hide pane settings in trace view to conserve UI space, but preserve underlying setting.
@@ -1523,7 +1729,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   async loadingStarted(): Promise<void> {
-    this.hideLandingPage();
+    this.#changeView({mode: 'STATUS_PANE_OVERLAY'});
 
     if (this.statusPane) {
       this.statusPane.remove();
@@ -1577,7 +1783,6 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       exclusiveFilter: TimelineModel.TimelineModelFilter.TimelineModelFilter|null = null, isCpuProfile: boolean,
       recordingStartTime: number|null, metadata: TraceEngine.Types.File.MetaData|null): Promise<void> {
     this.#traceEngineModel.resetProcessor();
-    SourceMapsResolver.clearResolvedNodeNames();
 
     delete this.loader;
 
@@ -1595,12 +1800,12 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       // just reset the panel back to the landing page. However if they had a
       // previous trace imported, we should go to that instead.
       if (this.#traceEngineModel.size()) {
-        if (this.statusPane) {
-          this.statusPane.remove();
-        }
-        this.setModel(this.#traceEngineModel.lastTraceIndex());
+        this.#changeView({
+          mode: 'VIEWING_TRACE',
+          traceIndex: this.#traceEngineModel.lastTraceIndex(),
+        });
       } else {
-        this.clear();
+        this.#changeView({mode: 'LANDING_PAGE'});
       }
       return;
     }
@@ -1611,27 +1816,23 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
     try {
       await this.#executeNewTraceEngine(collectedEvents, recordingIsFresh, metadata);
-      this.setModel(this.#traceEngineModel.lastTraceIndex(), exclusiveFilter);
-
-      if (this.statusPane) {
-        this.statusPane.remove();
+      const traceIndex = this.#traceEngineModel.lastTraceIndex();
+      if (exclusiveFilter) {
+        this.#exclusiveFilterPerTrace.set(traceIndex, exclusiveFilter);
       }
-      this.statusPane = null;
+      this.#changeView({
+        mode: 'VIEWING_TRACE',
+        traceIndex,
+      });
 
-      const traceData = this.#traceEngineModel.traceParsedData(this.#traceEngineActiveTraceIndex);
+      const traceData = this.#traceEngineModel.traceParsedData(traceIndex);
       if (!traceData) {
-        throw new Error(`Could not get trace data at index ${this.#traceEngineActiveTraceIndex}`);
+        throw new Error(`Could not get trace data at index ${traceIndex}`);
       }
 
       if (recordingIsFresh) {
         Tracker.instance().registerFreshRecording(traceData);
       }
-
-      // Set up SourceMapsResolver to ensure we resolve any function names in
-      // profile calls.
-      this.#sourceMapsResolver = new SourceMapsResolver(traceData);
-      this.#sourceMapsResolver.addEventListener(NodeNamesUpdated.eventName, this.#onSourceMapsNodeNamesResolvedBound);
-      await this.#sourceMapsResolver.install();
 
       // We store the index of the active trace so we can load it back easily
       // if the user goes to a different trace then comes back.
@@ -1639,7 +1840,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       // the preview overview thumbnail of the trace that gets shown in the UI.
       this.#historyManager.addRecording({
         data: {
-          traceParseDataIndex: this.#traceEngineActiveTraceIndex,
+          traceParseDataIndex: traceIndex,
+          type: 'TRACE_INDEX',
         },
         filmStripForPreview: TraceEngine.Extras.FilmStrip.fromTraceData(traceData),
         traceParsedData: traceData,
@@ -1691,7 +1893,9 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     // Not implemented, added only for allowing the TimelineTestRunner
     // to be in sync when a trace load is finished.
   }
+
   private showRecordingStarted(): void {
+    this.#changeView({mode: 'STATUS_PANE_OVERLAY'});
     if (this.statusPane) {
       this.statusPane.remove();
     }
@@ -1734,6 +1938,9 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
   private frameForSelection(selection: TimelineSelection): TraceEngine.Handlers.ModelHandlers.Frames.TimelineFrame
       |null {
+    if (this.#viewMode.mode !== 'VIEWING_TRACE') {
+      return null;
+    }
     if (TimelineSelection.isFrameObject(selection.object)) {
       return selection.object;
     }
@@ -1742,7 +1949,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       return null;
     }
     if (TimelineSelection.isTraceEventSelection(selection.object)) {
-      const traceData = this.#traceEngineModel.traceParsedData(this.#traceEngineActiveTraceIndex);
+      const traceData = this.#traceEngineModel.traceParsedData(this.#viewMode.traceIndex);
       if (!traceData) {
         return null;
       }
@@ -1764,11 +1971,14 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   jumpToFrame(offset: number): true|undefined {
+    if (this.#viewMode.mode !== 'VIEWING_TRACE') {
+      return;
+    }
     const currentFrame = this.selection && this.frameForSelection(this.selection);
     if (!currentFrame) {
       return;
     }
-    const traceData = this.#traceEngineModel.traceParsedData(this.#traceEngineActiveTraceIndex);
+    const traceData = this.#traceEngineModel.traceParsedData(this.#viewMode.traceIndex);
     if (!traceData) {
       return;
     }
@@ -2065,6 +2275,13 @@ export class LoadTimelineHandler implements Common.QueryParamHandler.QueryParamH
   }
 }
 
+export class TraceRevealer implements Common.Revealer.Revealer<SDK.TraceObject.TraceObject> {
+  async reveal(trace: SDK.TraceObject.TraceObject): Promise<void> {
+    await UI.ViewManager.ViewManager.instance().showView('timeline');
+    TimelinePanel.instance().loadFromEvents(trace.traceEvents);
+  }
+}
+
 export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
   handleAction(context: UI.Context.Context, actionId: string): boolean {
     const panel = context.flavor(TimelinePanel);
@@ -2091,7 +2308,7 @@ export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
         panel.jumpToFrame(1);
         return true;
       case 'timeline.show-history':
-        void panel.showHistory();
+        void panel.showHistoryDropdown();
         return true;
       case 'timeline.previous-recording':
         panel.navigateHistory(1);

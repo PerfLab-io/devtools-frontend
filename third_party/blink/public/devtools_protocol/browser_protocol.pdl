@@ -803,7 +803,6 @@ experimental domain Audits
 
   type GenericIssueErrorType extends string
     enum
-      CrossOriginPortalPostMessageError
       FormLabelForNameError
       FormDuplicateIdForInputError
       FormInputWithNoLabelError
@@ -1103,13 +1102,20 @@ experimental domain Audits
     parameters
       InspectorIssue issue
 
-# Defines commands and events for browser extensions. Available if the client
-# is connected using the --remote-debugging-pipe flag and
-# the --enable-unsafe-extension-debugging flag is set.
+# Defines commands and events for browser extensions.
 experimental domain Extensions
+  # Storage areas.
+  type StorageArea extends string
+    enum
+      session
+      local
+      sync
+      managed
   # Installs an unpacked extension from the filesystem similar to
   # --load-extension CLI flags. Returns extension ID once the extension
-  # has been installed.
+  # has been installed. Available if the client is connected using the
+  # --remote-debugging-pipe flag and the --enable-unsafe-extension-debugging
+  # flag is set.
   command loadUnpacked
     parameters
       # Absolute file path.
@@ -1117,6 +1123,18 @@ experimental domain Extensions
     returns
       # Extension id.
       string id
+  # Gets data from extension storage in the given `area`. If `keys` is
+  # specified, these are used to filter the result.
+  command getStorageItems
+    parameters
+      # ID of extension.
+      string id
+      # StorageArea to retrieve data from.
+      StorageArea storageArea
+      # Keys to retrieve.
+      optional array of string keys
+    returns
+      object data
 
 # Defines commands and events for Autofill.
 experimental domain Autofill
@@ -2012,13 +2030,6 @@ experimental domain CSS
       # Associated style declaration.
       CSSStyle style
 
-  # CSS position-fallback rule representation.
-  deprecated type CSSPositionFallbackRule extends object
-    properties
-      Value name
-      # List of keyframes.
-      array of CSSTryRule tryRules
-
   # CSS @position-try rule representation.
   type CSSPositionTryRule extends object
     properties
@@ -2205,10 +2216,11 @@ experimental domain CSS
       optional array of InheritedPseudoElementMatches inheritedPseudoElements
       # A list of CSS keyframed animations matching this node.
       optional array of CSSKeyframesRule cssKeyframesRules
-      # A list of CSS position fallbacks matching this node.
-      deprecated optional array of CSSPositionFallbackRule cssPositionFallbackRules
       # A list of CSS @position-try rules matching this node, based on the position-try-fallbacks property.
       optional array of CSSPositionTryRule cssPositionTryRules
+      # Index of the active fallback in the applied position-try-fallback property,
+      # will not be set if there is no active position-try fallback.
+      optional integer activePositionFallbackIndex
       # A list of CSS at-property rules matching this node.
       optional array of CSSPropertyRule cssPropertyRules
       # A list of CSS property registrations matching this node.
@@ -2648,6 +2660,8 @@ domain DOM
       first-line-inherited
       scroll-marker
       scroll-marker-group
+      scroll-next-button
+      scroll-prev-button
       scrollbar
       scrollbar-thumb
       scrollbar-button
@@ -2765,6 +2779,12 @@ domain DOM
       optional boolean isSVG
       optional CompatibilityMode compatibilityMode
       optional BackendNode assignedSlot
+
+  # A structure to hold the top-level node of a detached tree and an array of its retained descendants.
+  type DetachedElementInfo extends object
+    properties
+      Node treeNode
+      array of NodeId retainedNodeIds
 
   # A structure holding an RGBA color.
   type RGBA extends object
@@ -3275,6 +3295,12 @@ domain DOM
       Runtime.RemoteObjectId objectId
     returns
       string path
+
+  # Returns list of detached nodes
+  experimental command getDetachedDomNodes
+    returns
+      # The list of detached nodes
+      array of DetachedElementInfo detachedNodes
 
   # Enables console to refer to the node with given id via $x (see Command Line API for more details
   # $x functions).
@@ -4183,6 +4209,21 @@ domain Emulation
       optional SensorReadingXYZ xyz
       optional SensorReadingQuaternion quaternion
 
+  experimental type PressureSource extends string
+    enum
+      cpu
+
+  experimental type PressureState extends string
+    enum
+      nominal
+      fair
+      serious
+      critical
+
+  experimental type PressureMetadata extends object
+    properties
+      optional boolean available
+
   # Tells whether emulation is supported.
   deprecated command canEmulate
     returns
@@ -4351,6 +4392,24 @@ domain Emulation
     parameters
       SensorType type
       SensorReading reading
+
+  # Overrides a pressure source of a given type, as used by the Compute
+  # Pressure API, so that updates to PressureObserver.observe() are provided
+  # via setPressureStateOverride instead of being retrieved from
+  # platform-provided telemetry data.
+  experimental command setPressureSourceOverrideEnabled
+    parameters
+      boolean enabled
+      PressureSource source
+      optional PressureMetadata metadata
+
+  # Provides a given pressure state that will be processed and eventually be
+  # delivered to PressureObserver users. |source| must have been previously
+  # overridden by setPressureSourceOverrideEnabled.
+  experimental command setPressureStateOverride
+    parameters
+      PressureSource source
+      PressureState state
 
   # Overrides the Idle state.
   command setIdleOverride
@@ -4559,6 +4618,42 @@ domain IO
     returns
       # UUID of the specified Blob.
       string uuid
+
+experimental domain FileSystem
+  depends on Network
+  depends on Storage
+
+  type File extends object
+    properties
+      string name
+      # Timestamp
+      Network.TimeSinceEpoch lastModified
+      # Size in bytes
+      number size
+      string type
+
+  type Directory extends object
+    properties
+      string name
+      array of string nestedDirectories
+      # Files that are directly nested under this directory.
+      array of File nestedFiles
+
+  type BucketFileSystemLocator extends object
+    properties
+      # Storage key
+      Storage.SerializedStorageKey storageKey
+      # Bucket name. Not passing a `bucketName` will retrieve the default Bucket. (https://developer.mozilla.org/en-US/docs/Web/API/Storage_API#storage_buckets)
+      optional string bucketName
+      # Path to the directory using each path component as an array item.
+      array of string pathComponents
+
+  command getDirectory
+    parameters
+      BucketFileSystemLocator bucketFileSystemLocator
+    returns
+      # Returns the directory object at the path.
+      Directory directory
 
 experimental domain IndexedDB
   depends on Runtime
@@ -7180,6 +7275,7 @@ domain Network
       UnsafeNone
       SameOriginPlusCoep
       RestrictPropertiesPlusCoep
+      NoopenerAllowPopups
 
   experimental type CrossOriginOpenerPolicyStatus extends object
     properties
@@ -7892,6 +7988,7 @@ domain Page
   experimental type PermissionsPolicyFeature extends string
     enum
       accelerometer
+      all-screens-capture
       ambient-light-sensor
       attribution-reporting
       autoplay
@@ -7927,6 +8024,7 @@ domain Page
       compute-pressure
       cross-origin-isolated
       deferred-fetch
+      digital-credentials-get
       direct-sockets
       display-capture
       document-domain
@@ -7947,6 +8045,7 @@ domain Page
       keyboard-map
       local-fonts
       magnetometer
+      media-playback-while-not-visible
       microphone
       midi
       otp-credentials
@@ -8284,14 +8383,16 @@ domain Page
 
   experimental type ClientNavigationReason extends string
     enum
+      anchorClick
       formSubmissionGet
       formSubmissionPost
       httpHeaderRefresh
-      scriptInitiated
+      initialFrameNavigation
       metaTagRefresh
+      other
       pageBlockInterstitial
       reload
-      anchorClick
+      scriptInitiated
 
   experimental type ClientNavigationDisposition extends string
     enum
@@ -9294,7 +9395,6 @@ domain Page
       Printing
       WebDatabase
       PictureInPicture
-      Portal
       SpeechRecognizer
       IdleManager
       PaymentManager
@@ -9412,6 +9512,15 @@ domain Page
       FrameId frameId
       # Frame's new url.
       string url
+      # Navigation type
+      enum navigationType
+        # Navigation due to fragment navigation.
+        fragment
+        # Navigation due to history API usage.
+        historyApi
+        # Navigation due to other reasons.
+        other
+
 
   # Compressed image data requested by the `startScreencast`.
   experimental event screencastFrame
@@ -10484,6 +10593,23 @@ experimental domain Storage
       exact
       modulus
 
+  experimental type AttributionReportingAggregatableDebugReportingData extends object
+    properties
+      UnsignedInt128AsBase16 keyPiece
+      # number instead of integer because not all uint32 can be represented by
+      # int
+      number value
+      array of string types
+
+  experimental type AttributionReportingAggregatableDebugReportingConfig extends object
+    properties
+      # number instead of integer because not all uint32 can be represented by
+      # int, only present for source registrations
+      optional number budget
+      UnsignedInt128AsBase16 keyPiece
+      array of AttributionReportingAggregatableDebugReportingData debugData
+      optional string aggregationCoordinatorOrigin
+
   experimental type AttributionReportingSourceRegistration extends object
     properties
       Network.TimeSinceEpoch time
@@ -10502,6 +10628,8 @@ experimental domain Storage
       array of AttributionReportingAggregationKeysEntry aggregationKeys
       optional UnsignedInt64AsBase10 debugKey
       AttributionReportingTriggerDataMatching triggerDataMatching
+      SignedInt64AsBase10 destinationLimitPriority
+      AttributionReportingAggregatableDebugReportingConfig aggregatableDebugReportingConfig
 
   experimental type AttributionReportingSourceRegistrationResult extends string
     enum
@@ -10536,6 +10664,8 @@ experimental domain Storage
       # number instead of integer because not all uint32 can be represented by
       # int
       number value
+      UnsignedInt64AsBase10 filteringId
+
 
   experimental type AttributionReportingAggregatableValueEntry extends object
     properties
@@ -10568,10 +10698,12 @@ experimental domain Storage
       array of AttributionReportingEventTriggerData eventTriggerData
       array of AttributionReportingAggregatableTriggerData aggregatableTriggerData
       array of AttributionReportingAggregatableValueEntry aggregatableValues
+      integer aggregatableFilteringIdMaxBytes
       boolean debugReporting
       optional string aggregationCoordinatorOrigin
       AttributionReportingSourceRegistrationTimeConfig sourceRegistrationTimeConfig
       optional string triggerContextId
+      AttributionReportingAggregatableDebugReportingConfig aggregatableDebugReportingConfig
 
   experimental type AttributionReportingEventLevelResult extends string
     enum
@@ -10799,7 +10931,7 @@ domain Target
       experimental optional Page.FrameId openerFrameId
       experimental optional Browser.BrowserContextID browserContextId
       # Provides additional details for specific target types. For example, for
-      # the type of "page", this may be set to "portal" or "prerender".
+      # the type of "page", this may be set to "prerender".
       experimental optional string subtype
 
   # A filter used by target query/discovery/auto-attach operations.
@@ -12187,6 +12319,9 @@ experimental domain Preload
       JavaScriptInterfaceAdded
       JavaScriptInterfaceRemoved
       AllPrerenderingCanceled
+      WindowClosed
+      SlowNetwork
+      OtherPrerenderedPageActivated
 
   # Fired when a preload enabled state is updated.
   event preloadEnabledStateUpdated
@@ -12502,3 +12637,67 @@ experimental domain PWA
       # supported yet.
       optional boolean linkCapturing
       optional DisplayMode displayMode
+
+# This domain allows configuring virtual Bluetooth devices to test
+# the web-bluetooth API.
+experimental domain BluetoothEmulation
+  # Indicates the various states of Central.
+  type CentralState extends string
+    enum
+      absent
+      powered-off
+      powered-on
+
+  # Stores the manufacturer data
+  type ManufacturerData extends object
+    properties
+      # Company identifier
+      # https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/company_identifiers/company_identifiers.yaml
+      # https://usb.org/developers
+      integer key
+      # Manufacturer-specific data
+      binary data
+
+  # Stores the byte data of the advertisement packet sent by a Bluetooth device.
+  type ScanRecord extends object
+    properties
+      optional string name
+      optional array of string uuids
+      # Stores the external appearance description of the device.
+      optional integer appearance
+      # Stores the transmission power of a broadcasting device.
+      optional integer txPower
+      # Key is the company identifier and the value is an array of bytes of
+      # manufacturer specific data.
+      optional array of ManufacturerData manufacturerData
+
+  # Stores the advertisement packet information that is sent by a Bluetooth device.
+  type ScanEntry extends object
+    properties
+      string deviceAddress
+      integer rssi
+      ScanRecord scanRecord
+
+  # Enable the BluetoothEmulation domain.
+  command enable
+    parameters
+      # State of the simulated central.
+      CentralState state
+
+  # Disable the BluetoothEmulation domain.
+  command disable
+
+  # Simulates a peripheral with |address|, |name| and |knownServiceUuids|
+  # that has already been connected to the system.
+  command simulatePreconnectedPeripheral
+    parameters
+      string address
+      string name
+      array of ManufacturerData manufacturerData
+      array of string knownServiceUuids
+
+  # Simulates an advertisement packet described in |entry| being received by
+  # the central.
+  command simulateAdvertisement
+    parameters
+      ScanEntry entry

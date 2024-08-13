@@ -1280,7 +1280,6 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     this.isFormatPickerShown = true;
     await contextMenu.show(event, newColor => {
       this.innerSetColor(newColor, undefined, undefined, newColor.format(), ChangeSource.Other);
-      Host.userMetrics.colorConvertedFrom(Host.UserMetrics.ColorConvertedFrom.ColorPicker);
     });
     this.isFormatPickerShown = false;
   }
@@ -1369,9 +1368,8 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
 
   async toggleColorPicker(enabled?: boolean): Promise<void> {
     if (enabled === undefined) {
-      enabled = !this.colorPickerButton.isToggled();
+      enabled = this.colorPickerButton.isToggled();
     }
-    this.colorPickerButton.setToggled(enabled);
 
     // This is to make sure that only one picker is open at a time
     // Also have a look at this.contrastDetailsBackgroundColorPickedToggled

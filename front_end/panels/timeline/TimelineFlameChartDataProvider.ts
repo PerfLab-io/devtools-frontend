@@ -154,13 +154,13 @@ export class TimelineFlameChartDataProvider extends Common.ObjectWrapper.ObjectW
   }
 
   modifyTree(node: number, action: PerfUI.FlameChart.FilterAction): void {
-    const entry = this.entryData[node] as TraceEngine.Types.TraceEvents.SyntheticTraceEntry;
+    const entry = this.entryData[node] as TraceEngine.Types.TraceEvents.TraceEventData;
 
     ModificationsManager.activeManager()?.getEntriesFilter().applyFilterAction({type: action, entry});
   }
 
   findPossibleContextMenuActions(node: number): PerfUI.FlameChart.PossibleFilterActions|void {
-    const entry = this.entryData[node] as TraceEngine.Types.TraceEvents.SyntheticTraceEntry;
+    const entry = this.entryData[node] as TraceEngine.Types.TraceEvents.TraceEventData;
     return ModificationsManager.activeManager()?.getEntriesFilter().findPossibleActions(entry);
   }
 
@@ -437,8 +437,8 @@ export class TimelineFlameChartDataProvider extends Common.ObjectWrapper.ObjectW
 
   search(
       startTime: TraceEngine.Types.Timing.MilliSeconds, endTime: TraceEngine.Types.Timing.MilliSeconds,
-      filter: TimelineModel.TimelineModelFilter.TimelineModelFilter): number[] {
-    const result = [];
+      filter: TimelineModel.TimelineModelFilter.TimelineModelFilter): PerfUI.FlameChart.DataProviderSearchResult[] {
+    const results: PerfUI.FlameChart.DataProviderSearchResult[] = [];
     this.timelineData();
     for (let i = 0; i < this.entryData.length; ++i) {
       const entry = this.entryData[i];
@@ -466,27 +466,10 @@ export class TimelineFlameChartDataProvider extends Common.ObjectWrapper.ObjectW
         continue;
       }
       if (filter.accept(entry, this.traceEngineData || undefined)) {
-        result.push(i);
+        results.push({index: i, startTimeMilli: entryStartTime, provider: 'main'});
       }
     }
-    result.sort((a, b) => {
-      const firstEvent = this.entryData.at(a);
-      if (!firstEvent) {
-        return 0;
-      }
-      const secondEvent = this.entryData.at(b);
-      if (!secondEvent) {
-        return 0;
-      }
-
-      if (!TimelineFlameChartDataProvider.timelineEntryIsTraceEvent(firstEvent) ||
-          !TimelineFlameChartDataProvider.timelineEntryIsTraceEvent(secondEvent)) {
-        return 0;
-      }
-
-      return TraceEngine.Helpers.Trace.eventTimeComparator(firstEvent, secondEvent);
-    });
-    return result;
+    return results;
   }
 
   isIgnoreListedEvent(event: TraceEngine.Types.TraceEvents.TraceEventData): boolean {
@@ -641,7 +624,7 @@ export class TimelineFlameChartDataProvider extends Common.ObjectWrapper.ObjectW
       delegatesFocus: undefined,
     });
 
-    const entry = this.entryData[entryIndex] as TraceEngine.Types.TraceEvents.SyntheticTraceEntry;
+    const entry = this.entryData[entryIndex] as TraceEngine.Types.TraceEvents.TraceEventData;
     const hiddenEntriesAmount =
         ModificationsManager.activeManager()?.getEntriesFilter().findHiddenDescendantsAmount(entry);
 
@@ -987,7 +970,7 @@ export class TimelineFlameChartDataProvider extends Common.ObjectWrapper.ObjectW
     if (this.entryData.indexOf(selection.object) === -1 && TimelineSelection.isTraceEventSelection(selection.object)) {
       if (this.timelineDataInternal?.selectedGroup) {
         ModificationsManager.activeManager()?.getEntriesFilter().revealEntry(
-            selection.object as TraceEngine.Types.TraceEvents.SyntheticTraceEntry);
+            selection.object as TraceEngine.Types.TraceEvents.TraceEventData);
         this.timelineData(true);
       }
     }

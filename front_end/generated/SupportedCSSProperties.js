@@ -1410,7 +1410,9 @@ export const generatedProperties = [
    "flow",
    "math",
    "ruby",
-   "ruby-text"
+   "ruby-text",
+   "masonry",
+   "inline-masonry"
   ],
   "name": "display"
  },
@@ -2772,6 +2774,26 @@ export const generatedProperties = [
   "name": "position-anchor"
  },
  {
+  "keywords": [
+   "none",
+   "top",
+   "bottom",
+   "center",
+   "left",
+   "right",
+   "x-start",
+   "x-end",
+   "y-start",
+   "y-end",
+   "start",
+   "end",
+   "self-start",
+   "self-end",
+   "all"
+  ],
+  "name": "position-area"
+ },
+ {
   "longhands": [
    "position-try-order",
    "position-try-options"
@@ -3680,6 +3702,14 @@ export const generatedProperties = [
  },
  {
   "keywords": [
+   "normal",
+   "contain",
+   "nearest"
+  ],
+  "name": "view-transition-group"
+ },
+ {
+  "keywords": [
    "none"
   ],
   "name": "view-transition-name"
@@ -4509,7 +4539,9 @@ export const generatedPropertyValues = {
    "flow",
    "math",
    "ruby",
-   "ruby-text"
+   "ruby-text",
+   "masonry",
+   "inline-masonry"
   ]
  },
  "dominant-baseline": {
@@ -5251,6 +5283,25 @@ export const generatedPropertyValues = {
    "auto"
   ]
  },
+ "position-area": {
+  "values": [
+   "none",
+   "top",
+   "bottom",
+   "center",
+   "left",
+   "right",
+   "x-start",
+   "x-end",
+   "y-start",
+   "y-end",
+   "start",
+   "end",
+   "self-start",
+   "self-end",
+   "all"
+  ]
+ },
  "position-try-fallbacks": {
   "values": [
    "none",
@@ -5770,6 +5821,13 @@ export const generatedPropertyValues = {
  "view-transition-class": {
   "values": [
    "none"
+  ]
+ },
+ "view-transition-group": {
+  "values": [
+   "normal",
+   "contain",
+   "nearest"
   ]
  },
  "view-transition-name": {

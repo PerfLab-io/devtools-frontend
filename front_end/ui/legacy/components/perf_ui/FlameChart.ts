@@ -32,7 +32,9 @@ import * as Common from '../../../../core/common/common.js';
 import * as Host from '../../../../core/host/host.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as Platform from '../../../../core/platform/platform.js';
+import * as Root from '../../../../core/root/root.js';
 import * as Bindings from '../../../../models/bindings/bindings.js';
+import type * as TimelineModel from '../../../../models/timeline_model/timeline_model.js';
 import * as TraceEngine from '../../../../models/trace/trace.js';
 import * as Buttons from '../../../components/buttons/buttons.js';
 import * as UI from '../../legacy.js';
@@ -97,7 +99,14 @@ const UIStrings = {
    *@description Text for an action that shows all of the hidden entries of the Flame Chart
    */
   resetTrace: 'Reset trace',
-
+  /**
+   *@description Text for an action that adds a label annotation to an entry in the Flame Chart
+   */
+  labelEntry: 'Label entry',
+  /**
+   *@description Text for an action that adds link annotation between entries in the Flame Chart
+   */
+  linkEntries: 'Link entries',
   /**
    *@description Shown in the context menu when right clicking on a track header to enable the user to enter the track configuration mode.
    */
@@ -236,7 +245,7 @@ export const enum FilterAction {
 
 export interface UserFilterAction {
   type: FilterAction;
-  entry: TraceEngine.Types.TraceEvents.SyntheticTraceEntry;
+  entry: TraceEngine.Types.TraceEvents.TraceEventData;
 }
 
 // Object used to indicate to the Context Menu if an action is possible on the selected entry.
@@ -486,7 +495,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     }
     this.highlightedEntryIndex = entryIndex;
     this.updateElementPosition(this.highlightElement, this.highlightedEntryIndex);
-    this.dispatchEventToListeners(Events.EntryHighlighted, entryIndex);
+    this.dispatchEventToListeners(Events.EntryHovered, entryIndex);
   }
 
   highlightAllEntries(entries: number[]): void {
@@ -519,7 +528,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     }
     this.highlightedEntryIndex = -1;
     this.updateElementPosition(this.highlightElement, this.highlightedEntryIndex);
-    this.dispatchEventToListeners(Events.EntryHighlighted, -1);
+    this.dispatchEventToListeners(Events.EntryHovered, -1);
   }
 
   private createCandyStripePattern(): CanvasPattern {
@@ -903,7 +912,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
             const end = start + timelineData.entryTotalTimes[this.highlightedEntryIndex];
             this.chartViewport.setRangeSelection(start, end);
           } else if (isMetaOrControl && this.highlightedEntryIndex !== -1 && timelineData) {
-            this.dispatchEventToListeners(Events.AnnotateEntry, this.highlightedEntryIndex);
+            this.dispatchEventToListeners(Events.EntryLabelAnnotationAdded, this.highlightedEntryIndex);
           } else {
             this.chartViewport.onClick(mouseEvent);
             this.dispatchEventToListeners(Events.EntryInvoked, this.highlightedEntryIndex);
@@ -1316,6 +1325,22 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
       disabled: !possibleActions?.[FilterAction.UNDO_ALL_ACTIONS],
       jslogContext: 'reset-trace',
     });
+
+    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
+      const annotationSection = this.contextMenu.section('annotations');
+
+      const labelEntryAnnotationOption = annotationSection.appendItem(i18nString(UIStrings.labelEntry), () => {
+        this.dispatchEventToListeners(Events.EntryLabelAnnotationAdded, this.selectedEntryIndex);
+      });
+      // TODO: Change the 'add label to entry' shortcut depending on the OS
+      labelEntryAnnotationOption.setShortcut('Cmd + Click');
+
+      const linkEntriesAnnotationOption = annotationSection.appendItem(i18nString(UIStrings.linkEntries), () => {
+        this.dispatchEventToListeners(Events.EntriesLinkAnnotationChanged, this.selectedEntryIndex);
+      });
+      // TODO: Change the 'add link between entries' shortcut depending on the OS
+      linkEntriesAnnotationOption.setShortcut('Cmd + Click');
+    }
 
     const entry = this.dataProvider.eventByIndex?.(this.selectedEntryIndex);
     if (entry && entry instanceof TraceEngine.Handlers.ModelHandlers.Frames.TimelineFrame === false) {
@@ -2969,6 +2994,18 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
       const endY = this.levelToOffset(endLevel) + this.levelHeight(endLevel) / 2;
       const lineLength = endX - startX;
 
+      // Make line an arrow if the line is long enough to fit the arrow head. Otherwise, draw a thinner line without the arrow head.
+      if (lineLength > arrowWidth) {
+        context.lineWidth = 0.5;
+        context.beginPath();
+        context.moveTo(endX, endY);
+        context.lineTo(endX - arrowLineWidth, endY - 3);
+        context.lineTo(endX - arrowLineWidth, endY + 3);
+        context.fill();
+      } else {
+        context.lineWidth = 0.2;
+      }
+
       if (initiatorEndsBeforeInitiatedStart) {
         // ---
         //   |
@@ -2988,18 +3025,6 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
         context.lineTo(startX, endY);
         context.lineTo(endX, endY);
         context.stroke();
-      }
-
-      // Make line an arrow if the line is long enough to fit the arrow head. Otherwise, draw a thinner line without the arrow head.
-      if (lineLength > arrowWidth) {
-        context.lineWidth = 0.5;
-        context.beginPath();
-        context.moveTo(endX, endY);
-        context.lineTo(endX - arrowLineWidth, endY - 3);
-        context.lineTo(endX - arrowLineWidth, endY + 3);
-        context.fill();
-      } else {
-        context.lineWidth = 0.2;
       }
     }
     context.restore();
@@ -3866,6 +3891,12 @@ export class FlameChartTimelineData {
   }
 }
 
+export interface DataProviderSearchResult {
+  index: number;
+  startTimeMilli: TraceEngine.Types.Timing.MilliSeconds;
+  provider: 'main'|'network'|'other';
+}
+
 export interface FlameChartDataProvider {
   buildFlowForInitiator?(index: number): unknown;
 
@@ -3916,6 +3947,10 @@ export interface FlameChartDataProvider {
 
   indexForEvent?(event: TraceEngine.Types.TraceEvents.TraceEventData|
                  TraceEngine.Handlers.ModelHandlers.Frames.TimelineFrame): number|null;
+
+  search?
+      (startTime: TraceEngine.Types.Timing.MilliSeconds, endTime: TraceEngine.Types.Timing.MilliSeconds,
+       filter: TimelineModel.TimelineModelFilter.TimelineModelFilter): DataProviderSearchResult[];
 }
 
 export interface FlameChartMarker {
@@ -3940,8 +3975,10 @@ export const enum Events {
    * away from any events)
    */
   EntryInvoked = 'EntryInvoked',
-  // Emmited when annotate entry shortcut is clicked.
-  AnnotateEntry = 'AnnotateEntry',
+  // Emmited when entry label annotation is added through a shotcut or a context menu.
+  EntryLabelAnnotationAdded = 'EntryLabelAnnotationAdded',
+  // Emmited when entries link annotation is added or changed through a shotcut or a context menu.
+  EntriesLinkAnnotationChanged = 'EntriesLinkAnnotationChanged',
   /**
    * Emitted when an event is selected via keyboard navigation using the arrow
    * keys.
@@ -3957,7 +3994,7 @@ export const enum Events {
    * been hovered on, or -1 if no entry is selected (the user has moved their
    * mouse off the event)
    */
-  EntryHighlighted = 'EntryHighlighted',
+  EntryHovered = 'EntryHovered',
   ChartPlayableStateChange = 'ChartPlayableStateChange',
 
   LatestDrawDimensions = 'LatestDrawDimensions',
@@ -3966,11 +4003,12 @@ export const enum Events {
 }
 
 export type EventTypes = {
-  [Events.AnnotateEntry]: number,
+  [Events.EntryLabelAnnotationAdded]: number,
+  [Events.EntriesLinkAnnotationChanged]: number,
   [Events.CanvasFocused]: number|void,
   [Events.EntryInvoked]: number,
   [Events.EntrySelected]: number,
-  [Events.EntryHighlighted]: number,
+  [Events.EntryHovered]: number,
   [Events.ChartPlayableStateChange]: boolean,
   [Events.LatestDrawDimensions]: {
     chart: {
