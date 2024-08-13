@@ -87,6 +87,7 @@ export interface TraceEventData {
 
 export interface TraceEventArgs {
   data?: TraceEventArgsData;
+  stackTrace?: TraceEventCallFrame[];
 }
 
 export interface TraceEventArgsData {
@@ -1224,6 +1225,7 @@ export type TraceEventPairableUserTiming = TraceEventUserTiming&TraceEventPairab
 export interface TraceEventPerformanceMeasureBegin extends TraceEventPairableUserTiming {
   args: TraceEventArgs&{
     detail?: string,
+    stackTrace?: TraceEventCallFrame[],
   };
   ph: Phase.ASYNC_NESTABLE_START;
 }
@@ -1235,6 +1237,7 @@ export interface TraceEventPerformanceMark extends TraceEventUserTiming {
   args: TraceEventArgs&{
     data?: TraceEventArgsData & {
       detail?: string,
+      stackTrace?: TraceEventCallFrame[],
     },
   };
   ph: Phase.INSTANT|Phase.MARK|Phase.ASYNC_NESTABLE_INSTANT;
@@ -1346,7 +1349,7 @@ export function isTraceEventScriptRundownSource(traceEventData: TraceEventData):
   if (!data) {
     return false;
   }
-  return 'isolate' in data && 'scriptId' in data && 'length' in data && 'sourceText' in data;
+  return 'isolate' in data && 'scriptId' in data && 'sourceText' in data;
 }
 
 /** ChromeFrameReporter args for PipelineReporter event.
@@ -1447,18 +1450,17 @@ export function isTraceEventPipelineReporter(event: TraceEventData): event is Tr
 }
 
 // A type used for synthetic events created based on a raw trace event.
-export interface SyntheticBasedEvent<Ph extends Phase = Phase> extends SyntheticEntry {
-  ph: Ph;
-  rawSourceEvent: TraceEventData;
-}
-
 // A branded type is used to ensure not all events can be typed as
-// SyntheticEntry and prevent places different to the
+// SyntheticBasedEvent and prevent places different to the
 // SyntheticEventsManager from creating synthetic events. This is
 // because synthetic events need to be registered in order to resolve
 // serialized event keys into event objects, so we ensure events are
 // registered at the time they are created by the SyntheticEventsManager.
-export type SyntheticEntry = TraceEventData&{_tag: 'SyntheticEntryTag'};
+export interface SyntheticBasedEvent<Ph extends Phase = Phase> extends TraceEventData {
+  ph: Ph;
+  rawSourceEvent: TraceEventData;
+  _tag: 'SyntheticEntryTag';
+}
 
 export function isSyntheticBasedEvent(event: TraceEventData): event is SyntheticBasedEvent {
   return 'rawSourceEvent' in event;
@@ -1526,14 +1528,6 @@ export interface SyntheticInteractionPair extends SyntheticEventPair<TraceEventE
 }
 
 /**
- * An event created synthetically in the frontend that has a self time
- * (the time spent running the task itself).
- */
-export interface SyntheticTraceEntry extends TraceEventData {
-  selfTime?: MicroSeconds;
-}
-
-/**
  * A profile call created in the frontend from samples disguised as a
  * trace event.
  *
@@ -1545,18 +1539,17 @@ export interface SyntheticTraceEntry extends TraceEventData {
  * point in time that the sample was created, we also have to store the ID of
  * the Node that points to the function call that this profile call represents.
  */
-export interface SyntheticProfileCall extends SyntheticTraceEntry {
+export interface SyntheticProfileCall extends TraceEventData {
   callFrame: Protocol.Runtime.CallFrame;
   nodeId: Protocol.integer;
   sampleIndex: number;
   profileId: ProfileID;
-  selfTime: MicroSeconds;
 }
 
 /**
  * A JS Sample reflects a single sample from the V8 CPU Profile
  */
-export interface SyntheticJSSample extends SyntheticTraceEntry {
+export interface SyntheticJSSample extends TraceEventData {
   name: KnownEventName.JSSample;
   args: TraceEventArgs&{
     data: TraceEventArgsData & {
@@ -1566,19 +1559,9 @@ export interface SyntheticJSSample extends SyntheticTraceEntry {
   ph: Phase.INSTANT;
 }
 
-/**
- * A trace event augmented synthetically in the frontend to contain
- * its self time.
- */
-export type SyntheticRendererEvent = TraceEventRendererEvent&SyntheticTraceEntry;
-
 export function isSyntheticInteractionEvent(event: TraceEventData): event is SyntheticInteractionPair {
   return Boolean(
       'interactionId' in event && event.args?.data && 'beginEvent' in event.args.data && 'endEvent' in event.args.data);
-}
-
-export function isSyntheticTraceEntry(event: TraceEventData): event is SyntheticTraceEntry {
-  return isTraceEventRendererEvent(event) || isProfileCall(event);
 }
 
 // Events relating to frames.
@@ -2167,14 +2150,18 @@ export function isSyntheticConsoleTiming(traceEventData: TraceEventData): traceE
   return 'beginEvent' in data && 'endEvent' in data;
 }
 
+export function isTraceEventUserTiming(traceEventData: TraceEventData): traceEventData is TraceEventUserTiming {
+  return traceEventData.cat === 'blink.user_timing';
+}
+
 export function isTraceEventPerformanceMeasure(traceEventData: TraceEventData):
     traceEventData is TraceEventPerformanceMeasure {
-  return traceEventData.cat === 'blink.user_timing' && isTraceEventAsyncPhase(traceEventData);
+  return isTraceEventUserTiming(traceEventData) && isTraceEventAsyncPhase(traceEventData);
 }
 
 export function isTraceEventPerformanceMark(traceEventData: TraceEventData):
     traceEventData is TraceEventPerformanceMark {
-  return traceEventData.cat === 'blink.user_timing' &&
+  return isTraceEventUserTiming(traceEventData) &&
       (traceEventData.ph === Phase.MARK || traceEventData.ph === Phase.INSTANT);
 }
 

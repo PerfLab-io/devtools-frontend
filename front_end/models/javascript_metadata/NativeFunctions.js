@@ -5755,7 +5755,7 @@ export const NativeFunctions = [
   },
   {
     name: "tanh",
-    signatures: [["?input","?options"]],
+    signatures: [["input","?options"]],
     receivers: ["MLGraphBuilder"]
   },
   {
@@ -6613,6 +6613,10 @@ export const NativeFunctions = [
     signatures: [["type","?options"]]
   },
   {
+    name: "getComposedRanges",
+    signatures: [["?options"]]
+  },
+  {
     name: "AnimationEvent",
     signatures: [["type","?eventInitDict"]]
   },
@@ -7075,10 +7079,6 @@ export const NativeFunctions = [
     signatures: [["callback","?options"]]
   },
   {
-    name: "yield",
-    signatures: [["?options"]]
-  },
-  {
     name: "TaskController",
     signatures: [["?init"]]
   },
@@ -7227,12 +7227,16 @@ export const NativeFunctions = [
     signatures: [["feature"]]
   },
   {
-    name: "promptStreaming",
+    name: "summarize",
     signatures: [["input"]]
   },
   {
-    name: "createTextSession",
-    signatures: [["?options"]]
+    name: "summarizeStreaming",
+    signatures: [["input"]]
+  },
+  {
+    name: "promptStreaming",
+    signatures: [["input"]]
   },
   {
     name: "registerAnimator",
@@ -7851,7 +7855,7 @@ export const NativeFunctions = [
   },
   {
     name: "elu",
-    signatures: [["?options"],["x","?options"]]
+    signatures: [["x","?options"]]
   },
   {
     name: "gather",
@@ -7859,7 +7863,7 @@ export const NativeFunctions = [
   },
   {
     name: "gelu",
-    signatures: [["?input","?options"]]
+    signatures: [["input","?options"]]
   },
   {
     name: "gemm",
@@ -7875,11 +7879,11 @@ export const NativeFunctions = [
   },
   {
     name: "hardSigmoid",
-    signatures: [["?options"],["x","?options"]]
+    signatures: [["x","?options"]]
   },
   {
     name: "hardSwish",
-    signatures: [["?x","?options"]]
+    signatures: [["x","?options"]]
   },
   {
     name: "instanceNormalization",
@@ -7895,11 +7899,11 @@ export const NativeFunctions = [
   },
   {
     name: "leakyRelu",
-    signatures: [["?options"],["x","?options"]]
+    signatures: [["x","?options"]]
   },
   {
     name: "linear",
-    signatures: [["?options"],["input","?options"]]
+    signatures: [["input","?options"]]
   },
   {
     name: "lstm",
@@ -7971,7 +7975,7 @@ export const NativeFunctions = [
   },
   {
     name: "relu",
-    signatures: [["?input","?options"]]
+    signatures: [["input","?options"]]
   },
   {
     name: "reshape",
@@ -7983,7 +7987,7 @@ export const NativeFunctions = [
   },
   {
     name: "sigmoid",
-    signatures: [["?input","?options"]]
+    signatures: [["input","?options"]]
   },
   {
     name: "softmax",
@@ -7991,11 +7995,11 @@ export const NativeFunctions = [
   },
   {
     name: "softplus",
-    signatures: [["?input","?options"]]
+    signatures: [["input","?options"]]
   },
   {
     name: "softsign",
-    signatures: [["?input","?options"]]
+    signatures: [["input","?options"]]
   },
   {
     name: "transpose",
@@ -8052,6 +8056,16 @@ export const NativeFunctions = [
   {
     name: "TimestampTrigger",
     signatures: [["timestamp"]]
+  },
+  {
+    name: "detect",
+    signatures: [["input"]],
+    receivers: ["LanguageDetector"]
+  },
+  {
+    name: "detect",
+    signatures: [["image"]],
+    receivers: ["BarcodeDetector","FaceDetector","TextDetector"]
   },
   {
     name: "canTranslate",
@@ -8172,6 +8186,10 @@ export const NativeFunctions = [
   {
     name: "createDTMFSender",
     signatures: [["track"]]
+  },
+  {
+    name: "RTCRtpScriptTransform",
+    signatures: [["worker","?options","?transfer"]]
   },
   {
     name: "sendRtp",
@@ -8334,10 +8352,6 @@ export const NativeFunctions = [
     signatures: [["?barcodeDetectorOptions"]]
   },
   {
-    name: "detect",
-    signatures: [["image"]]
-  },
-  {
     name: "FaceDetector",
     signatures: [["?faceDetectorOptions"]]
   },
@@ -8392,6 +8406,10 @@ export const NativeFunctions = [
   {
     name: "SpeechRecognitionEvent",
     signatures: [["type","?initDict"]]
+  },
+  {
+    name: "onDeviceWebSpeechAvailable",
+    signatures: [["lang"]]
   },
   {
     name: "SpeechSynthesisErrorEvent",

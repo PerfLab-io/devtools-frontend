@@ -101,7 +101,7 @@ export class FreestylerPanel extends UI.Panel.Panel {
       Common.Settings.Settings.instance().createLocalSetting('freestyler-dogfood-consent-onboarding-finished', false);
   constructor(private view: View = defaultView, {aidaClient, aidaAvailability}: {
     aidaClient: Host.AidaClient.AidaClient,
-    aidaAvailability: Host.AidaClient.AidaAvailability,
+    aidaAvailability: Host.AidaClient.AidaAccessPreconditions,
   }) {
     super(FreestylerPanel.panelName);
 
@@ -159,7 +159,7 @@ export class FreestylerPanel extends UI.Panel.Panel {
   }|undefined = {forceNew: null}): Promise<FreestylerPanel> {
     const {forceNew} = opts;
     if (!freestylerPanelInstance || forceNew) {
-      const aidaAvailability = await Host.AidaClient.AidaClient.getAidaClientAvailability();
+      const aidaAvailability = await Host.AidaClient.AidaClient.checkAccessPreconditions();
       const aidaClient = new Host.AidaClient.AidaClient();
       freestylerPanelInstance = new FreestylerPanel(defaultView, {aidaClient, aidaAvailability});
     }
@@ -256,7 +256,7 @@ export class FreestylerPanel extends UI.Panel.Panel {
     this.#viewProps.isLoading = true;
     // TODO: We should only show "Fix this issue" button when the answer suggests fix or fixes.
     // We shouldn't show this when the answer is complete like a confirmation without any suggestion.
-    const suggestingFix = text !== FIX_THIS_ISSUE_PROMPT;
+    const suggestingFix = !isFixQuery;
     let systemMessage: ModelChatMessage = {
       entity: ChatMessageEntity.MODEL,
       suggestingFix,
@@ -287,6 +287,9 @@ export class FreestylerPanel extends UI.Panel.Panel {
 
       if (data.step === Step.ANSWER || data.step === Step.ERROR) {
         this.#viewProps.isLoading = false;
+      }
+      if (data.step === Step.ERROR) {
+        systemMessage.suggestingFix = false;
       }
 
       systemMessage.rpcId = data.rpcId;

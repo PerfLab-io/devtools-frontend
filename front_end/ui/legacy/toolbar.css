@@ -85,6 +85,10 @@ devtools-issue-counter.main-toolbar {
   top: 1px;
 }
 
+.toolbar-select-container .toolbar-dropdown-arrow {
+  left: -5px;
+}
+
 .toolbar-button.dark-text .toolbar-dropdown-arrow {
   color: var(--sys-color-on-surface);
 }
@@ -287,23 +291,11 @@ it. */
   color: var(--sys-color-primary-bright);
 }
 
-.toolbar-blue-on-hover .toolbar-button:not(.toolbar-state-on):enabled:hover:not(:active) {
-  background-color: var(--sys-color-state-hover-on-subtle);
-}
-
-.toolbar-blue-on-hover .toolbar-button:not(.toolbar-state-on):enabled:active:hover {
-  background-color: var(--sys-color-state-hover-on-subtle);
-}
-
 :not(.toolbar-render-as-links) .toolbar-button:enabled:hover:not(:active) .toolbar-glyph {
   color: var(--sys-color-on-surface);
 }
 
 :not(.toolbar-render-as-links) .toolbar-button:enabled:hover:not(:active) .toolbar-text {
-  color: var(--sys-color-on-surface);
-}
-
-.toolbar-blue-on-hover .toolbar-button:not(.toolbar-state-on):enabled:hover .toolbar-text {
   color: var(--sys-color-on-surface);
 }
 

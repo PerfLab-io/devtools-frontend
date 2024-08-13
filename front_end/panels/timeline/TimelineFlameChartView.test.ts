@@ -101,6 +101,30 @@ describeWithEnvironment('TimelineFlameChartView', function() {
     }
   });
 
+  it('can search across both flame charts for events', async function() {
+    const {traceData} = await TraceLoader.traceEngine(this, 'web-dev-with-commit.json.gz');
+    // The timeline flamechart view will invoke the `select` method
+    // of this delegate every time an event has matched on a search.
+    const mockViewDelegate = new MockViewDelegate();
+
+    const flameChartView = new Timeline.TimelineFlameChartView.TimelineFlameChartView(mockViewDelegate);
+    const searchableView = new UI.SearchableView.SearchableView(flameChartView, null);
+    flameChartView.setSearchableView(searchableView);
+    flameChartView.setModel(traceData);
+
+    const searchQuery = 'app.js';
+    const searchConfig =
+        new UI.SearchableView.SearchConfig(/* query */ searchQuery, /* caseSensitive */ false, /* isRegex */ false);
+    flameChartView.performSearch(searchConfig, true);
+
+    const results = flameChartView.getSearchResults();
+    assert.isOk(results);
+    assert.lengthOf(results, 6);
+    // We should have 5 results from the main provider, and 1 from the network
+    assert.lengthOf(results.filter(r => r.provider === 'main'), 5);
+    assert.lengthOf(results.filter(r => r.provider === 'network'), 1);
+  });
+
   // This test is still failing after bumping up the timeout to 20 seconds. So
   // skip it while we work on a fix for the trace load speed.
   it.skip('[crbug.com/1492405] Shows the network track correctly', async function() {
@@ -146,15 +170,14 @@ describeWithEnvironment('TimelineFlameChartView', function() {
     const nodeOfGroup = flameChartView.getMainDataProvider().groupTreeEvents(mainTrack);
     const firstNodeWithChildren = nodeOfGroup?.find(node => {
       const childrenAmount =
-          traceData.Renderer.entryToNode.get(node as TraceEngine.Types.TraceEvents.SyntheticTraceEntry)
-              ?.children.length;
+          traceData.Renderer.entryToNode.get(node as TraceEngine.Types.TraceEvents.TraceEventData)?.children.length;
       if (!childrenAmount) {
         return false;
       }
       return childrenAmount > 0 && node.cat === 'devtools.timeline';
     });
     const node =
-        traceData.Renderer.entryToNode.get(firstNodeWithChildren as TraceEngine.Types.TraceEvents.SyntheticTraceEntry);
+        traceData.Renderer.entryToNode.get(firstNodeWithChildren as TraceEngine.Types.TraceEvents.TraceEventData);
     if (!node) {
       throw new Error('Could not find a visible node with children');
     }
@@ -190,15 +213,14 @@ describeWithEnvironment('TimelineFlameChartView', function() {
        const nodeOfGroup = flameChartView.getMainDataProvider().groupTreeEvents(mainTrack);
        const firstNodeWithChildren = nodeOfGroup?.find(node => {
          const childrenAmount =
-             traceData.Renderer.entryToNode.get(node as TraceEngine.Types.TraceEvents.SyntheticTraceEntry)
-                 ?.children.length;
+             traceData.Renderer.entryToNode.get(node as TraceEngine.Types.TraceEvents.TraceEventData)?.children.length;
          if (!childrenAmount) {
            return false;
          }
          return childrenAmount > 0 && node.cat === 'devtools.timeline';
        });
-       const node = traceData.Renderer.entryToNode.get(
-           firstNodeWithChildren as TraceEngine.Types.TraceEvents.SyntheticTraceEntry);
+       const node =
+           traceData.Renderer.entryToNode.get(firstNodeWithChildren as TraceEngine.Types.TraceEvents.TraceEventData);
        if (!node) {
          throw new Error('Could not find a visible node with children');
        }
@@ -238,15 +260,14 @@ describeWithEnvironment('TimelineFlameChartView', function() {
        const nodeOfGroup = flameChartView.getMainDataProvider().groupTreeEvents(mainTrack);
        const firstNodeWithChildren = nodeOfGroup?.find(node => {
          const childrenAmount =
-             traceData.Renderer.entryToNode.get(node as TraceEngine.Types.TraceEvents.SyntheticTraceEntry)
-                 ?.children.length;
+             traceData.Renderer.entryToNode.get(node as TraceEngine.Types.TraceEvents.TraceEventData)?.children.length;
          if (!childrenAmount) {
            return false;
          }
          return childrenAmount > 0 && node.cat === 'devtools.timeline';
        });
-       const node = traceData.Renderer.entryToNode.get(
-           firstNodeWithChildren as TraceEngine.Types.TraceEvents.SyntheticTraceEntry);
+       const node =
+           traceData.Renderer.entryToNode.get(firstNodeWithChildren as TraceEngine.Types.TraceEvents.TraceEventData);
        if (!node) {
          throw new Error('Could not find a visible node with children');
        }
@@ -343,9 +364,9 @@ describeWithEnvironment('TimelineFlameChartView', function() {
       }
 
       function findFirstEntry(
-          allEntries: readonly TraceEngine.Types.TraceEvents.SyntheticTraceEntry[],
-          predicate: (entry: TraceEngine.Types.TraceEvents.SyntheticTraceEntry) =>
-              boolean): TraceEngine.Types.TraceEvents.SyntheticTraceEntry {
+          allEntries: readonly TraceEngine.Types.TraceEvents.TraceEventData[],
+          predicate: (entry: TraceEngine.Types.TraceEvents.TraceEventData) =>
+              boolean): TraceEngine.Types.TraceEvents.TraceEventData {
         const entry = allEntries.find(entry => predicate(entry));
         if (!entry) {
           throw new Error('Could not find expected entry.');

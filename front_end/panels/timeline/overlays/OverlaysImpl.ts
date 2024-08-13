@@ -47,12 +47,32 @@ export interface EntrySelected {
 }
 
 /**
+ * Drawn around an entry when we want to highlight it to the user.
+ */
+export interface EntryOutline {
+  type: 'ENTRY_OUTLINE';
+  entry: OverlayEntry;
+  // Currently the only supported use-case is highlighting errors, but we may
+  // want to expand this in the future and have the outline appear differently.
+  outlineReason: 'ERROR';
+}
+
+/**
  * Represents an object created when a user creates a label for an entry in the timeline.
  */
 export interface EntryLabel {
   type: 'ENTRY_LABEL';
   entry: OverlayEntry;
   label: string;
+}
+
+/**
+ * Represents an object created when a user creates a link between two entries.
+ */
+export interface EntriesLink {
+  type: 'ENTRIES_LINK';
+  entryFrom: OverlayEntry;
+  entryTo?: OverlayEntry;
 }
 
 /**
@@ -64,6 +84,21 @@ export interface TimeRangeLabel {
   bounds: TraceEngine.Types.Timing.TraceWindowMicroSeconds;
   label: string;
   showDuration: boolean;
+}
+
+export function isTimeRangeLabel(annotation: TimelineOverlay): annotation is TimeRangeLabel {
+  return annotation.type === 'TIME_RANGE';
+}
+
+/**
+ * Used to highlight with a red-candy stripe a time range. It takes an entry
+ * because this entry is the row that will be used to place the candy stripe,
+ * and its height will be set to the height of that row.
+ */
+export interface CandyStripedTimeRange {
+  type: 'CANDY_STRIPED_TIME_RANGE';
+  bounds: TraceEngine.Types.Timing.TraceWindowMicroSeconds;
+  entry: TraceEngine.Types.TraceEvents.TraceEventData;
 }
 
 /**
@@ -82,7 +117,8 @@ export interface CursorTimestampMarker {
 /**
  * All supported overlay types. Expected to grow in time!
  */
-export type TimelineOverlay = EntrySelected|TimeRangeLabel|EntryLabel|TimespanBreakdown|CursorTimestampMarker;
+export type TimelineOverlay = EntrySelected|EntryOutline|TimeRangeLabel|EntryLabel|EntriesLink|TimespanBreakdown|
+    CursorTimestampMarker|CandyStripedTimeRange;
 
 /**
  * Denotes overlays that are singletons; only one of these will be allowed to
@@ -194,12 +230,20 @@ export class Overlays extends EventTarget {
    */
   #overlaysContainer: HTMLElement;
 
+  /**
+   * The parent HTMLElement of both Flamecharts.
+   * This container is used to get the mouse position over the Flamecharts.
+   */
+  #flameChartsContainer: HTMLElement;
+
   constructor(init: {
     container: HTMLElement,
+    flameChartsContainer: HTMLElement,
     charts: TimelineCharts,
   }) {
     super();
     this.#overlaysContainer = init.container;
+    this.#flameChartsContainer = init.flameChartsContainer;
     this.#charts = init.charts;
   }
 
@@ -208,14 +252,13 @@ export class Overlays extends EventTarget {
    * helper exists to return a consistent set of timings regardless of the type
    * of entry.
    */
-  #timingsForOverlayEntry(entry: OverlayEntry):
+  timingsForOverlayEntry(entry: OverlayEntry):
       TraceEngine.Helpers.Timing.EventTimingsData<TraceEngine.Types.Timing.MicroSeconds> {
     if (entry instanceof TraceEngine.Handlers.ModelHandlers.Frames.TimelineFrame) {
       return {
         startTime: entry.startTime,
         endTime: entry.endTime,
         duration: entry.duration,
-        selfTime: TraceEngine.Types.Timing.MicroSeconds(0),
       };
     }
     if (TraceEngine.Types.TraceEvents.isSyntheticLayoutShift(entry)) {
@@ -224,7 +267,6 @@ export class Overlays extends EventTarget {
         endTime,
         duration: LAYOUT_SHIFT_SYNTHETIC_DURATION,
         startTime: entry.ts,
-        selfTime: TraceEngine.Types.Timing.MicroSeconds(0),
       };
     }
     return TraceEngine.Helpers.Timing.eventTimingsMicroSeconds(entry);
@@ -468,12 +510,26 @@ export class Overlays extends EventTarget {
       case 'ENTRY_SELECTED': {
         if (this.entryIsVisibleOnChart(overlay.entry)) {
           element.style.visibility = 'visible';
-          this.#positionEntrySelectedOverlay(overlay, element);
+          this.#positionEntryBorderOutlineType(overlay, element);
         } else {
           element.style.visibility = 'hidden';
         }
         break;
       }
+      case 'ENTRY_OUTLINE': {
+        const selectedOverlay = this.overlaysOfType<EntrySelected>('ENTRY_SELECTED')?.at(0);
+        // Check if this entry has also been selected by the user. If it has,
+        // do not show the outline, but only show the selected outline.
+        const outlinedEntryIsSelected = Boolean(selectedOverlay && selectedOverlay.entry === overlay.entry);
+        if (!outlinedEntryIsSelected && this.entryIsVisibleOnChart(overlay.entry)) {
+          element.style.visibility = 'visible';
+          this.#positionEntryBorderOutlineType(overlay, element);
+        } else {
+          element.style.visibility = 'hidden';
+        }
+        break;
+      }
+
       case 'TIME_RANGE': {
         this.#positionTimeRangeOverlay(overlay, element);
         const component = element.querySelector('devtools-time-range-overlay');
@@ -498,6 +554,10 @@ export class Overlays extends EventTarget {
         }
         break;
       }
+      case 'ENTRIES_LINK': {
+        this.#positionEntriesLinkOverlay(overlay, element);
+        break;
+      }
       case 'TIMESPAN_BREAKDOWN': {
         this.#positionTimespanBreakdownOverlay(overlay, element);
         const component = element.querySelector('devtools-timespan-breakdown-overlay');
@@ -520,6 +580,23 @@ export class Overlays extends EventTarget {
         break;
       }
 
+      case 'CANDY_STRIPED_TIME_RANGE': {
+        const {visibleWindow} = this.#dimensions.trace;
+        // If the bounds of this overlay are not within the visible bounds, we
+        // can skip updating its position and just hide it.
+        if (visibleWindow && TraceEngine.Helpers.Timing.boundsIncludeTimeRange({
+              bounds: visibleWindow,
+              timeRange: overlay.bounds,
+            })) {
+          element.style.visibility = 'visible';
+          this.#positionCandyStripedTimeRange(overlay, element);
+
+        } else {
+          element.style.visibility = 'hidden';
+        }
+        break;
+      }
+
       default: {
         Platform.TypeScriptUtilities.assertNever(overlay, `Unknown overlay: ${JSON.stringify(overlay)}`);
       }
@@ -533,9 +610,9 @@ export class Overlays extends EventTarget {
   }
 
   #positionTimespanBreakdownOverlay(overlay: TimespanBreakdown, element: HTMLElement): void {
-    const component = element?.querySelector('devtools-timespan-breakdown-overlay');
+    const component = element.querySelector<HTMLElement>('devtools-timespan-breakdown-overlay');
     const shadow = component?.shadowRoot;
-    const elementSections = shadow?.querySelectorAll('.timespan-breakdown-overlay-section');
+    const elementSections = shadow?.querySelectorAll<HTMLElement>('.timespan-breakdown-overlay-section');
 
     if (overlay.sections.length === 0) {
       return;
@@ -550,10 +627,10 @@ export class Overlays extends EventTarget {
     const rangeWidth = rightEdgePixel - leftEdgePixel;
     element.style.left = `${leftEdgePixel}px`;
     element.style.width = `${rangeWidth}px`;
+    element.style.bottom = '0px';
 
     if (elementSections?.length === overlay.sections.length) {
       let count = 0;
-      let stagger = false;
       for (const section of overlay.sections) {
         const leftPixel = this.#xPixelForMicroSeconds('main', section.bounds.min);
         const rightPixel = this.#xPixelForMicroSeconds('main', section.bounds.max);
@@ -561,19 +638,25 @@ export class Overlays extends EventTarget {
           return;
         }
         const rangeWidth = rightPixel - leftPixel;
-        const sectionElement = elementSections[count] as HTMLElement;
+        const sectionElement = elementSections[count];
 
-        const networkHeight = this.#dimensions.charts.network?.heightPixels ?? 0;
         sectionElement.style.left = `${leftPixel}px`;
         sectionElement.style.width = `${rangeWidth}px`;
-        const staggeredHeight = stagger ? networkHeight +
-                Components.TimespanBreakdownOverlay.TimespanBreakdownOverlay.TIMESPAN_BREAKDOWN_OVERLAY_STAGGER_PX :
-                                          networkHeight;
-        sectionElement.style.height = `${staggeredHeight}px`;
         count++;
-        // Stagger every other section.
-        stagger = !stagger;
       }
+    }
+  }
+
+  #positionEntriesLinkOverlay(overlay: EntriesLink, element: HTMLElement): void {
+    // The entry arrow starts from the end on the X axis and middle of the Y axis
+    const entryEndX = this.xPixelForEventEndOnChart(overlay.entryFrom) ?? 0;
+    const halfEntryHeight = (this.pixelHeightForEventOnChart(overlay.entryFrom) ?? 0) / 2;
+    const entryMiddleY = (this.yPixelForEventOnChart(overlay.entryFrom) ?? 0) + halfEntryHeight;
+
+    const component = element.querySelector('devtools-entries-link-overlay');
+
+    if (component) {
+      component.coordinateFrom = {x: entryEndX, y: entryMiddleY};
     }
   }
 
@@ -601,9 +684,9 @@ export class Overlays extends EventTarget {
   #positionEntryLabelOverlay(overlay: EntryLabel, element: HTMLElement):
       {height: number, width: number, cutOffEntryHeight: number, chart: string}|null {
     const chartName = this.#chartForOverlayEntry(overlay.entry);
-    const x = this.xPixelForEventOnChart(overlay.entry);
+    const x = this.xPixelForEventStartOnChart(overlay.entry);
     const y = this.yPixelForEventOnChart(overlay.entry);
-    const {endTime} = this.#timingsForOverlayEntry(overlay.entry);
+    const {endTime} = this.timingsForOverlayEntry(overlay.entry);
     const endX = this.#xPixelForMicroSeconds(chartName, endTime);
     const entryHeight = this.pixelHeightForEventOnChart(overlay.entry) ?? 0;
 
@@ -641,22 +724,93 @@ export class Overlays extends EventTarget {
     return {height: entryHeight, width: entryWidth, cutOffEntryHeight, chart: chartName};
   }
 
+  #positionCandyStripedTimeRange(overlay: CandyStripedTimeRange, element: HTMLElement): void {
+    const chartName = this.#chartForOverlayEntry(overlay.entry);
+
+    const startX = this.#xPixelForMicroSeconds(chartName, overlay.bounds.min);
+    const endX = this.#xPixelForMicroSeconds(chartName, overlay.bounds.max);
+    if (startX === null || endX === null) {
+      return;
+    }
+
+    let y = this.yPixelForEventOnChart(overlay.entry);
+    if (y === null) {
+      return;
+    }
+
+    const totalHeight = this.pixelHeightForEventOnChart(overlay.entry) ?? 0;
+
+    // We might modify the height we use when drawing the overlay, hence copying the totalHeight.
+    let height = totalHeight;
+    if (height === null) {
+      return;
+    }
+    const widthPixels = endX - startX;
+    // The entry selected overlay is always at least 2px wide.
+    const finalWidth = Math.max(2, widthPixels);
+    element.style.width = `${finalWidth}px`;
+
+    // If the event is on the main chart, we need to adjust its selected border
+    // if the event is cut off the top of the screen, because we need to ensure
+    // that it does not overlap the resize element. Unfortunately we cannot
+    // z-index our way out of this, so instead we calculate if the event is cut
+    // off, and if it is, we draw the partial selected outline and do not draw
+    // the top border, making it appear like it is going behind the resizer.
+    // We don't need to worry about it going off the bottom, because in that
+    // case we don't draw the overlay anyway.
+    if (chartName === 'main') {
+      const chartTopPadding = this.networkChartOffsetHeight();
+      // We now calculate the available height: if the entry is cut off we don't
+      // show the border for the part that is cut off.
+      const cutOffTop = y < chartTopPadding;
+
+      height = cutOffTop ? Math.abs(y + height - chartTopPadding) : height;
+      element.classList.toggle('cut-off-top', cutOffTop);
+      if (cutOffTop) {
+        // Adjust the y position: we need to move it down from the top Y
+        // position to the Y position of the first visible pixel. The
+        // adjustment is totalHeight - height because if the totalHeight is 17,
+        // and the visibleHeight is 5, we need to draw the overay at 17-5=12px
+        // vertically from the top of the event.
+        y = y + totalHeight - height;
+      }
+    } else {
+      // If the event is on the network chart, we use the same logic as above
+      // for the main chart, but to check if the event is cut off the bottom of
+      // the network track and only part of the overlay is visible.
+      // We don't need to worry about the even going off the top of the panel
+      // as we can show the full overlay and it gets cut off by the minimap UI.
+      const networkHeight = this.#dimensions.charts.network?.heightPixels ?? 0;
+      const lastVisibleY = y + totalHeight;
+      const cutOffBottom = lastVisibleY > networkHeight;
+      element.classList.toggle('cut-off-bottom', cutOffBottom);
+      if (cutOffBottom) {
+        // Adjust the height of the overlay to be the amount of visible pixels.
+        height = networkHeight - y;
+      }
+    }
+
+    element.style.height = `${height}px`;
+    element.style.top = `${y}px`;
+    element.style.left = `${startX}px`;
+  }
+
   /**
-   * Positions an EntrySelected overlay. As we extend the list of overlays,
-   * some of the code in here around positioning may be re-used elsewhere.
-   * @param overlay - the EntrySelected overlay that we need to position.
+   * Positions an EntrySelected or EntryOutline overlay. These share the same
+   * method as they are both borders around an entry.
+   * @param overlay - the EntrySelected/EntryOutline overlay that we need to position.
    * @param element - the DOM element representing the overlay
    */
-  #positionEntrySelectedOverlay(overlay: EntrySelected, element: HTMLElement): void {
+  #positionEntryBorderOutlineType(overlay: EntrySelected|EntryOutline, element: HTMLElement): void {
     const chartName = this.#chartForOverlayEntry(overlay.entry);
-    let x = this.xPixelForEventOnChart(overlay.entry);
+    let x = this.xPixelForEventStartOnChart(overlay.entry);
     let y = this.yPixelForEventOnChart(overlay.entry);
 
     if (x === null || y === null) {
       return;
     }
 
-    const {endTime, duration} = this.#timingsForOverlayEntry(overlay.entry);
+    const {endTime, duration} = this.timingsForOverlayEntry(overlay.entry);
     const endX = this.#xPixelForMicroSeconds(chartName, endTime);
     if (endX === null) {
       return;
@@ -759,11 +913,49 @@ export class Overlays extends EventTarget {
         div.appendChild(component);
         return div;
       }
+      case 'ENTRIES_LINK': {
+        // The entry arrow starts from the end on the X axis and middle of the Y axis
+        const entryEndX = this.xPixelForEventEndOnChart(overlay.entryFrom) ?? 0;
+        const halfEntryHeight = (this.pixelHeightForEventOnChart(overlay.entryFrom) ?? 0) / 2;
+        const entryMiddleY = (this.yPixelForEventOnChart(overlay.entryFrom) ?? 0) + halfEntryHeight;
+
+        const component = new Components.EntriesLinkOverlay.EntriesLinkOverlay({x: entryEndX, y: entryMiddleY});
+        div.appendChild(component);
+
+        // Add an event listener to track mousemove and draw the arrow after
+        // the mouse before the entry the arrow will connect to is selected.
+        //
+        // The 'mousemove' event is attached to `flameChartsContainer` instead of `overlaysContainer`
+        // because `overlaysContainer` doesn't have events to enable the interaction with the
+        // Flamecharts beneath it.
+        // TODO: Remove the mousemove event when the connecting entry is selected
+        this.#flameChartsContainer.addEventListener('mousemove', event => {
+          const mouseEvent = (event as MouseEvent);
+          const lastMouseOffsetX = mouseEvent.offsetX;
+          const lastMouseOffsetY = mouseEvent.offsetY;
+          // TODO: Check if the mouse is over network track and do not add the network height if it is
+          const networkHeight = this.#dimensions.charts.network?.heightPixels ?? 0;
+          component.coordinateTo = {x: lastMouseOffsetX, y: lastMouseOffsetY + networkHeight};
+        });
+
+        return div;
+      }
+      case 'ENTRY_OUTLINE': {
+        div.classList.add(`outline-reason-${overlay.outlineReason}`);
+        return div;
+      }
       case 'TIME_RANGE': {
-        const component = new Components.TimeRangeOverlay.TimeRangeOverlay();
+        const component = new Components.TimeRangeOverlay.TimeRangeOverlay(overlay.label);
         component.duration = overlay.showDuration ? overlay.bounds.range : null;
-        component.label = overlay.label;
         component.canvasRect = this.#charts.mainChart.canvasBoundingClientRect();
+        component.addEventListener(Components.TimeRangeOverlay.TimeRangeLabelChangeEvent.eventName, event => {
+          const newLabel = (event as Components.TimeRangeOverlay.TimeRangeLabelChangeEvent).newLabel;
+          overlay.label = newLabel;
+          this.dispatchEvent(new AnnotationOverlayActionEvent(overlay, 'Update'));
+        });
+        component.addEventListener(Components.TimeRangeOverlay.TimeRangeRemoveEvent.eventName, () => {
+          this.dispatchEvent(new AnnotationOverlayActionEvent(overlay, 'Remove'));
+        });
         div.appendChild(component);
         return div;
       }
@@ -793,11 +985,14 @@ export class Overlays extends EventTarget {
         const component = element.querySelector('devtools-time-range-overlay');
         if (component) {
           component.duration = overlay.showDuration ? overlay.bounds.range : null;
-          component.label = overlay.label;
           component.canvasRect = this.#charts.mainChart.canvasBoundingClientRect();
         }
         break;
       }
+      case 'ENTRY_OUTLINE':
+        break;
+      case 'ENTRIES_LINK':
+        break;
       case 'ENTRY_LABEL': {
         // TODO: update if the label changes
         // Nothing to do here.
@@ -813,6 +1008,8 @@ export class Overlays extends EventTarget {
       }
       case 'CURSOR_TIMESTAMP_MARKER':
         // No contents within this that need updating.
+        break;
+      case 'CANDY_STRIPED_TIME_RANGE':
         break;
       default:
         Platform.TypeScriptUtilities.assertNever(overlay, `Unexpected overlay ${overlay}`);
@@ -838,7 +1035,7 @@ export class Overlays extends EventTarget {
     if (this.#dimensions.trace.visibleWindow === null) {
       return false;
     }
-    const {startTime, endTime} = this.#timingsForOverlayEntry(entry);
+    const {startTime, endTime} = this.timingsForOverlayEntry(entry);
 
     const entryTimeRange = TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(startTime, endTime);
 
@@ -914,17 +1111,31 @@ export class Overlays extends EventTarget {
   }
 
   /**
-   * Calculate the X pixel position for an event on the timeline.
+   * Calculate the X pixel position for an event start on the timeline.
    * @param chartName - the chart that the event is on. It is expected that both
    * charts have the same width so this doesn't make a difference - but it might
    * in the future if the UI changes, hence asking for it.
    *
    * @param event - the trace event you want to get the pixel position of
    */
-  xPixelForEventOnChart(event: OverlayEntry): number|null {
+  xPixelForEventStartOnChart(event: OverlayEntry): number|null {
     const chartName = this.#chartForOverlayEntry(event);
-    const {startTime} = this.#timingsForOverlayEntry(event);
+    const {startTime} = this.timingsForOverlayEntry(event);
     return this.#xPixelForMicroSeconds(chartName, startTime);
+  }
+
+  /**
+   * Calculate the X pixel position for an event end on the timeline.
+   * @param chartName - the chart that the event is on. It is expected that both
+   * charts have the same width so this doesn't make a difference - but it might
+   * in the future if the UI changes, hence asking for it.
+   *
+   * @param event - the trace event you want to get the pixel position of
+   */
+  xPixelForEventEndOnChart(event: OverlayEntry): number|null {
+    const chartName = this.#chartForOverlayEntry(event);
+    const {endTime} = this.timingsForOverlayEntry(event);
+    return this.#xPixelForMicroSeconds(chartName, endTime);
   }
 
   /**
@@ -940,7 +1151,7 @@ export class Overlays extends EventTarget {
       return null;
     }
     const canvasWidthPixels = this.#dimensions.charts[chart]?.widthPixels ?? null;
-    if (!canvasWidthPixels) {
+    if (canvasWidthPixels === null) {
       console.error(`Cannot calculate xPixel without ${chart} dimensions.`);
       return null;
     }

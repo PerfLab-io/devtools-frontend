@@ -1607,7 +1607,6 @@
                     "id": "GenericIssueErrorType",
                     "type": "string",
                     "enum": [
-                        "CrossOriginPortalPostMessageError",
                         "FormLabelForNameError",
                         "FormDuplicateIdForInputError",
                         "FormInputWithNoLabelError",
@@ -2178,12 +2177,25 @@
         },
         {
             "domain": "Extensions",
-            "description": "Defines commands and events for browser extensions. Available if the client\nis connected using the --remote-debugging-pipe flag and\nthe --enable-unsafe-extension-debugging flag is set.",
+            "description": "Defines commands and events for browser extensions.",
             "experimental": true,
+            "types": [
+                {
+                    "id": "StorageArea",
+                    "description": "Storage areas.",
+                    "type": "string",
+                    "enum": [
+                        "session",
+                        "local",
+                        "sync",
+                        "managed"
+                    ]
+                }
+            ],
             "commands": [
                 {
                     "name": "loadUnpacked",
-                    "description": "Installs an unpacked extension from the filesystem similar to\n--load-extension CLI flags. Returns extension ID once the extension\nhas been installed.",
+                    "description": "Installs an unpacked extension from the filesystem similar to\n--load-extension CLI flags. Returns extension ID once the extension\nhas been installed. Available if the client is connected using the\n--remote-debugging-pipe flag and the --enable-unsafe-extension-debugging\nflag is set.",
                     "parameters": [
                         {
                             "name": "path",
@@ -2196,6 +2208,37 @@
                             "name": "id",
                             "description": "Extension id.",
                             "type": "string"
+                        }
+                    ]
+                },
+                {
+                    "name": "getStorageItems",
+                    "description": "Gets data from extension storage in the given `area`. If `keys` is\nspecified, these are used to filter the result.",
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "description": "ID of extension.",
+                            "type": "string"
+                        },
+                        {
+                            "name": "storageArea",
+                            "description": "StorageArea to retrieve data from.",
+                            "$ref": "StorageArea"
+                        },
+                        {
+                            "name": "keys",
+                            "description": "Keys to retrieve.",
+                            "optional": true,
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ],
+                    "returns": [
+                        {
+                            "name": "data",
+                            "type": "object"
                         }
                     ]
                 }
@@ -4173,26 +4216,6 @@
                     ]
                 },
                 {
-                    "id": "CSSPositionFallbackRule",
-                    "description": "CSS position-fallback rule representation.",
-                    "deprecated": true,
-                    "type": "object",
-                    "properties": [
-                        {
-                            "name": "name",
-                            "$ref": "Value"
-                        },
-                        {
-                            "name": "tryRules",
-                            "description": "List of keyframes.",
-                            "type": "array",
-                            "items": {
-                                "$ref": "CSSTryRule"
-                            }
-                        }
-                    ]
-                },
-                {
                     "id": "CSSPositionTryRule",
                     "description": "CSS @position-try rule representation.",
                     "type": "object",
@@ -4621,16 +4644,6 @@
                             }
                         },
                         {
-                            "name": "cssPositionFallbackRules",
-                            "description": "A list of CSS position fallbacks matching this node.",
-                            "deprecated": true,
-                            "optional": true,
-                            "type": "array",
-                            "items": {
-                                "$ref": "CSSPositionFallbackRule"
-                            }
-                        },
-                        {
                             "name": "cssPositionTryRules",
                             "description": "A list of CSS @position-try rules matching this node, based on the position-try-fallbacks property.",
                             "optional": true,
@@ -4638,6 +4651,12 @@
                             "items": {
                                 "$ref": "CSSPositionTryRule"
                             }
+                        },
+                        {
+                            "name": "activePositionFallbackIndex",
+                            "description": "Index of the active fallback in the applied position-try-fallback property,\nwill not be set if there is no active position-try fallback.",
+                            "optional": true,
+                            "type": "integer"
                         },
                         {
                             "name": "cssPropertyRules",
@@ -5584,6 +5603,8 @@
                         "first-line-inherited",
                         "scroll-marker",
                         "scroll-marker-group",
+                        "scroll-next-button",
+                        "scroll-prev-button",
                         "scrollbar",
                         "scrollbar-thumb",
                         "scrollbar-button",
@@ -5846,6 +5867,24 @@
                             "name": "assignedSlot",
                             "optional": true,
                             "$ref": "BackendNode"
+                        }
+                    ]
+                },
+                {
+                    "id": "DetachedElementInfo",
+                    "description": "A structure to hold the top-level node of a detached tree and an array of its retained descendants.",
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "treeNode",
+                            "$ref": "Node"
+                        },
+                        {
+                            "name": "retainedNodeIds",
+                            "type": "array",
+                            "items": {
+                                "$ref": "NodeId"
+                            }
                         }
                     ]
                 },
@@ -6934,6 +6973,21 @@
                         {
                             "name": "path",
                             "type": "string"
+                        }
+                    ]
+                },
+                {
+                    "name": "getDetachedDomNodes",
+                    "description": "Returns list of detached nodes",
+                    "experimental": true,
+                    "returns": [
+                        {
+                            "name": "detachedNodes",
+                            "description": "The list of detached nodes",
+                            "type": "array",
+                            "items": {
+                                "$ref": "DetachedElementInfo"
+                            }
                         }
                     ]
                 },
@@ -9121,6 +9175,37 @@
                     ]
                 },
                 {
+                    "id": "PressureSource",
+                    "experimental": true,
+                    "type": "string",
+                    "enum": [
+                        "cpu"
+                    ]
+                },
+                {
+                    "id": "PressureState",
+                    "experimental": true,
+                    "type": "string",
+                    "enum": [
+                        "nominal",
+                        "fair",
+                        "serious",
+                        "critical"
+                    ]
+                },
+                {
+                    "id": "PressureMetadata",
+                    "experimental": true,
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "available",
+                            "optional": true,
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                {
                     "id": "DisabledImageType",
                     "description": "Enum of image types that can be disabled.",
                     "experimental": true,
@@ -9473,6 +9558,41 @@
                         {
                             "name": "reading",
                             "$ref": "SensorReading"
+                        }
+                    ]
+                },
+                {
+                    "name": "setPressureSourceOverrideEnabled",
+                    "description": "Overrides a pressure source of a given type, as used by the Compute\nPressure API, so that updates to PressureObserver.observe() are provided\nvia setPressureStateOverride instead of being retrieved from\nplatform-provided telemetry data.",
+                    "experimental": true,
+                    "parameters": [
+                        {
+                            "name": "enabled",
+                            "type": "boolean"
+                        },
+                        {
+                            "name": "source",
+                            "$ref": "PressureSource"
+                        },
+                        {
+                            "name": "metadata",
+                            "optional": true,
+                            "$ref": "PressureMetadata"
+                        }
+                    ]
+                },
+                {
+                    "name": "setPressureStateOverride",
+                    "description": "Provides a given pressure state that will be processed and eventually be\ndelivered to PressureObserver users. |source| must have been previously\noverridden by setPressureSourceOverrideEnabled.",
+                    "experimental": true,
+                    "parameters": [
+                        {
+                            "name": "source",
+                            "$ref": "PressureSource"
+                        },
+                        {
+                            "name": "state",
+                            "$ref": "PressureState"
                         }
                     ]
                 },
@@ -9877,6 +9997,108 @@
                             "name": "uuid",
                             "description": "UUID of the specified Blob.",
                             "type": "string"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "domain": "FileSystem",
+            "experimental": true,
+            "dependencies": [
+                "Network",
+                "Storage"
+            ],
+            "types": [
+                {
+                    "id": "File",
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "name",
+                            "type": "string"
+                        },
+                        {
+                            "name": "lastModified",
+                            "description": "Timestamp",
+                            "$ref": "Network.TimeSinceEpoch"
+                        },
+                        {
+                            "name": "size",
+                            "description": "Size in bytes",
+                            "type": "number"
+                        },
+                        {
+                            "name": "type",
+                            "type": "string"
+                        }
+                    ]
+                },
+                {
+                    "id": "Directory",
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "name",
+                            "type": "string"
+                        },
+                        {
+                            "name": "nestedDirectories",
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        {
+                            "name": "nestedFiles",
+                            "description": "Files that are directly nested under this directory.",
+                            "type": "array",
+                            "items": {
+                                "$ref": "File"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "BucketFileSystemLocator",
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "storageKey",
+                            "description": "Storage key",
+                            "$ref": "Storage.SerializedStorageKey"
+                        },
+                        {
+                            "name": "bucketName",
+                            "description": "Bucket name. Not passing a `bucketName` will retrieve the default Bucket. (https://developer.mozilla.org/en-US/docs/Web/API/Storage_API#storage_buckets)",
+                            "optional": true,
+                            "type": "string"
+                        },
+                        {
+                            "name": "pathComponents",
+                            "description": "Path to the directory using each path component as an array item.",
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "commands": [
+                {
+                    "name": "getDirectory",
+                    "parameters": [
+                        {
+                            "name": "bucketFileSystemLocator",
+                            "$ref": "BucketFileSystemLocator"
+                        }
+                    ],
+                    "returns": [
+                        {
+                            "name": "directory",
+                            "description": "Returns the directory object at the path.",
+                            "$ref": "Directory"
                         }
                     ]
                 }
@@ -13683,7 +13905,8 @@
                         "RestrictProperties",
                         "UnsafeNone",
                         "SameOriginPlusCoep",
-                        "RestrictPropertiesPlusCoep"
+                        "RestrictPropertiesPlusCoep",
+                        "NoopenerAllowPopups"
                     ]
                 },
                 {
@@ -16804,6 +17027,7 @@
                     "type": "string",
                     "enum": [
                         "accelerometer",
+                        "all-screens-capture",
                         "ambient-light-sensor",
                         "attribution-reporting",
                         "autoplay",
@@ -16839,6 +17063,7 @@
                         "compute-pressure",
                         "cross-origin-isolated",
                         "deferred-fetch",
+                        "digital-credentials-get",
                         "direct-sockets",
                         "display-capture",
                         "document-domain",
@@ -16859,6 +17084,7 @@
                         "keyboard-map",
                         "local-fonts",
                         "magnetometer",
+                        "media-playback-while-not-visible",
                         "microphone",
                         "midi",
                         "otp-credentials",
@@ -17594,14 +17820,16 @@
                     "experimental": true,
                     "type": "string",
                     "enum": [
+                        "anchorClick",
                         "formSubmissionGet",
                         "formSubmissionPost",
                         "httpHeaderRefresh",
-                        "scriptInitiated",
+                        "initialFrameNavigation",
                         "metaTagRefresh",
+                        "other",
                         "pageBlockInterstitial",
                         "reload",
-                        "anchorClick"
+                        "scriptInitiated"
                     ]
                 },
                 {
@@ -18176,7 +18404,6 @@
                         "Printing",
                         "WebDatabase",
                         "PictureInPicture",
-                        "Portal",
                         "SpeechRecognizer",
                         "IdleManager",
                         "PaymentManager",
@@ -19952,6 +20179,16 @@
                             "name": "url",
                             "description": "Frame's new url.",
                             "type": "string"
+                        },
+                        {
+                            "name": "navigationType",
+                            "description": "Navigation type",
+                            "type": "string",
+                            "enum": [
+                                "fragment",
+                                "historyApi",
+                                "other"
+                            ]
                         }
                     ]
                 },
@@ -21496,6 +21733,58 @@
                     ]
                 },
                 {
+                    "id": "AttributionReportingAggregatableDebugReportingData",
+                    "experimental": true,
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "keyPiece",
+                            "$ref": "UnsignedInt128AsBase16"
+                        },
+                        {
+                            "name": "value",
+                            "description": "number instead of integer because not all uint32 can be represented by\nint",
+                            "type": "number"
+                        },
+                        {
+                            "name": "types",
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "AttributionReportingAggregatableDebugReportingConfig",
+                    "experimental": true,
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "budget",
+                            "description": "number instead of integer because not all uint32 can be represented by\nint, only present for source registrations",
+                            "optional": true,
+                            "type": "number"
+                        },
+                        {
+                            "name": "keyPiece",
+                            "$ref": "UnsignedInt128AsBase16"
+                        },
+                        {
+                            "name": "debugData",
+                            "type": "array",
+                            "items": {
+                                "$ref": "AttributionReportingAggregatableDebugReportingData"
+                            }
+                        },
+                        {
+                            "name": "aggregationCoordinatorOrigin",
+                            "optional": true,
+                            "type": "string"
+                        }
+                    ]
+                },
+                {
                     "id": "AttributionReportingSourceRegistration",
                     "experimental": true,
                     "type": "object",
@@ -21570,6 +21859,14 @@
                         {
                             "name": "triggerDataMatching",
                             "$ref": "AttributionReportingTriggerDataMatching"
+                        },
+                        {
+                            "name": "destinationLimitPriority",
+                            "$ref": "SignedInt64AsBase10"
+                        },
+                        {
+                            "name": "aggregatableDebugReportingConfig",
+                            "$ref": "AttributionReportingAggregatableDebugReportingConfig"
                         }
                     ]
                 },
@@ -21616,6 +21913,10 @@
                             "name": "value",
                             "description": "number instead of integer because not all uint32 can be represented by\nint",
                             "type": "number"
+                        },
+                        {
+                            "name": "filteringId",
+                            "$ref": "UnsignedInt64AsBase10"
                         }
                     ]
                 },
@@ -21742,6 +22043,10 @@
                             }
                         },
                         {
+                            "name": "aggregatableFilteringIdMaxBytes",
+                            "type": "integer"
+                        },
+                        {
                             "name": "debugReporting",
                             "type": "boolean"
                         },
@@ -21758,6 +22063,10 @@
                             "name": "triggerContextId",
                             "optional": true,
                             "type": "string"
+                        },
+                        {
+                            "name": "aggregatableDebugReportingConfig",
+                            "$ref": "AttributionReportingAggregatableDebugReportingConfig"
                         }
                     ]
                 },
@@ -23018,7 +23327,7 @@
                         },
                         {
                             "name": "subtype",
-                            "description": "Provides additional details for specific target types. For example, for\nthe type of \"page\", this may be set to \"portal\" or \"prerender\".",
+                            "description": "Provides additional details for specific target types. For example, for\nthe type of \"page\", this may be set to \"prerender\".",
                             "experimental": true,
                             "optional": true,
                             "type": "string"
@@ -25776,7 +26085,10 @@
                         "ActivationUrlHasEffectiveUrl",
                         "JavaScriptInterfaceAdded",
                         "JavaScriptInterfaceRemoved",
-                        "AllPrerenderingCanceled"
+                        "AllPrerenderingCanceled",
+                        "WindowClosed",
+                        "SlowNetwork",
+                        "OtherPrerenderedPageActivated"
                     ]
                 },
                 {
@@ -26387,6 +26699,155 @@
                             "name": "displayMode",
                             "optional": true,
                             "$ref": "DisplayMode"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "domain": "BluetoothEmulation",
+            "description": "This domain allows configuring virtual Bluetooth devices to test\nthe web-bluetooth API.",
+            "experimental": true,
+            "types": [
+                {
+                    "id": "CentralState",
+                    "description": "Indicates the various states of Central.",
+                    "type": "string",
+                    "enum": [
+                        "absent",
+                        "powered-off",
+                        "powered-on"
+                    ]
+                },
+                {
+                    "id": "ManufacturerData",
+                    "description": "Stores the manufacturer data",
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "key",
+                            "description": "Company identifier\nhttps://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/company_identifiers/company_identifiers.yaml\nhttps://usb.org/developers",
+                            "type": "integer"
+                        },
+                        {
+                            "name": "data",
+                            "description": "Manufacturer-specific data",
+                            "type": "binary"
+                        }
+                    ]
+                },
+                {
+                    "id": "ScanRecord",
+                    "description": "Stores the byte data of the advertisement packet sent by a Bluetooth device.",
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "name",
+                            "optional": true,
+                            "type": "string"
+                        },
+                        {
+                            "name": "uuids",
+                            "optional": true,
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        {
+                            "name": "appearance",
+                            "description": "Stores the external appearance description of the device.",
+                            "optional": true,
+                            "type": "integer"
+                        },
+                        {
+                            "name": "txPower",
+                            "description": "Stores the transmission power of a broadcasting device.",
+                            "optional": true,
+                            "type": "integer"
+                        },
+                        {
+                            "name": "manufacturerData",
+                            "description": "Key is the company identifier and the value is an array of bytes of\nmanufacturer specific data.",
+                            "optional": true,
+                            "type": "array",
+                            "items": {
+                                "$ref": "ManufacturerData"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "ScanEntry",
+                    "description": "Stores the advertisement packet information that is sent by a Bluetooth device.",
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "deviceAddress",
+                            "type": "string"
+                        },
+                        {
+                            "name": "rssi",
+                            "type": "integer"
+                        },
+                        {
+                            "name": "scanRecord",
+                            "$ref": "ScanRecord"
+                        }
+                    ]
+                }
+            ],
+            "commands": [
+                {
+                    "name": "enable",
+                    "description": "Enable the BluetoothEmulation domain.",
+                    "parameters": [
+                        {
+                            "name": "state",
+                            "description": "State of the simulated central.",
+                            "$ref": "CentralState"
+                        }
+                    ]
+                },
+                {
+                    "name": "disable",
+                    "description": "Disable the BluetoothEmulation domain."
+                },
+                {
+                    "name": "simulatePreconnectedPeripheral",
+                    "description": "Simulates a peripheral with |address|, |name| and |knownServiceUuids|\nthat has already been connected to the system.",
+                    "parameters": [
+                        {
+                            "name": "address",
+                            "type": "string"
+                        },
+                        {
+                            "name": "name",
+                            "type": "string"
+                        },
+                        {
+                            "name": "manufacturerData",
+                            "type": "array",
+                            "items": {
+                                "$ref": "ManufacturerData"
+                            }
+                        },
+                        {
+                            "name": "knownServiceUuids",
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "simulateAdvertisement",
+                    "description": "Simulates an advertisement packet described in |entry| being received by\nthe central.",
+                    "parameters": [
+                        {
+                            "name": "entry",
+                            "$ref": "ScanEntry"
                         }
                     ]
                 }

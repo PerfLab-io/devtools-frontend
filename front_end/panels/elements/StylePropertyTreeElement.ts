@@ -337,9 +337,9 @@ export class ColorRenderer implements MatchRenderer<ColorMatch> {
             return;
           }
           if (color.is(Common.Color.Format.HSL) || color.is(Common.Color.Format.HSLA)) {
-            swatch.renderColor(new Common.Color.HSL(hue, color.s, color.l, color.alpha));
+            swatch.setColor(new Common.Color.HSL(hue, color.s, color.l, color.alpha));
           } else if (color.is(Common.Color.Format.HWB) || color.is(Common.Color.Format.HWBA)) {
-            swatch.renderColor(new Common.Color.HWB(hue, color.w, color.b, color.alpha));
+            swatch.setColor(new Common.Color.HWB(hue, color.w, color.b, color.alpha));
           }
           angle.updateProperty(swatch.getColor()?.asString() ?? '');
         });
@@ -658,7 +658,7 @@ export class LinkableNameRenderer implements MatchRenderer<LinkableNameMatch> {
           isDefined: this.#treeElement.matchedStyles().fontPaletteValuesRule()?.name().text === match.text,
         };
       case LinkableNameProperties.PositionTry:
-      case LinkableNameProperties.PositionTryOptions:
+      case LinkableNameProperties.PositionTryFallbacks:
         return {
           jslogContext: 'css-position-try',
           metric: Host.UserMetrics.SwatchType.PositionTryLink,
@@ -1067,10 +1067,7 @@ export class LengthRenderer implements MatchRenderer<LengthMatch> {
     const cssLength = new InlineEditor.CSSLength.CSSLength();
     const valueElement = document.createElement('span');
     valueElement.textContent = lengthText;
-    cssLength.data = {
-      lengthText,
-      overloaded: this.#treeElement.overloaded(),
-    };
+    cssLength.data = {lengthText};
     cssLength.append(valueElement);
 
     const onValueChanged = (event: Event): void => {
@@ -1217,6 +1214,7 @@ export class StylePropertyTreeElement extends UI.TreeOutline.TreeElement {
   private parentsComputedStyles: Map<string, string>|null = null;
   private contextForTest!: Context|undefined;
   #propertyTextFromSource: string;
+  #gridNames: Set<string>|undefined = undefined;
 
   constructor(
       {stylesPane, section, matchedStyles, property, isShorthand, inherited, overloaded, newProperty}:
@@ -1250,6 +1248,42 @@ export class StylePropertyTreeElement extends UI.TreeOutline.TreeElement {
     this.lastComputedValue = null;
 
     this.#propertyTextFromSource = property.propertyText || '';
+  }
+
+  async gridNames(): Promise<Set<string>> {
+    if (!SDK.CSSMetadata.cssMetadata().isGridNameAwareProperty(this.name)) {
+      return new Set();
+    }
+    for (let node = this.parentPaneInternal.node()?.parentNode; node; node = node?.parentNode) {
+      const style = await this.parentPaneInternal.cssModel()?.getComputedStyle(node.id);
+      const display = style?.get('display');
+      const isGrid = display === 'grid' || display === 'inline-grid';
+      if (!isGrid) {
+        continue;
+      }
+      const getNames = (propertyName: string, astNodeName: string): string[] => {
+        const propertyValue = style?.get(propertyName);
+        if (!propertyValue) {
+          return [];
+        }
+        const ast = SDK.CSSPropertyParser.tokenizeDeclaration(propertyName, propertyValue);
+        if (!ast) {
+          return [];
+        }
+        return SDK.CSSPropertyParser.TreeSearch.findAll(ast, node => node.name === astNodeName)
+            .map(node => ast.text(node));
+      };
+      if (SDK.CSSMetadata.cssMetadata().isGridAreaNameAwareProperty(this.name)) {
+        return new Set(
+            getNames('grid-template-areas', 'StringLiteral')
+                ?.flatMap(row => row.substring(1, row.length - 1).split(/\s+/).filter(cell => !cell.match(/^\.*$/))));
+      }
+      if (SDK.CSSMetadata.cssMetadata().isGridColumnNameAwareProperty(this.name)) {
+        return new Set(getNames('grid-template-columns', 'LineName'));
+      }
+      return new Set(getNames('grid-template-rows', 'LineName'));
+    }
+    return new Set();
   }
 
   matchedStyles(): SDK.CSSMatchedStyles.CSSMatchedStyles {
@@ -1418,6 +1452,10 @@ export class StylePropertyTreeElement extends UI.TreeOutline.TreeElement {
   }
 
   override async onpopulate(): Promise<void> {
+    if (!this.#gridNames) {
+      this.#gridNames = await this.gridNames();
+    }
+
     // Only populate once and if this property is a shorthand.
     if (this.childCount() || !this.isShorthand) {
       return;
@@ -1540,7 +1578,8 @@ export class StylePropertyTreeElement extends UI.TreeOutline.TreeElement {
     return matching.getComputedTextRange(decl[0], decl[decl.length - 1]);
   }
 
-  updateTitleIfComputedValueChanged(): void {
+  refreshIfComputedValueChanged(): void {
+    this.#gridNames = undefined;
     const computedValue = this.#computeCSSExpression(this.property.ownerStyle, this.property.value);
     if (computedValue === this.lastComputedValue) {
       return;
@@ -2037,7 +2076,7 @@ export class StylePropertyTreeElement extends UI.TreeOutline.TreeElement {
     this.parentPaneInternal.setEditingStyle(true, this);
     selectedElement.parentElement?.scrollIntoViewIfNeeded(false);
 
-    this.prompt = new CSSPropertyPrompt(this, context.isEditingName);
+    this.prompt = new CSSPropertyPrompt(this, context.isEditingName, Array.from(this.#gridNames ?? []));
     this.prompt.setAutocompletionTimeout(0);
 
     this.prompt.addEventListener(UI.TextPrompt.Events.TextChanged, () => {

@@ -124,8 +124,8 @@ const REGISTERED_EXPERIMENTS = [
   Root.Runtime.ExperimentName.NETWORK_PANEL_FILTER_BAR_REDESIGN,
   Root.Runtime.ExperimentName.INDENTATION_MARKERS_TEMP_DISABLE,
   Root.Runtime.ExperimentName.AUTOFILL_VIEW,
-  Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS_OVERLAYS,
-  Root.Runtime.ExperimentName.TIMELINE_SIDEBAR,
+  Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS,
+  Root.Runtime.ExperimentName.TIMELINE_INSIGHTS,
   Root.Runtime.ExperimentName.TIMELINE_DEBUG_MODE,
   Root.Runtime.ExperimentName.TIMELINE_OBSERVATIONS,
   Root.Runtime.ExperimentName.FULL_ACCESSIBILITY_TREE,
@@ -288,6 +288,11 @@ export async function initializeGlobalVars({reset = true} = {}) {
         Common.Settings.SettingType.BOOLEAN),
     createSettingValue(
         Common.Settings.SettingCategory.NONE, 'freestyler-dogfood-consent-onboarding-finished', false,
+        Common.Settings.SettingType.BOOLEAN),
+    createSettingValue(
+        Common.Settings.SettingCategory.CONSOLE, 'freestyler-enabled', false, Common.Settings.SettingType.BOOLEAN),
+    createSettingValue(
+        Common.Settings.SettingCategory.MOBILE, 'emulation.show-device-outline', false,
         Common.Settings.SettingType.BOOLEAN),
   ];
 
@@ -490,13 +495,14 @@ export function expectConsoleLogs(expectedLogs: {warn?: string[], log?: string[]
   });
 }
 
-export function getGetHostConfigStub(config: RecursivePartial<Root.Runtime.HostConfig>): sinon.SinonStub {
+export function getGetHostConfigStub(config: Root.Runtime.HostConfig): sinon.SinonStub {
   const settings = Common.Settings.Settings.instance();
   return sinon.stub(settings, 'getHostConfig').returns({
     devToolsConsoleInsights: {
       enabled: false,
       aidaModelId: '',
       aidaTemperature: 0.2,
+      disallowLogging: false,
       ...config.devToolsConsoleInsights,
     } as Root.Runtime.HostConfigConsoleInsights,
     devToolsFreestylerDogfood: {
@@ -504,14 +510,11 @@ export function getGetHostConfigStub(config: RecursivePartial<Root.Runtime.HostC
       aidaTemperature: 0,
       enabled: false,
       ...config.devToolsFreestylerDogfood,
-    },
+    } as Root.Runtime.HostConfigFreestylerDogfood,
     devToolsVeLogging: {
       enabled: true,
       testing: false,
     },
+    isOffTheRecord: false,
   });
 }
-
-type RecursivePartial<T> = {
-  [P in keyof T]?: RecursivePartial<T[P]>;
-};

@@ -50,9 +50,7 @@ import * as Logs from '../../models/logs/logs.js';
 import * as Persistence from '../../models/persistence/persistence.js';
 import * as Workspace from '../../models/workspace/workspace.js';
 import * as Snippets from '../../panels/snippets/snippets.js';
-import * as Timeline from '../../panels/timeline/timeline.js';
 import * as IconButton from '../../ui/components/icon_button/icon_button.js';
-import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as ThemeSupport from '../../ui/legacy/theme_support/theme_support.js';
@@ -419,20 +417,25 @@ export class MainImpl {
     );
 
     Root.Runtime.experiments.register(
-        Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS_OVERLAYS,
+        Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS,
         'Performance panel: enable annotations',
         true,
     );
 
     Root.Runtime.experiments.register(
-        Root.Runtime.ExperimentName.TIMELINE_SIDEBAR,
-        'Performance panel: enable sidebar',
+        Root.Runtime.ExperimentName.TIMELINE_INSIGHTS,
+        'Performance panel: enable performance insights',
         true,
     );
 
     Root.Runtime.experiments.register(
         Root.Runtime.ExperimentName.TIMELINE_OBSERVATIONS,
         'Performance panel: enable live metrics landing page',
+    );
+
+    Root.Runtime.experiments.register(
+        Root.Runtime.ExperimentName.GEN_AI_SETTINGS_PANEL,
+        'Dedicated panel for generative AI settings',
     );
 
     Root.Runtime.experiments.enableExperimentsByDefault([
@@ -480,6 +483,9 @@ export class MainImpl {
       ThemeSupport.ThemeSupport.instance({forceNew: true, setting: themeSetting});
     }
 
+    // @ts-ignore
+    UI.UIUtils.addPlatformClass(this.#container);
+    // @ts-ignore
     UI.UIUtils.installComponentRootStyles(this.#container);
 
     // this.#addMainEventListeners(this.#container);
@@ -610,6 +616,9 @@ export class MainImpl {
 
     const value = Root.Runtime.Runtime.queryParam('loadTimelineFromURL');
     if (value !== null) {
+      // Only import Timeline if neeeded. If this was a static import, every load of devtools
+      // would request and evaluate the Timeline panel dep tree, slowing down the UI's load.
+      const Timeline = await import('../../panels/timeline/timeline.js');
       Timeline.TimelinePanel.LoadTimelineHandler.instance().handleQueryParam(value);
     }
 
@@ -639,7 +648,7 @@ export class MainImpl {
     // MainImpl.timeEnd('Main._initializeTarget');
   }
 
-  #lateInitialization(): void {
+  async #lateInitialization(): Promise<void> {
     // MainImpl.time('Main._lateInitialization');
     Extensions.ExtensionServer.ExtensionServer.instance().initializeExtensions();
     const promises: Promise<void>[] =
@@ -648,6 +657,7 @@ export class MainImpl {
           return runnable.run();
         });
     if (Root.Runtime.experiments.isEnabled('live-heap-profile')) {
+      const PerfUI = await import('../../ui/legacy/components/perf_ui/perf_ui.js');
       const setting = 'memory-live-heap-profile';
       if (Common.Settings.Settings.instance().moduleSetting(setting).get()) {
         promises.push(PerfUI.LiveHeapProfile.LiveHeapProfile.instance().run());
@@ -809,8 +819,8 @@ export class MainMenuItem implements UI.Toolbar.Provider {
   readonly #itemInternal: UI.Toolbar.ToolbarMenuButton;
   constructor() {
     this.#itemInternal = new UI.Toolbar.ToolbarMenuButton(
-        this.#handleContextMenu.bind(this), /* isIconDropdown */ true, /* useSoftMenu */ true, 'main-menu');
-    this.#itemInternal.setGlyph('dots-vertical');
+        this.#handleContextMenu.bind(this), /* isIconDropdown */ true, /* useSoftMenu */ true, 'main-menu',
+        'dots-vertical');
     this.#itemInternal.element.classList.add('main-menu');
     this.#itemInternal.setTitle(i18nString(UIStrings.customizeAndControlDevtools));
   }
@@ -849,7 +859,6 @@ export class MainMenuItem implements UI.Toolbar.Provider {
       const dockItemToolbar = new UI.Toolbar.Toolbar('', dockItemElement);
       dockItemElement.setAttribute(
           'jslog', `${VisualLogging.item('dock-side').track({keydown: 'ArrowDown|ArrowLeft|ArrowRight'})}`);
-      dockItemToolbar.makeBlueOnHover();
       const undock = new UI.Toolbar.ToolbarToggle(
           i18nString(UIStrings.undockIntoSeparateWindow), 'dock-window', undefined, 'current-dock-state-undock');
       const bottom = new UI.Toolbar.ToolbarToggle(
@@ -943,7 +952,7 @@ export class MainMenuItem implements UI.Toolbar.Provider {
 
       // Quick hack to show performance tab by default
       if (title === 'Performance') {
-        UI.ViewManager.ViewManager.instance().showView(id, true, false);
+        void UI.ViewManager.ViewManager.instance().showView(id, true, false);
       }
 
       // Quick hack to disable other tabs except Performance.
