@@ -734,9 +734,9 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
    * Insights or Annotations, we will show the sidebar.
    */
   #panelSidebarEnabled(): boolean {
-    const sidebarEnabled = Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_INSIGHTS) ||
-        Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS);
-    return sidebarEnabled;
+    // const sidebarEnabled = Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_INSIGHTS) ||
+    //     Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS);
+    return true;
   }
   #addSidebarIconToToolbar(): void {
     if (!this.#panelSidebarEnabled()) {
