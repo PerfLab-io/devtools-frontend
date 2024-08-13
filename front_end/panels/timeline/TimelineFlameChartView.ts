@@ -277,7 +277,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     this.onNetworkAddEntryLabelAnnotation = this.onAddEntryLabelAnnotation.bind(this, this.networkDataProvider);
     this.onMainEntriesLinkAnnotationChange = this.onEntriesLinkAnnotationChange.bind(this, this.mainDataProvider);
     this.onNetworkEntriesLinkAnnotationChange = this.onEntriesLinkAnnotationChange.bind(this, this.networkDataProvider);
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
+    // if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
       this.mainFlameChart.addEventListener(
           PerfUI.FlameChart.Events.EntryLabelAnnotationAdded, this.onMainAddEntryLabelAnnotation, this);
       this.networkFlameChart.addEventListener(
@@ -287,7 +287,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
           PerfUI.FlameChart.Events.EntriesLinkAnnotationChanged, this.onMainEntriesLinkAnnotationChange, this);
       this.networkFlameChart.addEventListener(
           PerfUI.FlameChart.Events.EntriesLinkAnnotationChanged, this.onNetworkEntriesLinkAnnotationChange, this);
-    }
+    // }
     this.onMainEntrySelected = this.onEntrySelected.bind(this, this.mainDataProvider);
     this.onNetworkEntrySelected = this.onEntrySelected.bind(this, this.networkDataProvider);
     this.mainFlameChart.addEventListener(PerfUI.FlameChart.Events.EntrySelected, this.onMainEntrySelected, this);
@@ -471,7 +471,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
    */
   updateRangeSelection(startTime: number, endTime: number): void {
     this.delegate.select(TimelineSelection.fromRange(startTime, endTime));
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
+    // if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
       const bounds = TraceEngine.Helpers.Timing.traceWindowFromMilliSeconds(
           TraceEngine.Types.Timing.MilliSeconds(startTime),
           TraceEngine.Types.Timing.MilliSeconds(endTime),
@@ -490,7 +490,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
         };
         ModificationsManager.activeManager()?.createAnnotation(this.#timeRangeSelectionAnnotation);
       }
-    }
+    // }
   }
 
   getMainFlameChart(): PerfUI.FlameChart.FlameChart {

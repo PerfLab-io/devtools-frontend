@@ -1326,7 +1326,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
       jslogContext: 'reset-trace',
     });
 
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
+    // if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
       const annotationSection = this.contextMenu.section('annotations');
 
       const labelEntryAnnotationOption = annotationSection.appendItem(i18nString(UIStrings.labelEntry), () => {
@@ -1340,7 +1340,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
       });
       // TODO: Change the 'add link between entries' shortcut depending on the OS
       linkEntriesAnnotationOption.setShortcut('Cmd + Click');
-    }
+    // }
 
     const entry = this.dataProvider.eventByIndex?.(this.selectedEntryIndex);
     if (entry && entry instanceof TraceEngine.Handlers.ModelHandlers.Frames.TimelineFrame === false) {

@@ -59,7 +59,8 @@ export class ChartViewport extends UI.Widget.VBox {
 
   #config: Config;
 
-  #usingNewOverlayForTimeRange = Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS);
+  #usingNewOverlayForTimeRange = true;
+  // #usingNewOverlayForTimeRange = Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS);
 
   constructor(delegate: ChartViewportDelegate, config: Config) {
     super();
