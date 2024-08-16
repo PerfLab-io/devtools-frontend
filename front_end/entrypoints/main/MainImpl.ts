@@ -55,6 +55,7 @@ import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as ThemeSupport from '../../ui/legacy/theme_support/theme_support.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
+import * as Timeline from '../../panels/timeline/timeline.js';
 
 import {ExecutionContextSelector} from './ExecutionContextSelector.js';
 import {SettingTracker} from './SettingTracker.js';
@@ -589,6 +590,7 @@ export class MainImpl {
       throw new Error('Unable to boot DevTools, as the appprovider is missing');
     }
     await this.#showAppUI(await appProvider.loadAppProvider());
+    this.#addMainEventListeners(this.#container);
   }
 
   async #showAppUI(appProvider: Object): Promise<void> {
@@ -618,7 +620,7 @@ export class MainImpl {
     if (value !== null) {
       // Only import Timeline if neeeded. If this was a static import, every load of devtools
       // would request and evaluate the Timeline panel dep tree, slowing down the UI's load.
-      const Timeline = await import('../../panels/timeline/timeline.js');
+      // const Timeline = await import('../../panels/timeline/timeline.js');
       Timeline.TimelinePanel.LoadTimelineHandler.instance().handleQueryParam(value);
     }
 
@@ -744,12 +746,13 @@ export class MainImpl {
   }
 
   #addMainEventListeners(document: Element): void {
-    this.#container.addEventListener('keydown', this.#postDocumentKeyDown.bind(this), false);
-    this.#container.addEventListener('beforecopy', this.#redispatchClipboardEvent.bind(this), true);
-    this.#container.addEventListener('copy', this.#redispatchClipboardEvent.bind(this), false);
-    this.#container.addEventListener('cut', this.#redispatchClipboardEvent.bind(this), false);
-    this.#container.addEventListener('paste', this.#redispatchClipboardEvent.bind(this), false);
-    this.#container.addEventListener('contextmenu', this.#contextMenuEventFired.bind(this), true);
+    // this.#container.addEventListener('keydown', this.#postDocumentKeyDown.bind(this), false);
+    // this.#container.addEventListener('beforecopy', this.#redispatchClipboardEvent.bind(this), true);
+    // this.#container.addEventListener('copy', this.#redispatchClipboardEvent.bind(this), false);
+    // this.#container.addEventListener('cut', this.#redispatchClipboardEvent.bind(this), false);
+    // this.#container.addEventListener('paste', this.#redispatchClipboardEvent.bind(this), false);
+    // this.#container.addEventListener('contextmenu', this.#contextMenuEventFired.bind(this), true);
+    this.#container.addEventListener(Timeline.TimelinePanel.Events.OpenTraceFile, Timeline.TimelinePanel.TimelinePanel.instance().selectFileToLoad.bind(Timeline.TimelinePanel.TimelinePanel.instance()));
   }
 
   #onSuspendStateChanged(): void {
