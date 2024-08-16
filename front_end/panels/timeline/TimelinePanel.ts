@@ -2022,6 +2022,17 @@ export interface TimelineModeViewDelegate {
   highlightEvent(event: TraceEngine.Types.TraceEvents.TraceEventData|null): void;
 }
 
+export const enum Events {
+  OpenTraceFile = 'opentracefile',
+}
+
+export class OpenTraceFileEvent extends CustomEvent<Events.OpenTraceFile> {
+  static readonly eventName = Events.OpenTraceFile;
+  constructor() {
+    super(Events.OpenTraceFile);
+  }
+}
+
 export class StatusPane extends UI.Widget.VBox {
   private status: HTMLElement;
   private time: Element|undefined;
