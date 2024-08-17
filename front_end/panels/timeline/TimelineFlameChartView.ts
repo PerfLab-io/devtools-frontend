@@ -36,6 +36,7 @@ import {type TimelineMarkerStyle} from './TimelineUIUtils.js';
 export const enum Events {
   TraceDataChange = 'tracedatachange',
   TraceInsightsChange = 'traceinsightschange',
+  HightlightEventAsOvelay = 'highlighteventasoverlay',
 }
 
 export type EventTypes = {
@@ -45,6 +46,12 @@ export type EventTypes = {
   },
   [Events.TraceInsightsChange]: {
     insights: TraceEngine.Insights.Types.TraceInsightData | null,
+  },
+  [Events.HightlightEventAsOvelay]: {
+    eventName: string,
+    eventStart: TraceEngine.Types.Timing.MicroSeconds,
+    eventEnd: TraceEngine.Types.Timing.MicroSeconds,
+    navigationId: string,
   },
 };
 
@@ -63,6 +70,30 @@ export class TraceInsightsChange extends CustomEvent<EventTypes[Events.TraceInsi
     super(TraceInsightsChange.eventName, { detail: options });
   }
 }
+
+export class HightlightEventAsOvelay extends CustomEvent<EventTypes[Events.HightlightEventAsOvelay]>{
+  static readonly eventName = Events.HightlightEventAsOvelay;
+
+  constructor(options: EventTypes[Events.HightlightEventAsOvelay]) {
+    super(HightlightEventAsOvelay.eventName, { detail: options });
+  }
+}
+
+export const createOverlayFnForEvent = ({ eventName, eventStart, eventEnd }: {
+  eventName: string,
+  eventStart: TraceEngine.Types.Timing.MicroSeconds,
+  eventEnd: TraceEngine.Types.Timing.MicroSeconds,
+}) => (): Overlays.Overlays.TimelineOverlay[] => {
+  return [{
+    type: 'TIMESPAN_BREAKDOWN',
+    sections: [
+      {
+        bounds: TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(eventStart, eventEnd),
+        label: eventName,
+      },
+    ],
+  }];
+};
 
 const UIStrings = {
   /**
@@ -305,6 +336,17 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     this.refreshMainFlameChart();
 
     TraceBounds.TraceBounds.onChange(this.#onTraceBoundsChangeBound);
+
+    // addEventListener seem not to handle CustomEvent....
+    // @ts-ignore
+    document.getElementById('-blink-dev-tools')?.addEventListener(HightlightEventAsOvelay.eventName, (event: HightlightEventAsOvelay) => {
+      const insight = {
+        name: event.detail.eventName,
+        navigationId: event.detail.navigationId,
+        createOverlayFn: createOverlayFnForEvent(event.detail),
+      };
+      this.setActiveInsight(insight);
+    });
   }
 
   setActiveInsight(insight: TimelineComponents.Sidebar.ActiveInsight|null): void {
