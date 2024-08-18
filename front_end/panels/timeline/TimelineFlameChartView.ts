@@ -49,9 +49,12 @@ export type EventTypes = {
   },
   [Events.HightlightEventAsOvelay]: {
     eventName: string,
-    eventStart: TraceEngine.Types.Timing.MicroSeconds,
-    eventEnd: TraceEngine.Types.Timing.MicroSeconds,
     navigationId: string,
+    phases: {
+      name: string,
+      start: TraceEngine.Types.Timing.MicroSeconds,
+      end: TraceEngine.Types.Timing.MicroSeconds,
+    }[],
   },
 };
 
@@ -79,19 +82,17 @@ export class HightlightEventAsOvelay extends CustomEvent<EventTypes[Events.Hight
   }
 }
 
-export const createOverlayFnForEvent = ({ eventName, eventStart, eventEnd }: {
-  eventName: string,
-  eventStart: TraceEngine.Types.Timing.MicroSeconds,
-  eventEnd: TraceEngine.Types.Timing.MicroSeconds,
-}) => (): Overlays.Overlays.TimelineOverlay[] => {
+export const createOverlayFnForEvent = (phases: {
+  name: string,
+  start: TraceEngine.Types.Timing.MicroSeconds,
+  end: TraceEngine.Types.Timing.MicroSeconds,
+}[]) => (): Overlays.Overlays.TimelineOverlay[] => {
   return [{
     type: 'TIMESPAN_BREAKDOWN',
-    sections: [
-      {
-        bounds: TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(eventStart, eventEnd),
-        label: eventName,
-      },
-    ],
+    sections: phases.map(({ start, end, name }) => ({
+        bounds: TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(start, end),
+        label: name,
+      })),
   }];
 };
 
@@ -343,7 +344,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
       const insight = {
         name: event.detail.eventName,
         navigationId: event.detail.navigationId,
-        createOverlayFn: createOverlayFnForEvent(event.detail),
+        createOverlayFn: createOverlayFnForEvent(event.detail.phases),
       };
       this.setActiveInsight(insight);
     });
