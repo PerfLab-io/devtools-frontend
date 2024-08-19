@@ -945,6 +945,49 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     void contextMenu.show();
   }
 
+  getRawTraceData(): void {
+    if (this.#viewMode.mode !== 'VIEWING_TRACE') {
+      return;
+    }
+
+    const traceEvents = this.#traceEngineModel.rawTraceEvents(this.#viewMode.traceIndex);
+    const metadata = this.#traceEngineModel.metadata(this.#viewMode.traceIndex);
+
+    if (metadata) {
+      metadata.modifications = ModificationsManager.activeManager()?.toJSON();
+    }
+    if (!traceEvents) {
+      return;
+    }
+
+    try {
+      let traceAsString;
+      if (metadata?.dataOrigin === TraceEngine.Types.File.DataOrigin.CPUProfile) {
+        const profileEvent = traceEvents.find(e => e.name === 'CpuProfile');
+        if (!profileEvent || !profileEvent.args?.data) {
+          return;
+        }
+        const profileEventData = profileEvent.args?.data;
+        if (profileEventData.hasOwnProperty('cpuProfile')) {
+          const profile = (profileEventData as {cpuProfile: Protocol.Profiler.Profile}).cpuProfile;
+          traceAsString = cpuprofileJsonGenerator(profile as Protocol.Profiler.Profile);
+        }
+      } else {
+        const formattedTraceIter = traceJsonGenerator(traceEvents, metadata);
+        traceAsString = Array.from(formattedTraceIter).join('');
+      }
+
+      if (!traceAsString) {
+        throw new Error('Trace content empty');
+      }
+
+      document.getElementById('-blink-dev-tools')?.dispatchEvent(new RawTraceDataLoadedEvent({ rawTraceString: traceAsString }));
+    } catch (error) {
+      console.error(error.stack);
+      return;
+    }
+  }
+
   async saveToFile(isEnhancedTraces: boolean = false): Promise<void> {
     if (this.state !== State.Idle) {
       return;
@@ -2024,12 +2067,34 @@ export interface TimelineModeViewDelegate {
 
 export const enum Events {
   OpenTraceFile = 'opentracefile',
+  LoadRawTraceData = 'loadrawtracedata',
+  RawTraceDataLoaded = 'rawtracedataloaded',
 }
 
 export class OpenTraceFileEvent extends CustomEvent<Events.OpenTraceFile> {
   static readonly eventName = Events.OpenTraceFile;
   constructor() {
     super(Events.OpenTraceFile);
+  }
+}
+
+export type EventTypes = {
+  [Events.RawTraceDataLoaded]: {
+    rawTraceString: string | null,
+  },
+};
+
+export class RawTraceDataLoadedEvent extends CustomEvent<EventTypes[Events.RawTraceDataLoaded]> {
+  static readonly eventName = Events.RawTraceDataLoaded;
+  constructor(options: EventTypes[Events.RawTraceDataLoaded]) {
+    super(RawTraceDataLoadedEvent.eventName, { detail: options });
+  }
+}
+
+export class LoadRawTraceDataEvent extends CustomEvent<Events.LoadRawTraceData> {
+  static readonly eventName = Events.LoadRawTraceData;
+  constructor() {
+    super(LoadRawTraceDataEvent.eventName);
   }
 }
 
