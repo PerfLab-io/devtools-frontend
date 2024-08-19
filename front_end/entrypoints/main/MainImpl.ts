@@ -753,6 +753,7 @@ export class MainImpl {
     // this.#container.addEventListener('paste', this.#redispatchClipboardEvent.bind(this), false);
     // this.#container.addEventListener('contextmenu', this.#contextMenuEventFired.bind(this), true);
     this.#container.addEventListener(Timeline.TimelinePanel.Events.OpenTraceFile, Timeline.TimelinePanel.TimelinePanel.instance().selectFileToLoad.bind(Timeline.TimelinePanel.TimelinePanel.instance()));
+    this.#container.addEventListener(Timeline.TimelinePanel.Events.LoadRawTraceData, Timeline.TimelinePanel.TimelinePanel.instance().getRawTraceData.bind(Timeline.TimelinePanel.TimelinePanel.instance()));
   }
 
   #onSuspendStateChanged(): void {
