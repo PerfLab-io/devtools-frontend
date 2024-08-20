@@ -945,7 +945,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     void contextMenu.show();
   }
 
-  getRawTraceData(): void {
+  async getRawTraceData(): Promise<void> {
     if (this.#viewMode.mode !== 'VIEWING_TRACE') {
       return;
     }
@@ -981,7 +981,26 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
         throw new Error('Trace content empty');
       }
 
-      document.getElementById('-blink-dev-tools')?.dispatchEvent(new RawTraceDataLoadedEvent({ rawTraceString: traceAsString }));
+      let traceCompressedBlob: Blob | null = null;
+
+      if ('CompressionStream' in window) {
+        const stream = new Blob([traceAsString], {
+          type: 'application/json',
+        }).stream();
+        const compressedReadableStream = stream.pipeThrough(
+          new CompressionStream('gzip'),
+        );
+
+        const chunks = [];
+        // @ts-ignore - TS doesn't know about async iterator on readable stream ?
+        for await (const chunk of compressedReadableStream) {
+          chunks.push(chunk);
+        }
+
+        traceCompressedBlob = new Blob(chunks);
+      }
+
+      document.getElementById('-blink-dev-tools')?.dispatchEvent(new RawTraceDataLoadedEvent({ rawTraceData: traceCompressedBlob || traceAsString }));
     } catch (error) {
       console.error(error.stack);
       return;
@@ -2080,7 +2099,7 @@ export class OpenTraceFileEvent extends CustomEvent<Events.OpenTraceFile> {
 
 export type EventTypes = {
   [Events.RawTraceDataLoaded]: {
-    rawTraceString: string | null,
+    rawTraceData: Blob | string | null,
   },
 };
 
