@@ -1121,6 +1121,11 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     }
   }
 
+  async loadTraceFile({ detail: { blob }}: { detail: EventTypes[Events.LoadTraceFile] }): Promise<void> {
+    const file = new File([blob], 'trace.json');
+    await this.loadFromFile(file);
+  }
+
   async loadFromFile(file: File): Promise<void> {
     if (this.state !== State.Idle) {
       return;
@@ -2088,6 +2093,7 @@ export const enum Events {
   OpenTraceFile = 'opentracefile',
   LoadRawTraceData = 'loadrawtracedata',
   RawTraceDataLoaded = 'rawtracedataloaded',
+  LoadTraceFile = 'loadtracefile',
 }
 
 export class OpenTraceFileEvent extends CustomEvent<Events.OpenTraceFile> {
@@ -2101,7 +2107,17 @@ export type EventTypes = {
   [Events.RawTraceDataLoaded]: {
     rawTraceData: Blob | string | null,
   },
+  [Events.LoadTraceFile]: {
+    blob: Blob,
+  },
 };
+
+export class LoadTraceFileEvent extends CustomEvent<EventTypes[Events.LoadTraceFile]> {
+  static readonly eventName = Events.LoadTraceFile;
+  constructor(options: EventTypes[Events.LoadTraceFile]) {
+    super(LoadTraceFileEvent.eventName, { detail: options });
+  }
+}
 
 export class RawTraceDataLoadedEvent extends CustomEvent<EventTypes[Events.RawTraceDataLoaded]> {
   static readonly eventName = Events.RawTraceDataLoaded;
