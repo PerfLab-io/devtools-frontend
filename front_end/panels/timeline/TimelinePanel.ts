@@ -1122,7 +1122,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   async loadTraceFile({ detail: { blob }}: { detail: EventTypes[Events.LoadTraceFile] }): Promise<void> {
-    const file = new File([blob], 'trace.json');
+    const file = new File([blob], 'trace.json', { type: blob.type });
     await this.loadFromFile(file);
   }
 
