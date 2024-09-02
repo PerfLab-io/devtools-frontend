@@ -1723,6 +1723,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
   async loadingStarted(): Promise<void> {
     this.#changeView({mode: 'STATUS_PANE_OVERLAY'});
+    document.getElementById('-blink-dev-tools')?.dispatchEvent(new TraceLoadingStarted());
 
     if (this.statusPane) {
       this.statusPane.remove();
@@ -2094,6 +2095,7 @@ export const enum Events {
   LoadRawTraceData = 'loadrawtracedata',
   RawTraceDataLoaded = 'rawtracedataloaded',
   LoadTraceFile = 'loadtracefile',
+  TraceLoadingStarted = 'traceloadingstarted',
 }
 
 export class OpenTraceFileEvent extends CustomEvent<Events.OpenTraceFile> {
@@ -2130,6 +2132,13 @@ export class LoadRawTraceDataEvent extends CustomEvent<Events.LoadRawTraceData> 
   static readonly eventName = Events.LoadRawTraceData;
   constructor() {
     super(LoadRawTraceDataEvent.eventName);
+  }
+}
+
+export class TraceLoadingStarted extends CustomEvent<Events.TraceLoadingStarted> {
+  static readonly eventName = Events.TraceLoadingStarted;
+  constructor() {
+    super(TraceLoadingStarted.eventName);
   }
 }
 
