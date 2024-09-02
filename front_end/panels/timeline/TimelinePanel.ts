@@ -945,6 +945,20 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     void contextMenu.show();
   }
 
+  yieldToMain(): Promise<void> {
+    // Use scheduler.yield if it exists:
+    /* @ts-ignore */
+    if (window && 'scheduler' in window && 'yield' in scheduler) {
+      /* @ts-ignore */
+      return scheduler.yield();
+    }
+
+    // Fall back to setTimeout:
+    return new Promise(resolve => {
+      setTimeout(resolve, 0);
+    });
+  }
+
   async getRawTraceData(): Promise<void> {
     if (this.#viewMode.mode !== 'VIEWING_TRACE') {
       return;
@@ -952,6 +966,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
     const traceEvents = this.#traceEngineModel.rawTraceEvents(this.#viewMode.traceIndex);
     const metadata = this.#traceEngineModel.metadata(this.#viewMode.traceIndex);
+
+    await this.yieldToMain();
 
     if (metadata) {
       metadata.modifications = ModificationsManager.activeManager()?.toJSON();
@@ -967,6 +983,9 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
         if (!profileEvent || !profileEvent.args?.data) {
           return;
         }
+
+        await this.yieldToMain();
+
         const profileEventData = profileEvent.args?.data;
         if (profileEventData.hasOwnProperty('cpuProfile')) {
           const profile = (profileEventData as {cpuProfile: Protocol.Profiler.Profile}).cpuProfile;
@@ -976,6 +995,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
         const formattedTraceIter = traceJsonGenerator(traceEvents, metadata);
         traceAsString = Array.from(formattedTraceIter).join('');
       }
+
+      await this.yieldToMain();
 
       if (!traceAsString) {
         throw new Error('Trace content empty');
@@ -990,6 +1011,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
         const compressedReadableStream = stream.pipeThrough(
           new CompressionStream('gzip'),
         );
+
+        await this.yieldToMain();
 
         const chunks = [];
         // @ts-ignore - TS doesn't know about async iterator on readable stream ?
