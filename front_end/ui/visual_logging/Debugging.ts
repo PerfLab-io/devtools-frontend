@@ -2,12 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import * as Platform from '../../core/platform/platform.js';
 import {assertNotNullOrUndefined} from '../../core/platform/platform.js';
 
 import {type Loggable} from './Loggable.js';
 import {type LoggingConfig, VisualElements} from './LoggingConfig.js';
-import {pendingWorkComplete} from './LoggingDriver.js';
 import {getLoggingState, type LoggingState} from './LoggingState.js';
 
 let veDebuggingEnabled = false;
@@ -87,13 +85,13 @@ export function processEventForDebugging(
   }
 
   switch (format) {
-    case DebugLoggingFormat.Intuitive:
+    case DebugLoggingFormat.INTUITIVE:
       processEventForIntuitiveDebugging(event, state, extraInfo);
       break;
-    case DebugLoggingFormat.Test:
+    case DebugLoggingFormat.TEST:
       processEventForTestDebugging(event, state, extraInfo);
       break;
-    case DebugLoggingFormat.AdHocAnalysis:
+    case DebugLoggingFormat.AD_HOC_ANALYSIS:
       processEventForAdHocAnalysisDebugging(event, state, extraInfo);
       break;
   }
@@ -186,13 +184,13 @@ type TestLogEntry = {
 export function processImpressionsForDebugging(states: LoggingState[]): void {
   const format = localStorage.getItem('veDebugLoggingEnabled');
   switch (format) {
-    case DebugLoggingFormat.Intuitive:
+    case DebugLoggingFormat.INTUITIVE:
       processImpressionsForIntuitiveDebugLog(states);
       break;
-    case DebugLoggingFormat.Test:
+    case DebugLoggingFormat.TEST:
       processImpressionsForTestDebugLog(states);
       break;
-    case DebugLoggingFormat.AdHocAnalysis:
+    case DebugLoggingFormat.AD_HOC_ANALYSIS:
       processImpressionsForAdHocAnalysisDebugLog(states);
       break;
     default:
@@ -332,19 +330,19 @@ function maybeLogDebugEvent(entry: IntuitiveLogEntry|AdHocAnalysisLogEntry|TestL
     return;
   }
   veDebugEventsLog.push(entry);
-  if (format === DebugLoggingFormat.Intuitive) {
+  if (format === DebugLoggingFormat.INTUITIVE) {
     // eslint-disable-next-line no-console
     console.info('VE Debug:', entry);
   }
 }
 
-export enum DebugLoggingFormat {
-  Intuitive = 'Intuitive',
-  Test = 'Test',
-  AdHocAnalysis = 'AdHocAnalysis',
+export const enum DebugLoggingFormat {
+  INTUITIVE = 'Intuitive',
+  TEST = 'Test',
+  AD_HOC_ANALYSIS = 'AdHocAnalysis',
 }
 
-export function setVeDebugLoggingEnabled(enabled: boolean, format = DebugLoggingFormat.Intuitive): void {
+export function setVeDebugLoggingEnabled(enabled: boolean, format = DebugLoggingFormat.INTUITIVE): void {
   if (enabled) {
     localStorage.setItem('veDebugLoggingEnabled', format);
   } else {
@@ -568,15 +566,9 @@ let sessionStartTime: number = Date.now();
 
 export function processStartLoggingForDebugging(): void {
   sessionStartTime = Date.now();
-  if (localStorage.getItem('veDebugLoggingEnabled') === DebugLoggingFormat.Intuitive) {
+  if (localStorage.getItem('veDebugLoggingEnabled') === DebugLoggingFormat.INTUITIVE) {
     maybeLogDebugEvent({event: 'SessionStart'});
   }
-}
-
-async function getVeDebugEventsLog(): Promise<(IntuitiveLogEntry | AdHocAnalysisLogEntry | TestLogEntry)[]> {
-  await pendingWorkComplete();
-  lastImpressionLogEntry = null;
-  return veDebugEventsLog;
 }
 
 // Compares the 'actual' log entry against the 'expected'.
@@ -625,7 +617,7 @@ export async function expectVeEvents(expectedEvents: TestLogEntry[]): Promise<vo
   if (pendingEventExpectation) {
     throw new Error('VE events expectation already set. Cannot set another one until the previous is resolved');
   }
-  const {promise, resolve: success, reject: fail} = Platform.PromiseUtilities.promiseWithResolvers<void>();
+  const {promise, resolve: success, reject: fail} = Promise.withResolvers<void>();
   pendingEventExpectation = {expectedEvents, success, fail};
   checkPendingEventExpectation();
   setTimeout(() => {
@@ -639,6 +631,8 @@ export async function expectVeEvents(expectedEvents: TestLogEntry[]): Promise<vo
   }, EVENT_EXPECTATION_TIMEOUT);
   return promise;
 }
+
+let numMatchedEvents = 0;
 
 function checkPendingEventExpectation(): void {
   if (!pendingEventExpectation) {
@@ -659,12 +653,22 @@ function checkPendingEventExpectation(): void {
       }
     }
   }
+  numMatchedEvents = veDebugEventsLog.length - actualEvents.length + pendingEventExpectation.expectedEvents.length;
   pendingEventExpectation.success();
   pendingEventExpectation = null;
 }
 
+function getUnmatchedVeEvents(): string {
+  console.error(numMatchedEvents);
+  return (veDebugEventsLog.slice(numMatchedEvents) as TestLogEntry[])
+      .map(e => 'interaction' in e ? e.interaction : formatImpressions(e.impressions))
+      .join('\n');
+}
+
 // @ts-ignore
 globalThis.setVeDebugLoggingEnabled = setVeDebugLoggingEnabled;
+// @ts-ignore
+globalThis.getUnmatchedVeEvents = getUnmatchedVeEvents;
 // @ts-ignore
 globalThis.veDebugEventsLog = veDebugEventsLog;
 // @ts-ignore
@@ -673,7 +677,5 @@ globalThis.findVeDebugImpression = findVeDebugImpression;
 globalThis.exportAdHocAnalysisLogForSql = exportAdHocAnalysisLogForSql;
 // @ts-ignore
 globalThis.buildStateFlow = buildStateFlow;
-// @ts-ignore
-globalThis.getVeDebugEventsLog = getVeDebugEventsLog;
 // @ts-ignore
 globalThis.expectVeEvents = expectVeEvents;

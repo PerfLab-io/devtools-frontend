@@ -4,7 +4,7 @@
 
 import("../../../scripts/build/ninja/devtools_entrypoint.gni")
 import("../../../scripts/build/ninja/devtools_module.gni")
-import("../../../third_party/typescript/typescript.gni")
+import("../../../scripts/build/typescript/typescript.gni")
 
 devtools_module("sdk") {
   sources = [
@@ -77,6 +77,7 @@ devtools_module("sdk") {
     "ServiceWorkerManager.ts",
     "SourceMap.ts",
     "SourceMapManager.ts",
+    "SourceMapScopeChainEntry.ts",
     "SourceMapScopes.ts",
     "SourceMapScopesInfo.ts",
     "StorageBucketsModel.ts",
@@ -164,6 +165,7 @@ ts_library("unittests") {
     "ServiceWorkerManager.test.ts",
     "SourceMap.test.ts",
     "SourceMapManager.test.ts",
+    "SourceMapScopeChainEntry.test.ts",
     "SourceMapScopes.test.ts",
     "SourceMapScopesInfo.test.ts",
     "StorageBucketsModel.test.ts",

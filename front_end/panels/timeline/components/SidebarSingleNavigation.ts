@@ -8,7 +8,7 @@ import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
 import * as LitHtml from '../../../ui/lit-html/lit-html.js';
 
 import * as Insights from './insights/insights.js';
-import {type ActiveInsight} from './Sidebar.js';
+import {type ActiveInsight, EventReferenceClick} from './Sidebar.js';
 import {InsightsCategories} from './SidebarInsightsTab.js';
 import styles from './sidebarSingleNavigation.css.js';
 
@@ -49,12 +49,19 @@ export class SidebarSingleNavigation extends HTMLElement {
     return label === this.#data.activeCategory;
   }
 
+  #referenceEvent(event: TraceEngine.Types.TraceEvents.TraceEventData) {
+    return () => {
+      this.dispatchEvent(new EventReferenceClick(event));
+    };
+  }
+
   #renderMetricValue(
       label: 'LCP'|'CLS'|'INP', value: string,
-      classification: TraceEngine.Handlers.ModelHandlers.PageLoadMetrics.ScoreClassification): LitHtml.LitTemplate {
+      classification: TraceEngine.Handlers.ModelHandlers.PageLoadMetrics.ScoreClassification,
+      event: TraceEngine.Types.TraceEvents.TraceEventData|null): LitHtml.LitTemplate {
     // clang-format off
     return this.#metricIsVisible(label) ? LitHtml.html`
-      <div class="metric">
+      <div class="metric" @click=${event ? this.#referenceEvent(event): null}>
         <div class="metric-value metric-value-${classification}">${value}</div>
         <div class="metric-label">${label}</div>
       </div>
@@ -68,7 +75,7 @@ export class SidebarSingleNavigation extends HTMLElement {
    * as if there are no navigations, we do not want to show the user the INP
    * score.
    */
-  #calculateINPScore(
+  #calculateINP(
       traceParsedData: TraceEngine.Handlers.Types.TraceParseData,
       navigationId: string,
       ): TraceEngine.Types.Timing.MicroSeconds|null {
@@ -92,16 +99,18 @@ export class SidebarSingleNavigation extends HTMLElement {
   #calculateCLSScore(
       traceParsedData: TraceEngine.Handlers.Types.TraceParseData,
       navigationId: string,
-      ): number {
+      ): {maxScore: number, worstShfitEvent: TraceEngine.Types.TraceEvents.TraceEventData|null} {
     // Find all clusers associated with this navigation
     const clustersForNavigation = traceParsedData.LayoutShifts.clusters.filter(c => c.navigationId === navigationId);
     let maxScore = 0;
+    let worstCluster;
     for (const cluster of clustersForNavigation) {
       if (cluster.clusterCumulativeScore > maxScore) {
         maxScore = cluster.clusterCumulativeScore;
+        worstCluster = cluster;
       }
     }
-    return maxScore;
+    return {maxScore, worstShfitEvent: worstCluster?.worstShiftEvent ?? null};
   }
 
   #renderMetrics(
@@ -112,26 +121,27 @@ export class SidebarSingleNavigation extends HTMLElement {
         traceParsedData.PageLoadMetrics.metricScoresByFrameId.get(traceParsedData.Meta.mainFrameId)?.get(navigationId);
     const lcpMetric = forNavigation?.get(TraceEngine.Handlers.ModelHandlers.PageLoadMetrics.MetricName.LCP);
 
-    const clsScore = this.#calculateCLSScore(traceParsedData, navigationId);
-    const inpScore = this.#calculateINPScore(traceParsedData, navigationId);
+    const {maxScore: clsScore, worstShfitEvent} = this.#calculateCLSScore(traceParsedData, navigationId);
+    const inp = this.#calculateINP(traceParsedData, navigationId);
 
     return LitHtml.html`
     <div class="metrics-row">
     ${
-        lcpMetric ?
-            this.#renderMetricValue(
-                'LCP', i18n.TimeUtilities.formatMicroSecondsAsSeconds(lcpMetric.timing), lcpMetric.classification) :
-            LitHtml.nothing}
+        lcpMetric ? this.#renderMetricValue(
+                        'LCP', i18n.TimeUtilities.formatMicroSecondsAsSeconds(lcpMetric.timing),
+                        lcpMetric.classification, lcpMetric.event ?? null) :
+                    LitHtml.nothing}
     ${
         this.#renderMetricValue(
             'CLS', clsScore.toFixed(2),
-            TraceEngine.Handlers.ModelHandlers.LayoutShifts.scoreClassificationForLayoutShift(clsScore))}
+            TraceEngine.Handlers.ModelHandlers.LayoutShifts.scoreClassificationForLayoutShift(clsScore),
+            worstShfitEvent)}
     ${
-        inpScore ? this.#renderMetricValue(
-                       'INP', i18n.TimeUtilities.formatMicroSecondsTime(inpScore),
-                       TraceEngine.Handlers.ModelHandlers.UserInteractions.scoreClassificationForInteractionToNextPaint(
-                           inpScore)) :
-                   LitHtml.nothing}
+        inp ? this.#renderMetricValue(
+                  'INP', i18n.TimeUtilities.formatMicroSecondsAsMillisFixed(inp),
+                  TraceEngine.Handlers.ModelHandlers.UserInteractions.scoreClassificationForInteractionToNextPaint(inp),
+                  null) :
+              LitHtml.nothing}
     </div>
     `;
   }
@@ -151,6 +161,14 @@ export class SidebarSingleNavigation extends HTMLElement {
       </${Insights.LCPPhases.LCPPhases}>
     </div>
     <div>
+      <${Insights.InteractionToNextPaint.InteractionToNextPaint.litTagName}
+        .insights=${insights}
+        .navigationId=${navigationId}
+        .activeInsight=${this.#data.activeInsight}
+        .activeCategory=${this.#data.activeCategory}
+      </${Insights.InteractionToNextPaint.InteractionToNextPaint}>
+    </div>
+    <div>
       <${Insights.LCPDiscovery.LCPDiscovery.litTagName}
         .insights=${insights}
         .navigationId=${navigationId}
@@ -159,12 +177,52 @@ export class SidebarSingleNavigation extends HTMLElement {
       </${Insights.LCPDiscovery.LCPDiscovery}>
     </div>
     <div>
+      <${Insights.RenderBlocking.RenderBlockingRequests.litTagName}
+        .insights=${insights}
+        .navigationId=${navigationId}
+        .activeInsight=${this.#data.activeInsight}
+        .activeCategory=${this.#data.activeCategory}
+      </${Insights.RenderBlocking.RenderBlockingRequests}>
+    </div>
+    <div>
+      <${Insights.SlowCSSSelector.SlowCSSSelector.litTagName}
+        .insights=${insights}
+        .navigationId=${navigationId}
+        .activeInsight=${this.#data.activeInsight}
+        .activeCategory=${this.#data.activeCategory}
+      </${Insights.SlowCSSSelector.SlowCSSSelector}>
+    </div>
+    <div>
       <${Insights.CLSCulprits.CLSCulprits.litTagName}
         .insights=${insights}
         .navigationId=${navigationId}
         .activeInsight=${this.#data.activeInsight}
         .activeCategory=${this.#data.activeCategory}
       </${Insights.CLSCulprits.CLSCulprits}>
+    </div>
+    <div>
+      <${Insights.DocumentLatency.DocumentLatency.litTagName}
+        .insights=${insights}
+        .navigationId=${navigationId}
+        .activeInsight=${this.#data.activeInsight}
+        .activeCategory=${this.#data.activeCategory}
+      </${Insights.DocumentLatency.DocumentLatency}>
+    </div>
+    <div>
+      <${Insights.ThirdParties.ThirdParties.litTagName}
+        .insights=${insights}
+        .navigationId=${navigationId}
+        .activeInsight=${this.#data.activeInsight}
+        .activeCategory=${this.#data.activeCategory}
+      </${Insights.ThirdParties.ThirdParties}>
+    </div>
+    <div>
+      <${Insights.Viewport.Viewport.litTagName}
+        .insights=${insights}
+        .navigationId=${navigationId}
+        .activeInsight=${this.#data.activeInsight}
+        .activeCategory=${this.#data.activeCategory}
+      </${Insights.Viewport.Viewport}>
     </div>`;
     // clang-format on
   }

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {describeWithEnvironment} from '../../../testing/EnvironmentHelpers.js';
 import {TraceLoader} from '../../../testing/TraceLoader.js';
 import type * as TraceModel from '../trace.js';
 
@@ -26,7 +27,7 @@ function getInsight(insights: TraceModel.Insights.Types.TraceInsightData, naviga
   return insight;
 }
 
-describe('RenderBlockingRequests', function() {
+describeWithEnvironment('RenderBlockingRequests', function() {
   it('finds render blocking requests', async () => {
     const {data, insights} = await processTrace(this, 'load-simple.json.gz');
     assert.strictEqual(insights.size, 1);
@@ -63,6 +64,16 @@ describe('RenderBlockingRequests', function() {
     assert(
         insight.renderBlockingRequests.every(r => r.args.data.syntheticData.finishTime < navigations[1].ts),
         'a result is not contained by the nav bounds');
+  });
+
+  it('considers navigations separately', async () => {
+    const {data, insights} = await processTrace(this, 'multiple-navigations-render-blocking.json.gz');
+    assert.strictEqual(insights.size, 2);
+    const navigations = Array.from(data.Meta.navigationsByNavigationId.values());
+    const insightOne = getInsight(insights, navigations[0].args.data?.navigationId || '');
+    const insightTwo = getInsight(insights, navigations[1].args.data?.navigationId || '');
+    assert.deepStrictEqual(insightOne.renderBlockingRequests.map(r => r.args.data.requestId), ['99116.2']);
+    assert.deepStrictEqual(insightTwo.renderBlockingRequests.map(r => r.args.data.requestId), ['99116.5']);
   });
 
   it('considers only the frame specified by the context', async () => {

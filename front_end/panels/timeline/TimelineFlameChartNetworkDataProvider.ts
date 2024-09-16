@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
 import type * as TimelineModel from '../../models/timeline_model/timeline_model.js';
@@ -125,7 +124,8 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
     return this.#lastSelection.timelineSelection;
   }
 
-  customizedContextMenu(event: MouseEvent, eventIndex: number): UI.ContextMenu.ContextMenu|undefined {
+  customizedContextMenu(event: MouseEvent, eventIndex: number, _groupIndex: number): UI.ContextMenu.ContextMenu
+      |undefined {
     const networkRequest = this.eventByIndex(eventIndex);
     if (!networkRequest || !TraceEngine.Types.TraceEvents.isSyntheticNetworkRequestEvent(networkRequest)) {
       return;
@@ -181,6 +181,13 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
     return index;
   }
 
+  groupForEvent(_entryIndex: number): PerfUI.FlameChart.Group|null {
+    // Because the network track only contains one group, we don't actually
+    // need to do any lookups here.
+    const group = this.#networkTrackAppender?.group() ?? null;
+    return group;
+  }
+
   entryColor(index: number): string {
     if (!this.#networkTrackAppender) {
       throw new Error('networkTrackAppender should not be empty');
@@ -194,12 +201,7 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
 
   entryTitle(index: number): string|null {
     const event = this.#events[index];
-    if (TraceEngine.Types.TraceEvents.isWebSocketTraceEvent(event) ||
-        TraceEngine.Types.TraceEvents.isSyntheticWebSocketConnectionEvent(event)) {
-      return this.#networkTrackAppender?.titleForWebSocketEvent(event) || '';
-    }
-    const parsedURL = new Common.ParsedURL.ParsedURL(event.args.data.url);
-    return parsedURL.isValid ? `${parsedURL.displayName} (${parsedURL.host})` : event.args.data.url || null;
+    return TimelineComponents.EntryName.nameForEntry(event);
   }
 
   entryFont(_index: number): string|null {
@@ -473,8 +475,7 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
    * indexes
    */
   search(
-      startTime: TraceEngine.Types.Timing.MilliSeconds,
-      endTime: TraceEngine.Types.Timing.MilliSeconds,
+      visibleWindow: TraceEngine.Types.Timing.TraceWindowMicroSeconds,
       filter: TimelineModel.TimelineModelFilter.TimelineModelFilter,
       ): PerfUI.FlameChart.DataProviderSearchResult[] {
     const results: PerfUI.FlameChart.DataProviderSearchResult[] = [];
@@ -483,16 +484,14 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
       if (!entry) {
         continue;
       }
-      const entryStartTime = TraceEngine.Helpers.Timing.eventTimingsMilliSeconds(entry).startTime;
-      const entryEndTime = TraceEngine.Helpers.Timing.eventTimingsMilliSeconds(entry).endTime;
-      if (entryStartTime > endTime) {
+
+      if (!TraceEngine.Helpers.Timing.eventIsInBounds(entry, visibleWindow)) {
         continue;
       }
-      if (entryEndTime < startTime) {
-        continue;
-      }
+
       if (filter.accept(entry, this.#traceParseData ?? undefined)) {
-        results.push({startTimeMilli: entryStartTime, index: i, provider: 'network'});
+        const startTimeMilli = TraceEngine.Helpers.Timing.microSecondsToMilliseconds(entry.ts);
+        results.push({startTimeMilli, index: i, provider: 'network'});
       }
     }
     return results;

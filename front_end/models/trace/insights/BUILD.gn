@@ -15,11 +15,15 @@ devtools_module("insights") {
     "InteractionToNextPaint.ts",
     "LargestContentfulPaint.ts",
     "RenderBlocking.ts",
+    "SlowCSSSelector.ts",
+    "ThirdPartyWeb.ts",
     "Viewport.ts",
     "types.ts",
   ]
 
   deps = [
+    "../../../third_party/third-party-web:bundle",
+    "../extras:bundle",
     "../handlers:bundle",
     "../lantern:bundle",
   ]
@@ -45,6 +49,8 @@ ts_library("unittests") {
     "InteractionToNextPaint.test.ts",
     "LargestContentfulPaint.test.ts",
     "RenderBlocking.test.ts",
+    "SlowCSSSelector.test.ts",
+    "ThirdPartyWeb.test.ts",
     "Viewport.test.ts",
   ]
 
