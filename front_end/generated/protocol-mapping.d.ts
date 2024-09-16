@@ -136,6 +136,10 @@ export namespace ProtocolMapping {
      */
     'DOM.topLayerElementsUpdated': [];
     /**
+     * Fired when a node's scrollability state changes.
+     */
+    'DOM.scrollableFlagUpdated': [Protocol.DOM.ScrollableFlagUpdatedEvent];
+    /**
      * Called when a pseudo element is removed from an element.
      */
     'DOM.pseudoElementRemoved': [Protocol.DOM.PseudoElementRemovedEvent];
@@ -355,6 +359,11 @@ export namespace ProtocolMapping {
      * Fired when frame has been detached from its parent.
      */
     'Page.frameDetached': [Protocol.Page.FrameDetachedEvent];
+    /**
+     * Fired before frame subtree is detached. Emitted before any frame of the
+     * subtree is actually detached.
+     */
+    'Page.frameSubtreeWillBeDetached': [Protocol.Page.FrameSubtreeWillBeDetachedEvent];
     /**
      * Fired once navigation of the frame has completed. Frame is now associated with the new loader.
      */
@@ -959,12 +968,34 @@ export namespace ProtocolMapping {
       returnType: Protocol.Extensions.LoadUnpackedResponse;
     };
     /**
-     * Gets data from extension storage in the given `area`. If `keys` is
+     * Gets data from extension storage in the given `storageArea`. If `keys` is
      * specified, these are used to filter the result.
      */
     'Extensions.getStorageItems': {
       paramsType: [Protocol.Extensions.GetStorageItemsRequest];
       returnType: Protocol.Extensions.GetStorageItemsResponse;
+    };
+    /**
+     * Removes `keys` from extension storage in the given `storageArea`.
+     */
+    'Extensions.removeStorageItems': {
+      paramsType: [Protocol.Extensions.RemoveStorageItemsRequest];
+      returnType: void;
+    };
+    /**
+     * Clears extension storage in the given `storageArea`.
+     */
+    'Extensions.clearStorageItems': {
+      paramsType: [Protocol.Extensions.ClearStorageItemsRequest];
+      returnType: void;
+    };
+    /**
+     * Sets `values` in extension storage in the given `storageArea`. The provided `values`
+     * will be merged with existing values in the storage area.
+     */
+    'Extensions.setStorageItems': {
+      paramsType: [Protocol.Extensions.SetStorageItemsRequest];
+      returnType: void;
     };
     /**
      * Trigger autofill on a form identified by the fieldId.
@@ -2618,10 +2649,24 @@ export namespace ProtocolMapping {
       paramsType: [];
       returnType: void;
     };
+    /**
+     * Retruns current DOM object counters.
+     */
     'Memory.getDOMCounters': {
       paramsType: [];
       returnType: Protocol.Memory.GetDOMCountersResponse;
     };
+    /**
+     * Retruns DOM object counters after preparing renderer for leak detection.
+     */
+    'Memory.getDOMCountersForLeakDetection': {
+      paramsType: [];
+      returnType: Protocol.Memory.GetDOMCountersForLeakDetectionResponse;
+    };
+    /**
+     * Prepares for leak detection by terminating workers, stopping spellcheckers,
+     * dropping non-essential internal caches, running garbage collections, etc.
+     */
     'Memory.prepareForLeakDetection': {
       paramsType: [];
       returnType: void;

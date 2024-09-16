@@ -285,15 +285,11 @@ export const enum ExperimentName {
   HEADER_OVERRIDES = 'header-overrides',
   INSTRUMENTATION_BREAKPOINTS = 'instrumentation-breakpoints',
   AUTHORED_DEPLOYED_GROUPING = 'authored-deployed-grouping',
-  IMPORTANT_DOM_PROPERTIES = 'important-dom-properties',
   JUST_MY_CODE = 'just-my-code',
-  PRELOADING_STATUS_PANEL = 'preloading-status-panel',
-  OUTERMOST_TARGET_SELECTOR = 'outermost-target-selector',
   HIGHLIGHT_ERRORS_ELEMENTS_PANEL = 'highlight-errors-elements-panel',
   USE_SOURCE_MAP_SCOPES = 'use-source-map-scopes',
   NETWORK_PANEL_FILTER_BAR_REDESIGN = 'network-panel-filter-bar-redesign',
   AUTOFILL_VIEW = 'autofill-view',
-  INDENTATION_MARKERS_TEMP_DISABLE = 'sources-frame-indentation-markers-temporarily-disable',
   TIMELINE_SHOW_POST_MESSAGE_EVENTS = 'timeline-show-postmessage-events',
   TIMELINE_ANNOTATIONS = 'perf-panel-annotations',
   TIMELINE_INSIGHTS = 'timeline-rpp-sidebar',
@@ -301,32 +297,44 @@ export const enum ExperimentName {
   TIMELINE_OBSERVATIONS = 'timeline-observations',
   TIMELINE_ENHANCED_TRACES = 'timeline-enhanced-traces',
   GEN_AI_SETTINGS_PANEL = 'gen-ai-settings-panel',
+  TIMELINE_SERVER_TIMINGS = 'timeline-server-timings',
+  TIMELINE_LAYOUT_SHIFT_DETAILS = 'timeline-layout-shift-details',
+}
+
+export interface AidaAvailability {
+  enabled: boolean;
+  blockedByAge: boolean;
+  blockedByEnterprisePolicy: boolean;
+  blockedByGeo: boolean;
+  disallowLogging: boolean;
 }
 
 export interface HostConfigConsoleInsights {
-  aidaModelId: string;
-  aidaTemperature: number;
-  blockedByAge: boolean;
-  blockedByEnterprisePolicy: boolean;
-  blockedByGeo: boolean;
-  blockedByRollout: boolean;
-  disallowLogging: boolean;
+  modelId: string;
+  temperature: number;
   enabled: boolean;
-  optIn: boolean;
 }
 
 export interface HostConfigFreestylerDogfood {
-  aidaModelId: string;
-  aidaTemperature: number;
-  blockedByAge: boolean;
-  blockedByEnterprisePolicy: boolean;
-  blockedByGeo: boolean;
+  modelId: string;
+  temperature: number;
+  enabled: boolean;
+  userTier: string;
+}
+
+export interface HostConfigExplainThisResourceDogfood {
+  modelId: string;
+  temperature: number;
   enabled: boolean;
 }
 
 export interface HostConfigVeLogging {
   enabled: boolean;
   testing: boolean;
+}
+
+export interface HostConfigPrivacyUI {
+  enabled: boolean;
 }
 
 // We use `RecursivePartial` here to enforce that DevTools code is able to
@@ -337,9 +345,12 @@ export interface HostConfigVeLogging {
 // window being of different versions, and consequently potentially having
 // differently shaped `HostConfig`s.
 export type HostConfig = Platform.TypeScriptUtilities.RecursivePartial<{
+  aidaAvailability: AidaAvailability,
   devToolsConsoleInsights: HostConfigConsoleInsights,
   devToolsFreestylerDogfood: HostConfigFreestylerDogfood,
+  devToolsExplainThisResourceDogfood: HostConfigExplainThisResourceDogfood,
   devToolsVeLogging: HostConfigVeLogging,
+  devToolsPrivacyUI: HostConfigPrivacyUI,
   /**
    * OffTheRecord here indicates that the user's profile is either incognito,
    * or guest mode, rather than a "normal" profile.

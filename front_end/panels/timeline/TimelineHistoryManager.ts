@@ -35,15 +35,11 @@ const UIStrings = {
    *@example {example.com #3} PH1
    *@example {Show recent timeline sessions} PH2
    */
-  currentSessionSS: 'Current Session: {PH1}. {PH2}',
+  currentSessionSS: 'Current session: {PH1}. {PH2}',
   /**
-   *@description the title shown when the user is viewing the landing page which is showing only local metrics.
+   *@description the title shown when the user is viewing the landing page which is showing live performance metrics that are updated automatically.
    */
-  landingPageTitleLocalMetrics: 'Local metrics',
-  /**
-   *@description the title shown when the user is viewing the landing page which is showing local and field metrics.
-   */
-  landingPageTitleLocalAndFieldMetrics: 'Local and field metrics',
+  landingPageTitle: 'Live metrics',
   /**
    *@description Text that shows there is no recording
    */
@@ -78,7 +74,7 @@ const UIStrings = {
   /**
    *@description Accessible label for the timeline session selection menu
    */
-  selectTimelineSession: 'Select Timeline Session',
+  selectTimelineSession: 'Select timeline session',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/TimelineHistoryManager.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -172,7 +168,7 @@ export class TimelineHistoryManager {
     this.totalHeight = this.allOverviews.reduce((acc, entry) => acc + entry.height, 0);
     this.enabled = true;
 
-    CrUXManager.CrUXManager.instance().addEventListener(CrUXManager.Events.FieldDataChanged, () => {
+    CrUXManager.CrUXManager.instance().addEventListener(CrUXManager.Events.FIELD_DATA_CHANGED, () => {
       this.#updateLandingPageTitleIfActive();
     });
   }
@@ -374,7 +370,7 @@ export class TimelineHistoryManager {
 
   private title(item: RecordingData): string {
     if (item.type === 'LANDING_PAGE') {
-      return titleForLandingPageItem();
+      return i18nString(UIStrings.landingPageTitle);
     }
 
     const data = TimelineHistoryManager.dataForTraceIndex(item.traceParseDataIndex);
@@ -503,10 +499,10 @@ export class DropDown implements UI.ListControl.ListDelegate<number> {
 
   constructor(availableTraceDataIndexes: number[]) {
     this.glassPane = new UI.GlassPane.GlassPane();
-    this.glassPane.setSizeBehavior(UI.GlassPane.SizeBehavior.MeasureContent);
+    this.glassPane.setSizeBehavior(UI.GlassPane.SizeBehavior.MEASURE_CONTENT);
     this.glassPane.setOutsideClickCallback(() => this.close(null));
-    this.glassPane.setPointerEventsBehavior(UI.GlassPane.PointerEventsBehavior.BlockedByGlassPane);
-    this.glassPane.setAnchorBehavior(UI.GlassPane.AnchorBehavior.PreferBottom);
+    this.glassPane.setPointerEventsBehavior(UI.GlassPane.PointerEventsBehavior.BLOCKED_BY_GLASS_PANE);
+    this.glassPane.setAnchorBehavior(UI.GlassPane.AnchorBehavior.PREFER_BOTTOM);
     this.glassPane.element.addEventListener('blur', () => this.close(null));
 
     const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(this.glassPane.contentElement, {
@@ -625,7 +621,7 @@ export class DropDown implements UI.ListControl.ListDelegate<number> {
     div.appendChild(icon);
 
     const text = document.createElement('span');
-    text.innerText = titleForLandingPageItem();
+    text.innerText = i18nString(UIStrings.landingPageTitle);
     div.appendChild(text);
     return div;
   }
@@ -655,27 +651,18 @@ export class DropDown implements UI.ListControl.ListDelegate<number> {
   private static instance: DropDown|null = null;
 }
 
-/**
- * Get the title for the "back to landing page" dropdown item, which differs based on if the user has consented to CrUX (and we can show field metrics) or not. Implemented here because both TimelineHistoryManager and Dropdown classes need it.
- */
-function titleForLandingPageItem(): string {
-  const hasMetrics = CrUXManager.CrUXManager.instance().isEnabled();
-  const title = hasMetrics ? i18nString(UIStrings.landingPageTitleLocalAndFieldMetrics) :
-                             i18nString(UIStrings.landingPageTitleLocalMetrics);
-  return title;
-}
-
 export class ToolbarButton extends UI.Toolbar.ToolbarItem {
   private contentElement: HTMLElement;
 
   constructor(action: UI.ActionRegistration.Action) {
     const element = document.createElement('button');
     element.classList.add('history-dropdown-button');
+    element.setAttribute('jslog', `${VisualLogging.dropDown('history')}`);
     super(element);
     this.contentElement = this.element.createChild('span', 'content');
     this.element.addEventListener('click', () => void action.execute(), false);
     this.setEnabled(action.enabled());
-    action.addEventListener(UI.ActionRegistration.Events.Enabled, event => this.setEnabled(event.data));
+    action.addEventListener(UI.ActionRegistration.Events.ENABLED, event => this.setEnabled(event.data));
     this.setTitle(action.title());
   }
 

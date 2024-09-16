@@ -53,7 +53,14 @@ describeWithEnvironment('SidebarAnnotationsTab', () => {
       label: 'Labelled Time Range',
     };
 
+    const colorsMap = new Map<TraceEngine.Types.TraceEvents.TraceEventData, string>([
+      [entryLabelAnnotation.entry, 'rgb(82, 252, 3)'],
+      [entryLabelAnnotation2.entry, '#fc039d'],
+    ]);
+
     component.annotations = [entryLabelAnnotation, entryLabelAnnotation2, labelledTimeRangeAnnotation];
+    component.annotationEntryToColorMap = colorsMap;
+
     assert.isNotNull(component.shadowRoot);
 
     await coordinator.done();
@@ -64,17 +71,42 @@ describeWithEnvironment('SidebarAnnotationsTab', () => {
     const deleteButton = component.shadowRoot.querySelector<HTMLElement>('.bin-icon');
     assert.isNotNull(deleteButton);
 
-    // Ensure annotations names and labels are rendered for all 3 annotations -
+    // Ensure annotations identifiers and labels are rendered for all 3 annotations -
     // 2 entry labels and 1 labelled time range
-    const annotationEntryNameElements = component.shadowRoot.querySelectorAll<HTMLElement>('.entry-name');
-    assert.strictEqual(annotationEntryNameElements.length, 3);
+    const annotationEntryIdentifierElements =
+        component.shadowRoot.querySelectorAll<HTMLElement>('.annotation-identifier');
+    assert.strictEqual(annotationEntryIdentifierElements.length, 3);
 
     const annotationEntryLabelElements = component.shadowRoot.querySelectorAll<HTMLElement>('.label');
-    assert.strictEqual(annotationEntryNameElements.length, 3);
+    assert.strictEqual(annotationEntryIdentifierElements.length, 3);
 
     assert.strictEqual(annotationEntryLabelElements[0].innerText, 'Entry Label 1');
+    assert.strictEqual(annotationEntryIdentifierElements[0].style['backgroundColor'], 'rgb(82, 252, 3)');
     assert.strictEqual(annotationEntryLabelElements[1].innerText, 'Entry Label 2');
+    assert.strictEqual(annotationEntryIdentifierElements[1].style['backgroundColor'], 'rgb(252, 3, 157)');
     assert.strictEqual(annotationEntryLabelElements[2].innerText, 'Labelled Time Range');
+  });
+
+  it('uses the URL for displaying network event labels and truncates it', async function() {
+    const {traceData} = await TraceLoader.traceEngine(this, 'web-dev-with-commit.json.gz');
+    const event = traceData.NetworkRequests.byTime.find(event => {
+      return event.args.data.url.includes('private-aggregation-test');
+    });
+    assert.isOk(event);
+    const annotation: TraceEngine.Types.File.EntryLabelAnnotation = {
+      type: 'ENTRY_LABEL',
+      entry: event,
+      label: 'hello world',
+    };
+    const component = new SidebarAnnotationsTab();
+    renderElementIntoDOM(component);
+    component.annotations = [annotation];
+    await coordinator.done();
+
+    assert.isNotNull(component.shadowRoot);
+
+    const label = component.shadowRoot.querySelector<HTMLElement>('.annotation-identifier');
+    assert.strictEqual(label?.innerText, 'private-aggregation-test.js (shared-sto…');
   });
 
   it('dispatches RemoveAnnotation Events when delete annotation button is clicked', async function() {
@@ -136,11 +168,11 @@ describeWithEnvironment('SidebarAnnotationsTab', () => {
     const annotationsWrapperElement = component.shadowRoot.querySelector<HTMLElement>('.annotations');
     assert.isNotNull(annotationsWrapperElement);
 
-    // Ensure there are 2 labels and their entry names and labels and rendered
-    const annotationNameElements = component.shadowRoot.querySelectorAll<HTMLElement>('.entry-name');
-    assert.strictEqual(annotationNameElements.length, 2);
+    // Ensure there are 2 labels and their entry identifiers and labels and rendered
+    const annotationIdentifierElements = component.shadowRoot.querySelectorAll<HTMLElement>('.annotation-identifier');
+    assert.strictEqual(annotationIdentifierElements.length, 2);
     let annotationLabelElements = component.shadowRoot.querySelectorAll<HTMLElement>('.label');
-    assert.strictEqual(annotationNameElements.length, 2);
+    assert.strictEqual(annotationIdentifierElements.length, 2);
 
     assert.strictEqual(annotationLabelElements[0].innerText, 'Entry Label 1');
     assert.strictEqual(annotationLabelElements[1].innerText, 'Entry Label 2');

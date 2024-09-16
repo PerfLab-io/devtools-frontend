@@ -12,19 +12,19 @@ vars = {
   'build_with_chromium': False,
 
   'build_url': 'https://chromium.googlesource.com/chromium/src/build.git',
-  'build_revision': '6cfaa2aae283169640a0a2923a402b2c9cad832a',
+  'build_revision': '4bd877395d215d47c694a8383147eb158fafbbd6',
 
   'buildtools_url': 'https://chromium.googlesource.com/chromium/src/buildtools.git',
-  'buildtools_revision': '1e192ffd2cbfbbb3081a6dbb609f398a3bb588b1',
+  'buildtools_revision': 'a7a84ac61eae5a8946807265a2fd8bd812daf384',
 
   'depot_tools_url': 'https://chromium.googlesource.com/chromium/tools/depot_tools.git',
-  'depot_tools_revision': '1e6454f8d296bba439da34f7936cd7adb7e579b7',
+  'depot_tools_revision': '22df6f8e622dc3e8df8dc8b5d3e3503b169af78e',
 
   'inspector_protocol_url': 'https://chromium.googlesource.com/deps/inspector_protocol',
-  'inspector_protocol_revision': '2915acabcf62efd7257c57bb8a443a7c389c65cb',
+  'inspector_protocol_revision': 'ccf6613682a24413db28656da6f9c52948331bad',
 
   # Keeping track of the last time we rollerd the browser protocol files.
-  'chromium_browser_protocol_revision' : '8f0bb6d5f5988be0f9183c035e37afcbcffa45a2',
+  'chromium_browser_protocol_revision' : '52fa08e06ff97f8d48c07ea906bc8418573b174b',
 
   'clang_format_url': 'https://chromium.googlesource.com/external/github.com/llvm/llvm-project/clang/tools/clang-format.git',
   'clang_format_revision': '3c0acd2d4e73dd911309d9e970ba09d58bf23a62',
@@ -32,7 +32,7 @@ vars = {
   'emscripten_tag': 'ade9d780ff17c88d81aa13860361743e3c1e1396',
 
   # GN CIPD package version.
-  'gn_version': 'git_revision:93550dc1701d16c4c1c6c78408e61f09485f3dd0',
+  'gn_version': 'git_revision:20806f79c6b4ba295274e3a589d85db41a02fdaa',
 
   'cmake_version': 'version:2@3.21.3',
 
@@ -49,7 +49,7 @@ vars = {
   # Chrome version used for tests. It should be regularly updated to
   # match the Canary version listed here:
   # https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json
-  'chrome': '129.0.6654.0',
+  'chrome': '130.0.6715.0',
 
   # 'magic' text to tell depot_tools that git submodules should be accepted but
   # but parity with DEPS file is expected.
@@ -227,7 +227,7 @@ hooks = [
     'pattern': '.',
     'condition': 'build_with_chromium == False',
     'action': [
-        'python3',
+        'vpython3',
         'third_party/depot_tools/update_depot_tools_toggle.py',
         '--disable',
     ],
@@ -238,7 +238,7 @@ hooks = [
     'name': 'download_chrome_win',
     'pattern': '.',
     'condition': 'host_os == "win" and build_with_chromium == False',
-    'action': [ 'python3',
+    'action': [ 'vpython3',
                 'scripts/deps/download_chrome.py',
                 '--url=https://storage.googleapis.com/chrome-for-testing-public/' + Var('chrome') + '/win64/chrome-win64.zip',
                 '--target=third_party/chrome',
@@ -252,7 +252,7 @@ hooks = [
     'name': 'download_chrome_mac',
     'pattern': '.',
     'condition': 'host_os == "mac" and build_with_chromium == False and host_cpu != "arm64"',
-    'action': [ 'python3',
+    'action': [ 'vpython3',
                 'scripts/deps/download_chrome.py',
                 '--url=https://storage.googleapis.com/chrome-for-testing-public/' + Var('chrome') + '/mac-x64/chrome-mac-x64.zip',
                 '--target=third_party/chrome',
@@ -266,7 +266,7 @@ hooks = [
     'name': 'download_chrome_mac',
     'pattern': '.',
     'condition': 'host_os == "mac" and build_with_chromium == False and host_cpu == "arm64"',
-    'action': [ 'python3',
+    'action': [ 'vpython3',
                 'scripts/deps/download_chrome.py',
                 '--url=https://storage.googleapis.com/chrome-for-testing-public/' + Var('chrome') + '/mac-arm64/chrome-mac-arm64.zip',
                 '--target=third_party/chrome',
@@ -280,7 +280,7 @@ hooks = [
     'name': 'download_chrome_linux',
     'pattern': '.',
     'condition': 'host_os == "linux" and build_with_chromium == False',
-    'action': [ 'python3',
+    'action': [ 'vpython3',
                 'scripts/deps/download_chrome.py',
                 '--url=https://storage.googleapis.com/chrome-for-testing-public/' + Var('chrome') + '/linux64/chrome-linux64.zip',
                 '--target=third_party/chrome',
@@ -296,20 +296,20 @@ hooks = [
     'name': 'lastchange',
     'condition': 'build_with_chromium == False',
     'pattern': '.',
-    'action': ['python3', 'build/util/lastchange.py',
+    'action': ['vpython3', 'build/util/lastchange.py',
                '-o', 'build/util/LASTCHANGE'],
   },
   {
     'name': 'emscripten',
     'pattern': '.',
     'condition': 'build_with_chromium == False',
-    'action': ['python3', 'scripts/deps/download_emscripten.py', Var('emscripten_tag'), 'third_party/emscripten-releases'],
+    'action': ['vpython3', 'scripts/deps/download_emscripten.py', Var('emscripten_tag'), 'third_party/emscripten-releases'],
   },
   {
     'name': 'VS Code settings',
     'pattern': '.',
     'condition': 'build_with_chromium == False',
-    'action': ['python3', 'third_party/node/node.py', '--output', 'scripts/deps/sync-vscode-settings.js']
+    'action': ['vpython3', 'third_party/node/node.py', '--output', 'scripts/deps/sync-vscode-settings.js']
   },
 ]
 

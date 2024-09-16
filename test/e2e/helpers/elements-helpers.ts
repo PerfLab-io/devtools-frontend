@@ -22,6 +22,7 @@ import {
   waitFor,
   waitForAria,
   waitForFunction,
+  waitForNone,
 } from '../../shared/helper.js';
 
 import {openSoftContextMenuAndClickOnItem} from './context-menu-helpers.js';
@@ -171,7 +172,11 @@ export const waitForAdornerOnSelectedNode = async (expectedAdornerText: string) 
   });
   await expectVeEvents([veImpressionsUnder(
       'Panel: elements > Tree: elements > TreeItem', [veImpression('Adorner', expectedAdornerText)])]);
+};
 
+export const waitForNoAdornersOnSelectedNode = async () => {
+  const selectedNode = await waitFor(SELECTED_TREE_ELEMENT_SELECTOR);
+  await waitForNone(ADORNER_SELECTOR, selectedNode);
 };
 
 export const toggleElementCheckboxInLayoutPane = async () => {
@@ -281,7 +286,7 @@ export const clickTreeElementWithPartialText = async (text: string) => {
     return true;
   }
 
-  throw false;
+  return false;
 };
 
 export const clickNthChildOfSelectedElementNode = async (childIndex: number) => {
@@ -431,7 +436,6 @@ export const forcePseudoState = async (pseudoState: string) => {
                                                                veImpression('Toggle: focus-within'),
                                                                veImpression('Toggle: hover'),
                                                                veImpression('Toggle: target'),
-                                                               veImpression('Toggle: visited'),
                                                              ])]),
     veChange(`Panel: elements > Pane: styles > Pane: element-states > Toggle: ${
         pseudoState === 'Emulate a focused page' ? 'emulate-page-focus' : pseudoState.substr(1)}`),

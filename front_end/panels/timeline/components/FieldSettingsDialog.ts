@@ -39,13 +39,13 @@ const UIStrings = {
   /**
    * @description Text label for a checkbox that controls if a manual URL override is enabled for field data.
    */
-  onlyFetchFieldData: 'Only fetch field data for the below URL',
+  onlyFetchFieldData: 'Always show field data for the below URL',
   /**
    * @description Text label for a text box that that contains the manual override URL for fetching field data.
    */
   url: 'URL',
   /**
-   * @description Warning message explaining that the Chrome UX Report could not find enough real world speed data for the page.
+   * @description Warning message explaining that the Chrome UX Report could not find enough real world speed data for the page. "Chrome UX Report" is a product name and should not be translated.
    */
   doesNotHaveSufficientData: 'The Chrome UX Report does not have sufficient real-world speed data for this page.',
   /**
@@ -74,7 +74,7 @@ const UIStrings = {
   /**
    * @description Paragraph explaining that the user can associate a development origin with a production origin for the purposes of fetching real user data.
    */
-  mapDevelopmentOrigins: 'Map development origins to production origins.',
+  mapDevelopmentOrigins: 'Set a development origin to automatically get relevant field data for its production origin.',
   /**
    * @description Title for a column in a data table representing a site origin used for development
    */
@@ -161,8 +161,8 @@ export class FieldSettingsDialog extends HTMLElement {
 
   #resetToSettingState(): void {
     const configSetting = this.#configSetting.get();
-    this.#urlOverride = configSetting.override;
-    this.#urlOverrideEnabled = Boolean(this.#urlOverride);
+    this.#urlOverride = configSetting.override || '';
+    this.#urlOverrideEnabled = configSetting.overrideEnabled || false;
     this.#originMappings = configSetting.originMappings || [];
     this.#urlOverrideWarning = '';
     this.#originMapWarning = '';
@@ -174,8 +174,9 @@ export class FieldSettingsDialog extends HTMLElement {
   #flushToSetting(enabled: boolean): void {
     this.#configSetting.set({
       enabled,
-      override: this.#urlOverrideEnabled ? this.#urlOverride : '',
+      override: this.#urlOverride,
       originMappings: this.#originMappings,
+      overrideEnabled: this.#urlOverrideEnabled,
     });
   }
 
@@ -253,7 +254,7 @@ export class FieldSettingsDialog extends HTMLElement {
             variant: Buttons.Button.Variant.OUTLINED,
             title: i18nString(UIStrings.configure),
           } as Buttons.Button.ButtonData}
-          jslogContext=${'field-data-configure'}
+        jslog=${VisualLogging.action('timeline.field-data.configure').track({click: true})}
         >${i18nString(UIStrings.configure)}</${Buttons.Button.Button.litTagName}>
       `;
       // clang-format on
@@ -267,7 +268,8 @@ export class FieldSettingsDialog extends HTMLElement {
           variant: Buttons.Button.Variant.PRIMARY,
           title: i18nString(UIStrings.setUp),
         } as Buttons.Button.ButtonData}
-        jslogContext=${'field-data-setup'}
+        jslog=${VisualLogging.action('timeline.field-data.setup').track({click: true})}
+        data-field-data-setup
       >${i18nString(UIStrings.setUp)}</${Buttons.Button.Button.litTagName}>
     `;
     // clang-format on
@@ -284,7 +286,8 @@ export class FieldSettingsDialog extends HTMLElement {
           variant: Buttons.Button.Variant.PRIMARY,
           title: i18nString(UIStrings.ok),
         } as Buttons.Button.ButtonData}
-        jslogContext=${'field-data-enable'}
+        jslog=${VisualLogging.action('timeline.field-data.enable').track({click: true})}
+        data-field-data-enable
       >${i18nString(UIStrings.ok)}</${Buttons.Button.Button.litTagName}>
     `;
     // clang-format on
@@ -302,7 +305,8 @@ export class FieldSettingsDialog extends HTMLElement {
           variant: Buttons.Button.Variant.OUTLINED,
           title: label,
         } as Buttons.Button.ButtonData}
-        jslogContext=${'field-data-disable'}
+        jslog=${VisualLogging.action('timeline.field-data.disable').track({click: true})}
+        data-field-data-disable
       >${label}</${Buttons.Button.Button.litTagName}>
     `;
     // clang-format on
@@ -417,17 +421,19 @@ export class FieldSettingsDialog extends HTMLElement {
             value: i18nString(UIStrings.delete),
             // clang-format off
             renderer: value => html`
-              <${Buttons.Button.Button.litTagName}
-                class="delete-mapping"
-                .data=${{
-                  variant: Buttons.Button.Variant.ICON,
-                  size: Buttons.Button.Size.SMALL,
-                  title: value,
-                  iconName: 'bin',
-                  jslogContext: 'delete-origin-mapping',
-                } as Buttons.Button.ButtonData}
-                @click=${() => this.#deleteOriginMapping(index)}
-              ></${Buttons.Button.Button.litTagName}>
+              <div style="display: flex; align-items: center; justify-content: center;">
+                <${Buttons.Button.Button.litTagName}
+                  class="delete-mapping"
+                  .data=${{
+                    variant: Buttons.Button.Variant.ICON,
+                    size: Buttons.Button.Size.SMALL,
+                    title: value,
+                    iconName: 'bin',
+                    jslogContext: 'delete-origin-mapping',
+                  } as Buttons.Button.ButtonData}
+                  @click=${() => this.#deleteOriginMapping(index)}
+                ></${Buttons.Button.Button.litTagName}>
+              </div>
             `,
             // clang-format on
           },
@@ -478,20 +484,24 @@ export class FieldSettingsDialog extends HTMLElement {
           {
             columnId: 'action-button',
             value: i18nString(UIStrings.add),
+            // clang-format off
             renderer: value => html`
-              <${Buttons.Button.Button.litTagName}
-                id="add-mapping-button"
-                .data=${{
-              variant: Buttons.Button.Variant.ICON,
-              size: Buttons.Button.Size.SMALL,
-              title: value,
-              iconName: 'plus',
-              disabled: !this.#editGridDevelopmentOrigin || !this.#editGridProductionOrigin,
-              jslogContext: 'add-origin-mapping',
-            } as Buttons.Button.ButtonData}
-                @click=${() => this.#addOriginMapping()}
-              ></${Buttons.Button.Button.litTagName}>
+              <div style="display: flex; align-items: center; justify-content: center;">
+                <${Buttons.Button.Button.litTagName}
+                  id="add-mapping-button"
+                  .data=${{
+                    variant: Buttons.Button.Variant.ICON,
+                    size: Buttons.Button.Size.SMALL,
+                    title: value,
+                    iconName: 'plus',
+                    disabled: !this.#editGridDevelopmentOrigin || !this.#editGridProductionOrigin,
+                    jslogContext: 'add-origin-mapping',
+                  } as Buttons.Button.ButtonData}
+                  @click=${() => this.#addOriginMapping()}
+                ></${Buttons.Button.Button.litTagName}>
+              </div>
             `,
+            // clang-format on
           },
         ],
       });
@@ -554,8 +564,8 @@ export class FieldSettingsDialog extends HTMLElement {
   }
 
   #render = (): void => {
-    // "Chrome UX Report" is intentionally left untranslated because it is a product name.
-    const linkEl = UI.XLink.XLink.create('https://developer.chrome.com/docs/crux', 'Chrome UX Report');
+    const linkEl =
+        UI.XLink.XLink.create('https://developer.chrome.com/docs/crux', i18n.i18n.lockedString('Chrome UX Report'));
     const descriptionEl = i18n.i18n.getFormatLocalizedString(str_, UIStrings.fetchAggregated, {PH1: linkEl});
 
     // clang-format off
@@ -566,7 +576,7 @@ export class FieldSettingsDialog extends HTMLElement {
         .showConnector=${true}
         .position=${Dialogs.Dialog.DialogVerticalPosition.AUTO}
         .horizontalAlignment=${Dialogs.Dialog.DialogHorizontalAlignment.CENTER}
-        .jslogContext=${'field-data-settings'}
+        .jslogContext=${VisualLogging.dialog('timeline.field-data.settings')}
         on-render=${ComponentHelpers.Directives.nodeRenderedCallback(node => {
           this.#dialog = node as Dialogs.Dialog.Dialog;
         })}
@@ -599,7 +609,8 @@ export class FieldSettingsDialog extends HTMLElement {
                 @change=${this.#onUrlOverrideChange}
                 class="devtools-text-input"
                 .disabled=${!this.#urlOverrideEnabled}
-                placeholder=${i18nString(UIStrings.url)}
+                .value=${this.#urlOverride}
+                placeholder=${this.#urlOverrideEnabled ? i18nString(UIStrings.url) : undefined}
               />
               ${
                 this.#urlOverrideWarning

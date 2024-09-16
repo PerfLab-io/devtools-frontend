@@ -46,7 +46,7 @@ describe('ExtensionTraceDataHandler', function() {
   async function createTraceExtensionDataFromTestInput(extensionData: ExtensionTestData[]):
       Promise<TraceModel.Handlers.ModelHandlers.ExtensionTraceData.ExtensionTraceData> {
     const events = extensionData.flatMap(makeTimingEventWithExtensionData).sort((e1, e2) => e1.ts - e2.ts);
-    TraceModel.Helpers.SyntheticEvents.SyntheticEventsManager.initAndActivate(events);
+    TraceModel.Helpers.SyntheticEvents.SyntheticEventsManager.createAndActivate(events);
 
     TraceModel.Handlers.ModelHandlers.UserTimings.reset();
     for (const event of events) {
@@ -476,7 +476,7 @@ describe('ExtensionTraceDataHandler', function() {
       const trackGroupData = extensionHandlerOutput.extensionTrackData[0];
       const testDataTrack1 = trackGroupData.entriesByTrack['Track 1'].map(entry => {
         const selfTime = extensionHandlerOutput.entryToNode.get(entry)?.selfTime as number;
-        return {name: entry.name, selfTime: selfTime};
+        return {name: entry.name, selfTime};
       });
       assert.deepEqual(testDataTrack1, [
         {name: 'Measurement 1', selfTime: 40},

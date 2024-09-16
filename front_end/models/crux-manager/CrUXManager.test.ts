@@ -16,7 +16,7 @@ function mockResponse(): CrUXManager.CrUXResponse {
     record: {
       key: {},
       metrics: {
-        'largest_contentful_paint': {
+        largest_contentful_paint: {
           histogram: [
             {start: 0, end: 2500, density: 0.5},
             {start: 2500, end: 4000, density: 0.3},
@@ -24,7 +24,7 @@ function mockResponse(): CrUXManager.CrUXResponse {
           ],
           percentiles: {p75: 1000},
         },
-        'cumulative_layout_shift': {
+        cumulative_layout_shift: {
           histogram: [
             {start: 0, end: 0.1, density: 0.1},
             {start: 0.1, end: 0.25, density: 0.1},
@@ -53,7 +53,7 @@ describeWithMockConnection('CrUXManager', () => {
   let mockConsoleError: sinon.SinonStub;
 
   beforeEach(async () => {
-    const tabTarget = createTarget({type: SDK.Target.Type.Tab});
+    const tabTarget = createTarget({type: SDK.Target.Type.TAB});
     target = createTarget({parentTarget: tabTarget});
     resourceTreeModel =
         target.model(SDK.ResourceTreeModel.ResourceTreeModel) as SDK.ResourceTreeModel.ResourceTreeModel;
@@ -65,7 +65,7 @@ describeWithMockConnection('CrUXManager', () => {
   afterEach(() => {
     mockFetch.restore();
     mockConsoleError.restore();
-    cruxManager.getConfigSetting().set({enabled: false, override: ''});
+    cruxManager.getConfigSetting().set({enabled: false});
   });
 
   describe('storing the user consent', () => {
@@ -76,14 +76,14 @@ describeWithMockConnection('CrUXManager', () => {
       Common.Settings.Settings.instance({
         forceNew: true,
         syncedStorage: dummyStorage,
-        globalStorage: globalStorage,
+        globalStorage,
         localStorage: dummyStorage,
         config: {
           isOffTheRecord: false,
         } as Root.Runtime.HostConfig,
       });
       const manager = CrUXManager.CrUXManager.instance({forceNew: true});
-      manager.getConfigSetting().set({enabled: true, override: ''});
+      manager.getConfigSetting().set({enabled: true});
       assert.isTrue(globalStorage.has(manager.getConfigSetting().name));
     });
 
@@ -100,7 +100,7 @@ describeWithMockConnection('CrUXManager', () => {
         } as Root.Runtime.HostConfig,
       });
       const manager = CrUXManager.CrUXManager.instance({forceNew: true});
-      manager.getConfigSetting().set({enabled: true, override: ''});
+      manager.getConfigSetting().set({enabled: true});
       // SessionStorage is created and managed internally to the Settings
       // class, and is a private instance variable, so we cannot actually
       // assert that it contains the value. Best we can do here is to assert
@@ -112,9 +112,9 @@ describeWithMockConnection('CrUXManager', () => {
 
   it('isEnabled() returns if the user has consented)', async () => {
     const manager = CrUXManager.CrUXManager.instance({forceNew: true});
-    manager.getConfigSetting().set({enabled: true, override: ''});
+    manager.getConfigSetting().set({enabled: true});
     assert.isTrue(manager.isEnabled());
-    manager.getConfigSetting().set({enabled: false, override: ''});
+    manager.getConfigSetting().set({enabled: false});
     assert.isFalse(manager.isEnabled());
   });
 
@@ -283,6 +283,20 @@ describeWithMockConnection('CrUXManager', () => {
 
       assert.strictEqual(mockFetch.callCount, 6);
     });
+
+    it('should exit early for localhost and non-public URLs', async () => {
+      mockFetch.callsFake(async () => new Response(JSON.stringify(mockResponse()), {
+                            status: 200,
+                          }));
+
+      await cruxManager.getFieldDataForPage('https://localhost:8080/');
+      await cruxManager.getFieldDataForPage('https://127.0.0.1:8000/');
+      await cruxManager.getFieldDataForPage('about:blank');
+      await cruxManager.getFieldDataForPage('chrome://tracing');
+      await cruxManager.getFieldDataForPage('chrome-extension://sdkfsddsdsisdof/dashboard.html');
+
+      assert.strictEqual(mockFetch.callCount, 0);
+    });
   });
 
   describe('getFieldDataForCurrentPage', () => {
@@ -314,7 +328,8 @@ describeWithMockConnection('CrUXManager', () => {
 
     it('should use URL override if set', async () => {
       target.setInspectedURL('https://example.com/inspected' as Platform.DevToolsPath.UrlString);
-      cruxManager.getConfigSetting().set({enabled: false, override: 'https://example.com/override'});
+      cruxManager.getConfigSetting().set(
+          {enabled: false, override: 'https://example.com/override', overrideEnabled: true});
 
       await cruxManager.getFieldDataForCurrentPage();
 
@@ -326,7 +341,6 @@ describeWithMockConnection('CrUXManager', () => {
       target.setInspectedURL('http://localhost:8080/inspected?param' as Platform.DevToolsPath.UrlString);
       cruxManager.getConfigSetting().set({
         enabled: false,
-        override: '',
         originMappings: [{
           developmentOrigin: 'http://localhost:8080',
           productionOrigin: 'https://example.com',
@@ -344,6 +358,7 @@ describeWithMockConnection('CrUXManager', () => {
       cruxManager.getConfigSetting().set({
         enabled: false,
         override: 'https://google.com',
+        overrideEnabled: true,
         originMappings: [{
           developmentOrigin: 'http://localhost:8080',
           productionOrigin: 'https://example.com',
@@ -387,7 +402,7 @@ describeWithMockConnection('CrUXManager', () => {
 
     beforeEach(() => {
       eventBodies = [];
-      cruxManager.addEventListener(CrUXManager.Events.FieldDataChanged, event => {
+      cruxManager.addEventListener(CrUXManager.Events.FIELD_DATA_CHANGED, event => {
         eventBodies.push(event.data);
       });
       getFieldDataMock = sinon.stub(cruxManager, 'getFieldDataForCurrentPage');
@@ -410,7 +425,7 @@ describeWithMockConnection('CrUXManager', () => {
     it('should update when enabled setting changes', async () => {
       const setting = cruxManager.getConfigSetting();
 
-      setting.set({enabled: true, override: ''});
+      setting.set({enabled: true});
       await triggerMicroTaskQueue();
 
       assert.strictEqual(getFieldDataMock.callCount, 1);
@@ -418,7 +433,7 @@ describeWithMockConnection('CrUXManager', () => {
       assert.isUndefined(eventBodies[0]);
       assert.isObject(eventBodies[1]);
 
-      setting.set({enabled: false, override: ''});
+      setting.set({enabled: false});
       await triggerMicroTaskQueue();
 
       assert.strictEqual(getFieldDataMock.callCount, 1);
@@ -430,7 +445,7 @@ describeWithMockConnection('CrUXManager', () => {
 
     it('should trigger on frame navigation if enabled', async () => {
       const setting = cruxManager.getConfigSetting();
-      setting.set({enabled: true, override: ''});
+      setting.set({enabled: true});
 
       await triggerMicroTaskQueue();
 
@@ -451,11 +466,11 @@ describeWithMockConnection('CrUXManager', () => {
 
     it('should trigger when URL override set', async () => {
       const setting = cruxManager.getConfigSetting();
-      setting.set({enabled: true, override: ''});
+      setting.set({enabled: true});
 
       await triggerMicroTaskQueue();
 
-      setting.set({enabled: true, override: 'https://example.com/override'});
+      setting.set({enabled: true, override: 'https://example.com/override', overrideEnabled: true});
 
       await triggerMicroTaskQueue();
 
@@ -469,7 +484,7 @@ describeWithMockConnection('CrUXManager', () => {
 
     it('should not trigger on frame navigation if disabled', async () => {
       const setting = cruxManager.getConfigSetting();
-      setting.set({enabled: false, override: ''});
+      setting.set({enabled: false});
 
       resourceTreeModel.dispatchEventToListeners(SDK.ResourceTreeModel.Events.FrameNavigated, {
         url: 'https://example.com/main/',

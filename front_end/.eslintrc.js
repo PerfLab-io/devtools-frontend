@@ -57,87 +57,6 @@ module.exports = {
         'rulesdir/lit_template_result_or_nothing': 'error',
         'rulesdir/inject_checkbox_styles': 'error',
         'rulesdir/jslog_context_list': 'error',
-        '@typescript-eslint/naming-convention': [
-          'error', {
-            'selector': ['property', 'parameterProperty'],
-            'format': ['camelCase'],
-          },
-          {
-            'selector': 'property',
-            'modifiers': ['public'],
-            'format': ['camelCase'],
-            'leadingUnderscore': 'allow',
-          },
-          {
-            'selector': 'classProperty',
-            'modifiers': ['static', 'readonly'],
-            'format': ['UPPER_CASE', 'camelCase'],
-          },
-          {
-            'selector': 'method',
-            'format': ['camelCase'],
-          },
-          {
-            'selector': 'function',
-            'format': ['camelCase'],
-          },
-          {
-            'selector': 'variable',
-            'filter': {
-              // Ignore localization variables.
-              'regex': '^(UIStrings|str_)$',
-              'match': false
-            },
-            'format': ['camelCase'],
-          },
-          {
-            // We are using camelCase, PascalCase and UPPER_CASE for top-level constants, allow the for now.
-            'selector': 'variable',
-            'modifiers': ['const'],
-            'filter': {
-              // Ignore localization variables.
-              'regex': '^(UIStrings|str_)$',
-              'match': false
-            },
-            'format': ['camelCase', 'UPPER_CASE', 'PascalCase'],
-          },
-          {
-            // Public methods are currently in transition and may still have leading underscores.
-            'selector': 'method',
-            'modifiers': ['public'],
-            'format': ['camelCase'],
-            'leadingUnderscore': 'allow',
-          },
-          {
-            // Object literals may be constructed as arguments to external libraries which follow different styles.
-            'selector': ['objectLiteralMethod', 'objectLiteralProperty'],
-            'modifiers': ['public'],
-            'format': null,
-          },
-          {
-            'selector': 'accessor',
-            'format': ['camelCase'],
-          },
-          {
-            'selector': 'enumMember',
-            'format': ['PascalCase', 'UPPER_CASE'],
-          },
-          {
-            'selector': ['typeLike'],
-            'format': ['PascalCase'],
-          },
-          {
-            'selector': 'parameter',
-            'format': ['camelCase'],
-            'leadingUnderscore': 'allow',
-          },
-          {
-            // Ignore type properties that require quotes
-            'selector': ['typeProperty', 'enumMember'],
-            'format': null,
-            'modifiers': ['requiresQuotes']
-          }
-        ]
       }
     },
     {
@@ -166,12 +85,6 @@ module.exports = {
         'rulesdir/use_private_class_members': 'error',
       }
     },
-    {
-      'files': ['ui/visual_logging/KnownContextValues.ts'],
-      'rules': {
-        'rulesdir/jslog_context_list': 'off',
-      }
-    },
     // TODO(crbug/1402569): Remove once LitElement is fully adopted.
     {
       'files': ['panels/recorder/**/*.ts', 'panels/protocol_monitor/**/*.ts', 'ui/components/suggestion_input/*.ts'],
@@ -180,6 +93,12 @@ module.exports = {
         'rulesdir/ban_literal_devtools_component_tag_names': 'off',
         // TODO(crbug/1402569): Reenable once https://github.com/microsoft/TypeScript/issues/48885 is closed.
         'rulesdir/use_private_class_members': 'off',
+      }
+    },
+    {
+      'files': ['generated/SupportedCSSProperties.js'],
+      'rules': {
+        'rulesdir/jslog_context_list': 'error',
       }
     }
   ]

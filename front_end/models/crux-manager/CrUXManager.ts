@@ -76,7 +76,8 @@ export interface OriginMapping {
 
 export interface ConfigSetting {
   enabled: boolean;
-  override: string;
+  override?: string;
+  overrideEnabled?: boolean;
   originMappings?: OriginMapping[];
 }
 
@@ -118,10 +119,11 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
     const hostConfig = Common.Settings.Settings.instance().getHostConfig();
     const useSessionStorage = !hostConfig || hostConfig.isOffTheRecord === true;
     const storageTypeForConsent =
-        useSessionStorage ? Common.Settings.SettingStorageType.Session : Common.Settings.SettingStorageType.Global;
+        useSessionStorage ? Common.Settings.SettingStorageType.SESSION : Common.Settings.SettingStorageType.GLOBAL;
 
     this.#configSetting = Common.Settings.Settings.instance().createSetting<ConfigSetting>(
-        'field-data', {enabled: false, override: '', originMappings: []}, storageTypeForConsent);
+        'field-data', {enabled: false, override: '', originMappings: [], overrideEnabled: false},
+        storageTypeForConsent);
 
     this.#configSetting.addChangeListener(() => {
       void this.#automaticRefresh();
@@ -210,7 +212,8 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
    * the main document URL cannot be found.
    */
   async getFieldDataForCurrentPage(): Promise<PageResult> {
-    const pageUrl = this.#configSetting.get().override ||
+    const pageUrl = this.#configSetting.get().overrideEnabled ?
+        this.#configSetting.get().override || '' :
         this.#getMappedUrl(this.#mainDocumentUrl || await this.#getInspectedURL());
     return this.getFieldDataForPage(pageUrl);
   }
@@ -224,10 +227,10 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
           const newInspectedURL = event.data.inspectedURL();
           if (newInspectedURL) {
             resolve(newInspectedURL);
-            targetManager.removeEventListener(SDK.TargetManager.Events.InspectedURLChanged, handler);
+            targetManager.removeEventListener(SDK.TargetManager.Events.INSPECTED_URL_CHANGED, handler);
           }
         }
-        targetManager.addEventListener(SDK.TargetManager.Events.InspectedURLChanged, handler);
+        targetManager.addEventListener(SDK.TargetManager.Events.INSPECTED_URL_CHANGED, handler);
       });
     }
     return inspectedURL;
@@ -247,7 +250,7 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
     // This does 2 things:
     // - Tells listeners to clear old data so it isn't shown during a URL transition
     // - Tells listeners to clear old data when field data is disabled.
-    this.dispatchEventToListeners(Events.FieldDataChanged, undefined);
+    this.dispatchEventToListeners(Events.FIELD_DATA_CHANGED, undefined);
 
     if (!this.#configSetting.get().enabled) {
       return;
@@ -255,7 +258,7 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
 
     const pageResult = await this.getFieldDataForCurrentPage();
 
-    this.dispatchEventToListeners(Events.FieldDataChanged, pageResult);
+    this.dispatchEventToListeners(Events.FIELD_DATA_CHANGED, pageResult);
   }
 
   #normalizeUrl(inputUrl: string): URL {
@@ -266,7 +269,11 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
   }
 
   async #getScopedData(normalizedUrl: URL, pageScope: PageScope, deviceScope: DeviceScope): Promise<CrUXResponse|null> {
-    const {origin, href: url} = normalizedUrl;
+    const {origin, href: url, hostname} = normalizedUrl;
+
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || !origin.startsWith('http')) {
+      return null;
+    }
 
     const cache = pageScope === 'origin' ? this.#originCache : this.#urlCache;
     const cacheKey = pageScope === 'origin' ? `${origin}-${deviceScope}` : `${url}-${deviceScope}`;
@@ -324,9 +331,9 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
 }
 
 export const enum Events {
-  FieldDataChanged = 'field-data-changed',
+  FIELD_DATA_CHANGED = 'field-data-changed',
 }
 
 type EventTypes = {
-  [Events.FieldDataChanged]: PageResult|undefined,
+  [Events.FIELD_DATA_CHANGED]: PageResult|undefined,
 };
