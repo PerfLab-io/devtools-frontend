@@ -151,10 +151,6 @@ const UIStrings = {
    */
   processed: 'Processed',
   /**
-   *@description Text to close something
-   */
-  close: 'Close',
-  /**
    *@description Text to download the raw trace files after an error
    */
   // downloadAfterError: 'Download raw trace events',
@@ -200,20 +196,6 @@ const UIStrings = {
    *@example {2.12} PH1
    */
   ssec: '{PH1} sec',
-  /**
-   *
-   * @description Text for exporting basic traces
-   */
-  exportNormalTraces: 'Basic performance traces',
-  /**
-   *
-   * @description Text for exporting enhanced traces
-   */
-  exportEnhancedTraces: 'Enhanced performance traces',
-  /**
-   *@description Tooltip description for a checkbox that toggles the visibility of data added by extensions of this panel (Performance).
-   */
-  showDataAddedByExtensions: 'Show data added by extensions of the Performance panel',
   /**
    Label for a checkbox that toggles the visibility of data added by extensions of this panel (Performance).
    */
@@ -1042,7 +1024,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
     try {
       let traceAsString;
-      if (metadata?.dataOrigin === TraceEngine.Types.File.DataOrigin.CPUProfile) {
+      if (metadata?.dataOrigin === TraceEngine.Types.File.DataOrigin.CPU_PROFILE) {
         const profileEvent = traceEvents.find(e => e.name === 'CpuProfile');
         if (!profileEvent || !profileEvent.args?.data) {
           return;

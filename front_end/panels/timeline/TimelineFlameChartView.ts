@@ -92,6 +92,7 @@ export const createOverlayFnForEvent = (phases: {
     sections: phases.map(({ start, end, name }) => ({
         bounds: TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(start, end),
         label: name,
+        showDuration: true,
       })),
   }];
 };

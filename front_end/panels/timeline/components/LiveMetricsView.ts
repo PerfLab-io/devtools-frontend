@@ -50,14 +50,6 @@ const UIStrings = {
    */
   interactions: 'Interactions',
   /**
-   * @description Title of a sidebar section that shows options for the user to take after using the main view.
-   */
-  nextSteps: 'Next steps',
-  /**
-   * @description Title of a section that shows options for how real user data in the field should be fetched.
-   */
-  fieldData: 'Field data',
-  /**
    * @description Title of a section that shows settings to control the developers local testing environment.
    */
   environmentSettings: 'Environment settings',
@@ -237,8 +229,8 @@ export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableCompon
   #fieldDeviceOption: DeviceOption = 'AUTO';
   #fieldPageScope: CrUXManager.PageScope = 'url';
 
-  #toggleRecordAction: UI.ActionRegistration.Action;
-  #recordReloadAction: UI.ActionRegistration.Action;
+  // #toggleRecordAction: UI.ActionRegistration.Action;
+  // #recordReloadAction: UI.ActionRegistration.Action;
 
   #tooltipContainerEl?: Element;
   #interactionsListEl?: HTMLElement;
@@ -247,8 +239,8 @@ export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableCompon
   constructor() {
     super();
 
-    this.#toggleRecordAction = UI.ActionRegistry.ActionRegistry.instance().getAction('timeline.toggle-recording');
-    this.#recordReloadAction = UI.ActionRegistry.ActionRegistry.instance().getAction('timeline.record-reload');
+    // this.#toggleRecordAction = UI.ActionRegistry.ActionRegistry.instance().getAction('timeline.toggle-recording');
+    // this.#recordReloadAction = UI.ActionRegistry.ActionRegistry.instance().getAction('timeline.record-reload');
 
     this.#render();
   }
@@ -877,27 +869,6 @@ export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableCompon
             ${this.#renderDataDescriptions()}
             ${this.#renderInteractionsSection()}
           </main>
-          <aside class="next-steps" aria-labelledby="next-steps-section-title">
-            <h2 id="next-steps-section-title" class="section-title">${i18nString(UIStrings.nextSteps)}</h2>
-            <div id="field-setup" class="settings-card">
-              <h3 class="card-title">${i18nString(UIStrings.fieldData)}</h3>
-              ${this.#renderFieldDataMessage()}
-              ${this.#renderPageScopeSetting()}
-              ${this.#renderDeviceScopeSetting()}
-              <div class="field-setup-buttons">
-                <${FieldSettingsDialog.litTagName}></${FieldSettingsDialog.litTagName}>
-              </div>
-            </div>
-            <div id="recording-settings" class="settings-card">
-              ${this.#renderRecordingSettings()}
-            </div>
-            <div id="record" class="record-action-card">
-              ${this.#renderRecordAction(this.#toggleRecordAction)}
-            </div>
-            <div id="record-page-load" class="record-action-card">
-              ${this.#renderRecordAction(this.#recordReloadAction)}
-            </div>
-          </aside>
         </div>
       </div>
     `;

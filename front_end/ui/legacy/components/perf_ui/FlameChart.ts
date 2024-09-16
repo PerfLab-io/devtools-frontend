@@ -1259,7 +1259,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
         new UI.ContextMenu.ContextMenu(event, {useSoftMenu: true});
 
     // if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
-      
+
       const annotationSection = this.contextMenu.section('annotations');
 
       const labelEntryAnnotationOption = annotationSection.appendItem(i18nString(UIStrings.labelEntry), () => {
@@ -3932,7 +3932,7 @@ export const enum Events {
 
   LATEST_DRAW_DIMENSIONS = 'LatestDrawDimensions',
 
-  MouseMove = 'MouseMove',
+  MOUSE_MOVE = 'MouseMove',
   TimeRangeChanged = 'timerangechanged',
 }
 
