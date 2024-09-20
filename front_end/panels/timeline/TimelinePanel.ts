@@ -1076,7 +1076,11 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     }
   }
 
-  async saveToFile(isEnhancedTraces: boolean = false, addModifications: boolean = false): Promise<void> {
+  async exportTrace(): Promise<void> {
+    void this.saveToFile();
+  }
+
+  async saveToFile(isEnhancedTraces: boolean = false, addModifications: boolean = true): Promise<void> {
     if (this.state !== State.IDLE) {
       return;
     }
@@ -2251,13 +2255,7 @@ export const enum Events {
   RawTraceDataLoaded = 'rawtracedataloaded',
   LoadTraceFile = 'loadtracefile',
   TraceLoadingStarted = 'traceloadingstarted',
-}
-
-export class OpenTraceFileEvent extends CustomEvent<Events.OpenTraceFile> {
-  static readonly eventName = Events.OpenTraceFile;
-  constructor() {
-    super(Events.OpenTraceFile);
-  }
+  ExportTrace = 'exporttrace',
 }
 
 export type EventTypes = {
@@ -2268,6 +2266,20 @@ export type EventTypes = {
     blob: Blob,
   },
 };
+
+export class OpenTraceFileEvent extends CustomEvent<Events.OpenTraceFile> {
+  static readonly eventName = Events.OpenTraceFile;
+  constructor() {
+    super(Events.OpenTraceFile);
+  }
+}
+
+export class ExportTraceEvent extends CustomEvent<Events.ExportTrace> {
+  static readonly eventName = Events.ExportTrace;
+  constructor() {
+    super(Events.ExportTrace);
+  }
+}
 
 export class LoadTraceFileEvent extends CustomEvent<EventTypes[Events.LoadTraceFile]> {
   static readonly eventName = Events.LoadTraceFile;
@@ -2510,15 +2522,15 @@ export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
       case 'timeline.jump-to-next-frame':
         panel.jumpToFrame(1);
         return true;
-      case 'timeline.show-history':
-        void panel.showHistoryDropdown();
-        return true;
-      case 'timeline.previous-recording':
-        panel.navigateHistory(1);
-        return true;
-      case 'timeline.next-recording':
-        panel.navigateHistory(-1);
-        return true;
+      // case 'timeline.show-history':
+      //   void panel.showHistoryDropdown();
+      //   return true;
+      // case 'timeline.previous-recording':
+      //   panel.navigateHistory(1);
+      //   return true;
+      // case 'timeline.next-recording':
+      //   panel.navigateHistory(-1);
+      //   return true;
     }
     return false;
   }
