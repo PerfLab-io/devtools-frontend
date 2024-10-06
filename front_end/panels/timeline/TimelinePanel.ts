@@ -454,6 +454,45 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       this.#setActiveInsight({name, navigationId, createOverlayFn});
     });
 
+    // Make a proper event for this afterwards.
+    // Custom event to show third-party scripts as overlay. Extracted from ThirdParties.ts
+    // @ts-ignore
+    document.getElementById('-blink-dev-tools')?.addEventListener('showthirdparty', (event: CustomEvent) => {
+      const {navigationId} = event.detail;
+      this.#setActiveInsight({
+        name: 'third-parties',
+        navigationId,
+        createOverlayFn: () => {
+          // We should have the current active trace index on the model loaded
+          const traceInsightsData = this.#traceEngineModel.traceInsights(this.#activeTraceIndex() || 0);
+          const insight = TimelineInsights.ThirdParties.getThirdPartiesInsight(traceInsightsData, navigationId);
+          if (!insight) {
+            return [];
+          }
+
+          const overlays: Overlays.Overlays.TimelineOverlay[] = [];
+          for (const [entity, requests] of insight.requestsByEntity) {
+            if (entity === insight.firstPartyEntity) {
+              continue;
+            }
+
+            for (const request of requests) {
+              // The overlay entry can be used to highlight any trace entry, including network track entries.
+              // This function is extracted from the ThirdParties overlay component, since it is not accessible
+              // from outside the component.
+              overlays.push({
+                type: 'ENTRY_OUTLINE',
+                entry: request,
+                outlineReason: 'INFO',
+              });
+            }
+          }
+
+          return overlays;
+        },
+      });
+    });
+
     this.#sideBar.contentElement.addEventListener(TimelineComponents.Sidebar.EventReferenceClick.eventName, event => {
       const {metricEvent} = event;
       this.flameChart.setSelectionAndReveal(TimelineSelection.fromTraceEvent(metricEvent));
