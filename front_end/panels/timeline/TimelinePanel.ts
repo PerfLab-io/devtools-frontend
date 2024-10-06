@@ -458,7 +458,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     // Custom event to show third-party scripts as overlay. Extracted from ThirdParties.ts
     // @ts-ignore
     document.getElementById('-blink-dev-tools')?.addEventListener('showthirdparty', (event: CustomEvent) => {
-      const {navigationId} = event.detail;
+      const {navigationId, filterByThirdParty, filterByTimestamp} = event.detail;
       this.#setActiveInsight({
         name: 'third-parties',
         navigationId,
@@ -472,11 +472,15 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
           const overlays: Overlays.Overlays.TimelineOverlay[] = [];
           for (const [entity, requests] of insight.requestsByEntity) {
-            if (entity === insight.firstPartyEntity) {
+            if (entity === insight.firstPartyEntity || (filterByThirdParty && entity.name !== filterByThirdParty)) {
               continue;
             }
 
             for (const request of requests) {
+              if (filterByTimestamp && request.ts > filterByTimestamp) {
+                continue;
+              }
+
               // The overlay entry can be used to highlight any trace entry, including network track entries.
               // This function is extracted from the ThirdParties overlay component, since it is not accessible
               // from outside the component.
