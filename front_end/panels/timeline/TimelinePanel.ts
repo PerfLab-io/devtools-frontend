@@ -454,6 +454,126 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       this.#setActiveInsight({name, navigationId, createOverlayFn});
     });
 
+    // Custom event to show third-party scripts as overlay. Extracted from ThirdParties.ts
+    // @ts-expect-error
+    document.getElementById('-blink-dev-tools')?.addEventListener(ShowThirdPartiesEvent.eventName, (event: ShowThirdPartiesEvent) => {
+      const {navigationId, filterByThirdParty, filterByTimestamp} = event.detail;
+      this.#setActiveInsight({
+        name: 'third-parties',
+        navigationId,
+        createOverlayFn: () => {
+          // We should have the current active trace index on the model loaded
+          const traceInsightsData = this.#traceEngineModel.traceInsights(this.#activeTraceIndex() || 0);
+          const insight = TimelineInsights.ThirdParties.getThirdPartiesInsight(traceInsightsData, navigationId);
+          if (!insight) {
+            return [];
+          }
+
+          const overlays: Overlays.Overlays.TimelineOverlay[] = [];
+          for (const [entity, requests] of insight.requestsByEntity) {
+            if (entity === insight.firstPartyEntity || (filterByThirdParty && entity.name !== filterByThirdParty)) {
+              continue;
+            }
+
+            for (const request of requests) {
+              if (filterByTimestamp && request.ts > filterByTimestamp) {
+                continue;
+              }
+
+              // The overlay entry can be used to highlight any trace entry, including network track entries.
+              // This function is extracted from the ThirdParties overlay component, since it is not accessible
+              // from outside the component.
+              overlays.push({
+                type: 'ENTRY_OUTLINE',
+                entry: request,
+                outlineReason: 'INFO',
+              });
+            }
+          }
+
+          return overlays;
+        },
+      });
+    });
+
+    // @ts-expect-error
+    document.getElementById('-blink-dev-tools')?.addEventListener(HighlightEntriesEvent.eventName, (event: HighlightEntriesEvent) => {
+      const {navigationId, entries} = event.detail;
+      this.#setActiveInsight({
+        name: 'highlight-entries',
+        navigationId,
+        createOverlayFn: () => {
+
+          const overlays: Overlays.Overlays.TimelineOverlay[] = [];
+          for (const entry of entries) {
+
+            // The overlay entry can be used to highlight any trace entry, including network track entries.
+            // This function is extracted from the ThirdParties overlay component, since it is not accessible
+            // from outside the component.
+            overlays.push({
+              type: 'ENTRY_OUTLINE',
+              entry: entry.entry,
+              outlineReason: 'INFO',
+            });
+            ModificationsManager.activeManager()?.createAnnotation(entry);
+          }
+
+          return overlays;
+        },
+      });
+    });
+
+    // @ts-expect-error
+    document.getElementById('-blink-dev-tools')?.addEventListener(HighlightLCPImageWithDelayEvent.eventName, (event: HighlightLCPImageWithDelayEvent) => {
+      const {navigationId, entry} = event.detail;
+      this.#setActiveInsight({
+        name: 'highlight-entries',
+        navigationId,
+        createOverlayFn: () => {
+
+          // Creates an overlay scheme similar to the LCP resource breakdown.
+          const overlays: Overlays.Overlays.TimelineOverlay[] = [
+            {
+              type: 'ENTRY_OUTLINE',
+              entry: entry.entry,
+              outlineReason: 'INFO',
+            },
+            {
+              type: 'CANDY_STRIPED_TIME_RANGE',
+              bounds: TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(entry.start, entry.end),
+              entry: entry.entry,
+            },
+            {
+              type: 'TIMESPAN_BREAKDOWN',
+              sections: [
+                {
+                  label: 'LCP image request delay',
+                  bounds: TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(entry.start, entry.end),
+                  showDuration: true,
+                },
+              ],
+              entry: entry.entry,
+            },
+            {
+              type: 'TIMESPAN_BREAKDOWN',
+              sections: [
+                {
+                  label: 'LCP image request',
+                  bounds: TraceEngine.Helpers.Timing.traceWindowFromMicroSeconds(entry.entry.ts, (
+                    entry.entry.ts + (entry.entry.dur || 0) as TraceEngine.Types.Timing.MicroSeconds
+                  )),
+                  showDuration: true,
+                },
+              ],
+              entry: entry.entry,
+            },
+          ];
+
+          return overlays;
+        },
+      });
+    });
+
     this.#sideBar.contentElement.addEventListener(TimelineComponents.Sidebar.EventReferenceClick.eventName, event => {
       const {metricEvent} = event;
       this.flameChart.setSelectionAndReveal(TimelineSelection.fromTraceEvent(metricEvent));
@@ -2256,6 +2376,9 @@ export const enum Events {
   LoadTraceFile = 'loadtracefile',
   TraceLoadingStarted = 'traceloadingstarted',
   ExportTrace = 'exporttrace',
+  HighlightEntries = 'highlightentries',
+  HighlightLCPImageWithDelay = 'highlightlcpimagewithdelay',
+  ShowThirdParties = 'showthirdparties',
 }
 
 export type EventTypes = {
@@ -2264,6 +2387,23 @@ export type EventTypes = {
   },
   [Events.LoadTraceFile]: {
     blob: Blob,
+  },
+  [Events.HighlightLCPImageWithDelay]: {
+    navigationId: string,
+    entry: {
+      entry: TraceEngine.Types.TraceEvents.TraceEventData,
+      start: TraceEngine.Types.Timing.MicroSeconds,
+      end: TraceEngine.Types.Timing.MicroSeconds,
+    },
+  },
+  [Events.HighlightEntries]: {
+    navigationId: string,
+    entries: Array<TraceEngine.Types.File.EntryLabelAnnotation>,
+  },
+  [Events.ShowThirdParties]: {
+    navigationId: string,
+    filterByThirdParty?: string,
+    filterByTimestamp?: number,
   },
 };
 
@@ -2306,6 +2446,30 @@ export class TraceLoadingStarted extends CustomEvent<Events.TraceLoadingStarted>
   static readonly eventName = Events.TraceLoadingStarted;
   constructor() {
     super(TraceLoadingStarted.eventName);
+  }
+}
+
+export class HighlightLCPImageWithDelayEvent extends CustomEvent<EventTypes[Events.HighlightLCPImageWithDelay]> {
+  static readonly eventName = Events.HighlightLCPImageWithDelay;
+
+  constructor(options: EventTypes[Events.HighlightLCPImageWithDelay]) {
+    super(HighlightLCPImageWithDelayEvent.eventName, { detail: options });
+  }
+}
+
+export class HighlightEntriesEvent extends CustomEvent<EventTypes[Events.HighlightEntries]> {
+  static readonly eventName = Events.HighlightEntries;
+
+  constructor(options: EventTypes[Events.HighlightEntries]) {
+    super(HighlightEntriesEvent.eventName, { detail: options });
+  }
+}
+
+export class ShowThirdPartiesEvent extends CustomEvent<EventTypes[Events.ShowThirdParties]> {
+  static readonly eventName = Events.ShowThirdParties;
+
+  constructor(options: EventTypes[Events.ShowThirdParties]) {
+    super(ShowThirdPartiesEvent.eventName, { detail: options });
   }
 }
 
