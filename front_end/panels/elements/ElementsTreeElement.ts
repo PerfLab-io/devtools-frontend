@@ -43,6 +43,7 @@ import * as TextUtils from '../../models/text_utils/text_utils.js';
 import * as CodeMirror from '../../third_party/codemirror.next/codemirror.next.js';
 import * as Adorners from '../../ui/components/adorners/adorners.js';
 import * as CodeHighlighter from '../../ui/components/code_highlighter/code_highlighter.js';
+import * as FloatingButton from '../../ui/components/floating_button/floating_button.js';
 import * as Highlighting from '../../ui/components/highlighting/highlighting.js';
 import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as TextEditor from '../../ui/components/text_editor/text_editor.js';
@@ -236,7 +237,7 @@ type ClosingTagContext = {
 
 export type TagTypeContext = OpeningTagContext|ClosingTagContext;
 
-function isOpeningTag(context: TagTypeContext): context is OpeningTagContext {
+export function isOpeningTag(context: TagTypeContext): context is OpeningTagContext {
   return context.tagType === TagType.OPENING;
 }
 
@@ -255,6 +256,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   expandAllButtonElement: UI.TreeOutline.TreeElement|null;
   selectionElement?: HTMLDivElement;
   private hintElement?: HTMLElement;
+  private aiButtonContainer?: HTMLElement;
   private contentElement: HTMLElement;
   #elementIssues: Map<string, IssuesManager.GenericIssue.GenericIssue> = new Map();
   #nodeElementToIssue: Map<Element, IssuesManager.GenericIssue.GenericIssue> = new Map();
@@ -315,7 +317,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
         UI.Tooltip.Tooltip.install(adorner, i18nString(UIStrings.thisFrameWasIdentifiedAsAnAd));
       }
 
-      this.updateScrollAdorner();
+      void this.updateScrollAdorner();
     }
     this.expandAllButtonElement = null;
   }
@@ -412,6 +414,13 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   set hovered(isHovered: boolean) {
     if (this.hoveredInternal === isHovered) {
       return;
+    }
+
+    if (isHovered && !this.aiButtonContainer) {
+      this.createAiButton();
+    } else if (!isHovered && this.aiButtonContainer) {
+      this.aiButtonContainer.remove();
+      delete this.aiButtonContainer;
     }
 
     this.hoveredInternal = isHovered;
@@ -514,6 +523,31 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
       UI.Tooltip.Tooltip.install(
           this.hintElement, i18nString(UIStrings.useSInTheConsoleToReferToThis, {PH1: selectedElementCommand}));
       UI.ARIAUtils.markAsHidden(this.hintElement);
+    }
+  }
+
+  private createAiButton(): void {
+    const isElementNode = this.node().nodeType() === Node.ELEMENT_NODE;
+    if (!isElementNode ||
+        !UI.ActionRegistry.ActionRegistry.instance().hasAction('freestyler.elements-floating-button')) {
+      return;
+    }
+
+    const action = UI.ActionRegistry.ActionRegistry.instance().getAction('freestyler.elements-floating-button');
+    if (this.contentElement && !this.aiButtonContainer) {
+      this.aiButtonContainer = this.contentElement.createChild('span', 'ai-button-container');
+      const floatingButton = new FloatingButton.FloatingButton.FloatingButton({
+        iconName: 'smart-assistant',
+      });
+      floatingButton.addEventListener('click', ev => {
+        ev.stopPropagation();
+        this.select(true, false);
+        void action.execute();
+      }, {capture: true});
+      floatingButton.addEventListener('mousedown', ev => {
+        ev.stopPropagation();
+      }, {capture: true});
+      this.aiButtonContainer.appendChild(floatingButton);
     }
   }
 
@@ -1405,6 +1439,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     }
     delete this.selectionElement;
     delete this.hintElement;
+    delete this.aiButtonContainer;
     if (this.selected) {
       this.createSelection();
       this.createHint();
@@ -2454,15 +2489,14 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     if (!isOpeningTag(this.tagTypeContext)) {
       return;
     }
+    const scrollAdorner = this.tagTypeContext.adorners.find(x => x.name === 'scroll');
     // Check if the node is scrollable, or if it's the <html> element and the document is scrollable because the top-level document (#document) doesn't have a corresponding tree element.
-    if ((this.node().nodeName() === 'HTML' && this.node().ownerDocument?.isScrollable()) ||
-        (this.node().nodeName() !== '#document' && this.node().isScrollable())) {
+    const needsAScrollAdorner = (this.node().nodeName() === 'HTML' && this.node().ownerDocument?.isScrollable()) ||
+        (this.node().nodeName() !== '#document' && this.node().isScrollable());
+    if (needsAScrollAdorner && !scrollAdorner) {
       this.pushScrollAdorner();
-    } else {
-      const scrollAdorner = this.tagTypeContext.adorners.find(x => x.name === 'scroll');
-      if (scrollAdorner) {
-        this.removeAdorner(scrollAdorner, this.tagTypeContext);
-      }
+    } else if (!needsAScrollAdorner && scrollAdorner) {
+      this.removeAdorner(scrollAdorner, this.tagTypeContext);
     }
   }
 

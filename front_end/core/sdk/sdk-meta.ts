@@ -131,14 +131,6 @@ const UIStrings = {
    */
   hideLayerBorders: 'Hide layer borders',
   /**
-   *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-   */
-  showCoreWebVitalsOverlay: 'Show Core Web Vitals overlay',
-  /**
-   *@description Title of a setting under the Rendering drawer that can be invoked through the Command Menu
-   */
-  hideCoreWebVitalsOverlay: 'Hide Core Web Vitals overlay',
-  /**
    *@description Title of a setting under the Rendering category that can be invoked through the Command Menu
    */
   showFramesPerSecondFpsMeter: 'Show frames per second (FPS) meter',
@@ -312,7 +304,7 @@ const UIStrings = {
   /**
    * @description Title of a setting under the Network category that can be invoked through the Command Menu
    */
-  disableCache: 'Disable cache (while DevTools is open)',
+  disableCache: 'Disable cache while DevTools is open',
   /**
    * @description The name of a checkbox setting in the Rendering tool. This setting
    * emulates that the webpage is in auto dark mode.
@@ -346,6 +338,13 @@ Common.Settings.registerSettingExtension({
   settingName: 'automatically-ignore-list-known-third-party-scripts',
   settingType: Common.Settings.SettingType.BOOLEAN,
   defaultValue: true,
+});
+
+Common.Settings.registerSettingExtension({
+  storageType: Common.Settings.SettingStorageType.SYNCED,
+  settingName: 'skip-anonymous-scripts',
+  settingType: Common.Settings.SettingType.BOOLEAN,
+  defaultValue: false,
 });
 
 Common.Settings.registerSettingExtension({
@@ -619,24 +618,6 @@ Common.Settings.registerSettingExtension({
     {
       value: false,
       title: i18nLazyString(UIStrings.hideLayerBorders),
-    },
-  ],
-  defaultValue: false,
-});
-
-Common.Settings.registerSettingExtension({
-  category: Common.Settings.SettingCategory.RENDERING,
-  settingName: 'show-web-vitals',
-  settingType: Common.Settings.SettingType.BOOLEAN,
-  storageType: Common.Settings.SettingStorageType.SESSION,
-  options: [
-    {
-      value: true,
-      title: i18nLazyString(UIStrings.showCoreWebVitalsOverlay),
-    },
-    {
-      value: false,
-      title: i18nLazyString(UIStrings.hideCoreWebVitalsOverlay),
     },
   ],
   defaultValue: false,

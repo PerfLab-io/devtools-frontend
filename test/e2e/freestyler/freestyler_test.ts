@@ -8,10 +8,9 @@ import type * as Root from '../../../front_end/core/root/root.js';
 import {expectError} from '../../conductor/events.js';
 import {click, getBrowserAndPages, goToResource} from '../../shared/helper.js';
 import {CONSOLE_TAB_SELECTOR} from '../helpers/console-helpers.js';
+import {closeSettings} from '../helpers/settings-helpers.js';
 
-// Failing E2E tests are slowing us down doing the UI updates.
-// We'll fix & re-enable them back after we're in a stable position.
-describe.skip('[crbug.com/365038585] Freestyler', function() {
+describe('Freestyler', function() {
   let preloadScriptId: string;
 
   afterEach(async () => {
@@ -28,13 +27,13 @@ describe.skip('[crbug.com/365038585] Freestyler', function() {
 
   async function setupMocks(
       aidaAvailability: Partial<Root.Runtime.AidaAvailability>,
-      devToolsFreestylerDogfood: Partial<Root.Runtime.HostConfigFreestylerDogfood>, messages: string[]) {
+      devToolsFreestyler: Partial<Root.Runtime.HostConfigFreestyler>, messages: string[]) {
     const {frontend} = getBrowserAndPages();
     await frontend.bringToFront();
     // TODO: come up with less invasive way to mock host configs.
     const {identifier} = await frontend.evaluateOnNewDocument(
-        `globalThis.hostConfigForTesting = {...globalThis.hostConfigForTesting, devToolsFreestylerDogfood: ${
-            JSON.stringify(devToolsFreestylerDogfood)}, aidaAvailability: ${JSON.stringify(aidaAvailability)}
+        `globalThis.hostConfigForTesting = {...globalThis.hostConfigForTesting, devToolsFreestyler: ${
+            JSON.stringify(devToolsFreestyler)}, aidaAvailability: ${JSON.stringify(aidaAvailability)}
   };
 
   globalThis.getSyncInformationForTesting = () => {
@@ -84,13 +83,22 @@ describe.skip('[crbug.com/365038585] Freestyler', function() {
     await frontend.keyboard.press('Enter');
   }
 
+  async function turnOnAiAssistance() {
+    const {frontend} = getBrowserAndPages();
+
+    // Click on the settings redirect link.
+    await frontend.locator('pierce/.disabled-view button[role=link]').click();
+    // Enable "AI Assistance" toggle in the settings.
+    await frontend.locator('aria/Enable AI assistance').click();
+    // Close settings to come back to the AI Assistance panel.
+    await closeSettings();
+  }
+
   async function openFreestyler(): Promise<void> {
     const {frontend} = getBrowserAndPages();
     await frontend.locator('aria/Customize and control DevTools').click();
     await frontend.locator('aria/More tools').click();
-    await frontend.locator('aria/AI assistant').click();
-    // Accept consent.
-    await frontend.locator('aria/Accept').click();
+    await frontend.locator('aria/AI assistance').click();
   }
 
   async function enableDebugModeForFreestyler(): Promise<void> {
@@ -148,6 +156,7 @@ describe.skip('[crbug.com/365038585] Freestyler', function() {
 
     await inspectNode('div');
     await openFreestyler();
+    await turnOnAiAssistance();
     await enableDebugModeForFreestyler();
     await typeQuery(query);
     return await submitAndWaitTillDone();

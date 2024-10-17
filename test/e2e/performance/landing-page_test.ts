@@ -17,13 +17,13 @@ import {
   waitForNone,
   waitForVisible,
 } from '../../shared/helper.js';
-
 import {reloadDevTools} from '../helpers/cross-tool-helper.js';
 
 const READY_LOCAL_METRIC_SELECTOR = '#local-value .metric-value:not(.waiting)';
 const READY_FIELD_METRIC_SELECTOR = '#field-value .metric-value:not(.waiting)';
 const WAITING_LOCAL_METRIC_SELECTOR = '#local-value .metric-value.waiting';
 const INTERACTION_SELECTOR = '.interaction';
+const LAYOUT_SHIFT_SELECTOR = '.layout-shift';
 const HISTOGRAM_SELECTOR = '.bucket-summaries.histogram';
 const SETUP_FIELD_BUTTON_SELECTOR = 'devtools-button[data-field-data-setup]';
 const ENABLE_FIELD_BUTTON_SELECTOR = 'devtools-button[data-field-data-enable]';
@@ -79,7 +79,10 @@ describe('The Performance panel landing page', () => {
 
       const [lcpValueElem, clsValueElem, inpValueElem] = await waitForMany(READY_LOCAL_METRIC_SELECTOR, 3);
       const interactions = await $$<HTMLElement>(INTERACTION_SELECTOR);
-      assert.lengthOf(interactions, 2);
+      assert.isAtLeast(interactions.length, 2);
+
+      const layoutShifts = await $$<HTMLElement>(LAYOUT_SHIFT_SELECTOR);
+      assert.lengthOf(layoutShifts, 1);
 
       const lcpValue = await lcpValueElem.evaluate(el => el.textContent) || '';
       assert.match(lcpValue, /[0-9\.]+ (s|ms)/);
@@ -92,7 +95,12 @@ describe('The Performance panel landing page', () => {
 
       for (const interaction of interactions) {
         const interactionText = await interaction.evaluate(el => el.innerText) || '';
-        assert.match(interactionText, /pointer\n[\d.]+ (s|ms)/);
+        assert.match(interactionText, /pointer( INP)?\n[\d.]+ (s|ms)/);
+      }
+
+      for (const layoutShift of layoutShifts) {
+        const layoutShiftText = await layoutShift.evaluate(el => el.innerText) || '';
+        assert.match(layoutShiftText, /Layout shift score: [\d.]+/);
       }
     } finally {
       await targetSession.detach();
@@ -127,7 +135,10 @@ describe('The Performance panel landing page', () => {
 
       const [lcpValueElem, clsValueElem, inpValueElem] = await waitForMany(READY_LOCAL_METRIC_SELECTOR, 3);
       const interactions = await $$<HTMLElement>(INTERACTION_SELECTOR);
-      assert.lengthOf(interactions, 0);
+      assert.isAtLeast(interactions.length, 2);
+
+      const layoutShifts = await $$<HTMLElement>(LAYOUT_SHIFT_SELECTOR);
+      assert.lengthOf(layoutShifts, 1);
 
       const lcpValue = await lcpValueElem.evaluate(el => el.textContent) || '';
       assert.match(lcpValue, /[0-9\.]+ (s|ms)/);
@@ -162,7 +173,10 @@ describe('The Performance panel landing page', () => {
 
       await waitForMany(READY_LOCAL_METRIC_SELECTOR, 3);
       const interactions1 = await $$<HTMLElement>(INTERACTION_SELECTOR);
-      assert.lengthOf(interactions1, 2);
+      assert.isAtLeast(interactions1.length, 2);
+
+      const layoutShifts1 = await $$<HTMLElement>(LAYOUT_SHIFT_SELECTOR);
+      assert.lengthOf(layoutShifts1, 1);
 
       await target.bringToFront();
 
@@ -177,7 +191,10 @@ describe('The Performance panel landing page', () => {
 
       await waitForMany(READY_LOCAL_METRIC_SELECTOR, 3);
       const interactions2 = await $$<HTMLElement>(INTERACTION_SELECTOR);
-      assert.lengthOf(interactions2, 1);
+      assert.isAtLeast(interactions2.length, 1);
+
+      const layoutShifts2 = await $$<HTMLElement>(LAYOUT_SHIFT_SELECTOR);
+      assert.lengthOf(layoutShifts2, 0);
 
       await target.bringToFront();
 
@@ -196,6 +213,9 @@ describe('The Performance panel landing page', () => {
 
       const interactions3 = await $$<HTMLElement>(INTERACTION_SELECTOR);
       assert.lengthOf(interactions3, 0);
+
+      const layoutShifts3 = await $$<HTMLElement>(LAYOUT_SHIFT_SELECTOR);
+      assert.lengthOf(layoutShifts3, 0);
     } finally {
       await targetSession.detach();
     }
@@ -245,7 +265,7 @@ describe('The Performance panel landing page', () => {
 
       await waitForMany(READY_LOCAL_METRIC_SELECTOR, 3);
       const interactions = await $$<HTMLElement>(INTERACTION_SELECTOR);
-      assert.lengthOf(interactions, 1);
+      assert.isAtLeast(interactions.length, 1);
 
       // b/40884049
       // Extra execution contexts can be created sometimes when dealing with iframes.
@@ -349,6 +369,67 @@ describe('The Performance panel landing page', () => {
       assert.strictEqual(await lcpFieldValue.evaluate(el => el.textContent) || '', '1.20 s');
       assert.strictEqual(await clsFieldValue.evaluate(el => el.textContent) || '', '0');
       assert.strictEqual(await inpFieldValue.evaluate(el => el.textContent) || '', '49 ms');
+    }
+  });
+
+  it('combines interaction entries correctly', async () => {
+    const {target, frontend} = await getBrowserAndPages();
+
+    await target.bringToFront();
+
+    const targetSession = await target.createCDPSession();
+    try {
+      // The # of interactions in other tests can vary depending on which interaction events happen to
+      // occur in the same frame. This test is designed to control when specific interaction events happen
+      // so that we can observe the results in the interaction log.
+      await goToResource('performance/interaction-tester.html');
+
+      // Delay ensures pointerdown and pointerup are in separate frames
+      await target.click('#long-click', {delay: 50});
+
+      await target.evaluate(() => new Promise(r => requestAnimationFrame(r)));
+      await target.evaluate(() => new Promise(r => requestAnimationFrame(r)));
+
+      await frontend.bringToFront();
+
+      {
+        const interactions = await waitForMany(INTERACTION_SELECTOR, 2);
+        const interactionTypes = await Promise.all(
+            interactions.map(el => el.$eval('.interaction-type', el => (el as HTMLElement).innerText)));
+        assert.deepStrictEqual(interactionTypes, [
+          'pointer',
+          'pointer INP',
+        ]);
+      }
+
+      await target.bringToFront();
+
+      // Delay ensures keydown and keyup are in separate frames
+      await target.type('#long-type', 'Hello', {delay: 50});
+
+      await frontend.bringToFront();
+
+      {
+        const interactions = await waitForMany(INTERACTION_SELECTOR, 12);
+        const interactionTypes = await Promise.all(
+            interactions.map(el => el.$eval('.interaction-type', el => (el as HTMLElement).innerText)));
+        assert.deepStrictEqual(interactionTypes, [
+          'pointer',
+          'pointer INP',
+          'keyboard',
+          'keyboard',
+          'keyboard',
+          'keyboard',
+          'keyboard',
+          'keyboard',
+          'keyboard',
+          'keyboard',
+          'keyboard',
+          'keyboard',
+        ]);
+      }
+    } finally {
+      await targetSession.detach();
     }
   });
 });

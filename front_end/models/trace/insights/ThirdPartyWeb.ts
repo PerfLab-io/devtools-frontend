@@ -8,23 +8,23 @@ import type * as Handlers from '../handlers/handlers.js';
 import * as Helpers from '../helpers/helpers.js';
 import * as Types from '../types/types.js';
 
-import {type InsightResult, type NavigationInsightContext, type RequiredData} from './types.js';
+import type {InsightResult, InsightSetContext, RequiredData} from './types.js';
 
 export function deps(): ['Meta', 'NetworkRequests', 'Renderer', 'ImagePainting'] {
   return ['Meta', 'NetworkRequests', 'Renderer', 'ImagePainting'];
 }
 
-type Entity = typeof ThirdPartyWeb.ThirdPartyWeb.entities[number];
+export type Entity = typeof ThirdPartyWeb.ThirdPartyWeb.entities[number];
 
-interface Summary {
+export interface Summary {
   transferSize: number;
   mainThreadTime: Types.Timing.MicroSeconds;
 }
 
 export type ThirdPartyWebInsightResult = InsightResult<{
-  entityByRequest: Map<Types.TraceEvents.SyntheticNetworkRequest, Entity>,
-  requestsByEntity: Map<Entity, Types.TraceEvents.SyntheticNetworkRequest[]>,
-  summaryByRequest: Map<Types.TraceEvents.SyntheticNetworkRequest, Summary>,
+  entityByRequest: Map<Types.Events.SyntheticNetworkRequest, Entity>,
+  requestsByEntity: Map<Entity, Types.Events.SyntheticNetworkRequest[]>,
+  summaryByRequest: Map<Types.Events.SyntheticNetworkRequest, Summary>,
   summaryByEntity: Map<Entity, Summary>,
   /** The entity for this navigation's URL. Any other entity is from a third party. */
   firstPartyEntity?: Entity,
@@ -103,19 +103,14 @@ function makeUpEntity(entityCache: Map<string, Entity>, url: string): Entity|und
 
 interface SummaryMaps {
   byEntity: Map<Entity, Summary>;
-  byRequest: Map<Types.TraceEvents.SyntheticNetworkRequest, Summary>;
-  requestsByEntity: Map<Entity, Types.TraceEvents.SyntheticNetworkRequest[]>;
+  byRequest: Map<Types.Events.SyntheticNetworkRequest, Summary>;
+  requestsByEntity: Map<Entity, Types.Events.SyntheticNetworkRequest[]>;
 }
 
-function getSelfTimeByUrl(
-    traceData: RequiredData<typeof deps>, context: NavigationInsightContext): Map<string, number> {
-  const startTime = Types.Timing.MicroSeconds(context.navigation.ts);
-  // TODO: we should also pass a time window for this navigation to each insight. Use infinity for now.
-  const endTime = Types.Timing.MicroSeconds(Number.POSITIVE_INFINITY);
-  const bounds = Helpers.Timing.traceWindowFromMicroSeconds(startTime, endTime);
+function getSelfTimeByUrl(parsedTrace: RequiredData<typeof deps>, context: InsightSetContext): Map<string, number> {
   const selfTimeByUrl = new Map<string, number>();
 
-  for (const process of traceData.Renderer.processes.values()) {
+  for (const process of parsedTrace.Renderer.processes.values()) {
     if (!process.isOnMainFrame) {
       continue;
     }
@@ -127,16 +122,16 @@ function getSelfTimeByUrl(
         }
 
         for (const event of thread.entries) {
-          if (!Helpers.Timing.eventIsInBounds(event, bounds)) {
+          if (!Helpers.Timing.eventIsInBounds(event, context.bounds)) {
             continue;
           }
 
-          const node = traceData.Renderer.entryToNode.get(event);
+          const node = parsedTrace.Renderer.entryToNode.get(event);
           if (!node || !node.selfTime) {
             continue;
           }
 
-          const url = Extras.URLForEntry.get(traceData as Handlers.Types.TraceParseData, event);
+          const url = Extras.URLForEntry.getNonResolved(parsedTrace as Handlers.Types.ParsedTrace, event);
           if (!url) {
             continue;
           }
@@ -151,10 +146,10 @@ function getSelfTimeByUrl(
 }
 
 function getSummaries(
-    requests: Types.TraceEvents.SyntheticNetworkRequest[],
-    entityByRequest: Map<Types.TraceEvents.SyntheticNetworkRequest, Entity>,
+    requests: Types.Events.SyntheticNetworkRequest[],
+    entityByRequest: Map<Types.Events.SyntheticNetworkRequest, Entity>,
     selfTimeByUrl: Map<string, number>): SummaryMaps {
-  const byRequest = new Map<Types.TraceEvents.SyntheticNetworkRequest, Summary>();
+  const byRequest = new Map<Types.Events.SyntheticNetworkRequest, Summary>();
   const byEntity = new Map<Entity, Summary>();
   const defaultSummary: Summary = {transferSize: 0, mainThreadTime: Types.Timing.MicroSeconds(0)};
 
@@ -167,7 +162,7 @@ function getSummaries(
   }
 
   // Map each request's stat to a particular entity.
-  const requestsByEntity = new Map<Entity, Types.TraceEvents.SyntheticNetworkRequest[]>();
+  const requestsByEntity = new Map<Entity, Types.Events.SyntheticNetworkRequest[]>();
   for (const [request, requestSummary] of byRequest.entries()) {
     const entity = entityByRequest.get(request);
     if (!entity) {
@@ -189,22 +184,33 @@ function getSummaries(
   return {byEntity, byRequest, requestsByEntity};
 }
 
-export function generateInsight(
-    traceData: RequiredData<typeof deps>, context: NavigationInsightContext): ThirdPartyWebInsightResult {
-  const networkRequests = [];
-  for (const req of traceData.NetworkRequests.byTime) {
-    if (req.args.data.frame !== context.frameId) {
-      continue;
-    }
+function getRelatedEvents(summaries: SummaryMaps, firstPartyEntity: Entity|undefined): Types.Events.Event[] {
+  const events = [];
 
-    const navigation =
-        Helpers.Trace.getNavigationForTraceEvent(req, context.frameId, traceData.Meta.navigationsByFrameId);
-    if (navigation === context.navigation) {
-      networkRequests.push(req);
+  for (const [entity, requests] of summaries.requestsByEntity.entries()) {
+    if (entity !== firstPartyEntity) {
+      events.push(...requests);
     }
   }
 
-  const entityByRequest = new Map<Types.TraceEvents.SyntheticNetworkRequest, Entity>();
+  return events;
+}
+
+export function generateInsight(
+    parsedTrace: RequiredData<typeof deps>, context: InsightSetContext): ThirdPartyWebInsightResult {
+  const networkRequests = parsedTrace.NetworkRequests.byTime.filter(event => {
+    if (!context.navigation) {
+      return false;
+    }
+
+    if (event.args.data.frame !== context.frameId) {
+      return false;
+    }
+
+    return Helpers.Timing.eventIsInBounds(event, context.bounds);
+  });
+
+  const entityByRequest = new Map<Types.Events.SyntheticNetworkRequest, Entity>();
   const madeUpEntityCache = new Map<string, Entity>();
   for (const request of networkRequests) {
     const url = request.args.data.url;
@@ -214,14 +220,16 @@ export function generateInsight(
     }
   }
 
-  const selfTimeByUrl = getSelfTimeByUrl(traceData, context);
+  const selfTimeByUrl = getSelfTimeByUrl(parsedTrace, context);
+  // TODO(crbug.com/352244718): re-work to still collect main thread activity if no request is present
   const summaries = getSummaries(networkRequests, entityByRequest, selfTimeByUrl);
 
-  const firstPartyUrl = context.navigation.args.data?.url ?? traceData.Meta.mainFrameURL;
+  const firstPartyUrl = context.navigation?.args.data?.documentLoaderURL ?? parsedTrace.Meta.mainFrameURL;
   const firstPartyEntity =
       ThirdPartyWeb.ThirdPartyWeb.getEntity(firstPartyUrl) || makeUpEntity(madeUpEntityCache, firstPartyUrl);
 
   return {
+    relatedEvents: getRelatedEvents(summaries, firstPartyEntity),
     entityByRequest,
     requestsByEntity: summaries.requestsByEntity,
     summaryByRequest: summaries.byRequest,

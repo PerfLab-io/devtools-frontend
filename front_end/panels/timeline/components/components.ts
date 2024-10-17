@@ -16,8 +16,11 @@ import * as MetricCard from './MetricCard.js';
 import * as NetworkRequestDetails from './NetworkRequestDetails.js';
 import * as NetworkRequestTooltip from './NetworkRequestTooltip.js';
 import * as NetworkThrottlingSelector from './NetworkThrottlingSelector.js';
+import * as RelatedInsightChips from './RelatedInsightChips.js';
 import * as Sidebar from './Sidebar.js';
 import * as SidebarAnnotationsTab from './SidebarAnnotationsTab.js';
+import * as SidebarInsightsTab from './SidebarInsightsTab.js';
+import * as SidebarSingleInsightSet from './SidebarSingleInsightSet.js';
 import * as Utils from './Utils.js';
 
 export {
@@ -35,7 +38,10 @@ export {
   NetworkRequestDetails,
   NetworkRequestTooltip,
   NetworkThrottlingSelector,
+  RelatedInsightChips,
   Sidebar,
   SidebarAnnotationsTab,
+  SidebarInsightsTab,
+  SidebarSingleInsightSet,
   Utils,
 };

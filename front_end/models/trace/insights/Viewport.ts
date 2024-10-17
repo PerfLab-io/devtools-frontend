@@ -5,7 +5,7 @@
 import * as Helpers from '../helpers/helpers.js';
 import type * as Types from '../types/types.js';
 
-import {type InsightResult, InsightWarning, type NavigationInsightContext, type RequiredData} from './types.js';
+import {type InsightResult, type InsightSetContext, InsightWarning, type RequiredData} from './types.js';
 
 export function deps(): ['Meta', 'UserInteractions'] {
   return ['Meta', 'UserInteractions'];
@@ -13,19 +13,17 @@ export function deps(): ['Meta', 'UserInteractions'] {
 
 export type ViewportInsightResult = InsightResult<{
   mobileOptimized: boolean | null,
-  viewportEvent?: Types.TraceEvents.TraceEventParseMetaViewport,
+  viewportEvent?: Types.Events.ParseMetaViewport,
 }>;
 
 export function generateInsight(
-    traceParsedData: RequiredData<typeof deps>, context: NavigationInsightContext): ViewportInsightResult {
-  const compositorEvents = traceParsedData.UserInteractions.beginCommitCompositorFrameEvents.filter(event => {
+    parsedTrace: RequiredData<typeof deps>, context: InsightSetContext): ViewportInsightResult {
+  const compositorEvents = parsedTrace.UserInteractions.beginCommitCompositorFrameEvents.filter(event => {
     if (event.args.frame !== context.frameId) {
       return false;
     }
 
-    const navigation =
-        Helpers.Trace.getNavigationForTraceEvent(event, context.frameId, traceParsedData.Meta.navigationsByFrameId);
-    return navigation === context.navigation;
+    return Helpers.Timing.eventIsInBounds(event, context.bounds);
   });
 
   if (!compositorEvents.length) {
@@ -36,14 +34,12 @@ export function generateInsight(
     };
   }
 
-  const viewportEvent = traceParsedData.UserInteractions.parseMetaViewportEvents.find(event => {
+  const viewportEvent = parsedTrace.UserInteractions.parseMetaViewportEvents.find(event => {
     if (event.args.data.frame !== context.frameId) {
       return false;
     }
 
-    const navigation =
-        Helpers.Trace.getNavigationForTraceEvent(event, context.frameId, traceParsedData.Meta.navigationsByFrameId);
-    return navigation === context.navigation;
+    return Helpers.Timing.eventIsInBounds(event, context.bounds);
   });
 
   // Returns true only if all events are mobile optimized.
@@ -52,6 +48,7 @@ export function generateInsight(
       return {
         mobileOptimized: false,
         viewportEvent,
+        metricSavings: {INP: 300 as Types.Timing.MilliSeconds},
       };
     }
   }

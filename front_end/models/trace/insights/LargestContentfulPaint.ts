@@ -7,7 +7,7 @@ import * as Helpers from '../helpers/helpers.js';
 import * as Types from '../types/types.js';
 
 import {findLCPRequest} from './Common.js';
-import {type InsightResult, InsightWarning, type NavigationInsightContext, type RequiredData} from './types.js';
+import {type InsightResult, type InsightSetContext, InsightWarning, type RequiredData} from './types.js';
 
 export function deps(): ['NetworkRequests', 'PageLoadMetrics', 'LargestImagePaint', 'Meta'] {
   return ['NetworkRequests', 'PageLoadMetrics', 'LargestImagePaint', 'Meta'];
@@ -38,18 +38,28 @@ interface LCPPhases {
 export type LCPInsightResult = InsightResult<{
   lcpMs?: Types.Timing.MilliSeconds,
   lcpTs?: Types.Timing.MilliSeconds,
+  lcpEvent?: Types.Events.LargestContentfulPaintCandidate,
   phases?: LCPPhases,
   shouldRemoveLazyLoading?: boolean,
   shouldIncreasePriorityHint?: boolean,
   shouldPreloadImage?: boolean,
   /** The network request for the LCP image, if there was one. */
-  lcpRequest?: Types.TraceEvents.SyntheticNetworkRequest,
+  lcpRequest?: Types.Events.SyntheticNetworkRequest,
   earliestDiscoveryTimeTs?: Types.Timing.MicroSeconds,
 }>;
 
+function anyValuesNaN(...values: number[]): boolean {
+  return values.some(v => Number.isNaN(v));
+}
+/**
+ * Calculates the 4 phases of an LCP and the timings of each.
+ * Will return `null` if any required values were missing. We don't ever expect
+ * them to be missing on newer traces, but old trace files may lack some of the
+ * data we rely on, so we want to handle that case.
+ */
 function breakdownPhases(
-    nav: Types.TraceEvents.TraceEventNavigationStart, docRequest: Types.TraceEvents.SyntheticNetworkRequest,
-    lcpMs: Types.Timing.MilliSeconds, lcpRequest: Types.TraceEvents.SyntheticNetworkRequest|null): LCPPhases {
+    nav: Types.Events.NavigationStart, docRequest: Types.Events.SyntheticNetworkRequest,
+    lcpMs: Types.Timing.MilliSeconds, lcpRequest: Types.Events.SyntheticNetworkRequest|null): LCPPhases|null {
   const docReqTiming = docRequest.args.data.timing;
   if (!docReqTiming) {
     throw new Error('no timing for document request');
@@ -62,6 +72,9 @@ function breakdownPhases(
   let renderDelay = Types.Timing.MilliSeconds(lcpMs - ttfb);
 
   if (!lcpRequest) {
+    if (anyValuesNaN(ttfb, renderDelay)) {
+      return null;
+    }
     return {ttfb, renderDelay};
   }
 
@@ -74,6 +87,9 @@ function breakdownPhases(
   const loadDelay = Types.Timing.MilliSeconds(requestStart - ttfb);
   const loadTime = Types.Timing.MilliSeconds(requestEnd - requestStart);
   renderDelay = Types.Timing.MilliSeconds(lcpMs - requestEnd);
+  if (anyValuesNaN(ttfb, loadDelay, loadTime, renderDelay)) {
+    return null;
+  }
 
   return {
     ttfb,
@@ -83,11 +99,14 @@ function breakdownPhases(
   };
 }
 
-export function generateInsight(
-    traceParsedData: RequiredData<typeof deps>, context: NavigationInsightContext): LCPInsightResult {
-  const networkRequests = traceParsedData.NetworkRequests;
+export function generateInsight(parsedTrace: RequiredData<typeof deps>, context: InsightSetContext): LCPInsightResult {
+  if (!context.navigation) {
+    return {};
+  }
 
-  const frameMetrics = traceParsedData.PageLoadMetrics.metricScoresByFrameId.get(context.frameId);
+  const networkRequests = parsedTrace.NetworkRequests;
+
+  const frameMetrics = parsedTrace.PageLoadMetrics.metricScoresByFrameId.get(context.frameId);
   if (!frameMetrics) {
     throw new Error('no frame metrics');
   }
@@ -98,7 +117,7 @@ export function generateInsight(
   }
   const metricScore = navMetrics.get(Handlers.ModelHandlers.PageLoadMetrics.MetricName.LCP);
   const lcpEvent = metricScore?.event;
-  if (!lcpEvent || !Types.TraceEvents.isTraceEventLargestContentfulPaintCandidate(lcpEvent)) {
+  if (!lcpEvent || !Types.Events.isLargestContentfulPaintCandidate(lcpEvent)) {
     return {warnings: [InsightWarning.NO_LCP]};
   }
 
@@ -106,24 +125,30 @@ export function generateInsight(
   const lcpMs = Helpers.Timing.microSecondsToMilliseconds(metricScore.timing);
   // This helps position things on the timeline's UI accurately for a trace.
   const lcpTs = metricScore.event?.ts ? Helpers.Timing.microSecondsToMilliseconds(metricScore.event?.ts) : undefined;
-  const lcpRequest = findLCPRequest(traceParsedData, context, lcpEvent);
+  const lcpRequest = findLCPRequest(parsedTrace, context, lcpEvent);
   const docRequest = networkRequests.byTime.find(req => req.args.data.requestId === context.navigationId);
   if (!docRequest) {
-    return {lcpMs, lcpTs, warnings: [InsightWarning.NO_DOCUMENT_REQUEST]};
+    return {lcpMs, lcpTs, lcpEvent, warnings: [InsightWarning.NO_DOCUMENT_REQUEST]};
   }
 
   if (!lcpRequest) {
     return {
       lcpMs,
       lcpTs,
-      phases: breakdownPhases(context.navigation, docRequest, lcpMs, lcpRequest),
+      lcpEvent,
+      phases: breakdownPhases(context.navigation, docRequest, lcpMs, lcpRequest) ?? undefined,
     };
   }
 
-  const imageLoadingAttr = lcpEvent.args.data?.loadingAttr;
-  const imagePreloaded = lcpRequest?.args.data.isLinkPreload || lcpRequest?.args.data.initiator?.type === 'preload';
-  const imageFetchPriorityHint = lcpRequest?.args.data.fetchPriorityHint;
+  const initiatorUrl = lcpRequest.args.data.initiator?.url;
+  // TODO(b/372319476): Explore using trace event HTMLDocumentParser::FetchQueuedPreloads to determine if the request
+  // is discovered by the preload scanner.
+  const initiatedByMainDoc =
+      lcpRequest?.args.data.initiator?.type === 'parser' && docRequest.args.data.url === initiatorUrl;
+  const imgPreloadedOrFoundInHTML = lcpRequest?.args.data.isLinkPreload || initiatedByMainDoc;
 
+  const imageLoadingAttr = lcpEvent.args.data?.loadingAttr;
+  const imageFetchPriorityHint = lcpRequest?.args.data.fetchPriorityHint;
   // This is the earliest discovery time an LCP request could have - it's TTFB.
   const earliestDiscoveryTime = docRequest && docRequest.args.data.timing ?
       Helpers.Timing.secondsToMicroseconds(docRequest.args.data.timing.requestTime) +
@@ -133,10 +158,11 @@ export function generateInsight(
   return {
     lcpMs,
     lcpTs,
-    phases: breakdownPhases(context.navigation, docRequest, lcpMs, lcpRequest),
+    lcpEvent,
+    phases: breakdownPhases(context.navigation, docRequest, lcpMs, lcpRequest) ?? undefined,
     shouldRemoveLazyLoading: imageLoadingAttr === 'lazy',
     shouldIncreasePriorityHint: imageFetchPriorityHint !== 'high',
-    shouldPreloadImage: !imagePreloaded,
+    shouldPreloadImage: !imgPreloadedOrFoundInHTML,
     lcpRequest,
     earliestDiscoveryTimeTs: earliestDiscoveryTime ? Types.Timing.MicroSeconds(earliestDiscoveryTime) : undefined,
   };

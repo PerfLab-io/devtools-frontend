@@ -1491,7 +1491,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     // While creating nodes it may add more entries into staleRequests because redirect request nodes update the parent
     // node so we loop until we have no more stale requests.
     while (this.staleRequests.size) {
-      const request = this.staleRequests.values().next().value;
+      const request = this.staleRequests.values().next().value as SDK.NetworkRequest.NetworkRequest;
       this.staleRequests.delete(request);
       let node = networkRequestToNode.get(request);
       if (!node) {
@@ -2688,16 +2688,6 @@ export class MoreFiltersDropDownUI extends
     this.updateTooltip();
   }
 
-  emitUMA(): void {
-    if (this.hasChanged) {
-      const selectedFilters = this.selectedFilters();
-      Host.userMetrics.networkPanelMoreFiltersNumberOfSelectedChanged(selectedFilters.length);
-      for (const selectedFilter of selectedFilters) {
-        Host.userMetrics.networkPanelMoreFiltersItemSelected(selectedFilter);
-      }
-    }
-  }
-
   #onSettingChanged(): void {
     this.hasChanged = true;
     this.dispatchEventToListeners(UI.FilterBar.FilterUIEvents.FILTER_CHANGED);
@@ -2718,7 +2708,6 @@ export class MoreFiltersDropDownUI extends
       x: this.dropDownButton.element.getBoundingClientRect().left,
       y: this.dropDownButton.element.getBoundingClientRect().top +
           (this.dropDownButton.element as HTMLElement).offsetHeight,
-      onSoftMenuClosed: this.emitUMA.bind(this),
     });
 
     this.contextMenu.defaultSection().appendCheckboxItem(

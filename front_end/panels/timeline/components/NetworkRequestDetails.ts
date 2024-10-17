@@ -2,11 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import '../../../ui/components/request_link_icon/request_link_icon.js';
+
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as Platform from '../../../core/platform/platform.js';
 import type * as SDK from '../../../core/sdk/sdk.js';
-import * as TraceEngine from '../../../models/trace/trace.js';
-import * as RequestLinkIcon from '../../../ui/components/request_link_icon/request_link_icon.js';
+import * as Helpers from '../../../models/trace/helpers/helpers.js';
+import * as Trace from '../../../models/trace/trace.js';
+import type * as RequestLinkIcon from '../../../ui/components/request_link_icon/request_link_icon.js';
 import * as PerfUI from '../../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as LegacyComponents from '../../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../../ui/legacy/legacy.js';
@@ -15,6 +18,8 @@ import * as TimelineUtils from '../utils/utils.js';
 
 import NetworkRequestDetailsStyles from './networkRequestDetails.css.js';
 import {colorForNetworkRequest} from './Utils.js';
+
+const {html} = LitHtml;
 
 const MAX_URL_LENGTH = 80;
 
@@ -103,19 +108,30 @@ const UIStrings = {
    *@description Text that refers to the waiting on main thread time of a network request
    */
   waitingOnMainThread: 'Waiting on main thread',
+  /**
+   *@description Text that refers to if the network request is blocking
+   */
+  blocking: 'Blocking',
+  /**
+   *@description Text that refers to if the network request is in-body parser render blocking
+   */
+  inBodyParserBlocking: 'In-body parser blocking',
+  /**
+   *@description Text that refers to if the network request is render blocking
+   */
+  renderBlocking: 'Render blocking',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/NetworkRequestDetails.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export class NetworkRequestDetails extends HTMLElement {
-  static readonly litTagName = LitHtml.literal`devtools-performance-network-request-details`;
   readonly #shadow = this.attachShadow({mode: 'open'});
 
-  #networkRequest: TraceEngine.Types.TraceEvents.SyntheticNetworkRequest|null = null;
+  #networkRequest: Trace.Types.Events.SyntheticNetworkRequest|null = null;
   #maybeTarget: SDK.Target.Target|null = null;
-  #requestPreviewElements = new WeakMap<TraceEngine.Types.TraceEvents.SyntheticNetworkRequest, HTMLImageElement>();
+  #requestPreviewElements = new WeakMap<Trace.Types.Events.SyntheticNetworkRequest, HTMLImageElement>();
   #linkifier: LegacyComponents.Linkifier.Linkifier;
-  #traceParsedData: TraceEngine.Handlers.Types.TraceParseData|null = null;
+  #parsedTrace: Trace.Handlers.Types.ParsedTrace|null = null;
   constructor(linkifier: LegacyComponents.Linkifier.Linkifier) {
     super();
     this.#linkifier = linkifier;
@@ -126,13 +142,12 @@ export class NetworkRequestDetails extends HTMLElement {
   }
 
   async setData(
-      traceParsedData: TraceEngine.Handlers.Types.TraceParseData,
-      networkRequest: TraceEngine.Types.TraceEvents.SyntheticNetworkRequest,
+      parsedTrace: Trace.Handlers.Types.ParsedTrace, networkRequest: Trace.Types.Events.SyntheticNetworkRequest,
       maybeTarget: SDK.Target.Target|null): Promise<void> {
-    if (this.#networkRequest === networkRequest && traceParsedData === this.#traceParsedData) {
+    if (this.#networkRequest === networkRequest && parsedTrace === this.#parsedTrace) {
       return;
     }
-    this.#traceParsedData = traceParsedData;
+    this.#parsedTrace = parsedTrace;
     this.#networkRequest = networkRequest;
     this.#maybeTarget = maybeTarget;
     await this.#render();
@@ -145,9 +160,9 @@ export class NetworkRequestDetails extends HTMLElement {
     const style = {
       backgroundColor: `${colorForNetworkRequest(this.#networkRequest)}`,
     };
-    return LitHtml.html`
+    return html`
       <div class="network-request-details-title">
-        <div style=${LitHtml.Directives.styleMap(style)}"></div>
+        <div style=${LitHtml.Directives.styleMap(style)}></div>
         ${i18nString(UIStrings.networkRequest)}
       </div>
     `;
@@ -157,7 +172,7 @@ export class NetworkRequestDetails extends HTMLElement {
     if (!value) {
       return null;
     }
-    return LitHtml.html`
+    return html`
       <div class="network-request-details-row"><div class="title">${title}</div><div class="value">${value}</div></div>
     `;
   }
@@ -194,11 +209,11 @@ export class NetworkRequestDetails extends HTMLElement {
       });
 
       // clang-format off
-      const urlElement = LitHtml.html`
+      const urlElement = html`
         ${linkifiedURL}
-        <${RequestLinkIcon.RequestLinkIcon.RequestLinkIcon.litTagName}
+        <devtools-request-link-icon
           .data=${{request: networkRequest} as RequestLinkIcon.RequestLinkIcon.RequestLinkIconData} >
-        </${RequestLinkIcon.RequestLinkIcon.RequestLinkIcon.litTagName}>
+        </devtools-request-link-icon>
       `;
       // clang-format on
       return this.#renderRow(i18n.i18n.lockedString('URL'), urlElement);
@@ -226,7 +241,7 @@ export class NetworkRequestDetails extends HTMLElement {
       return null;
     }
     const durationValue = i18n.TimeUtilities.formatMicroSecondsTime(fullDuration);
-    const durationElement = LitHtml.html`
+    const durationElement = html`
       <div>
         ${durationValue}
         ${this.#renderTimings()}
@@ -263,11 +278,11 @@ export class NetworkRequestDetails extends HTMLElement {
       return null;
     }
 
-    const hasStackTrace = TraceEngine.Helpers.Trace.stackTraceForEvent(this.#networkRequest) !== null;
+    const hasStackTrace = Trace.Helpers.Trace.stackTraceForEvent(this.#networkRequest) !== null;
 
     // If we have a stack trace, that is the most reliable way to get the initiator data and display a link to the source.
     if (hasStackTrace) {
-      const topFrame = TraceEngine.Helpers.Trace.getZeroIndexedStackTraceForEvent(this.#networkRequest)?.at(0) ?? null;
+      const topFrame = Trace.Helpers.Trace.getZeroIndexedStackTraceForEvent(this.#networkRequest)?.at(0) ?? null;
       if (topFrame) {
         const link = this.#linkifier.maybeLinkifyConsoleCallFrame(
             this.#maybeTarget, topFrame, {tabStop: true, inlineFrameIndex: 0, showColumnNumber: true});
@@ -277,7 +292,7 @@ export class NetworkRequestDetails extends HTMLElement {
       }
     }
     // If we do not, we can see if the network handler found an initiator and try to link by URL
-    const initiator = this.#traceParsedData?.NetworkRequests.eventToInitiator.get(this.#networkRequest);
+    const initiator = this.#parsedTrace?.NetworkRequests.eventToInitiator.get(this.#networkRequest);
     if (initiator) {
       const link = this.#linkifier.maybeLinkifyScriptLocation(
           this.#maybeTarget,
@@ -291,6 +306,26 @@ export class NetworkRequestDetails extends HTMLElement {
     }
 
     return null;
+  }
+
+  #renderBlockingRow(): LitHtml.TemplateResult|null {
+    if (!this.#networkRequest || !Helpers.Network.isSyntheticNetworkRequestEventRenderBlocking(this.#networkRequest)) {
+      return null;
+    }
+
+    let renderBlockingText;
+    switch (this.#networkRequest.args.data.renderBlocking) {
+      case 'blocking':
+        renderBlockingText = UIStrings.renderBlocking;
+        break;
+      case 'in_body_parser_blocking':
+        renderBlockingText = UIStrings.inBodyParserBlocking;
+        break;
+      default:
+        // Shouldn't fall to this block, if so, this network request is not render blocking, so return null.
+        return null;
+    }
+    return this.#renderRow(i18nString(UIStrings.blocking), renderBlockingText);
   }
 
   async #renderPreviewElement(): Promise<LitHtml.TemplateResult|null> {
@@ -324,7 +359,7 @@ export class NetworkRequestDetails extends HTMLElement {
     // |
     // |----
     // |
-    return LitHtml.html`<span class="whisker-left"> <span class="horizontal"></span> </span>`;
+    return html`<span class="whisker-left"> <span class="horizontal"></span> </span>`;
   }
 
   #renderRightWhisker(): LitHtml.TemplateResult {
@@ -333,7 +368,7 @@ export class NetworkRequestDetails extends HTMLElement {
     //      |
     //  ----|
     //      |
-    return LitHtml.html`<span class="whisker-right"> <span class="horizontal"></span> </span>`;
+    return html`<span class="whisker-right"> <span class="horizontal"></span> </span>`;
   }
 
   #renderTimings(): LitHtml.TemplateResult|null {
@@ -341,12 +376,12 @@ export class NetworkRequestDetails extends HTMLElement {
       return null;
     }
     const syntheticData = this.#networkRequest.args.data.syntheticData;
-    const queueing = (syntheticData.sendStartTime - this.#networkRequest.ts) as TraceEngine.Types.Timing.MicroSeconds;
+    const queueing = (syntheticData.sendStartTime - this.#networkRequest.ts) as Trace.Types.Timing.MicroSeconds;
     const requestPlusWaiting =
-        (syntheticData.downloadStart - syntheticData.sendStartTime) as TraceEngine.Types.Timing.MicroSeconds;
-    const download = (syntheticData.finishTime - syntheticData.downloadStart) as TraceEngine.Types.Timing.MicroSeconds;
+        (syntheticData.downloadStart - syntheticData.sendStartTime) as Trace.Types.Timing.MicroSeconds;
+    const download = (syntheticData.finishTime - syntheticData.downloadStart) as Trace.Types.Timing.MicroSeconds;
     const waitingOnMainThread = (this.#networkRequest.ts + this.#networkRequest.dur - syntheticData.finishTime) as
-        TraceEngine.Types.Timing.MicroSeconds;
+        Trace.Types.Timing.MicroSeconds;
 
     const color = colorForNetworkRequest(this.#networkRequest);
     const styleForWaiting = {
@@ -356,7 +391,7 @@ export class NetworkRequestDetails extends HTMLElement {
       backgroundColor: color,
     };
 
-    return LitHtml.html`
+    return html`
       <div class="timings-row">
         ${this.#renderLeftWhisker()}
         ${i18nString(UIStrings.queuingAndConnecting)}
@@ -386,7 +421,7 @@ export class NetworkRequestDetails extends HTMLElement {
     }
     const networkData = this.#networkRequest.args.data;
     // clang-format off
-    const output = LitHtml.html`
+    const output = html`
       ${this.#renderTitle()}
       <div class="network-request-details-body">
         <div class="network-request-details-col">
@@ -398,6 +433,7 @@ export class NetworkRequestDetails extends HTMLElement {
           ${this.#renderEncodedDataLength()}
           ${this.#renderRow(i18nString(UIStrings.decodedBody), Platform.NumberUtilities.bytesToString(this.#networkRequest.args.data.decodedBodyLength))}
           ${this.#renderInitiatedBy()}
+          ${this.#renderBlockingRow()}
           ${await this.#renderPreviewElement()}
         </div>
         <div class="network-request-details-col">

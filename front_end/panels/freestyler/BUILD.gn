@@ -18,8 +18,11 @@ generate_css("css_files") {
 
 devtools_module("freestyler") {
   sources = [
+    "AiAgent.ts",
     "ChangeManager.ts",
+    "DrJonesFileAgent.ts",
     "DrJonesNetworkAgent.ts",
+    "DrJonesPerformanceAgent.ts",
     "ExtensionScope.ts",
     "FreestylerAgent.ts",
     "FreestylerEvaluateAction.ts",
@@ -33,6 +36,12 @@ devtools_module("freestyler") {
     "../../core/common:bundle",
     "../../core/host:bundle",
     "../../core/i18n:bundle",
+    "../../core/root:bundle",
+    "../../models/logs:bundle",
+    "../../models/trace:bundle",
+    "../../models/workspace:bundle",
+    "../../panels/network:bundle",
+    "../../panels/utils:bundle",
     "../../third_party/marked:bundle",
     "../../ui/components/markdown_view:bundle",
     "../../ui/components/spinners:bundle",
@@ -69,6 +78,9 @@ ts_library("unittests") {
 
   sources = [
     "ChangeManager.test.ts",
+    "DrJonesFileAgent.test.ts",
+    "DrJonesNetworkAgent.test.ts",
+    "DrJonesPerformanceAgent.test.ts",
     "FreestylerAgent.test.ts",
     "FreestylerEvaluateAction.test.ts",
     "FreestylerPanel.test.ts",
@@ -83,6 +95,7 @@ ts_library("unittests") {
     "../../core/platform:bundle",
     "../../core/sdk:bundle",
     "../../generated:protocol",
+    "../../models/trace:bundle",
     "../../testing",
   ]
 }

@@ -131,8 +131,8 @@ const REGISTERED_EXPERIMENTS = [
   Root.Runtime.ExperimentName.FULL_ACCESSIBILITY_TREE,
   Root.Runtime.ExperimentName.TIMELINE_SHOW_POST_MESSAGE_EVENTS,
   Root.Runtime.ExperimentName.TIMELINE_ENHANCED_TRACES,
-  Root.Runtime.ExperimentName.GEN_AI_SETTINGS_PANEL,
-  Root.Runtime.ExperimentName.TIMELINE_LAYOUT_SHIFT_DETAILS,
+  Root.Runtime.ExperimentName.EXTENSION_STORAGE_VIEWER,
+  Root.Runtime.ExperimentName.TIMELINE_EXPERIMENTAL_INSIGHTS,
 ];
 
 export async function initializeGlobalVars({reset = true} = {}) {
@@ -155,6 +155,7 @@ export async function initializeGlobalVars({reset = true} = {}) {
     createSettingValue(Common.Settings.SettingCategory.DEBUGGER, 'skip-content-scripts', true),
     createSettingValue(
         Common.Settings.SettingCategory.DEBUGGER, 'automatically-ignore-list-known-third-party-scripts', true),
+    createSettingValue(Common.Settings.SettingCategory.DEBUGGER, 'skip-anonymous-scripts', false),
     createSettingValue(Common.Settings.SettingCategory.DEBUGGER, 'enable-ignore-listing', true),
     createSettingValue(
         Common.Settings.SettingCategory.DEBUGGER, 'skip-stack-frames-pattern', '/node_modules/|/bower_components/',
@@ -200,7 +201,6 @@ export async function initializeGlobalVars({reset = true} = {}) {
     createSettingValue(Common.Settings.SettingCategory.RENDERING, 'show-debug-borders', false),
     createSettingValue(Common.Settings.SettingCategory.RENDERING, 'show-fps-counter', false),
     createSettingValue(Common.Settings.SettingCategory.RENDERING, 'show-scroll-bottleneck-rects', false),
-    createSettingValue(Common.Settings.SettingCategory.RENDERING, 'show-web-vitals', false),
     createSettingValue(Common.Settings.SettingCategory.RENDERING, 'webp-format-disabled', false),
     createSettingValue(Common.Settings.SettingCategory.SOURCES, 'allow-scroll-past-eof', true),
     createSettingValue(Common.Settings.SettingCategory.SOURCES, 'css-source-maps-enabled', true),
@@ -263,10 +263,9 @@ export async function initializeGlobalVars({reset = true} = {}) {
         Common.Settings.SettingCategory.CONSOLE, 'console-timestamps-enabled', false,
         Common.Settings.SettingType.BOOLEAN),
     createSettingValue(
-        Common.Settings.SettingCategory.CONSOLE, 'console-insights-enabled', false,
-        Common.Settings.SettingType.BOOLEAN),
+        Common.Settings.SettingCategory.CONSOLE, 'console-insights-enabled', true, Common.Settings.SettingType.BOOLEAN),
     createSettingValue(
-        Common.Settings.SettingCategory.CONSOLE, 'console-insights-onboarding-finished', false,
+        Common.Settings.SettingCategory.CONSOLE, 'console-insights-onboarding-finished', true,
         Common.Settings.SettingType.BOOLEAN),
     createSettingValue(
         Common.Settings.SettingCategory.CONSOLE, 'console-history-autocomplete', false,
@@ -290,10 +289,7 @@ export async function initializeGlobalVars({reset = true} = {}) {
         Common.Settings.SettingCategory.ELEMENTS, 'show-css-property-documentation-on-hover', false,
         Common.Settings.SettingType.BOOLEAN),
     createSettingValue(
-        Common.Settings.SettingCategory.NONE, 'freestyler-dogfood-consent-onboarding-finished', false,
-        Common.Settings.SettingType.BOOLEAN),
-    createSettingValue(
-        Common.Settings.SettingCategory.CONSOLE, 'freestyler-enabled', false, Common.Settings.SettingType.BOOLEAN),
+        Common.Settings.SettingCategory.CONSOLE, 'ai-assistance-enabled', false, Common.Settings.SettingType.BOOLEAN),
     createSettingValue(
         Common.Settings.SettingCategory.MOBILE, 'emulation.show-device-outline', false,
         Common.Settings.SettingType.BOOLEAN),
@@ -338,6 +334,7 @@ export async function deinitializeGlobalVars() {
   await deinitializeGlobalLocaleVars();
   Logs.NetworkLog.NetworkLog.removeInstance();
   SDK.TargetManager.TargetManager.removeInstance();
+  SDK.FrameManager.FrameManager.removeInstance();
   Root.Runtime.Runtime.removeInstance();
   Common.Settings.Settings.removeInstance();
   Common.Revealer.RevealerRegistry.removeInstance();
@@ -510,15 +507,33 @@ export function getGetHostConfigStub(config: Root.Runtime.HostConfig): sinon.Sin
     devToolsConsoleInsights: {
       enabled: false,
       modelId: '',
-      temperature: 0.2,
+      temperature: -1,
       ...config.devToolsConsoleInsights,
     } as Root.Runtime.HostConfigConsoleInsights,
-    devToolsFreestylerDogfood: {
+    devToolsFreestyler: {
       modelId: '',
-      temperature: 0,
+      temperature: -1,
       enabled: false,
-      ...config.devToolsFreestylerDogfood,
-    } as Root.Runtime.HostConfigFreestylerDogfood,
+      ...config.devToolsFreestyler,
+    } as Root.Runtime.HostConfigFreestyler,
+    devToolsExplainThisResourceDogfood: {
+      modelId: '',
+      temperature: -1,
+      enabled: false,
+      ...config.devToolsExplainThisResourceDogfood,
+    } as Root.Runtime.HostConfigExplainThisResourceDogfood,
+    devToolsAiAssistanceFileAgentDogfood: {
+      modelId: '',
+      temperature: -1,
+      enabled: false,
+      ...config.devToolsAiAssistanceFileAgentDogfood,
+    } as Root.Runtime.HostConfigAiAssistanceFileAgentDogfood,
+    devToolsAiAssistancePerformanceAgentDogfood: {
+      modelId: '',
+      temperature: -1,
+      enabled: false,
+      ...config.devToolsAiAssistancePerformanceAgentDogfood,
+    } as Root.Runtime.HostConfigAiAssistancePerformanceAgentDogfood,
     devToolsVeLogging: {
       enabled: true,
       testing: false,
