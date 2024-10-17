@@ -1,7 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import {type Loggable} from './Loggable.js';
+import type {Loggable} from './Loggable.js';
 import {type LoggingConfig, needsLogging} from './LoggingConfig.js';
 
 export interface LoggingState {
@@ -19,9 +19,9 @@ export interface LoggingState {
 const state = new WeakMap<Loggable, LoggingState>();
 
 function nextVeId(): number {
-  const result = new Int32Array(1);
+  const result = new BigInt64Array(1);
   crypto.getRandomValues(result);
-  return result[0];
+  return Number(result[0] >> (64n - 53n));
 }
 
 export function getOrCreateLoggingState(loggable: Loggable, config: LoggingConfig, parent?: Loggable): LoggingState {

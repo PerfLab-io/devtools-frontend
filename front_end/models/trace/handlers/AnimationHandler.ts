@@ -7,19 +7,19 @@ import * as Types from '../types/types.js';
 
 import {HandlerState} from './types.js';
 
-const animations: Types.TraceEvents.TraceEventAnimation[] = [];
-const animationsSyntheticEvents: Types.TraceEvents.SyntheticAnimationPair[] = [];
+const animations: Types.Events.Animation[] = [];
+const animationsSyntheticEvents: Types.Events.SyntheticAnimationPair[] = [];
 const animationFrames: Array<
-                        Types.TraceEvents.TraceEventAnimationFrameGroupingEvent |
-                        Types.TraceEvents.TraceEventAnimationFrameInstantEvent |
-                        Types.TraceEvents.TraceEventAnimationFramePaintGroupingEvent |
-                        Types.TraceEvents.TraceEventAnimationFrameScriptGroupingEvent
+                        Types.Events.TraceEventAnimationFrameGroupingEvent |
+                        Types.Events.TraceEventAnimationFrameInstantEvent |
+                        Types.Events.TraceEventAnimationFramePaintGroupingEvent |
+                        Types.Events.TraceEventAnimationFrameScriptGroupingEvent
                         > = [];
-const animationFramesSyntheticEvents: Types.TraceEvents.SyntheticAnimationFramePair[] = [];
+const animationFramesSyntheticEvents: Types.Events.SyntheticAnimationFramePair[] = [];
 
 export interface AnimationData {
-  animations: readonly Types.TraceEvents.SyntheticAnimationPair[];
-  animationFrames: readonly Types.TraceEvents.SyntheticAnimationFramePair[];
+  animations: readonly Types.Events.SyntheticAnimationPair[];
+  animationFrames: readonly Types.Events.SyntheticAnimationFramePair[];
 }
 let handlerState = HandlerState.UNINITIALIZED;
 
@@ -28,22 +28,22 @@ export function reset(): void {
   animationsSyntheticEvents.length = 0;
 }
 
-function isAnimationFrameGrouping(event: Types.TraceEvents.TraceEventData): event is
-  Types.TraceEvents.TraceEventAnimationFrameGroupingEvent |
-  Types.TraceEvents.TraceEventAnimationFrameInstantEvent |
-  Types.TraceEvents.TraceEventAnimationFramePaintGroupingEvent |
-  Types.TraceEvents.TraceEventAnimationFrameScriptGroupingEvent {
-  return Types.TraceEvents.isTraceEventAnimationFrame(event) ||
-    Types.TraceEvents.isTraceEventAnimationFramePaint(event) ||
-    Types.TraceEvents.isTraceEventAnimationFrameScript(event) ||
-    Types.TraceEvents.isTraceEventAnimationFrameInstant(event);
+function isAnimationFrameGrouping(event: Types.Events.Event): event is
+  Types.Events.TraceEventAnimationFrameGroupingEvent |
+  Types.Events.TraceEventAnimationFrameInstantEvent |
+  Types.Events.TraceEventAnimationFramePaintGroupingEvent |
+  Types.Events.TraceEventAnimationFrameScriptGroupingEvent {
+  return Types.Events.isTraceEventAnimationFrame(event) ||
+    Types.Events.isTraceEventAnimationFramePaint(event) ||
+    Types.Events.isTraceEventAnimationFrameScript(event) ||
+    Types.Events.isTraceEventAnimationFrameInstant(event);
 }
 
 const eventSulfixes: Array<string> = [];
 let currentGroupingEventSulfix: string | null = null;
 
-export function handleEvent(event: Types.TraceEvents.TraceEventData): void {
-  if (Types.TraceEvents.isTraceEventAnimation(event)) {
+export function handleEvent(event: Types.Events.Event): void {
+  if (Types.Events.isAnimation(event)) {
     animations.push(event);
     return;
   }
@@ -51,20 +51,20 @@ export function handleEvent(event: Types.TraceEvents.TraceEventData): void {
   if (isAnimationFrameGrouping(event)) {
     // INFO: Hack to correctly pair AnimationFrame nestable groupings. Since the current
     // local id is not correctly set.
-    const isStartEvent = event.ph === Types.TraceEvents.Phase.ASYNC_NESTABLE_START;
+    const isStartEvent = event.ph === Types.Events.Phase.ASYNC_NESTABLE_START;
 
-    if (isStartEvent && event.name === Types.TraceEvents.KnownEventName.AnimationFrame) {
+    if (isStartEvent && event.name === Types.Events.Name.AnimationFrame) {
       currentGroupingEventSulfix = `${event.ts}`;
     }
 
     // INFO: Add a sulfix to each event to correctly pair AnimationFrame nestable groupings.
     // Since we can have multiple script and instant entries in the same animation frame.
-    if (isStartEvent && event.name !== Types.TraceEvents.KnownEventName.AnimationFrame) {
+    if (isStartEvent && event.name !== Types.Events.Name.AnimationFrame) {
       const currentBeginEventSulfix = `${event.ts}`;
       eventSulfixes.push(currentBeginEventSulfix);
     }
 
-    if (event.name === Types.TraceEvents.KnownEventName.AnimationFrame) {
+    if (event.name === Types.Events.Name.AnimationFrame) {
       event.id2 = { local: `${event.id2?.local}-${currentGroupingEventSulfix}` };
     } else {
       // INFO: Hack to correctly pair AnimationFrame nestable groupings. Since the current
@@ -84,7 +84,7 @@ export async function finalize(): Promise<void> {
   const syntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animations);
   animationsSyntheticEvents.push(...syntheticEvents);
 
-  const afSyntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animationFrames) as Types.TraceEvents.SyntheticAnimationFramePair[];
+  const afSyntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animationFrames) as Types.Events.SyntheticAnimationFramePair[];
   animationFramesSyntheticEvents.push(...afSyntheticEvents);
 
   handlerState = HandlerState.FINALIZED;

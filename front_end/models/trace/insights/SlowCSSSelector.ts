@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import * as Helpers from '../helpers/helpers.js';
 import {type SelectorTiming, SelectorTimingsKey} from '../types/TraceEvents.js';
 import * as Types from '../types/types.js';
 
-import {type InsightResult, type NavigationInsightContext, type RequiredData} from './types.js';
+import type {InsightResult, InsightSetContext, RequiredData} from './types.js';
 
 export function deps(): ['SelectorStats'] {
   return ['SelectorStats'];
@@ -15,16 +16,24 @@ export type SlowCSSSelectorInsightResult = InsightResult<{
   totalElapsedMs: Types.Timing.MilliSeconds,
   totalMatchAttempts: number,
   totalMatchCount: number,
-  topElapsedMs: Types.TraceEvents.SelectorTiming[],
-  topMatchAttempts: Types.TraceEvents.SelectorTiming[],
+  topElapsedMs: Types.Events.SelectorTiming[],
+  topMatchAttempts: Types.Events.SelectorTiming[],
 }>;
 
-function aggregateSelectorStats(data: Map<Types.TraceEvents.TraceEventUpdateLayoutTree, {
-  timings: Types.TraceEvents.SelectorTiming[],
-}>): SelectorTiming[] {
+function aggregateSelectorStats(
+    data: Map<Types.Events.UpdateLayoutTree, {
+      timings: Types.Events.SelectorTiming[],
+    }>,
+    context: InsightSetContext): SelectorTiming[] {
   const selectorMap = new Map<String, SelectorTiming>();
 
-  for (const value of data.values()) {
+  for (const [event, value] of data) {
+    if (event.args.beginData?.frame !== context.frameId) {
+      continue;
+    }
+    if (!Helpers.Timing.eventIsInBounds(event, context.bounds)) {
+      continue;
+    }
     for (const timing of value.timings) {
       const key = timing[SelectorTimingsKey.Selector] + '_' + timing[SelectorTimingsKey.StyleSheetId];
       const findTiming = selectorMap.get(key);
@@ -43,19 +52,14 @@ function aggregateSelectorStats(data: Map<Types.TraceEvents.TraceEventUpdateLayo
 }
 
 export function generateInsight(
-    traceParsedData: RequiredData<typeof deps>, context: NavigationInsightContext): SlowCSSSelectorInsightResult {
-  const selectorStatsData = traceParsedData.SelectorStats;
-
-  const nav = traceParsedData.Meta.navigationsByNavigationId.get(context.navigationId);
-  if (!nav) {
-    throw new Error('no trace navigation');
-  }
+    parsedTrace: RequiredData<typeof deps>, context: InsightSetContext): SlowCSSSelectorInsightResult {
+  const selectorStatsData = parsedTrace.SelectorStats;
 
   if (!selectorStatsData) {
     throw new Error('no selector stats data');
   }
 
-  const selectorTimings = aggregateSelectorStats(selectorStatsData.dataForUpdateLayoutEvent);
+  const selectorTimings = aggregateSelectorStats(selectorStatsData.dataForUpdateLayoutEvent, context);
 
   let totalElapsedUs = 0;
   let totalMatchAttempts = 0;
@@ -78,6 +82,8 @@ export function generateInsight(
   });
 
   return {
+    // TODO: should we identify UpdateLayout events as linked to this insight?
+    relatedEvents: [],
     totalElapsedMs: Types.Timing.MilliSeconds(totalElapsedUs / 1000.0),
     totalMatchAttempts,
     totalMatchCount,

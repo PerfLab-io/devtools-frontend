@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import '../icon_button/icon_button.js';
+
 import * as Common from '../../../core/common/common.js';
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as IssuesManager from '../../../models/issues_manager/issues_manager.js';
@@ -9,6 +11,8 @@ import * as LitHtml from '../../lit-html/lit-html.js';
 import type * as IconButton from '../icon_button/icon_button.js';
 
 import issueCounterStyles from './issueCounter.css.js';
+
+const {html} = LitHtml;
 
 const UIStrings = {
   /**
@@ -63,7 +67,6 @@ export interface IssueCounterData {
   compact?: boolean;
 }
 
-// @ts-ignore Remove this comment once Intl.ListFormat is in type defs.
 const listFormat = new Intl.ListFormat(navigator.language, {type: 'unit', style: 'short'});
 
 export function getIssueCountsEnumeration(
@@ -82,7 +85,6 @@ export function getIssueCountsEnumeration(
 }
 
 export class IssueCounter extends HTMLElement {
-  static readonly litTagName = LitHtml.literal`devtools-issue-counter`;
   readonly #shadow = this.attachShadow({mode: 'open'});
   #clickHandler: undefined|(() => void) = undefined;
   #tooltipCallback: undefined|(() => void) = undefined;
@@ -191,7 +193,7 @@ export class IssueCounter extends HTMLElement {
       compact: this.#compact,
     };
     LitHtml.render(
-        LitHtml.html`
+        html`
         <icon-button .data=${data as IconButton.IconButton.IconButtonData} .accessibleName=${
             this.#accessibleName}></icon-button>
         `,

@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import * as Helpers from '../helpers/helpers.js';
 import * as Types from '../types/types.js';
 
-import {type InsightResult, type NavigationInsightContext, type RequiredData} from './types.js';
+import type {InsightResult, InsightSetContext, RequiredData} from './types.js';
 
 // Due to the way that DevTools throttling works we cannot see if server response took less than ~570ms.
 // We set our failure threshold to 600ms to avoid those false positives but we want devs to shoot for 100ms.
@@ -15,27 +16,30 @@ const TARGET_MS = 100;
 const IGNORE_THRESHOLD_IN_BYTES = 1400;
 
 export type DocumentLatencyInsightResult = InsightResult<{
-  serverResponseTime: Types.Timing.MilliSeconds,
-  serverResponseTooSlow: boolean,
-  redirectDuration: Types.Timing.MilliSeconds,
-  uncompressedResponseBytes: number,
-  documentRequest?: Types.TraceEvents.SyntheticNetworkRequest,
+  data?: {
+    serverResponseTime: Types.Timing.MilliSeconds,
+    serverResponseTooSlow: boolean,
+    redirectDuration: Types.Timing.MilliSeconds,
+    uncompressedResponseBytes: number,
+    documentRequest?: Types.Events.SyntheticNetworkRequest,
+  },
 }>;
 
 export function deps(): ['Meta', 'NetworkRequests'] {
   return ['Meta', 'NetworkRequests'];
 }
 
-function getServerTiming(request: Types.TraceEvents.SyntheticNetworkRequest): Types.Timing.MilliSeconds|null {
+function getServerResponseTime(request: Types.Events.SyntheticNetworkRequest): Types.Timing.MilliSeconds|null {
   const timing = request.args.data.timing;
   if (!timing) {
     return null;
   }
 
-  return Types.Timing.MilliSeconds(Math.round(timing.receiveHeadersStart - timing.sendEnd));
+  const ms = Helpers.Timing.microSecondsToMilliseconds(request.args.data.syntheticData.waiting);
+  return Math.round(ms) as Types.Timing.MilliSeconds;
 }
 
-function getCompressionSavings(request: Types.TraceEvents.SyntheticNetworkRequest): number {
+function getCompressionSavings(request: Types.Events.SyntheticNetworkRequest): number {
   // Check from headers if compression was already applied.
   // Older devtools logs are lower case, while modern logs are Cased-Like-This.
   const patterns = [
@@ -100,14 +104,18 @@ function getCompressionSavings(request: Types.TraceEvents.SyntheticNetworkReques
 }
 
 export function generateInsight(
-    traceParsedData: RequiredData<typeof deps>, context: NavigationInsightContext): DocumentLatencyInsightResult {
+    parsedTrace: RequiredData<typeof deps>, context: InsightSetContext): DocumentLatencyInsightResult {
+  if (!context.navigation) {
+    return {};
+  }
+
   const documentRequest =
-      traceParsedData.NetworkRequests.byTime.find(req => req.args.data.requestId === context.navigationId);
+      parsedTrace.NetworkRequests.byTime.find(req => req.args.data.requestId === context.navigationId);
   if (!documentRequest) {
     throw new Error('missing document request');
   }
 
-  const serverResponseTime = getServerTiming(documentRequest);
+  const serverResponseTime = getServerResponseTime(documentRequest);
   if (serverResponseTime === null) {
     throw new Error('missing document request timing');
   }
@@ -123,16 +131,19 @@ export function generateInsight(
   overallSavingsMs += redirectDuration;
 
   const metricSavings = {
-    FCP: overallSavingsMs,
-    LCP: overallSavingsMs,
+    FCP: overallSavingsMs as Types.Timing.MilliSeconds,
+    LCP: overallSavingsMs as Types.Timing.MilliSeconds,
   };
 
   return {
-    serverResponseTime,
-    serverResponseTooSlow,
-    redirectDuration: Types.Timing.MilliSeconds(redirectDuration),
-    uncompressedResponseBytes: getCompressionSavings(documentRequest),
-    documentRequest,
+    relatedEvents: [documentRequest],
+    data: {
+      serverResponseTime,
+      serverResponseTooSlow,
+      redirectDuration: Types.Timing.MilliSeconds(redirectDuration),
+      uncompressedResponseBytes: getCompressionSavings(documentRequest),
+      documentRequest,
+    },
     metricSavings,
   };
 }

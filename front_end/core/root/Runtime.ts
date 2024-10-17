@@ -296,9 +296,10 @@ export const enum ExperimentName {
   TIMELINE_DEBUG_MODE = 'timeline-debug-mode',
   TIMELINE_OBSERVATIONS = 'timeline-observations',
   TIMELINE_ENHANCED_TRACES = 'timeline-enhanced-traces',
-  GEN_AI_SETTINGS_PANEL = 'gen-ai-settings-panel',
   TIMELINE_SERVER_TIMINGS = 'timeline-server-timings',
-  TIMELINE_LAYOUT_SHIFT_DETAILS = 'timeline-layout-shift-details',
+  EXTENSION_STORAGE_VIEWER = 'extension-storage-viewer',
+  FLOATING_ENTRY_POINTS_FOR_AI_ASSISTANCE = 'floating-entry-points-for-ai-assistance',
+  TIMELINE_EXPERIMENTAL_INSIGHTS = 'timeline-experimental-insights',
 }
 
 export interface AidaAvailability {
@@ -315,17 +316,39 @@ export interface HostConfigConsoleInsights {
   enabled: boolean;
 }
 
-export interface HostConfigFreestylerDogfood {
+export enum HostConfigFreestylerExecutionMode {
+  ALL_SCRIPTS = 'ALL_SCRIPTS',
+  SIDE_EFFECT_FREE_SCRIPTS_ONLY = 'SIDE_EFFECT_FREE_SCRIPTS_ONLY',
+  NO_SCRIPTS = 'NO_SCRIPTS',
+}
+
+export interface HostConfigFreestyler {
   modelId: string;
   temperature: number;
   enabled: boolean;
   userTier: string;
+  executionMode?: HostConfigFreestylerExecutionMode;
 }
 
 export interface HostConfigExplainThisResourceDogfood {
   modelId: string;
   temperature: number;
   enabled: boolean;
+  userTier: string;
+}
+
+export interface HostConfigAiAssistancePerformanceAgentDogfood {
+  modelId: string;
+  temperature: number;
+  enabled: boolean;
+  userTier: string;
+}
+
+export interface HostConfigAiAssistanceFileAgentDogfood {
+  modelId: string;
+  temperature: number;
+  enabled: boolean;
+  userTier: string;
 }
 
 export interface HostConfigVeLogging {
@@ -347,8 +370,10 @@ export interface HostConfigPrivacyUI {
 export type HostConfig = Platform.TypeScriptUtilities.RecursivePartial<{
   aidaAvailability: AidaAvailability,
   devToolsConsoleInsights: HostConfigConsoleInsights,
-  devToolsFreestylerDogfood: HostConfigFreestylerDogfood,
+  devToolsFreestyler: HostConfigFreestyler,
   devToolsExplainThisResourceDogfood: HostConfigExplainThisResourceDogfood,
+  devToolsAiAssistancePerformanceAgentDogfood: HostConfigAiAssistancePerformanceAgentDogfood,
+  devToolsAiAssistanceFileAgentDogfood: HostConfigAiAssistanceFileAgentDogfood,
   devToolsVeLogging: HostConfigVeLogging,
   devToolsPrivacyUI: HostConfigPrivacyUI,
   /**

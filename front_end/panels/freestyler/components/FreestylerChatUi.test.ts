@@ -4,6 +4,7 @@
 
 import * as Host from '../../../core/host/host.js';
 import type * as SDK from '../../../core/sdk/sdk.js';
+import type * as Trace from '../../../models/trace/trace.js';
 import {renderElementIntoDOM} from '../../../testing/DOMHelpers.js';
 import {describeWithEnvironment} from '../../../testing/EnvironmentHelpers.js';
 import * as Marked from '../../../third_party/marked/marked.js';
@@ -44,16 +45,18 @@ css
       onTextSubmit: noop,
       onInspectElementClick: noop,
       onFeedbackSubmit: noop,
-      onAcceptConsentClick: noop,
       onCancelClick: noop,
-      onFixThisIssueClick: noop,
+      onSelectedNetworkRequestClick: noop,
+      onSelectedFileRequestClick: noop,
       inspectElementToggled: false,
       state: Freestyler.State.CHAT_VIEW,
       agentType: Freestyler.AgentType.FREESTYLER,
       aidaAvailability: Host.AidaClient.AidaAccessPreconditions.AVAILABLE,
       messages,
       selectedElement: {} as unknown as SDK.DOMModel.DOMNode,
+      selectedFile: null,
       selectedNetworkRequest: {} as unknown as SDK.NetworkRequest.NetworkRequest,
+      selectedStackTrace: {} as unknown as Trace.Helpers.TreeHelpers.TraceEntryNodeForAI,
       isLoading: false,
       canShowFeedbackForm: false,
       userInfo: {},
@@ -67,8 +70,6 @@ css
         messages: [
           {
             entity: Freestyler.ChatMessageEntity.MODEL,
-            suggestingFix: false,
-            aborted: false,
             steps: [
               {
                 isLoading: false,
@@ -88,6 +89,36 @@ css
 
       const sideEffect = chat.shadowRoot!.querySelector('.side-effect-confirmation');
       assert.exists(sideEffect);
+    });
+
+    it('shows the disabled view when the state is CONSENT_VIEW', async () => {
+      const props = getProp({
+        state: Freestyler.State.CONSENT_VIEW,
+      });
+      const chat = new Freestyler.FreestylerChatUi(props);
+      renderElementIntoDOM(chat);
+
+      const optIn = chat.shadowRoot?.querySelector('.disabled-view');
+      assert.strictEqual(
+          optIn?.textContent?.trim(), 'Turn on AI assistance in Settings to get help with understanding CSS styles');
+      const chatInput = chat.shadowRoot?.querySelector('.chat-input') as HTMLTextAreaElement;
+      assert.isTrue(chatInput.disabled);
+      assert.strictEqual(chatInput.placeholder, 'Follow the steps above to ask a question');
+    });
+
+    it('shows the disabled view when the AIDA is not available', async () => {
+      const props = getProp({
+        state: Freestyler.State.CHAT_VIEW,
+        aidaAvailability: Host.AidaClient.AidaAccessPreconditions.NO_INTERNET,
+      });
+      const chat = new Freestyler.FreestylerChatUi(props);
+      renderElementIntoDOM(chat);
+
+      const optIn = chat.shadowRoot?.querySelector('.disabled-view');
+      assert.strictEqual(optIn?.textContent?.trim(), 'Check your internet connection and try again');
+      const chatInput = chat.shadowRoot?.querySelector('.chat-input') as HTMLTextAreaElement;
+      assert.isTrue(chatInput.disabled);
+      assert.strictEqual(chatInput.placeholder, 'Ask a question about the selected element');
     });
   });
 });

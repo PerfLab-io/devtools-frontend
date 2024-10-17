@@ -28,7 +28,10 @@
  */
 
 .is-ignore-listed {
-  opacity: 40%;
+  .tree-element-title,
+  .leading-icons {
+    opacity: 40%;
+  }
 }
 
 .tree-outline li {
@@ -56,6 +59,17 @@
 .navigator-script-tree-item devtools-icon,
 .navigator-snippet-tree-item devtools-icon {
   color: var(--icon-file-script);
+}
+
+.navigator-file-tree-item .ai-button-container {
+  display: none;
+  position: absolute;
+  z-index: 999;
+  right: var(--sys-size-3);
+}
+
+.navigator-file-tree-item:hover .ai-button-container {
+  display: inline-flex;
 }
 
 .navigator-file-tree-item devtools-icon.dot::before {

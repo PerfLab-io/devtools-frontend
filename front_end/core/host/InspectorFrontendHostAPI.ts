@@ -383,6 +383,7 @@ export interface ContextMenuDescriptor {
   type: 'checkbox'|'item'|'separator'|'subMenu';
   id?: number;
   label?: string;
+  isExperimentalFeature?: boolean;
   enabled?: boolean;
   checked?: boolean;
   subItems?: ContextMenuDescriptor[];
@@ -427,6 +428,8 @@ export interface SyncInformation {
   accountImage?: string;
   /** The full name of the account used for syncing */
   accountFullName?: string;
+  /** Whether Chrome Sync is paused, equivalent to the user being logged out automatically */
+  isSyncPaused?: boolean;
 }
 
 /**
@@ -482,7 +485,5 @@ export const enum EnumeratedHistogram {
   LegacyResourceTypeFilterItemSelected = 'DevTools.LegacyResourceTypeFilterItemSelected',
   ResourceTypeFilterNumberOfSelectedChanged = 'DevTools.ResourceTypeFilterNumberOfSelectedChanged',
   ResourceTypeFilterItemSelected = 'DevTools.ResourceTypeFilterItemSelected',
-  NetworkPanelMoreFiltersNumberOfSelectedChanged = 'DevTools.NetworkPanelMoreFiltersNumberOfSelectedChanged',
-  NetworkPanelMoreFiltersItemSelected = 'DevTools.NetworkPanelMoreFiltersItemSelected',
   /* eslint-disable @typescript-eslint/naming-convention -- Shadows a legacy enum */
 }

@@ -404,11 +404,30 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.updateTabElements();
   }
 
+  setSuffixElement(id: string, suffixElement: HTMLElement|null): void {
+    const tab = this.tabsById.get(id);
+    if (!tab) {
+      return;
+    }
+    tab.setSuffixElement(suffixElement);
+    this.updateTabElements();
+  }
+
   setTabEnabled(id: string, enabled: boolean): void {
     const tab = this.tabsById.get(id);
     if (tab) {
       tab.tabElement.classList.toggle('disabled', !enabled);
     }
+  }
+
+  tabIsDisabled(id: string): boolean {
+    return !this.tabIsEnabled(id);
+  }
+
+  tabIsEnabled(id: string): boolean {
+    const tab = this.tabsById.get(id);
+    const disabled = tab?.tabElement.classList.contains('disabled') ?? false;
+    return !disabled;
   }
 
   toggleTabClass(id: string, className: string, force?: boolean): void {
@@ -746,7 +765,7 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
       if (typeof tab.measuredWidth === 'number') {
         continue;
       }
-      const measuringTabElement = tab.createTabElement(true);
+      const measuringTabElement = tab.createTabElement(/* measure */ true);
       measuringTabElements.set(measuringTabElement, tab);
       this.tabsElement.appendChild(measuringTabElement);
     }
@@ -1003,6 +1022,7 @@ export class TabbedPaneTab {
   measuredWidth!: number|undefined;
   private tabElementInternal!: HTMLElement|undefined;
   private icon: IconButton.Icon.Icon|null = null;
+  private suffixElement: HTMLElement|null = null;
   private widthInternal?: number;
   private delegate?: TabbedPaneTabDelegate;
   private titleElement?: HTMLElement;
@@ -1056,6 +1076,14 @@ export class TabbedPaneTab {
     this.icon = icon;
     if (this.tabElementInternal && this.titleElement) {
       this.createIconElement(this.tabElementInternal, this.titleElement, false);
+    }
+    delete this.measuredWidth;
+  }
+
+  setSuffixElement(suffixElement: HTMLElement|null): void {
+    this.suffixElement = suffixElement;
+    if (this.tabElementInternal && this.titleElement) {
+      this.createSuffixElement(this.tabElementInternal, this.titleElement, false);
     }
     delete this.measuredWidth;
   }
@@ -1129,7 +1157,25 @@ export class TabbedPaneTab {
     tabIcons.set(tabElement, iconContainer);
   }
 
-  private createMeasureClone(original: IconButton.Icon.Icon): Node {
+  private createSuffixElement(tabElement: Element, titleElement: Element, measuring: boolean): void {
+    const tabSuffixElement = tabSuffixElements.get(tabElement);
+    if (tabSuffixElement) {
+      tabSuffixElement.remove();
+      tabSuffixElements.delete(tabElement);
+    }
+    if (!this.suffixElement) {
+      return;
+    }
+
+    const suffixElementContainer = document.createElement('span');
+    suffixElementContainer.classList.add('tabbed-pane-header-tab-suffix-element');
+    const suffixElement = measuring ? this.suffixElement.cloneNode() : this.suffixElement;
+    suffixElementContainer.appendChild(suffixElement);
+    titleElement.insertAdjacentElement('afterend', suffixElementContainer);
+    tabSuffixElements.set(tabElement, suffixElementContainer);
+  }
+
+  private createMeasureClone(original: IconButton.Icon.Icon): Element {
     // Cloning doesn't work for the icon component because the shadow
     // root isn't copied, but it is sufficient to create a div styled
     // to be the same size.
@@ -1151,6 +1197,7 @@ export class TabbedPaneTab {
     titleElement.textContent = this.title;
     Tooltip.install(titleElement, this.tooltip || '');
     this.createIconElement(tabElement, titleElement, measuring);
+    this.createSuffixElement(tabElement, titleElement, measuring);
     if (!measuring) {
       this.titleElement = titleElement;
     }
@@ -1171,6 +1218,7 @@ export class TabbedPaneTab {
       tabElement.classList.add('measuring');
     } else {
       tabElement.addEventListener('click', this.tabClicked.bind(this), false);
+      tabElement.addEventListener('keydown', this.tabKeyDown.bind(this), false);
       tabElement.addEventListener('auxclick', this.tabClicked.bind(this), false);
       tabElement.addEventListener('mousedown', this.tabMouseDown.bind(this), false);
       tabElement.addEventListener('mouseup', this.tabMouseUp.bind(this), false);
@@ -1219,6 +1267,19 @@ export class TabbedPaneTab {
   private isCloseIconClicked(element: HTMLElement): boolean {
     return element?.classList.contains('tabbed-pane-close-button') ||
         element?.parentElement?.classList.contains('tabbed-pane-close-button') || false;
+  }
+
+  private tabKeyDown(ev: Event): void {
+    const event = ev as KeyboardEvent;
+    switch (event.key) {
+      case 'Enter':
+      case ' ':
+        if (this.isCloseIconClicked(event.target as HTMLElement)) {
+          this.closeTabs([this.id]);
+          ev.consume(true);
+          return;
+        }
+    }
   }
 
   private tabClicked(ev: Event): void {
@@ -1359,6 +1420,7 @@ export class TabbedPaneTab {
 }
 
 const tabIcons = new WeakMap<Element, Element>();
+const tabSuffixElements = new WeakMap<Element, Element>();
 
 export interface TabbedPaneTabDelegate {
   closeTabs(tabbedPane: TabbedPane, ids: string[]): void;

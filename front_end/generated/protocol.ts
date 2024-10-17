@@ -772,6 +772,8 @@ export namespace Audits {
     WarnDomainNonASCII = 'WarnDomainNonASCII',
     WarnThirdPartyPhaseout = 'WarnThirdPartyPhaseout',
     WarnCrossSiteRedirectDowngradeChangesInclusion = 'WarnCrossSiteRedirectDowngradeChangesInclusion',
+    WarnDeprecationTrialMetadata = 'WarnDeprecationTrialMetadata',
+    WarnThirdPartyCookieHeuristic = 'WarnThirdPartyCookieHeuristic',
   }
 
   export const enum CookieOperation {
@@ -1207,7 +1209,7 @@ export namespace Audits {
     ThirdPartyCookiesBlocked = 'ThirdPartyCookiesBlocked',
     NotSignedInWithIdp = 'NotSignedInWithIdp',
     MissingTransientUserActivation = 'MissingTransientUserActivation',
-    ReplacedByButtonMode = 'ReplacedByButtonMode',
+    ReplacedByActiveMode = 'ReplacedByActiveMode',
     InvalidFieldsSpecified = 'InvalidFieldsSpecified',
     RelyingPartyOriginIsOpaque = 'RelyingPartyOriginIsOpaque',
     TypeNotMatching = 'TypeNotMatching',
@@ -6060,7 +6062,6 @@ export namespace Emulation {
     Gyroscope = 'gyroscope',
     LinearAcceleration = 'linear-acceleration',
     Magnetometer = 'magnetometer',
-    Proximity = 'proximity',
     RelativeOrientation = 'relative-orientation',
   }
 
@@ -11586,6 +11587,7 @@ export namespace Page {
     DeferredFetch = 'deferred-fetch',
     DigitalCredentialsGet = 'digital-credentials-get',
     DirectSockets = 'direct-sockets',
+    DirectSocketsPrivate = 'direct-sockets-private',
     DisplayCapture = 'display-capture',
     DocumentDomain = 'document-domain',
     EncryptedMedia = 'encrypted-media',
@@ -16852,6 +16854,17 @@ export namespace WebAuthn {
      * defaultBackupState value.
      */
     backupState?: boolean;
+    /**
+     * The credential's user.name property. Equivalent to empty if not set.
+     * https://w3c.github.io/webauthn/#dom-publickeycredentialentity-name
+     */
+    userName?: string;
+    /**
+     * The credential's user.displayName property. Equivalent to empty if
+     * not set.
+     * https://w3c.github.io/webauthn/#dom-publickeycredentialuserentity-displayname
+     */
+    userDisplayName?: string;
   }
 
   export interface EnableRequest {
@@ -16948,6 +16961,24 @@ export namespace WebAuthn {
    * Triggered when a credential is added to an authenticator.
    */
   export interface CredentialAddedEvent {
+    authenticatorId: AuthenticatorId;
+    credential: Credential;
+  }
+
+  /**
+   * Triggered when a credential is deleted, e.g. through
+   * PublicKeyCredential.signalUnknownCredential().
+   */
+  export interface CredentialDeletedEvent {
+    authenticatorId: AuthenticatorId;
+    credentialId: binary;
+  }
+
+  /**
+   * Triggered when a credential is updated, e.g. through
+   * PublicKeyCredential.signalCurrentUserDetails().
+   */
+  export interface CredentialUpdatedEvent {
     authenticatorId: AuthenticatorId;
     credential: Credential;
   }
@@ -17315,6 +17346,8 @@ export namespace Preload {
     WindowClosed = 'WindowClosed',
     SlowNetwork = 'SlowNetwork',
     OtherPrerenderedPageActivated = 'OtherPrerenderedPageActivated',
+    V8OptimizerDisabled = 'V8OptimizerDisabled',
+    PrerenderFailedDuringPrefetch = 'PrerenderFailedDuringPrefetch',
   }
 
   /**
@@ -17927,7 +17960,6 @@ export namespace Debugger {
   }
 
   export const enum DebugSymbolsType {
-    None = 'None',
     SourceMap = 'SourceMap',
     EmbeddedDWARF = 'EmbeddedDWARF',
     ExternalDWARF = 'ExternalDWARF',
@@ -18217,11 +18249,22 @@ export namespace Debugger {
     maxDepth: integer;
   }
 
+  export interface SetBlackboxExecutionContextsRequest {
+    /**
+     * Array of execution context unique ids for the debugger to ignore.
+     */
+    uniqueIds: string[];
+  }
+
   export interface SetBlackboxPatternsRequest {
     /**
      * Array of regexps that will be used to check script url for blackbox state.
      */
     patterns: string[];
+    /**
+     * If true, also ignore scripts with no source url.
+     */
+    skipAnonymous?: boolean;
   }
 
   export interface SetBlackboxedRangesRequest {
@@ -18677,9 +18720,9 @@ export namespace Debugger {
      */
     scriptLanguage?: Debugger.ScriptLanguage;
     /**
-     * If the scriptLanguage is WebASsembly, the source of debug symbols for the module.
+     * If the scriptLanguage is WebAssembly, the source of debug symbols for the module.
      */
-    debugSymbols?: Debugger.DebugSymbols;
+    debugSymbols?: Debugger.DebugSymbols[];
     /**
      * The name the embedder supplied for this script.
      */

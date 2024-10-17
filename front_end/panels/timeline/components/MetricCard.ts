@@ -113,6 +113,14 @@ const UIStrings = {
    * @description Text block explaining how dynamic content can affect layout shifts. "layout shifts" refer to page instability where content moving around can create a jarring experience.
    */
   recDynamicContentCLS: 'Dynamic content can influence what layout shifts happen.',
+  /**
+   * @description Column header for table cell values representing the phase/component/stage/section of a larger duration.
+   */
+  phase: 'Phase',
+  /**
+   * @description Column header for table cell values representing a phase duration (in milliseconds) that was measured in the developers local environment.
+   */
+  duration: 'Local duration (ms)',
 };
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/MetricCard.ts', UIStrings);
@@ -124,10 +132,10 @@ export interface MetricCardData {
   fieldValue?: number|string;
   histogram?: CrUXManager.MetricResponse['histogram'];
   tooltipContainer?: HTMLElement;
+  phases?: Array<[string, number]>;
 }
 
 export class MetricCard extends HTMLElement {
-  static readonly litTagName = LitHtml.literal`devtools-metric-card`;
   readonly #shadow = this.attachShadow({mode: 'open'});
 
   constructor() {
@@ -272,11 +280,14 @@ export class MetricCard extends HTMLElement {
   #getFormatFn(): (value: number) => string {
     switch (this.#data.metric) {
       case 'LCP':
-        return v => i18n.TimeUtilities.millisToString(v);
+        return v => {
+          const micro = (v * 1000) as Platform.Timing.MicroSeconds;
+          return i18n.TimeUtilities.formatMicroSecondsAsSeconds(micro);
+        };
       case 'CLS':
         return v => v === 0 ? '0' : v.toFixed(2);
       case 'INP':
-        return v => i18n.TimeUtilities.millisToString(v);
+        return v => i18n.TimeUtilities.preciseMillisToString(v);
     }
   }
 
@@ -542,6 +553,30 @@ export class MetricCard extends HTMLElement {
     // clang-format on
   }
 
+  #renderPhaseTable(): LitHtml.LitTemplate {
+    const localValue = this.#getLocalValue();
+    const phases = this.#data.phases;
+    if (!phases || !localValue) {
+      return LitHtml.nothing;
+    }
+
+    return html`
+      <hr class="divider">
+      <div class="phase-table" role="table">
+        <div class="phase-table-row phase-table-header-row" role="row">
+          <div role="columnheader">${i18nString(UIStrings.phase)}</div>
+          <div role="columnheader">${i18nString(UIStrings.duration)}</div>
+        </div>
+        ${phases.map(phase => html`
+          <div class="phase-table-row" role="row">
+            <div role="cell">${phase[0]}</div>
+            <div role="cell">${Math.round(phase[1])}</div>
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
   #render = (): void => {
     const fieldEnabled = CrUXManager.CrUXManager.instance().getConfigSetting().get().enabled;
 
@@ -584,12 +619,13 @@ export class MetricCard extends HTMLElement {
             ${this.#renderDetailedCompareString()}
             <hr class="divider">
             ${this.#renderFieldHistogram()}
+            ${this.#renderPhaseTable()}
           </div>
         </div>
         ${fieldEnabled ? html`<hr class="divider">` : nothing}
         ${this.#renderCompareString()}
         ${this.#renderEnvironmentRecommendations()}
-        <slot name="extra-info"><slot>
+        <slot name="extra-info"></slot>
       </div>
     `;
     LitHtml.render(output, this.#shadow, {host: this});

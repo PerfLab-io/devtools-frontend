@@ -2,87 +2,73 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import './NodeLink.js';
+
 import * as i18n from '../../../../core/i18n/i18n.js';
-import type * as TraceEngine from '../../../../models/trace/trace.js';
+import * as Trace from '../../../../models/trace/trace.js';
 import * as LitHtml from '../../../../ui/lit-html/lit-html.js';
 import type * as Overlays from '../../overlays/overlays.js';
 
-import {BaseInsight, md, shouldRenderForCategory} from './Helpers.js';
-import {NodeLink, type NodeLinkData} from './NodeLink.js';
-import * as SidebarInsight from './SidebarInsight.js';
-import {InsightsCategories} from './types.js';
+import {BaseInsight, shouldRenderForCategory} from './Helpers.js';
+import type {NodeLinkData} from './NodeLink.js';
+import type * as SidebarInsight from './SidebarInsight.js';
+import {Category} from './types.js';
+
+const {html} = LitHtml;
 
 const UIStrings = {
+  /** Title of an insight that provides details about if the page's viewport is optimized for mobile viewing. */
+  title: 'Viewport not optimized for mobile',
   /**
-   * @description Text to tell the user how a viewport meta element can improve performance.
+   * @description Text to tell the user how a viewport meta element can improve performance. \xa0 is a non-breaking space
    */
-  description: 'A viewport meta element not only optimizes your app for mobile screen sizes, ' +
-      'but also [prevents a 300 millisecond delay to user input](https://developer.chrome.com/blog/300ms-tap-delay-gone-away/).',
+  description:
+      'The page\'s viewport is not mobile-optimized, so tap interactions may be [delayed by up to 300\xA0ms](https://developer.chrome.com/blog/300ms-tap-delay-gone-away/).',
 };
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/insights/Viewport.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
-export function getViewportInsight(
-    insights: TraceEngine.Insights.Types.TraceInsightData|null,
-    navigationId: string|null): TraceEngine.Insights.Types.InsightResults['Viewport']|null {
-  if (!insights || !navigationId) {
-    return null;
-  }
-
-  const insightsByNavigation = insights.get(navigationId);
-  if (!insightsByNavigation) {
-    return null;
-  }
-
-  const viewportInsight = insightsByNavigation.Viewport;
-  if (viewportInsight instanceof Error) {
-    return null;
-  }
-  return viewportInsight;
-}
-
 export class Viewport extends BaseInsight {
-  static readonly litTagName = LitHtml.literal`devtools-performance-viewport`;
-  override insightCategory: InsightsCategories = InsightsCategories.INP;
+  static override readonly litTagName = LitHtml.literal`devtools-performance-viewport`;
+  override insightCategory: Category = Category.INP;
   override internalName: string = 'viewport';
-  override userVisibleTitle: string = 'Mobile-optimized viewport';
+  override userVisibleTitle: string = i18nString(UIStrings.title);
+  override description: string = i18nString(UIStrings.description);
 
   override createOverlays(): Overlays.Overlays.TimelineOverlay[] {
     // TODO(b/351757418): create overlay for synthetic input delay events
     return [];
   }
 
-  #render(data: TraceEngine.Insights.Types.InsightResults['Viewport']): LitHtml.TemplateResult {
-    const backendNodeId = data.viewportEvent?.args.data.node_id;
+  #render(insight: Trace.Insights.Types.InsightResults['Viewport']): LitHtml.TemplateResult {
+    const backendNodeId = insight.viewportEvent?.args.data.node_id;
 
     // clang-format off
-    return LitHtml.html`
+    return html`
         <div class="insights">
-            <${SidebarInsight.SidebarInsight.litTagName} .data=${{
-            title: this.userVisibleTitle,
-            expanded: this.isActive(),
+            <devtools-performance-sidebar-insight .data=${{
+              title: this.userVisibleTitle,
+              description: this.description,
+              expanded: this.isActive(),
+              internalName: this.internalName,
+              estimatedSavingsTime: insight.metricSavings?.INP,
             } as SidebarInsight.InsightDetails}
             @insighttoggleclick=${this.onSidebarClick}>
-                <div slot="insight-description" class="insight-description">
-                  ${md(i18nString(UIStrings.description))}
-                </div>
-                <div slot="insight-content" class="insight-content">
-                  ${backendNodeId !== undefined ? LitHtml.html`<${NodeLink.litTagName}
-                    .data=${{
-                      backendNodeId,
-                      options: {tooltip: data.viewportEvent?.args.data.content},
-                    } as NodeLinkData}>
-                  </${NodeLink.litTagName}>` : LitHtml.nothing}
-                </div>
-            </${SidebarInsight.SidebarInsight}>
+              ${backendNodeId !== undefined ? html`<devtools-performance-node-link
+                .data=${{
+                  backendNodeId,
+                  options: {tooltip: insight.viewportEvent?.args.data.content},
+                } as NodeLinkData}>
+              </devtools-performance-node-link>` : LitHtml.nothing}
+            </devtools-performance-sidebar-insight>
         </div>`;
     // clang-format on
   }
 
   override render(): void {
-    const viewportInsight = getViewportInsight(this.data.insights, this.data.navigationId);
-    const shouldShow = viewportInsight && !viewportInsight.mobileOptimized;
+    const viewportInsight = Trace.Insights.Common.getInsight('Viewport', this.data.insights, this.data.insightSetKey);
+    const shouldShow = viewportInsight && viewportInsight.mobileOptimized === false;
 
     const matchesCategory = shouldRenderForCategory({
       activeCategory: this.data.activeCategory,

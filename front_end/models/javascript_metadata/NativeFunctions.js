@@ -225,7 +225,7 @@ export const NativeFunctions = [
   {
     name: "create",
     signatures: [["?options"]],
-    receivers: ["CredentialsContainer","AIRewriterFactory","AISummarizerFactory","AIWriterFactory"]
+    receivers: ["CredentialsContainer","AIRewriterFactory","AISummarizerFactory","AIWriterFactory","AILanguageDetectorFactory","AITranslatorFactory"]
   },
   {
     name: "defineProperty",
@@ -1339,11 +1339,6 @@ export const NativeFunctions = [
   },
   {
     name: "add",
-    signatures: [["node","?before"]],
-    receivers: ["AccessibleNodeList"]
-  },
-  {
-    name: "add",
     signatures: [["key"]],
     receivers: ["CustomStateSet","ViewTransitionTypeSet"]
   },
@@ -1412,7 +1407,7 @@ export const NativeFunctions = [
   {
     name: "item",
     signatures: [["index"]],
-    receivers: ["CSSRuleList","CSSStyleDeclaration","DOMRectList","DOMStringList","DOMTokenList","FileList","HTMLCollectionBase","HTMLCollectionOf","HTMLSelectElement","MediaList","MimeTypeArray","NamedNodeMap","NodeList","NodeListOf","Plugin","PluginArray","SpeechRecognitionResult","SpeechRecognitionResultList","StyleSheetList","TouchList","AccessibleNodeList","HTMLCollection","SpeechGrammarList","SQLResultSetRowList"]
+    receivers: ["CSSRuleList","CSSStyleDeclaration","DOMRectList","DOMStringList","DOMTokenList","FileList","HTMLCollectionBase","HTMLCollectionOf","HTMLSelectElement","MediaList","MimeTypeArray","NamedNodeMap","NodeList","NodeListOf","Plugin","PluginArray","SpeechRecognitionResult","SpeechRecognitionResultList","StyleSheetList","TouchList","HTMLCollection","SpeechGrammarList","SQLResultSetRowList"]
   },
   {
     name: "item",
@@ -1876,6 +1871,11 @@ export const NativeFunctions = [
   },
   {
     name: "translate",
+    signatures: [["input","?options"]],
+    receivers: ["AITranslator"]
+  },
+  {
+    name: "translate",
     signatures: [["input"]],
     receivers: ["LanguageTranslator"]
   },
@@ -1925,7 +1925,7 @@ export const NativeFunctions = [
   {
     name: "remove",
     signatures: [["index"]],
-    receivers: ["DataTransferItemList","HTMLOptionsCollection","AccessibleNodeList"]
+    receivers: ["DataTransferItemList","HTMLOptionsCollection"]
   },
   {
     name: "remove",
@@ -2364,6 +2364,10 @@ export const NativeFunctions = [
     signatures: [["?types"]]
   },
   {
+    name: "startViewTransition",
+    signatures: [["?callbackOptions"],["update"],["opts"]]
+  },
+  {
     name: "writeln",
     signatures: [["...text"],["text"]]
   },
@@ -2410,6 +2414,10 @@ export const NativeFunctions = [
     signatures: [["namespace","localName"],["namespaceURI","localName"]]
   },
   {
+    name: "getHTML",
+    signatures: [["?options"]]
+  },
+  {
     name: "hasAttribute",
     signatures: [["qualifiedName"],["name"]]
   },
@@ -2427,7 +2435,7 @@ export const NativeFunctions = [
   },
   {
     name: "insertAdjacentHTML",
-    signatures: [["position","text"]]
+    signatures: [["position","string"],["position","text"]]
   },
   {
     name: "insertAdjacentText",
@@ -2623,6 +2631,11 @@ export const NativeFunctions = [
     name: "resolve",
     signatures: [["possibleDescendant"],["possibleChild"]],
     receivers: ["FileSystemDirectoryHandle"]
+  },
+  {
+    name: "resolve",
+    signatures: [["specifier"]],
+    receivers: ["ImportMeta"]
   },
   {
     name: "resolve",
@@ -3173,6 +3186,10 @@ export const NativeFunctions = [
     signatures: [["?sessionType"]]
   },
   {
+    name: "getStatusForPolicy",
+    signatures: [["?policy"]]
+  },
+  {
     name: "setServerCertificate",
     signatures: [["serverCertificate"]]
   },
@@ -3334,13 +3351,7 @@ export const NativeFunctions = [
   },
   {
     name: "appendChild",
-    signatures: [["node"]],
-    receivers: ["Node"]
-  },
-  {
-    name: "appendChild",
-    signatures: [["child"]],
-    receivers: ["AccessibleNode"]
+    signatures: [["node"]]
   },
   {
     name: "cloneNode",
@@ -3637,7 +3648,7 @@ export const NativeFunctions = [
   },
   {
     name: "createContextualFragment",
-    signatures: [["fragment"]]
+    signatures: [["string"],["fragment"]]
   },
   {
     name: "insertNode",
@@ -3745,11 +3756,6 @@ export const NativeFunctions = [
     name: "prompt",
     signatures: [["?message","?_default"],["?message","?defaultValue"]],
     receivers: ["Window"]
-  },
-  {
-    name: "prompt",
-    signatures: [["input"]],
-    receivers: ["AITextSession"]
   },
   {
     name: "watchAvailability",
@@ -4120,6 +4126,10 @@ export const NativeFunctions = [
   {
     name: "encodeInto",
     signatures: [["source","destination"]]
+  },
+  {
+    name: "initTextEvent",
+    signatures: [["type","?bubbles","?cancelable","?view","?data"]]
   },
   {
     name: "addCue",
@@ -5520,7 +5530,7 @@ export const NativeFunctions = [
   },
   {
     name: "next",
-    signatures: [["...args"]],
+    signatures: [["...undefined"]],
     receivers: ["Generator","Iterator","AsyncIterator","AsyncGenerator"]
   },
   {
@@ -6020,15 +6030,6 @@ export const NativeFunctions = [
     signatures: [["?options"]]
   },
   {
-    name: "AccessibleNodeList",
-    signatures: [["?nodes"]]
-  },
-  {
-    name: "",
-    signatures: [["index","node"]],
-    receivers: ["AccessibleNodeList"]
-  },
-  {
     name: "",
     signatures: [["index"]],
     receivers: ["DataTransferItemList","CSSKeyframesRule","CSSNumericArray","Window","HTMLFormControlsCollection","RadioNodeList","HTMLAllCollection","AudioTrackList","TextTrackCueList","TextTrackList","VideoTrackList","SourceBufferList","TrackDefaultList","ImageTrackList","XRInputSourceArray"]
@@ -6508,10 +6509,6 @@ export const NativeFunctions = [
     signatures: [["?options"]]
   },
   {
-    name: "getHTML",
-    signatures: [["?options"]]
-  },
-  {
     name: "scrollIntoViewIfNeeded",
     signatures: [["?centerIfNeeded"]]
   },
@@ -6722,10 +6719,6 @@ export const NativeFunctions = [
     signatures: [["type","?eventInitDict"]]
   },
   {
-    name: "initTextEvent",
-    signatures: [["type","?bubbles","?cancelable","?view","?data"]]
-  },
-  {
     name: "ToggleEvent",
     signatures: [["type","?eventInitDict"]]
   },
@@ -6806,10 +6799,6 @@ export const NativeFunctions = [
   {
     name: "isInputPending",
     signatures: [["?options"]]
-  },
-  {
-    name: "getComputedAccessibleNode",
-    signatures: [["element"]]
   },
   {
     name: "webkitRequestAnimationFrame",
@@ -6898,6 +6887,10 @@ export const NativeFunctions = [
   {
     name: "getActualBoundingBox",
     signatures: [["start","end"]]
+  },
+  {
+    name: "getTextClusters",
+    signatures: [["?options"],["start","end","?options"]]
   },
   {
     name: "CloseWatcher",
@@ -7224,10 +7217,6 @@ export const NativeFunctions = [
     signatures: [["type","?eventInitDict"]]
   },
   {
-    name: "startViewTransition",
-    signatures: [["?update"],["opts"]]
-  },
-  {
     name: "SharedWorker",
     signatures: [["scriptURL","?options"]]
   },
@@ -7272,12 +7261,28 @@ export const NativeFunctions = [
     signatures: [["languageTag"]]
   },
   {
-    name: "promptStreaming",
-    signatures: [["input"]]
-  },
-  {
     name: "writeStreaming",
     signatures: [["input","?options"]]
+  },
+  {
+    name: "canDetect",
+    signatures: [["languageTag"]],
+    receivers: ["AILanguageDetectorCapabilities"]
+  },
+  {
+    name: "detect",
+    signatures: [["input","?options"]],
+    receivers: ["AILanguageDetector"]
+  },
+  {
+    name: "detect",
+    signatures: [["input"]],
+    receivers: ["LanguageDetector"]
+  },
+  {
+    name: "detect",
+    signatures: [["image"]],
+    receivers: ["BarcodeDetector","FaceDetector","TextDetector"]
   },
   {
     name: "registerAnimator",
@@ -7559,10 +7564,6 @@ export const NativeFunctions = [
   {
     name: "MediaKeyMessageEvent",
     signatures: [["type","eventInitDict"]]
-  },
-  {
-    name: "getStatusForPolicy",
-    signatures: [["policy"]]
   },
   {
     name: "EventSource",
@@ -7871,6 +7872,18 @@ export const NativeFunctions = [
     signatures: [["a","b","?options"]]
   },
   {
+    name: "logicalAnd",
+    signatures: [["a","b","?options"]]
+  },
+  {
+    name: "logicalOr",
+    signatures: [["a","b","?options"]]
+  },
+  {
+    name: "logicalXor",
+    signatures: [["a","b","?options"]]
+  },
+  {
     name: "neg",
     signatures: [["x","?options"]]
   },
@@ -7908,6 +7921,10 @@ export const NativeFunctions = [
   },
   {
     name: "gatherElements",
+    signatures: [["input","indices","?options"]]
+  },
+  {
+    name: "gatherND",
     signatures: [["input","indices","?options"]]
   },
   {
@@ -8117,16 +8134,6 @@ export const NativeFunctions = [
   {
     name: "TimestampTrigger",
     signatures: [["timestamp"]]
-  },
-  {
-    name: "detect",
-    signatures: [["input"]],
-    receivers: ["LanguageDetector"]
-  },
-  {
-    name: "detect",
-    signatures: [["image"]],
-    receivers: ["BarcodeDetector","FaceDetector","TextDetector"]
   },
   {
     name: "canTranslate",
@@ -8637,10 +8644,6 @@ export const NativeFunctions = [
     signatures: [["init"]]
   },
   {
-    name: "VideoFrame",
-    signatures: [["source","?init"],["data","init"]]
-  },
-  {
     name: "changeVersion",
     signatures: [["oldVersion","newVersion","?callback","?errorCallback","?successCallback"]]
   },
@@ -8947,6 +8950,14 @@ export const NativeFunctions = [
   {
     name: "beginOcclusionQuery",
     signatures: [["queryIndex"]]
+  },
+  {
+    name: "multiDrawIndirect",
+    signatures: [["indirectBuffer","indirectOffset","maxDrawCount","?drawCountBuffer","?drawCountBufferOffset"]]
+  },
+  {
+    name: "multiDrawIndexedIndirect",
+    signatures: [["indirectBuffer","indirectOffset","maxDrawCount","?drawCountBuffer","?drawCountBufferOffset"]]
   },
   {
     name: "createView",
