@@ -1980,7 +1980,7 @@ export function isTraceEventAnimationFrame(traceEventData: Event): traceEventDat
 }
 
 export function isTraceEventAnimationFrameScript(traceEventData: Event): traceEventData is TraceEventAnimationFrameScriptGroupingEvent {
-  return traceEventData.name === Name.AnimationFrameScriptExecute;
+  return traceEventData.name === Name.AnimationFrameScriptCompile || traceEventData.name === Name.AnimationFrameScriptExecute;
 }
 
 export function isTraceEventAnimationFramePaint(traceEventData: Event): traceEventData is TraceEventAnimationFramePaintGroupingEvent {
@@ -2794,6 +2794,7 @@ export const enum Name {
   AnimationFrameFirstUIEvent = 'AnimationFrame::FirstUIEvent',
   AnimationFrameStyleAndLayout = 'AnimationFrame::StyleAndLayout',
   AnimationFrameRender = 'AnimationFrame::Render',
+  AnimationFrameScriptCompile = 'AnimationFrame::Script::Compile',
   AnimationFrameScriptExecute = 'AnimationFrame::Script::Execute',
 
   /* Network request events */
