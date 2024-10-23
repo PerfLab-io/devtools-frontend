@@ -52,6 +52,8 @@ export function handleEvent(event: Types.Events.Event): void {
     // INFO: Hack to correctly pair AnimationFrame nestable groupings. Since the current
     // local id is not correctly set.
     const isStartEvent = event.ph === Types.Events.Phase.ASYNC_NESTABLE_START;
+    const isEndEvent = event.ph === Types.Events.Phase.ASYNC_NESTABLE_END;
+    const isInstant = event.ph === Types.Events.Phase.ASYNC_NESTABLE_INSTANT;
 
     if (isStartEvent && event.name === Types.Events.Name.AnimationFrame) {
       currentGroupingEventSulfix = `${event.ts}`;
@@ -70,7 +72,8 @@ export function handleEvent(event: Types.Events.Event): void {
       // INFO: Hack to correctly pair AnimationFrame nestable groupings. Since the current
       // Has to be unique for each event but correclty match the begining and end events to form
       // the pairs.
-      const currentBeginEventSulfix = !isStartEvent ? eventSulfixes.pop() : eventSulfixes.at(-1);
+      let currentBeginEventSulfix = isEndEvent ? eventSulfixes.pop() : eventSulfixes.at(-1);
+      currentBeginEventSulfix = isInstant ? `${event.ts}` : currentBeginEventSulfix;
       event.id2 = { local: `${event.id2?.local}-${currentGroupingEventSulfix}-${currentBeginEventSulfix}` };
     }
 
