@@ -591,7 +591,7 @@ export interface TraceEventAnimationFrameScriptGroupingEvent extends Event {
       ['style_duration_ms']?: number,
     },
   };
-  name: Name.AnimationFrameScriptExecute;
+  name: Name.AnimationFrameScriptExecute | Name.AnimationFrameScriptCompile;
   id2?: {
     local?: string,
   };
