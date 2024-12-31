@@ -31,8 +31,15 @@ import {
 import {TimelineFlameChartNetworkDataProvider} from './TimelineFlameChartNetworkDataProvider.js';
 import timelineFlameChartViewStyles from './timelineFlameChartView.css.js';
 import type {TimelineModeViewDelegate} from './TimelinePanel.js';
-import {TimelineSelection} from './TimelineSelection.js';
-import {AggregatedTimelineTreeView} from './TimelineTreeView.js';
+import {
+  rangeForSelection,
+  selectionFromEvent,
+  selectionFromRangeMilliSeconds,
+  selectionIsEvent,
+  selectionIsRange,
+  type TimelineSelection,
+} from './TimelineSelection.js';
+import {AggregatedTimelineTreeView, TimelineTreeView} from './TimelineTreeView.js';
 import type {TimelineMarkerStyle} from './TimelineUIUtils.js';
 
 const UIStrings = {
@@ -46,10 +53,27 @@ const UIStrings = {
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/TimelineFlameChartView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
-const MAX_HIGHLIGHTED_SEARCH_ELEMENTS: number = 200;
+/**
+ * This defines the order these markers will be rendered if they are at the
+ * same timestamp. The smaller number will be shown first - e.g. so if NavigationStart, MarkFCP,
+ * MarkLCPCandidate have the same timestamp, visually we
+ * will render [Nav][FCP][DCL][LCP] everytime.
+ */
+export const SORT_ORDER_PAGE_LOAD_MARKERS: Readonly<Record<string, number>> = {
+  [Trace.Types.Events.Name.NAVIGATION_START]: 0,
+  [Trace.Types.Events.Name.MARK_LOAD]: 1,
+  [Trace.Types.Events.Name.MARK_FCP]: 2,
+  [Trace.Types.Events.Name.MARK_DOM_CONTENT]: 3,
+  [Trace.Types.Events.Name.MARK_LCP_CANDIDATE]: 4,
+};
 
-export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.FlameChart.FlameChartDelegate,
-                                                                      UI.SearchableView.Searchable {
+// Threshold to match up overlay markers that are off by a tiny amount so they aren't rendered
+// on top of each other.
+const TIMESTAMP_THRESHOLD_MS = Trace.Types.Timing.MicroSeconds(10);
+
+export class TimelineFlameChartView extends
+    Common.ObjectWrapper.eventMixin<TimelineTreeView.EventTypes, typeof UI.Widget.VBox>(UI.Widget.VBox)
+        implements PerfUI.FlameChart.FlameChartDelegate, UI.SearchableView.Searchable {
   private readonly delegate: TimelineModeViewDelegate;
   /**
    * Tracks the indexes of matched entries when the user searches the panel.
@@ -107,7 +131,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
   #overlaysContainer: HTMLElement = document.createElement('div');
   #overlays: Overlays.Overlays.Overlays;
 
-  // Tracks the in-progress time range annotation when the user shift clicks + drags, or when the user uses the keyboard
+  // Tracks the in-progress time range annotation when the user alt/option clicks + drags, or when the user uses the keyboard
   #timeRangeSelectionAnnotation: Trace.Types.File.TimeRangeAnnotation|null = null;
 
   // Keep track of the link annotation that hasn't been fully selected yet.
@@ -117,6 +141,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
 
   #currentInsightOverlays: Array<Overlays.Overlays.TimelineOverlay> = [];
   #activeInsight: TimelineComponents.Sidebar.ActiveInsight|null = null;
+  #markers: Array<Overlays.Overlays.TimelineOverlay> = [];
 
   #tooltipElement = document.createElement('div');
 
@@ -160,6 +185,10 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     this.mainDataProvider = new TimelineFlameChartDataProvider();
     this.mainDataProvider.addEventListener(
         TimelineFlameChartDataProviderEvents.DATA_CHANGED, () => this.mainFlameChart.scheduleUpdate());
+    this.mainDataProvider.addEventListener(
+        TimelineFlameChartDataProviderEvents.FLAME_CHART_ITEM_HOVERED,
+        e => this.detailsView.revealEventInTreeView(e.data));
+
     this.mainFlameChart = new PerfUI.FlameChart.FlameChart(this.mainDataProvider, this, {
       groupExpansionSetting: mainViewGroupExpansionSetting,
       // The TimelineOverlays are used for selected elements
@@ -289,23 +318,35 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     this.detailsSplitWidget.setSidebarWidget(this.detailsView);
     this.detailsSplitWidget.show(this.element);
 
+    // Event listeners for annotations.
     this.onMainAddEntryLabelAnnotation = this.onAddEntryLabelAnnotation.bind(this, this.mainDataProvider);
     this.onNetworkAddEntryLabelAnnotation = this.onAddEntryLabelAnnotation.bind(this, this.networkDataProvider);
     this.#onMainEntriesLinkAnnotationCreated = event =>
         this.onEntriesLinkAnnotationCreate(this.mainDataProvider, event.data.entryFromIndex);
     this.#onNetworkEntriesLinkAnnotationCreated = event =>
         this.onEntriesLinkAnnotationCreate(this.networkDataProvider, event.data.entryFromIndex);
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
-      this.mainFlameChart.addEventListener(
-          PerfUI.FlameChart.Events.ENTRY_LABEL_ANNOTATION_ADDED, this.onMainAddEntryLabelAnnotation, this);
-      this.networkFlameChart.addEventListener(
-          PerfUI.FlameChart.Events.ENTRY_LABEL_ANNOTATION_ADDED, this.onNetworkAddEntryLabelAnnotation, this);
+    this.mainFlameChart.addEventListener(
+        PerfUI.FlameChart.Events.ENTRY_LABEL_ANNOTATION_ADDED, this.onMainAddEntryLabelAnnotation, this);
+    this.networkFlameChart.addEventListener(
+        PerfUI.FlameChart.Events.ENTRY_LABEL_ANNOTATION_ADDED, this.onNetworkAddEntryLabelAnnotation, this);
 
-      this.mainFlameChart.addEventListener(
-          PerfUI.FlameChart.Events.ENTRIES_LINK_ANNOTATION_CREATED, this.#onMainEntriesLinkAnnotationCreated, this);
-      this.networkFlameChart.addEventListener(
-          PerfUI.FlameChart.Events.ENTRIES_LINK_ANNOTATION_CREATED, this.#onNetworkEntriesLinkAnnotationCreated, this);
-    }
+    this.mainFlameChart.addEventListener(
+        PerfUI.FlameChart.Events.ENTRIES_LINK_ANNOTATION_CREATED, this.#onMainEntriesLinkAnnotationCreated, this);
+    this.networkFlameChart.addEventListener(
+        PerfUI.FlameChart.Events.ENTRIES_LINK_ANNOTATION_CREATED, this.#onNetworkEntriesLinkAnnotationCreated, this);
+
+    this.detailsView.addEventListener(TimelineTreeView.Events.TREE_ROW_HOVERED, node => {
+      if (!Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_DIM_UNRELATED_EVENTS)) {
+        return;
+      }
+      const events = node?.data?.events;
+      if (events) {
+        this.#dimInsightRelatedEvents(events);
+      } else {
+        this.mainFlameChart.disableDimming();
+        this.networkFlameChart.disableDimming();
+      }
+    });
 
     /**
      * NOTE: ENTRY_SELECTED, ENTRY_INVOKED and ENTRY_HOVERED are not always super obvious:
@@ -331,6 +372,12 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
       this.updateLinkSelectionAnnotationWithToEntry(this.networkDataProvider, event.data);
     }, this);
 
+    this.#overlays.addEventListener(Overlays.Overlays.EventReferenceClick.eventName, event => {
+      const eventRef = (event as Overlays.Overlays.EventReferenceClick);
+      const fromTraceEvent = selectionFromEvent(eventRef.event);
+      this.openSelectionDetailsView(fromTraceEvent);
+    });
+
     this.element.addEventListener('keydown', this.#keydownHandler.bind(this));
     this.element.addEventListener('pointerdown', this.#pointerDownHandler.bind(this));
     this.#boundRefreshAfterIgnoreList = this.#refreshAfterIgnoreList.bind(this);
@@ -346,6 +393,127 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
 
   containingElement(): HTMLElement {
     return this.element;
+  }
+
+  dimEvents(events: Trace.Types.Events.Event[]): void {
+    const relatedMainIndices = events.map(event => this.mainDataProvider.indexForEvent(event) ?? -1);
+    const relatedNetworkIndices = events.map(event => this.networkDataProvider.indexForEvent(event) ?? -1);
+    this.mainFlameChart.enableDimming(relatedMainIndices, false /** shouldAddOutlines */);
+    this.networkFlameChart.enableDimming(relatedNetworkIndices, false /** shouldAddOutlines */);
+  }
+
+  #dimInsightRelatedEvents(relatedEvents: Trace.Types.Events.Event[]): void {
+    // Dim all events except those related to the active insight.
+    const relatedMainIndices = relatedEvents.map(event => this.mainDataProvider.indexForEvent(event) ?? -1);
+    const relatedNetworkIndices = relatedEvents.map(event => this.networkDataProvider.indexForEvent(event) ?? -1);
+
+    // Further, overlays defining a trace bounds do not dim an event that falls within those bounds.
+    for (const overlay of this.#currentInsightOverlays) {
+      let bounds;
+      if (overlay.type === 'TIMESPAN_BREAKDOWN') {
+        const firstSection = overlay.sections.at(0);
+        const lastSection = overlay.sections.at(-1);
+        if (firstSection && lastSection) {
+          bounds = Trace.Helpers.Timing.traceWindowFromMicroSeconds(firstSection.bounds.min, lastSection.bounds.max);
+        }
+      } else if (overlay.type === 'TIME_RANGE') {
+        bounds = overlay.bounds;
+      }
+
+      if (!bounds) {
+        continue;
+      }
+
+      let provider, relevantEvents;
+
+      // Using a relevant event for the overlay, determine which provider this overlay is for.
+      const overlayEvent = Overlays.Overlays.entriesForOverlay(overlay).at(0);
+      if (overlayEvent) {
+        if (this.mainDataProvider.indexForEvent(overlayEvent) !== null) {
+          provider = this.mainDataProvider;
+          relevantEvents = relatedMainIndices;
+        } else if (this.networkDataProvider.indexForEvent(overlayEvent) !== null) {
+          provider = this.networkDataProvider;
+          relevantEvents = relatedNetworkIndices;
+        }
+      } else if (overlay.type === 'TIMESPAN_BREAKDOWN') {
+        // For this overlay type, if there is no associated event it is rendered on mainFlameChart.
+        provider = this.mainDataProvider;
+        relevantEvents = relatedMainIndices;
+      }
+
+      if (!provider || !relevantEvents) {
+        continue;
+      }
+
+      relevantEvents.push(...provider.search(bounds).map(r => r.index));
+    }
+    this.mainFlameChart.enableDimmingForUnrelatedEntries(relatedMainIndices);
+    this.networkFlameChart.enableDimmingForUnrelatedEntries(relatedNetworkIndices);
+  }
+
+  disableAllDimming(): void {
+    this.mainFlameChart.disableDimming();
+    this.networkFlameChart.disableDimming();
+  }
+
+  #sortMarkersForPreferredVisualOrder(markers: Trace.Types.Events.Event[]): void {
+    markers.sort((m1, m2) => {
+      const m1Index = SORT_ORDER_PAGE_LOAD_MARKERS[m1.name] ?? Infinity;
+      const m2Index = SORT_ORDER_PAGE_LOAD_MARKERS[m2.name] ?? Infinity;
+      return m1Index - m2Index;
+    });
+  }
+
+  setMarkers(parsedTrace: Trace.Handlers.Types.ParsedTrace|null): void {
+    if (!parsedTrace) {
+      return;
+    }
+    // Clear out any markers.
+    this.bulkRemoveOverlays(this.#markers);
+    const markerEvents = parsedTrace.PageLoadMetrics.allMarkerEvents;
+    // Set markers for Navigations, LCP, FCP, DCL, L.
+    const markers = markerEvents.filter(
+        event => event.name === Trace.Types.Events.Name.NAVIGATION_START ||
+            event.name === Trace.Types.Events.Name.MARK_LCP_CANDIDATE ||
+            event.name === Trace.Types.Events.Name.MARK_FCP ||
+            event.name === Trace.Types.Events.Name.MARK_DOM_CONTENT ||
+            event.name === Trace.Types.Events.Name.MARK_LOAD);
+
+    this.#sortMarkersForPreferredVisualOrder(markers);
+    const overlayByTs = new Map<Trace.Types.Timing.MicroSeconds, Overlays.Overlays.TimingsMarker>();
+    markers.forEach(marker => {
+      const adjustedTimestamp = Trace.Helpers.Timing.timeStampForEventAdjustedByClosestNavigation(
+          marker,
+          parsedTrace.Meta.traceBounds,
+          parsedTrace.Meta.navigationsByNavigationId,
+          parsedTrace.Meta.navigationsByFrameId,
+      );
+      // If any of the markers overlap in timing, lets put them on the same marker.
+      let matchingOverlay = false;
+      for (const [ts, overlay] of overlayByTs.entries()) {
+        if (Math.abs(marker.ts - ts) <= TIMESTAMP_THRESHOLD_MS) {
+          overlay.entries.push(marker);
+          matchingOverlay = true;
+          break;
+        }
+      }
+      if (!matchingOverlay) {
+        const overlay = {
+          type: 'TIMINGS_MARKER',
+          entries: [marker],
+          adjustedTimestamp,
+        } as Overlays.Overlays.TimingsMarker;
+        overlayByTs.set(marker.ts, overlay);
+      }
+    });
+    const markerOverlays: Overlays.Overlays.TimingsMarker[] = [...overlayByTs.values()];
+    this.#markers = markerOverlays;
+    if (this.#markers.length === 0) {
+      return;
+    }
+
+    this.bulkAddOverlays(this.#markers);
   }
 
   setOverlays(overlays: Overlays.Overlays.TimelineOverlay[], options: Overlays.Overlays.TimelineOverlaySetOptions):
@@ -374,19 +542,33 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
       this.#expandEntryTrack(entry);
     }
 
+    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_DIM_UNRELATED_EVENTS)) {
+      // The insight's `relatedEvents` property likely already includes the events associated with
+      // and overlay, but just in case not, include both arrays. Duplicates are fine.
+      let relatedEventsList = this.#activeInsight?.model.relatedEvents;
+      if (!relatedEventsList) {
+        relatedEventsList = [];
+      } else if (relatedEventsList instanceof Map) {
+        relatedEventsList = Array.from(relatedEventsList.keys());
+      }
+      this.#dimInsightRelatedEvents([...entries, ...relatedEventsList]);
+    }
+
     if (options.updateTraceWindow) {
       const overlaysBounds = Overlays.Overlays.traceWindowContainingOverlays(this.#currentInsightOverlays);
-      // Trace window covering all overlays expanded by 100% so that the overlays cover 50% of the visible window.
-      const expandedBounds =
-          Trace.Helpers.Timing.expandWindowByPercentOrToOneMillisecond(overlaysBounds, traceBounds, 100);
+      if (overlaysBounds) {
+        // Trace window covering all overlays expanded by 100% so that the overlays cover 50% of the visible window.
+        const expandedBounds =
+            Trace.Helpers.Timing.expandWindowByPercentOrToOneMillisecond(overlaysBounds, traceBounds, 100);
 
-      // Set the timeline visible window and ignore the minimap bounds. This
-      // allows us to pick a visible window even if the overlays are outside of
-      // the current breadcrumb. If this happens, the event listener for
-      // BoundsManager changes in TimelineMiniMap will detect it and activate
-      // the correct breadcrumb for us.
-      TraceBounds.TraceBounds.BoundsManager.instance().setTimelineVisibleWindow(
-          expandedBounds, {ignoreMiniMapBounds: true, shouldAnimate: true});
+        // Set the timeline visible window and ignore the minimap bounds. This
+        // allows us to pick a visible window even if the overlays are outside of
+        // the current breadcrumb. If this happens, the event listener for
+        // BoundsManager changes in TimelineMiniMap will detect it and activate
+        // the correct breadcrumb for us.
+        TraceBounds.TraceBounds.BoundsManager.instance().setTimelineVisibleWindow(
+            expandedBounds, {ignoreMiniMapBounds: true, shouldAnimate: true});
+      }
     }
 
     // Reveal entry if we have one.
@@ -430,10 +612,9 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     this.bulkRemoveOverlays(this.#currentInsightOverlays);
 
     if (!this.#activeInsight) {
-      return;
+      this.mainFlameChart.disableDimming();
+      this.networkFlameChart.disableDimming();
     }
-
-    this.setOverlays(this.#activeInsight.overlays, {updateTraceWindow: true});
   }
 
   /**
@@ -460,25 +641,33 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     }
   }
 
+  addTimestampMarkerOverlay(timestamp: Trace.Types.Timing.MicroSeconds): void {
+    // TIMESTAMP_MARKER is a singleton. If one already exists, it will
+    // be updated instead of creating a new one.
+    this.addOverlay({
+      type: 'TIMESTAMP_MARKER',
+      timestamp,
+    });
+  }
+
+  async removeTimestampMarkerOverlay(): Promise<void> {
+    const removedCount = this.#overlays.removeOverlaysOfType('TIMESTAMP_MARKER');
+    if (removedCount > 0) {
+      // Don't trigger lots of updates on a mouse move if we didn't actually
+      // remove any overlays.
+      await this.#overlays.update();
+    }
+  }
+
   async #processFlameChartMouseMoveEvent(data: PerfUI.FlameChart.EventTypes['MouseMove']): Promise<void> {
     const {mouseEvent, timeInMicroSeconds} = data;
     // If the user is no longer holding shift, remove any existing marker.
     if (!mouseEvent.shiftKey) {
-      const removedCount = this.#overlays.removeOverlaysOfType('CURSOR_TIMESTAMP_MARKER');
-      if (removedCount > 0) {
-        // Don't trigger lots of updates on a mouse move if we didn't actually
-        // remove any overlays.
-        await this.#overlays.update();
-      }
+      await this.removeTimestampMarkerOverlay();
     }
 
     if (!mouseEvent.metaKey && mouseEvent.shiftKey) {
-      // CURSOR_TIMESTAMP_MARKER is a singleton; if one already exists it will
-      // be updated rather than create an entirely new one.
-      this.addOverlay({
-        type: 'CURSOR_TIMESTAMP_MARKER',
-        timestamp: timeInMicroSeconds,
-      });
+      this.addTimestampMarkerOverlay(timeInMicroSeconds);
     }
   }
 
@@ -543,14 +732,14 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
 
     switch (event.key) {
       // ArrowLeft + ArrowRight adjusts the right hand bound (the max) of the time range
-      // Shift + ArrowRight also starts a range if there isn't one already
+      // alt/option + ArrowRight also starts a range if there isn't one already
       case 'ArrowRight': {
         if (!this.#timeRangeSelectionAnnotation) {
-          if (event.shiftKey) {
+          if (event.altKey) {
             let startTime = visibleWindow.min;
             // Prefer the start time of the selected event, if there is one.
             if (this.#currentSelection) {
-              startTime = Trace.Helpers.Timing.millisecondsToMicroseconds(this.#currentSelection.startTime);
+              startTime = rangeForSelection(this.#currentSelection).min;
             }
             this.#createNewTimeRangeFromKeyboard(
                 startTime, Trace.Types.Timing.MicroSeconds(startTime + timeRangeIncrementValue));
@@ -728,7 +917,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
   extensionDataVisibilityChanged(): void {
     this.reset();
     this.setupWindowTimes();
-    this.mainDataProvider.reset(true);
+    this.mainDataProvider.reset();
     this.mainDataProvider.timelineData(true);
     this.refreshMainFlameChart();
   }
@@ -751,31 +940,33 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
    * TODO(crbug.com/346312365): update the type definitions in ChartViewport.ts
    */
   updateRangeSelection(startTime: number, endTime: number): void {
-    this.delegate.select(TimelineSelection.fromRange(startTime, endTime));
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
-      const bounds = Trace.Helpers.Timing.traceWindowFromMilliSeconds(
-          Trace.Types.Timing.MilliSeconds(startTime),
-          Trace.Types.Timing.MilliSeconds(endTime),
-      );
+    this.delegate.select(selectionFromRangeMilliSeconds(
+        Trace.Types.Timing.MilliSeconds(startTime), Trace.Types.Timing.MilliSeconds(endTime)));
 
-      // If the current time range annotation exists, the range selection
-      // for it is in progress and we need to update its bounds.
-      //
-      // When the range selection is finished, the current range is set to null.
-      // If the current selection is null, create a new time range annotations.
-      if (this.#timeRangeSelectionAnnotation) {
-        this.#timeRangeSelectionAnnotation.bounds = bounds;
-        ModificationsManager.activeManager()?.updateAnnotation(this.#timeRangeSelectionAnnotation);
-      } else {
-        this.#timeRangeSelectionAnnotation = {
-          type: 'TIME_RANGE',
-          label: '',
-          bounds,
-        };
-        // Before creating a new range, make sure to delete the empty ranges.
-        ModificationsManager.activeManager()?.deleteEmptyRangeAnnotations();
-        ModificationsManager.activeManager()?.createAnnotation(this.#timeRangeSelectionAnnotation);
-      }
+    // We need to check if the user is updating the range because they are
+    // creating a time range annotation.
+    const bounds = Trace.Helpers.Timing.traceWindowFromMilliSeconds(
+        Trace.Types.Timing.MilliSeconds(startTime),
+        Trace.Types.Timing.MilliSeconds(endTime),
+    );
+
+    // If the current time range annotation exists, the range selection
+    // for it is in progress and we need to update its bounds.
+    //
+    // When the range selection is finished, the current range is set to null.
+    // If the current selection is null, create a new time range annotations.
+    if (this.#timeRangeSelectionAnnotation) {
+      this.#timeRangeSelectionAnnotation.bounds = bounds;
+      ModificationsManager.activeManager()?.updateAnnotation(this.#timeRangeSelectionAnnotation);
+    } else {
+      this.#timeRangeSelectionAnnotation = {
+        type: 'TIME_RANGE',
+        label: '',
+        bounds,
+      };
+      // Before creating a new range, make sure to delete the empty ranges.
+      ModificationsManager.activeManager()?.deleteEmptyRangeAnnotations();
+      ModificationsManager.activeManager()?.createAnnotation(this.#timeRangeSelectionAnnotation);
     }
   }
 
@@ -797,7 +988,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     this.#updateDetailViews();
   }
 
-  setModel(newParsedTrace: Trace.Handlers.Types.ParsedTrace|null, isCpuProfile = false): void {
+  setModel(newParsedTrace: Trace.Handlers.Types.ParsedTrace, isCpuProfile = false): void {
     if (newParsedTrace === this.#parsedTrace) {
       return;
     }
@@ -812,6 +1003,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     this.updateSearchResults(false, false);
     this.refreshMainFlameChart();
     this.#updateFlameCharts();
+    this.setMarkers(newParsedTrace);
   }
 
   setInsights(
@@ -935,7 +1127,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     if (!event || !this.#parsedTrace) {
       return;
     }
-    if (event instanceof Trace.Handlers.ModelHandlers.Frames.TimelineFrame) {
+    if (Trace.Types.Events.isLegacyTimelineFrame(event)) {
       return;
     }
 
@@ -951,8 +1143,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
   }
 
   highlightEvent(event: Trace.Types.Events.Event|null): void {
-    const entryIndex =
-        event ? this.mainDataProvider.entryIndexForSelection(TimelineSelection.fromTraceEvent(event)) : -1;
+    const entryIndex = event ? this.mainDataProvider.entryIndexForSelection(selectionFromEvent(event)) : -1;
     if (entryIndex >= 0) {
       this.mainFlameChart.highlightEntry(entryIndex);
     } else {
@@ -1018,8 +1209,8 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     // AND 2. we have an active time range selection overlay
     // AND 3. The label of the selection is empty
     // then we need to remove it.
-    if ((selection === null || !TimelineSelection.isRangeSelection(selection.object)) &&
-        this.#timeRangeSelectionAnnotation && !this.#timeRangeSelectionAnnotation.label) {
+    if ((selection === null || !selectionIsRange(selection)) && this.#timeRangeSelectionAnnotation &&
+        !this.#timeRangeSelectionAnnotation.label) {
       ModificationsManager.activeManager()?.removeAnnotation(this.#timeRangeSelectionAnnotation);
       this.#timeRangeSelectionAnnotation = null;
     }
@@ -1033,20 +1224,26 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
       void this.detailsView.setSelection(selection);
     }
 
-    // Create the entry selected overlay if the selection represents a frame or trace event (either network, or anything else)
-    if (selection &&
-        (TimelineSelection.isTraceEventSelection(selection.object) ||
-         TimelineSelection.isSyntheticNetworkRequestDetailsEventSelection(selection.object) ||
-         TimelineSelection.isLegacyTimelineFrame(selection.object))) {
+    // Create the entry selected overlay if the selection represents a trace event
+    if (selectionIsEvent(selection)) {
       this.addOverlay({
         type: 'ENTRY_SELECTED',
-        entry: selection.object,
+        entry: selection.event,
       });
     }
 
     if (this.#linkSelectionAnnotation &&
         this.#linkSelectionAnnotation.state === Trace.Types.File.EntriesLinkState.CREATION_NOT_STARTED) {
       this.#clearLinkSelectionAnnotation(true);
+    }
+  }
+
+  // Only opens the details view of a selection. This is used for Timing Markers. Timing markers replace
+  // their entry with a new UI. Becuase of that, thier entries can no longer be "selected" in the timings track,
+  // so if clicked, we only open their details view.
+  openSelectionDetailsView(selection: TimelineSelection|null): void {
+    if (this.detailsView) {
+      void this.detailsView.setSelection(selection);
     }
   }
 
@@ -1076,6 +1273,7 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     }
     void this.#overlays.update();
   }
+
   removeOverlay(removedOverlay: Overlays.Overlays.TimelineOverlay): void {
     this.#overlays.remove(removedOverlay);
     void this.#overlays.update();
@@ -1094,14 +1292,11 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
       dataProvider: TimelineFlameChartDataProvider|TimelineFlameChartNetworkDataProvider,
       event: Common.EventTarget.EventTargetEvent<{entryIndex: number, withLinkCreationButton: boolean}>): void {
     const selection = dataProvider.createSelection(event.data.entryIndex);
-    if (selection &&
-        (TimelineSelection.isTraceEventSelection(selection.object) ||
-         TimelineSelection.isSyntheticNetworkRequestDetailsEventSelection(selection.object) ||
-         TimelineSelection.isLegacyTimelineFrame(selection.object))) {
+    if (selectionIsEvent(selection)) {
       this.setSelectionAndReveal(selection);
       ModificationsManager.activeManager()?.createAnnotation({
         type: 'ENTRY_LABEL',
-        entry: selection.object,
+        entry: selection.event,
         label: '',
       });
       if (event.data.withLinkCreationButton) {
@@ -1130,22 +1325,9 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
 
   #selectionIfTraceEvent(
       index: number, dataProvider: TimelineFlameChartDataProvider|TimelineFlameChartNetworkDataProvider):
-      Trace.Types.Events.Event|Trace.Types.Events.SyntheticNetworkRequest|null {
+      Trace.Types.Events.Event|null {
     const selection = dataProvider.createSelection(index);
-    if (!selection) {
-      return null;
-    }
-
-    if (TimelineSelection.isTraceEventSelection(selection.object) ||
-        TimelineSelection.isSyntheticNetworkRequestDetailsEventSelection(selection.object)) {
-      return selection.object;
-    }
-
-    if (TimelineSelection.isLegacyTimelineFrame(selection.object)) {
-      return selection.object as Trace.Types.Events.LegacyTimelineFrame;
-    }
-
-    return null;
+    return selectionIsEvent(selection) ? selection.event : null;
   }
 
   /**
@@ -1319,11 +1501,11 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     const oldSelectedSearchResult = this.selectedSearchResult;
     delete this.selectedSearchResult;
     this.searchResults = [];
-    this.mainFlameChart.removeSearchResultHighlights();
-    this.networkFlameChart.removeSearchResultHighlights();
     if (!this.searchRegex) {
       return;
     }
+    this.mainFlameChart.removeSearchResultHighlights();
+    this.networkFlameChart.removeSearchResultHighlights();
     const regExpFilter = new TimelineRegExp(this.searchRegex);
     const visibleWindow = traceBoundsState.micro.timelineTraceWindow;
 
@@ -1346,13 +1528,8 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
 
     this.searchableView.updateSearchMatchesCount(this.searchResults.length);
 
-    // To avoid too many highlights when the search regex matches too many entries,
-    // for example, when user only types in "e" as the search query,
-    // We only highlight the search results when the number of matches is less than or equal to 200.
-    if (this.searchResults.length <= MAX_HIGHLIGHTED_SEARCH_ELEMENTS) {
-      this.mainFlameChart.highlightAllEntries(mainMatches.map(m => m.index));
-      this.networkFlameChart.highlightAllEntries(networkMatches.map(m => m.index));
-    }
+    this.mainFlameChart.highlightAllEntries(mainMatches.map(m => m.index));
+    this.networkFlameChart.highlightAllEntries(networkMatches.map(m => m.index));
     if (!shouldJump || !this.searchResults.length) {
       return;
     }
@@ -1391,9 +1568,9 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     delete this.searchResults;
     delete this.selectedSearchResult;
     delete this.searchRegex;
-    this.mainFlameChart.showPopoverForSearchResult(-1);
+    this.mainFlameChart.showPopoverForSearchResult(null);
     this.mainFlameChart.removeSearchResultHighlights();
-    this.networkFlameChart.showPopoverForSearchResult(-1);
+    this.networkFlameChart.showPopoverForSearchResult(null);
     this.networkFlameChart.removeSearchResultHighlights();
   }
 
@@ -1410,6 +1587,10 @@ export class TimelineFlameChartView extends UI.Widget.VBox implements PerfUI.Fla
     } else {
       this.mainFlameChart.hideHighlight();
     }
+  }
+
+  overlays(): Overlays.Overlays.Overlays {
+    return this.#overlays;
   }
 }
 

@@ -81,11 +81,11 @@ export class Toolbar {
 
   constructor(className: string, parentElement?: Element) {
     this.items = [];
-    this.element = (parentElement ? parentElement.createChild('div') : document.createElement('div')) as HTMLElement;
+    this.element = parentElement ? parentElement.createChild('div') : document.createElement('div');
     this.element.className = className;
     this.element.classList.add('toolbar');
     this.enabled = true;
-    this.shadowRoot = createShadowRootWithCoreStyles(this.element, {cssFile: toolbarStyles, delegatesFocus: undefined});
+    this.shadowRoot = createShadowRootWithCoreStyles(this.element, {cssFile: toolbarStyles});
     this.contentElement = this.shadowRoot.createChild('div', 'toolbar-shadow');
   }
 
@@ -923,6 +923,7 @@ export class ToolbarFilter extends ToolbarInput {
 
     const filterIcon = IconButton.Icon.create('filter');
     this.element.prepend(filterIcon);
+    this.element.classList.add('toolbar-filter');
   }
 }
 
@@ -1027,9 +1028,9 @@ export class ToolbarMenuButton extends ToolbarCombobox {
       useSoftMenu: this.useSoftMenu,
       x: this.element.getBoundingClientRect().left,
       y: this.element.getBoundingClientRect().top + this.element.offsetHeight,
-      // Without rAF, pointer events will be un-ignored too early, and a single click causes the
-      // context menu to be closed and immediately re-opened on Windows (https://crbug.com/339560549).
-      onSoftMenuClosed: () => requestAnimationFrame(() => this.element.removeAttribute('aria-expanded')),
+      // Without adding a delay, pointer events will be un-ignored too early, and a single click causes
+      // the context menu to be closed and immediately re-opened on Windows (https://crbug.com/339560549).
+      onSoftMenuClosed: () => setTimeout(() => this.element.removeAttribute('aria-expanded'), 50),
     });
     this.contextMenuHandler(contextMenu);
     this.element.setAttribute('aria-expanded', 'true');
@@ -1103,7 +1104,7 @@ export class ToolbarComboBox extends ToolbarItem<void> {
     const element = document.createElement('span');
     element.classList.add('toolbar-select-container');
     super(element);
-    this.selectElementInternal = (this.element.createChild('select', 'toolbar-item') as HTMLSelectElement);
+    this.selectElementInternal = this.element.createChild('select', 'toolbar-item');
     const dropdownArrowIcon = IconButton.Icon.create('triangle-down', 'toolbar-dropdown-arrow');
     this.element.appendChild(dropdownArrowIcon);
     if (changeHandler) {
@@ -1136,8 +1137,8 @@ export class ToolbarComboBox extends ToolbarItem<void> {
     this.selectElementInternal.appendChild(option);
   }
 
-  createOption(label: string, value?: string): Element {
-    const option = (this.selectElementInternal.createChild('option') as HTMLOptionElement);
+  createOption(label: string, value?: string): HTMLOptionElement {
+    const option = this.selectElementInternal.createChild('option');
     option.text = label;
     if (typeof value !== 'undefined') {
       option.value = value;
@@ -1249,7 +1250,8 @@ export class ToolbarCheckbox extends ToolbarItem<void> {
   inputElement: HTMLInputElement;
 
   constructor(
-      text: string, tooltip?: string, listener?: ((arg0: MouseEvent) => void), jslogContext?: string, small?: boolean) {
+      text: Common.UIString.LocalizedString, tooltip?: Common.UIString.LocalizedString,
+      listener?: ((arg0: MouseEvent) => void), jslogContext?: string, small?: boolean) {
     super(CheckboxLabel.create(text));
     this.element.classList.add('checkbox');
     this.inputElement = (this.element as CheckboxLabel).checkboxElement;
@@ -1286,8 +1288,10 @@ export class ToolbarCheckbox extends ToolbarItem<void> {
 }
 
 export class ToolbarSettingCheckbox extends ToolbarCheckbox {
-  constructor(setting: Common.Settings.Setting<boolean>, tooltip?: string, alternateTitle?: string) {
-    super(alternateTitle || setting.title() || '', tooltip, undefined, setting.name);
+  constructor(
+      setting: Common.Settings.Setting<boolean>, tooltip?: Common.UIString.LocalizedString,
+      alternateTitle?: Common.UIString.LocalizedString) {
+    super(alternateTitle || setting.title(), tooltip, undefined, setting.name);
     bindCheckbox(this.inputElement, setting);
   }
 }

@@ -522,7 +522,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
       const selectedElementCommand = '$0';
       UI.Tooltip.Tooltip.install(
           this.hintElement, i18nString(UIStrings.useSInTheConsoleToReferToThis, {PH1: selectedElementCommand}));
-      UI.ARIAUtils.markAsHidden(this.hintElement);
+      UI.ARIAUtils.setHidden(this.hintElement, true);
     }
   }
 
@@ -537,6 +537,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     if (this.contentElement && !this.aiButtonContainer) {
       this.aiButtonContainer = this.contentElement.createChild('span', 'ai-button-container');
       const floatingButton = new FloatingButton.FloatingButton.FloatingButton({
+        title: action.title(),
         iconName: 'smart-assistant',
       });
       floatingButton.addEventListener('click', ev => {
@@ -797,7 +798,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     const isShadowRoot = this.nodeInternal.isShadowRoot();
 
     const createShortcut = UI.KeyboardShortcut.KeyboardShortcut.shortcutToString.bind(null);
-    const modifier = UI.KeyboardShortcut.Modifiers.CtrlOrMeta;
+    const modifier = UI.KeyboardShortcut.Modifiers.CtrlOrMeta.value;
     const treeOutline = this.treeOutline;
     if (!treeOutline) {
       return;
@@ -996,7 +997,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     removeZeroWidthSpaceRecursive(attribute);
 
     const config = new UI.InplaceEditor.Config(
-        this.attributeEditingCommitted.bind(this), this.editingCancelled.bind(this), attributeName || undefined);
+        this.attributeEditingCommitted.bind(this), this.editingCancelled.bind(this), attributeName);
 
     function postKeyDownFinishHandler(event: Event): string {
       UI.UIUtils.handleElementValueModifications(event, attribute);
@@ -1032,7 +1033,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
       container.textContent = textNode.nodeValue();
     }  // Strip the CSS or JS highlighting if present.
     const config = new UI.InplaceEditor.Config(
-        this.textNodeEditingCommitted.bind(this, textNode), this.editingCancelled.bind(this));
+        this.textNodeEditingCommitted.bind(this, textNode), this.editingCancelled.bind(this), null);
     this.updateEditorHandles(textNodeElement, config);
     const componentSelection = this.listItemElement.getComponentSelection();
     componentSelection && componentSelection.selectAllChildren(textNodeElement);
@@ -1074,8 +1075,13 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     };
 
     function editingCommitted(
-        this: ElementsTreeElement, element: Element, newTagName: string, oldText: string, tagName: string|null,
-        moveDirection: string): void {
+        this: ElementsTreeElement,
+        element: Element,
+        newTagName: string,
+        oldText: string|null,
+        tagName: string|null,
+        moveDirection: string,
+        ): void {
       if (!tagNameElement) {
         return;
       }
@@ -1104,7 +1110,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     return true;
   }
 
-  private updateEditorHandles<T>(element: Element, config?: UI.InplaceEditor.Config<T>): void {
+  private updateEditorHandles<T>(element: Element, config: UI.InplaceEditor.Config<T>): void {
     const editorHandles = UI.InplaceEditor.InplaceEditor.startEditing(element, config);
     if (!editorHandles) {
       this.editing = null;
@@ -1241,7 +1247,12 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   }
 
   private attributeEditingCommitted(
-      element: Element, newText: string, oldText: string, attributeName: string, moveDirection: string): void {
+      element: Element,
+      newText: string,
+      oldText: string|null,
+      attributeName: string|null,
+      moveDirection: string,
+      ): void {
     this.editing = null;
 
     const treeOutline = this.treeOutline;
@@ -1305,7 +1316,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
       }
     }
 
-    if ((attributeName.trim() || newText.trim()) && oldText !== newText) {
+    if (attributeName !== null && (attributeName.trim() || newText.trim()) && oldText !== newText) {
       this.nodeInternal.setAttribute(attributeName, newText, moveToNextAttributeIfNeeded.bind(this));
       return;
     }
@@ -1315,7 +1326,12 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   }
 
   private tagNameEditingCommitted(
-      element: Element, newText: string, oldText: string, tagName: string|null, moveDirection: string): void {
+      element: Element,
+      newText: string,
+      oldText: string|null,
+      tagName: string|null,
+      moveDirection: string,
+      ): void {
     this.editing = null;
     const self = this;
 
@@ -1613,7 +1629,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     }
 
     const hasText = (forceValue || value.length > 0);
-    const attrSpanElement = (parentElement.createChild('span', 'webkit-html-attribute') as HTMLElement);
+    const attrSpanElement = parentElement.createChild('span', 'webkit-html-attribute');
     attrSpanElement.setAttribute(
         'jslog', `${VisualLogging.value(name === 'style' ? 'style-attribute' : 'attribute').track({
           change: true,
@@ -2267,9 +2283,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
         false;
 
     const containerType = styles.get('container-type');
-    const contain = styles.get('contain');
-    const isContainer =
-        SDK.CSSContainerQuery.getQueryAxis(`${containerType} ${contain}`) !== SDK.CSSContainerQuery.QueryAxis.NONE;
+    const isContainer = containerType && containerType !== '' && containerType !== 'normal';
 
     if (isGrid) {
       this.pushGridAdorner(this.tagTypeContext, isSubgrid);

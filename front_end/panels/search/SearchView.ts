@@ -95,7 +95,6 @@ function createSearchToggleButton(iconName: string, jslogContext: string): Butto
   const button = new Buttons.Button.Button();
   button.data = {
     variant: Buttons.Button.Variant.ICON_TOGGLE,
-    size: Buttons.Button.Size.SMALL,
     iconName,
     toggledIconName: iconName,
     toggleType: Buttons.Button.ToggleType.PRIMARY,
@@ -120,7 +119,7 @@ export class SearchView extends UI.Widget.VBox {
   private visiblePane: UI.Widget.Widget|null;
   private readonly searchPanelElement: HTMLElement;
   private readonly searchResultsElement: HTMLElement;
-  protected readonly search: UI.HistoryInput.HistoryInput;
+  protected readonly search: HTMLInputElement;
   protected readonly matchCaseButton: Buttons.Button.Button;
   protected readonly regexButton: Buttons.Button.Button;
   private searchMessageElement: HTMLElement;
@@ -175,7 +174,7 @@ export class SearchView extends UI.Widget.VBox {
     const searchIcon = IconButton.Icon.create('search');
     searchElements.appendChild(searchIcon);
 
-    this.search = UI.HistoryInput.HistoryInput.create();
+    this.search = UI.UIUtils.createHistoryInput('search', 'search-toolbar-input');
     this.search.addEventListener('keydown', event => {
       this.onKeyDown((event as KeyboardEvent));
     });
@@ -183,16 +182,13 @@ export class SearchView extends UI.Widget.VBox {
         'jslog', `${VisualLogging.textField().track({change: true, keydown: 'ArrowUp|ArrowDown|Enter'})}`);
     searchElements.appendChild(this.search);
     this.search.placeholder = i18nString(UIStrings.find);
-    this.search.setAttribute('type', 'search');
     this.search.setAttribute('results', '0');
     this.search.setAttribute('size', '100');
-    this.search.classList.add('search-toolbar-input');
     UI.ARIAUtils.setLabel(this.search, this.search.placeholder);
 
     const clearInputFieldButton = new Buttons.Button.Button();
     clearInputFieldButton.data = {
       variant: Buttons.Button.Variant.ICON,
-      size: Buttons.Button.Size.SMALL,
       iconName: 'cross-circle-filled',
       jslogContext: 'clear-input',
       title: i18nString(UIStrings.clearInput),

@@ -133,7 +133,7 @@ describe('EnhancedTracesParser', () => {
   });
 
   it('captures targets from target rundown events', async function() {
-    const data = enhancedTracesParser.data().data;
+    const data = enhancedTracesParser.data();
     const targets: RehydratingTarget[] = [];
     for (const target of data.keys()) {
       targets.push(target);
@@ -143,11 +143,11 @@ describe('EnhancedTracesParser', () => {
         assert.deepEqual(target, target2);
       }
     }
-    assert.strictEqual(targets.length, 2);
+    assert.lengthOf(targets, 2);
   });
 
   it('captures execution context info', async function() {
-    const data = enhancedTracesParser.data().data;
+    const data = enhancedTracesParser.data();
     let executionContexts: RehydratingExecutionContext[] = [];
     for (const target of data.keys()) {
       const contextsAndScripts = data.get(target);
@@ -157,7 +157,7 @@ describe('EnhancedTracesParser', () => {
         assert.fail('Contexts and Scripts should not be null or undefined');
       }
     }
-    assert.strictEqual(executionContexts.length, 3);
+    assert.lengthOf(executionContexts, 3);
     for (const executionContext of executionContexts) {
       if (executionContext.id === 1 && executionContext.isolate === '12345') {
         assert.deepEqual(executionContext, executionContext1);
@@ -170,7 +170,7 @@ describe('EnhancedTracesParser', () => {
   });
 
   it('captures script info and source text', async function() {
-    const data = enhancedTracesParser.data().data;
+    const data = enhancedTracesParser.data();
     let scripts: RehydratingScript[] = [];
     for (const target of data.keys()) {
       const contextsAndScripts = data.get(target);
@@ -180,7 +180,7 @@ describe('EnhancedTracesParser', () => {
         assert.fail('Contexts and Scripts should not be null or undefined');
       }
     }
-    assert.strictEqual(scripts.length, 3);
+    assert.lengthOf(scripts, 3);
     for (const script of scripts) {
       if (script.scriptId === '1' && script.isolate === '12345') {
         assert.deepEqual(script, script1);
@@ -193,14 +193,14 @@ describe('EnhancedTracesParser', () => {
   });
 
   it('grouped contexts and scripts under the right target', async function() {
-    const data = enhancedTracesParser.data().data;
+    const data = enhancedTracesParser.data();
     for (const target of data.keys()) {
       const contextsAndScripts = data.get(target);
       if (contextsAndScripts) {
         const executionContexts = contextsAndScripts[0];
         const scripts = contextsAndScripts[1];
         if (target.pid === 8050) {
-          assert.strictEqual(executionContexts.length, 2);
+          assert.lengthOf(executionContexts, 2);
           for (const executionContext of executionContexts) {
             // We should be able to get the correct execution context without specifying isolate
             // as the contexts and scripts are grouped under its repsective target already.
@@ -210,7 +210,7 @@ describe('EnhancedTracesParser', () => {
               assert.deepEqual(executionContext, executionContext2);
             }
           }
-          assert.strictEqual(scripts.length, 2);
+          assert.lengthOf(scripts, 2);
           for (const script of scripts) {
             if (script.scriptId === '1') {
               assert.deepEqual(script, script1);
@@ -219,8 +219,8 @@ describe('EnhancedTracesParser', () => {
             }
           }
         } else if (target.pid === 8051) {
-          assert.strictEqual(executionContexts.length, 1);
-          assert.strictEqual(scripts.length, 1);
+          assert.lengthOf(executionContexts, 1);
+          assert.lengthOf(scripts, 1);
           assert.deepEqual(executionContexts[0], executionContext3);
           assert.deepEqual(scripts[0], script3);
         }

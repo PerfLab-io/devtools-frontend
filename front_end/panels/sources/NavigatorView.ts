@@ -1120,6 +1120,13 @@ export class NavigatorView extends UI.Widget.VBox implements SDK.TargetManager.O
               project.remove();
             }
           }, {jslogContext: 'remove-folder-from-workspace'});
+
+          if (UI.ActionRegistry.ActionRegistry.instance().hasAction('ai-assistance.filesystem')) {
+            contextMenu.headerSection().appendAction(
+                'ai-assistance.filesystem',
+            );
+            UI.Context.Context.instance().setFlavor(Persistence.FileSystemWorkspaceBinding.FileSystem, project);
+          }
         }
       } else {
         if (!(node instanceof NavigatorGroupTreeNode)) {
@@ -1410,10 +1417,15 @@ export class NavigatorSourceTreeElement extends UI.TreeOutline.TreeElement {
     if (!UI.ActionRegistry.ActionRegistry.instance().hasAction('drjones.sources-floating-button')) {
       return;
     }
+    if (!this.uiSourceCode.contentType().isTextType() ||
+        Snippets.ScriptSnippetFileSystem.isSnippetsUISourceCode(this.uiSourceCode)) {
+      return;
+    }
     const action = UI.ActionRegistry.ActionRegistry.instance().getAction('drjones.sources-floating-button');
     if (!this.aiButtonContainer) {
       this.aiButtonContainer = this.listItemElement.createChild('span', 'ai-button-container');
       const floatingButton = new FloatingButton.FloatingButton.FloatingButton({
+        title: action.title(),
         iconName: 'smart-assistant',
       });
       floatingButton.addEventListener('click', ev => {
@@ -1762,7 +1774,7 @@ export class NavigatorUISourceCodeTreeNode extends NavigatorTreeNode {
     }
   }
 
-  rename(callback?: ((arg0: boolean) => void)): void {
+  rename(callback?: ((committed: boolean) => void)): void {
     if (!this.treeElement) {
       return;
     }
@@ -1777,21 +1789,19 @@ export class NavigatorUISourceCodeTreeNode extends NavigatorTreeNode {
     const treeOutlineElement = this.treeElement.treeOutline.element;
     UI.UIUtils.markBeingEdited(treeOutlineElement, true);
 
-    function commitHandler(
-        this: NavigatorUISourceCodeTreeNode, element: Element, newTitle: string, oldTitle: string): void {
+    const commitHandler = (_element: Element, newTitle: string, oldTitle: string|null): void => {
       if (newTitle !== oldTitle) {
         if (this.treeElement) {
           this.treeElement.title = newTitle;
         }
         // necessary cast to RawPathString as alternative would be altering type of Config<T>
-        void this.uiSourceCodeInternal.rename(newTitle as Platform.DevToolsPath.RawPathString)
-            .then(renameCallback.bind(this));
+        void this.uiSourceCodeInternal.rename(newTitle as Platform.DevToolsPath.RawPathString).then(renameCallback);
         return;
       }
-      afterEditing.call(this, true);
-    }
+      afterEditing(true);
+    };
 
-    function renameCallback(this: NavigatorUISourceCodeTreeNode, success: boolean): void {
+    const renameCallback = (success: boolean): void => {
       if (!success) {
         UI.UIUtils.markBeingEdited(treeOutlineElement, false);
         this.updateTitle();
@@ -1806,20 +1816,20 @@ export class NavigatorUISourceCodeTreeNode extends NavigatorTreeNode {
           this.treeElement.select();
         }
       }
-      afterEditing.call(this, true);
-    }
+      afterEditing(true);
+    };
 
-    function afterEditing(this: NavigatorUISourceCodeTreeNode, committed: boolean): void {
+    const afterEditing = (committed: boolean): void => {
       UI.UIUtils.markBeingEdited(treeOutlineElement, false);
       this.updateTitle();
       if (callback) {
         callback(committed);
       }
-    }
+    };
 
     this.updateTitle(true);
     this.treeElement.startEditingTitle(
-        new UI.InplaceEditor.Config(commitHandler.bind(this), afterEditing.bind(this, false)));
+        new UI.InplaceEditor.Config(commitHandler, () => afterEditing(false), undefined));
   }
 }
 

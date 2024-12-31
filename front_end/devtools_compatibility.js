@@ -423,7 +423,6 @@ const EnumeratedHistogram = {
   Language: 'DevTools.Language',
   LighthouseModeRun: 'DevTools.LighthouseModeRun',
   LighthouseCategoryUsed: 'DevTools.LighthouseCategoryUsed',
-  ManifestSectionSelected: 'DevTools.ManifestSectionSelected',
   PanelShown: 'DevTools.PanelShown',
   PanelShownInLocation: 'DevTools.PanelShownInLocation',
   RecordingAssertion: 'DevTools.RecordingAssertion',
@@ -439,17 +438,13 @@ const EnumeratedHistogram = {
   SourcesPanelFileDebugged: 'DevTools.SourcesPanelFileDebugged',
   SourcesPanelFileOpened: 'DevTools.SourcesPanelFileOpened',
   NetworkPanelResponsePreviewOpened: 'DevTools.NetworkPanelResponsePreviewOpened',
+  TimelineNavigationSettingState: 'DevTools.TimelineNavigationSettingState',
   StyleTextCopied: 'DevTools.StyleTextCopied',
   SyncSetting: 'DevTools.SyncSetting',
-  ColorPickerOpenedFrom: 'DevTools.ColorPickerOpenedFrom',
   CSSPropertyDocumentation: 'DevTools.CSSPropertyDocumentation',
   SwatchActivated: 'DevTools.SwatchActivated',
   AnimationPlaybackRateChanged: 'DevTools.AnimationPlaybackRateChanged',
   AnimationPointDragged: 'DevTools.AnimationPointDragged',
-  LegacyResourceTypeFilterNumberOfSelectedChanged: 'DevTools.LegacyResourceTypeFilterNumberOfSelectedChanged',
-  LegacyResourceTypeFilterItemSelected: 'DevTools.LegacyResourceTypeFilterItemSelected',
-  ResourceTypeFilterNumberOfSelectedChanged: 'DevTools.ResourceTypeFilterNumberOfSelectedChanged',
-  ResourceTypeFilterItemSelected: 'DevTools.ResourceTypeFilterItemSelected',
 };
 
 /**

@@ -18,6 +18,7 @@ devtools_module("card") {
   deps = [
     "../../../core/common:bundle",
     "../../../ui/lit-html:bundle",
+    "../icon_button:bundle",
   ]
 }
 
@@ -29,7 +30,9 @@ devtools_entrypoint("bundle") {
     ":css_files",
   ]
 
-  visibility = default_components_visibility
+  visibility = [ "../../../models/persistence/*" ]
+
+  visibility += default_components_visibility
 }
 
 ts_library("unittests") {

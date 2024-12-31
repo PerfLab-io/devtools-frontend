@@ -587,7 +587,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
 
     const filterItems =
         Object.entries(Common.ResourceType.resourceCategories).map(([key, category]) => ({
-                                                                     name: category.title(),
+                                                                     name: category.name,
                                                                      label: () => category.shortTitle(),
                                                                      title: category.title(),
                                                                      jslogContext:
@@ -1144,7 +1144,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
         this.handleContextMenuForRequest(contextMenu, request);
       }
     });
-    this.dataGrid.setStickToBottom(true);
+    this.dataGrid.setEnableAutoScrollToBottom(true);
     this.dataGrid.setName('network-log');
     this.dataGrid.setResizeMethod(DataGrid.DataGrid.ResizeMethod.LAST);
     this.dataGrid.element.classList.add('network-log-grid');
@@ -1272,26 +1272,26 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
       this.summaryToolbarInternal.appendSeparator();
       appendChunk(
           i18nString(UIStrings.sSTransferred, {
-            PH1: Platform.NumberUtilities.bytesToString(selectedTransferSize),
-            PH2: Platform.NumberUtilities.bytesToString(transferSize),
+            PH1: i18n.ByteUtilities.bytesToString(selectedTransferSize),
+            PH2: i18n.ByteUtilities.bytesToString(transferSize),
           }),
           i18nString(UIStrings.sBSBTransferredOverNetwork, {PH1: selectedTransferSize, PH2: transferSize}));
       this.summaryToolbarInternal.appendSeparator();
       appendChunk(
           i18nString(UIStrings.sSResources, {
-            PH1: Platform.NumberUtilities.bytesToString(selectedResourceSize),
-            PH2: Platform.NumberUtilities.bytesToString(resourceSize),
+            PH1: i18n.ByteUtilities.bytesToString(selectedResourceSize),
+            PH2: i18n.ByteUtilities.bytesToString(resourceSize),
           }),
           i18nString(UIStrings.sBSBResourcesLoadedByThePage, {PH1: selectedResourceSize, PH2: resourceSize}));
     } else {
       appendChunk(i18nString(UIStrings.sRequests, {PH1: nodeCount}));
       this.summaryToolbarInternal.appendSeparator();
       appendChunk(
-          i18nString(UIStrings.sTransferred, {PH1: Platform.NumberUtilities.bytesToString(transferSize)}),
+          i18nString(UIStrings.sTransferred, {PH1: i18n.ByteUtilities.bytesToString(transferSize)}),
           i18nString(UIStrings.sBTransferredOverNetwork, {PH1: transferSize}));
       this.summaryToolbarInternal.appendSeparator();
       appendChunk(
-          i18nString(UIStrings.sResources, {PH1: Platform.NumberUtilities.bytesToString(resourceSize)}),
+          i18nString(UIStrings.sResources, {PH1: i18n.ByteUtilities.bytesToString(resourceSize)}),
           i18nString(UIStrings.sBResourcesLoadedByThePage, {PH1: resourceSize}));
     }
 
@@ -1595,7 +1595,6 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
 
     this.dataGrid.rootNode().removeChildren();
     this.updateSummaryBar();
-    this.dataGrid.setStickToBottom(true);
     this.scheduleRefresh();
   }
 
@@ -1822,7 +1821,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     copyMenu.footerSection().appendItem(
         filtered ? i18nString(UIStrings.copyAllListedAsHarSanitized) : i18nString(UIStrings.copyAllAsHarSanitized),
         this.copyAllAsHAR.bind(this, {sanitize: true}), {jslogContext: 'copy-all-as-har'});
-    if (this.networkShowOptionsToGenerateHarWithSensitiveData) {
+    if (this.networkShowOptionsToGenerateHarWithSensitiveData.get()) {
       copyMenu.footerSection().appendItem(
           filtered ? i18nString(UIStrings.copyAllListedAsHarWithSensitiveData) :
                      i18nString(UIStrings.copyAllAsHarWithSensitiveData),
@@ -2000,7 +1999,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     if (this.timeFilter && !this.timeFilter(request)) {
       return false;
     }
-    const categoryName = request.resourceType().category().title();
+    const categoryName = request.resourceType().category().name;
     if (!this.resourceCategoryFilterUI.accept(categoryName)) {
       return false;
     }
@@ -2460,13 +2459,16 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
       if (ignoredHeaders.has(name.toLowerCase())) {
         continue;
       }
-      if (header.value.trim()) {
-        command.push('-H ' + escapeString(name + ': ' + header.value));
-      } else {
+      const value = header.value;
+      if (!value.trim()) {
         // A header passed with -H with no value or only whitespace as its
         // value tells curl to not set the header at all. To post an empty
         // header, you have to terminate it with a semicolon.
         command.push('-H ' + escapeString(name + ';'));
+      } else if (name.toLowerCase() === 'cookie') {
+        command.push('-b ' + escapeString(value));
+      } else {
+        command.push('-H ' + escapeString(name + ': ' + value));
       }
     }
     command = command.concat(data);
@@ -2587,11 +2589,11 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
   }
 
   static getDCLEventColor(): string {
-    return '--sys-color-token-attribute-value';
+    return '--sys-color-blue';
   }
 
   static getLoadEventColor(): string {
-    return '--sys-color-token-property-special';
+    return '--sys-color-error';
   }
 }
 
@@ -2649,7 +2651,6 @@ export class MoreFiltersDropDownUI extends
   private contextMenu?: UI.ContextMenu.ContextMenu;
   private activeFiltersCount: HTMLElement;
   private activeFiltersCountAdorner: Adorners.Adorner.Adorner;
-  private hasChanged = false;
 
   constructor() {
     super();
@@ -2689,13 +2690,11 @@ export class MoreFiltersDropDownUI extends
   }
 
   #onSettingChanged(): void {
-    this.hasChanged = true;
     this.dispatchEventToListeners(UI.FilterBar.FilterUIEvents.FILTER_CHANGED);
   }
 
   showMoreFiltersContextMenu(event: Common.EventTarget.EventTargetEvent<Event>): void {
     const mouseEvent = event.data;
-    this.hasChanged = false;
 
     this.networkHideDataURLSetting.addChangeListener(this.#onSettingChanged.bind(this));
     this.networkHideChromeExtensionsSetting.addChangeListener(this.#onSettingChanged.bind(this));

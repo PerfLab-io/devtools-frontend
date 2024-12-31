@@ -150,15 +150,13 @@ describeWithEnvironment('Overlays', () => {
     // Set the visible window to be the entire trace.
     overlays.updateVisibleWindow(parsedTrace.Meta.traceBounds);
 
-    // Find an event on the main chart that is not a frame (you cannot add overlays to frames)
     const event = charts.mainProvider.eventByIndex?.(50);
-    assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
     assert.isOk(event);
     const yPixel = overlays.yPixelForEventOnChart(event);
-    // The Y offset for the main chart is 233px, but we add 208px on (200px for the
+    // The Y offset for the main chart is 280px, but we add 208px on (200px for the
     // network chart, and 8px for the re-size handle) giving us the expected
     // 441px.
-    assert.strictEqual(yPixel, 441);
+    assert.strictEqual(yPixel, 488);
   });
 
   it('can adjust the y position of a main chart event when the network track is collapsed', async function() {
@@ -197,15 +195,13 @@ describeWithEnvironment('Overlays', () => {
     // Set the visible window to be the entire trace.
     overlays.updateVisibleWindow(parsedTrace.Meta.traceBounds);
 
-    // Find an event on the main chart that is not a frame (you cannot add overlays to frames)
     const event = charts.mainProvider.eventByIndex?.(50);
-    assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
     assert.isOk(event);
     const yPixel = overlays.yPixelForEventOnChart(event);
-    // The Y offset for the main chart is 233px, but we add 34px on (the height
+    // The Y offset for the main chart is 280px, but we add 34px on (the height
     // of the collapsed network chart, with no resizer bar as it is hidden when
-    // the network track is collapsed). This gives us 233+34 = 267.
-    assert.strictEqual(yPixel, 267);
+    // the network track is collapsed). This gives us 280+34 = 314.
+    assert.strictEqual(yPixel, 314);
   });
 
   it('can calculate the y position of a network chart event', async function() {
@@ -321,7 +317,6 @@ describeWithEnvironment('Overlays', () => {
       const {overlays, container, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       const event = charts.mainProvider.eventByIndex?.(50);
       assert.isOk(event);
-      assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
 
       overlays.add({
         type: 'ENTRY_SELECTED',
@@ -334,7 +329,7 @@ describeWithEnvironment('Overlays', () => {
       assert.isOk(overlayDOM);
     });
 
-    it('does not render an ENTRY_OUTLINE if the entry is also the ENTRY_SELECTED entry', async function() {
+    it('renders an ENTRY_OUTLINE even if the entry is also the ENTRY_SELECTED entry', async function() {
       const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev.json.gz');
       const {overlays, container, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       const event = charts.mainProvider.eventByIndex?.(50);
@@ -356,9 +351,9 @@ describeWithEnvironment('Overlays', () => {
         entry: event,
       });
       await overlays.update();
-      const outlineNowHidden =
-          container.querySelector<HTMLElement>('.overlay-type-ENTRY_OUTLINE')?.style.display === 'none';
-      assert.isTrue(outlineNowHidden, 'The ENTRY_OUTLINE should be hidden');
+      const outlineStillVisible =
+          container.querySelector<HTMLElement>('.overlay-type-ENTRY_OUTLINE')?.style.display === 'block';
+      assert.isTrue(outlineStillVisible, 'The ENTRY_OUTLINE should be visible');
     });
 
     it('only ever renders a single selected overlay', async function() {
@@ -390,7 +385,6 @@ describeWithEnvironment('Overlays', () => {
       const {overlays, container, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       const event = charts.mainProvider.eventByIndex?.(50);
       assert.isOk(event);
-      assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
 
       overlays.add({
         type: 'ENTRY_LABEL',
@@ -404,15 +398,15 @@ describeWithEnvironment('Overlays', () => {
       assert.isOk(overlayDOM);
     });
 
-    it('only renders one CURSOR_TIMESTAMP_MARKER as it is a singleton', async function() {
+    it('only renders one TIMESTAMP_MARKER as it is a singleton', async function() {
       const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev.json.gz');
       const {overlays, container} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       overlays.add({
-        type: 'CURSOR_TIMESTAMP_MARKER',
+        type: 'TIMESTAMP_MARKER',
         timestamp: parsedTrace.Meta.traceBounds.min,
       });
       overlays.add({
-        type: 'CURSOR_TIMESTAMP_MARKER',
+        type: 'TIMESTAMP_MARKER',
         timestamp: parsedTrace.Meta.traceBounds.max,
       });
       await overlays.update();
@@ -424,7 +418,6 @@ describeWithEnvironment('Overlays', () => {
       const {overlays, container, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       const event = charts.mainProvider.eventByIndex?.(50);
       assert.isOk(event);
-      assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
 
       overlays.add({
         type: 'ENTRY_LABEL',
@@ -452,7 +445,6 @@ describeWithEnvironment('Overlays', () => {
       const {overlays, container, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       const event = charts.mainProvider.eventByIndex?.(50);
       assert.isOk(event);
-      assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
 
       // Create an entry label overlay
       overlays.add({
@@ -493,7 +485,6 @@ describeWithEnvironment('Overlays', () => {
       const {overlays, container, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       const event = charts.mainProvider.eventByIndex?.(50);
       assert.isOk(event);
-      assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
 
       // Create a time range overlay with an empty label
       overlays.add({
@@ -525,7 +516,7 @@ describeWithEnvironment('Overlays', () => {
       labelBox.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', cancelable: true, bubbles: true}));
 
       // Ensure that the entry overlay has been removed because it was saved empty
-      assert.strictEqual(overlays.overlaysOfType('TIME_RANGE').length, 0);
+      assert.lengthOf(overlays.overlaysOfType('TIME_RANGE'), 0);
     });
 
     it('Inputting `Enter` into time range label field when the label is not empty does not remove the overlay',
@@ -534,7 +525,6 @@ describeWithEnvironment('Overlays', () => {
          const {overlays, container, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
          const event = charts.mainProvider.eventByIndex?.(50);
          assert.isOk(event);
-         assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
 
          // Create a time range overlay with a label
          overlays.add({
@@ -566,7 +556,7 @@ describeWithEnvironment('Overlays', () => {
          labelBox.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', cancelable: true, bubbles: true}));
 
          // Ensure that the entry overlay has not been because it was has a non-empty label
-         assert.strictEqual(overlays.overlaysOfType('TIME_RANGE').length, 1);
+         assert.lengthOf(overlays.overlaysOfType('TIME_RANGE'), 1);
        });
 
     it('Can create multiple Time Range Overlays for Time Range annotations', async function() {
@@ -574,7 +564,6 @@ describeWithEnvironment('Overlays', () => {
       const {overlays, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       const event = charts.mainProvider.eventByIndex?.(50);
       assert.isOk(event);
-      assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
 
       Timeline.ModificationsManager.ModificationsManager.activeManager()?.createAnnotation({
         type: 'TIME_RANGE',
@@ -589,7 +578,7 @@ describeWithEnvironment('Overlays', () => {
       });
       await overlays.update();
 
-      assert.strictEqual(overlays.overlaysOfType('TIME_RANGE').length, 2);
+      assert.lengthOf(overlays.overlaysOfType('TIME_RANGE'), 2);
     });
 
     it('Removes empty label if it is empty when navigated away from (removed focused from)', async function() {
@@ -623,14 +612,14 @@ describeWithEnvironment('Overlays', () => {
       inputField.dispatchEvent(new FocusEvent('dblclick', {bubbles: true}));
 
       // Ensure that the entry has 1 overlay
-      assert.strictEqual(overlays.overlaysForEntry(event).length, 1);
+      assert.lengthOf(overlays.overlaysForEntry(event), 1);
 
       // Change the content to not editable by changing the element blur like when clicking outside of it.
       // The label is empty since no initial value was passed into it and no characters were entered.
       inputField.dispatchEvent(new FocusEvent('blur', {bubbles: true}));
 
       // Ensure that the entry overlay has been removed because it was saved empty
-      assert.strictEqual(overlays.overlaysForEntry(event).length, 0);
+      assert.lengthOf(overlays.overlaysForEntry(event), 0);
     });
 
     it('Update label overlay when the label changes', async function() {
@@ -737,7 +726,7 @@ describeWithEnvironment('Overlays', () => {
       await overlays.update();
       const overlayDOM = container.querySelector<HTMLElement>('.overlay-type-ENTRY_SELECTED');
       assert.isOk(overlayDOM);
-      assert.strictEqual(window.parseInt(overlayDOM.style.width), 2);
+      assert.strictEqual(window.parseInt(overlayDOM.style.width), 17);
     });
 
     it('renders the duration and label for a time range overlay', async function() {
@@ -767,7 +756,6 @@ describeWithEnvironment('Overlays', () => {
       const {overlays, container, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       const event = charts.mainProvider.eventByIndex?.(50);
       assert.isOk(event);
-      assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
 
       const selectedOverlay = overlays.add({
         type: 'ENTRY_SELECTED',
@@ -786,7 +774,6 @@ describeWithEnvironment('Overlays', () => {
       const {overlays, container, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       const timelineFrame = charts.mainProvider.eventByIndex?.(5);
       assert.isOk(timelineFrame);
-      assert.instanceOf(timelineFrame, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
 
       overlays.add({
         type: 'ENTRY_SELECTED',
@@ -804,14 +791,12 @@ describeWithEnvironment('Overlays', () => {
       const {overlays, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
       const event = charts.mainProvider.eventByIndex?.(50);
       assert.isOk(event);
-      assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
 
       overlays.add({
         type: 'ENTRY_SELECTED',
         entry: event,
       });
 
-      assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
       const existingOverlays = overlays.overlaysForEntry(event);
       assert.deepEqual(existingOverlays, [{
                          type: 'ENTRY_SELECTED',
@@ -825,7 +810,6 @@ describeWithEnvironment('Overlays', () => {
       const event = charts.mainProvider.eventByIndex?.(50);
       assert.isOk(event);
 
-      assert.notInstanceOf(event, Trace.Handlers.ModelHandlers.Frames.TimelineFrame);
       overlays.add({
         type: 'ENTRY_SELECTED',
         entry: event,
@@ -927,8 +911,17 @@ describeWithEnvironment('Overlays', () => {
         outlineReason: 'INFO',
       };
       const traceWindow = Overlays.Overlays.traceWindowContainingOverlays([overlay1, overlay2]);
+      if (!traceWindow) {
+        throw new Error('No trace window for overlays');
+      }
+
       assert.strictEqual(traceWindow.min, 0);
       assert.strictEqual(traceWindow.max, 105);
+    });
+
+    it('returns null for no overlays', () => {
+      const traceWindow = Overlays.Overlays.traceWindowContainingOverlays([]);
+      assert.isNull(traceWindow);
     });
   });
 
@@ -995,8 +988,8 @@ describeWithEnvironment('Overlays', () => {
     });
 
     it('defines a log for cursor timestamp marker', () => {
-      const overlay: Overlays.Overlays.CursorTimestampMarker = {
-        type: 'CURSOR_TIMESTAMP_MARKER',
+      const overlay: Overlays.Overlays.TimestampMarker = {
+        type: 'TIMESTAMP_MARKER',
         timestamp: 1_000 as Trace.Types.Timing.MicroSeconds,
       };
       const context = Overlays.Overlays.jsLogContext(overlay);

@@ -182,6 +182,11 @@ export class UserMetrics {
         EnumeratedHistogram.ExperimentEnabledAtLaunch, experiment, DevtoolsExperiments.MAX_VALUE);
   }
 
+  navigationSettingAtFirstTimelineLoad(state: TimelineNavigationSetting): void {
+    InspectorFrontendHostInstance.recordEnumeratedHistogram(
+        EnumeratedHistogram.TimelineNavigationSettingState, state, TimelineNavigationSetting.MAX_VALUE);
+  }
+
   experimentDisabledAtLaunch(experimentId: string): void {
     const experiment = DevtoolsExperiments[experimentId as keyof typeof DevtoolsExperiments];
     if (experiment === undefined) {
@@ -290,13 +295,6 @@ export class UserMetrics {
         EnumeratedHistogram.StyleTextCopied, value, StyleTextCopied.MAX_VALUE);
   }
 
-  manifestSectionSelected(sectionTitle: string): void {
-    const code =
-        ManifestSectionCodes[sectionTitle as keyof typeof ManifestSectionCodes] || ManifestSectionCodes.OtherSection;
-    InspectorFrontendHostInstance.recordEnumeratedHistogram(
-        EnumeratedHistogram.ManifestSectionSelected, code, ManifestSectionCodes.MAX_VALUE);
-  }
-
   cssHintShown(type: CSSHintType): void {
     InspectorFrontendHostInstance.recordEnumeratedHistogram(
         EnumeratedHistogram.CSSHintShown, type, CSSHintType.MAX_VALUE);
@@ -310,11 +308,6 @@ export class UserMetrics {
   lighthouseCategoryUsed(type: LighthouseCategoryUsed): void {
     InspectorFrontendHostInstance.recordEnumeratedHistogram(
         EnumeratedHistogram.LighthouseCategoryUsed, type, LighthouseCategoryUsed.MAX_VALUE);
-  }
-
-  colorPickerOpenedFrom(type: ColorPickerOpenedFrom): void {
-    InspectorFrontendHostInstance.recordEnumeratedHistogram(
-        EnumeratedHistogram.ColorPickerOpenedFrom, type, ColorPickerOpenedFrom.MAX_VALUE);
   }
 
   cssPropertyDocumentation(type: CSSPropertyDocumentation): void {
@@ -345,36 +338,6 @@ export class UserMetrics {
   visualLoggingProcessingDone(timeInMilliseconds: number): void {
     InspectorFrontendHostInstance.recordPerformanceHistogram(
         'DevTools.VisualLogging.ProcessingTime', timeInMilliseconds);
-  }
-
-  legacyResourceTypeFilterNumberOfSelectedChanged(itemCount: number): void {
-    const boundItemCount = Math.max(Math.min(itemCount, ResourceType.MAX_VALUE - 1), 1);
-    InspectorFrontendHostInstance.recordEnumeratedHistogram(
-        EnumeratedHistogram.LegacyResourceTypeFilterNumberOfSelectedChanged, boundItemCount, ResourceType.MAX_VALUE);
-  }
-
-  legacyResourceTypeFilterItemSelected(resourceTypeName: string): void {
-    const resourceType = ResourceType[resourceTypeName as keyof typeof ResourceType];
-    if (resourceType === undefined) {
-      return;
-    }
-    InspectorFrontendHostInstance.recordEnumeratedHistogram(
-        EnumeratedHistogram.LegacyResourceTypeFilterItemSelected, resourceType, ResourceType.MAX_VALUE);
-  }
-
-  resourceTypeFilterNumberOfSelectedChanged(itemCount: number): void {
-    const boundItemCount = Math.max(Math.min(itemCount, ResourceType.MAX_VALUE - 1), 1);
-    InspectorFrontendHostInstance.recordEnumeratedHistogram(
-        EnumeratedHistogram.ResourceTypeFilterNumberOfSelectedChanged, boundItemCount, ResourceType.MAX_VALUE);
-  }
-
-  resourceTypeFilterItemSelected(resourceTypeName: string): void {
-    const resourceType = ResourceType[resourceTypeName as keyof typeof ResourceType];
-    if (resourceType === undefined) {
-      return;
-    }
-    InspectorFrontendHostInstance.recordEnumeratedHistogram(
-        EnumeratedHistogram.ResourceTypeFilterItemSelected, resourceType, ResourceType.MAX_VALUE);
   }
 
   freestylerQueryLength(numberOfCharacters: number): void {
@@ -545,8 +508,8 @@ export enum Action {
   AnimationGroupSelected = 142,
   ScrollDrivenAnimationGroupSelected = 143,
   ScrollDrivenAnimationGroupScrubbed = 144,
-  FreestylerOpenedFromElementsPanel = 145,
-  FreestylerOpenedFromStylesTab = 146,
+  AiAssistanceOpenedFromElementsPanel = 145,
+  AiAssistanceOpenedFromStylesTab = 146,
   ConsoleFilterByContext = 147,
   ConsoleFilterBySource = 148,
   ConsoleFilterByUrl = 149,
@@ -569,12 +532,20 @@ export enum Action {
   InsightsReminderTeaserSettingsLinkClicked = 166,
   InsightsReminderTeaserAbortedInSettings = 167,
   GeneratingInsightWithoutDisclaimer = 168,
-  FreestylerOpenedFromElementsPanelFloatingButton = 169,
-  DrJonesOpenedFromNetworkPanel = 170,
-  DrJonesOpenedFromSourcesPanel = 171,
-  DrJonesOpenedFromSourcesPanelFloatingButton = 172,
-  DrJonesOpenedFromPerformancePanel = 173,
-  MAX_VALUE = 174,
+  AiAssistanceOpenedFromElementsPanelFloatingButton = 169,
+  AiAssistanceOpenedFromNetworkPanel = 170,
+  AiAssistanceOpenedFromSourcesPanel = 171,
+  AiAssistanceOpenedFromSourcesPanelFloatingButton = 172,
+  AiAssistanceOpenedFromPerformancePanel = 173,
+  AiAssistanceOpenedFromNetworkPanelFloatingButton = 174,
+  AiAssistancePanelOpened = 175,
+  AiAssistanceQuerySubmitted = 176,
+  AiAssistanceAnswerReceived = 177,
+  AiAssistanceDynamicSuggestionClicked = 178,
+  AiAssistanceSideEffectConfirmed = 179,
+  AiAssistanceSideEffectRejected = 180,
+  AiAssistanceError = 181,
+  MAX_VALUE = 182,
   /* eslint-enable @typescript-eslint/naming-convention */
 }
 
@@ -971,8 +942,9 @@ export enum KeyboardShortcutAction {
   'elements.refresh-event-listeners' = 115,
   'coverage.clear' = 116,
   'coverage.export' = 117,
+  'timeline.dim-third-parties' = 118,
   /* eslint-enable @typescript-eslint/naming-convention */
-  MAX_VALUE = 118,
+  MAX_VALUE = 119,
 }
 
 export const enum IssueOpener {
@@ -1017,23 +989,16 @@ export enum DevtoolsExperiments {
   'timeline-enhanced-traces' = 90,
   'timeline-compiled-sources' = 91,
   'timeline-debug-mode' = 93,
-  'perf-panel-annotations' = 94,
-  'timeline-rpp-sidebar' = 95,
-  'timeline-observations' = 96,
   'timeline-server-timings' = 98,
-  'extension-storage-viewer' = 100,
   'floating-entry-points-for-ai-assistance' = 101,
   'timeline-experimental-insights' = 102,
+  'timeline-dim-unrelated-events' = 103,
+  'timeline-alternative-navigation' = 104,
+  'timeline-third-party-dependencies' = 106,
   /* eslint-enable @typescript-eslint/naming-convention */
 
   // Increment this when new experiments are added.
-  MAX_VALUE = 103,
-}
-
-export const enum ColorPickerOpenedFrom {
-  SOURCES_PANEL = 0,
-  STYLES_TAB = 1,
-  MAX_VALUE = 2,
+  MAX_VALUE = 107,
 }
 
 export const enum CSSPropertyDocumentation {
@@ -1187,24 +1152,6 @@ export const enum DeveloperResourceScheme {
   FILE = 7,
   BLOB = 8,
   MAX_VALUE = 9,
-}
-
-export enum ResourceType {
-  /* eslint-disable @typescript-eslint/naming-convention -- Used by web_tests. */
-  all = 0,
-  Document = 1,
-  JavaScript = 2,
-  'Fetch and XHR' = 3,
-  CSS = 4,
-  Font = 5,
-  Image = 6,
-  Media = 7,
-  Manifest = 8,
-  WebSocket = 9,
-  WebAssembly = 10,
-  Other = 11,
-  /* eslint-enable @typescript-eslint/naming-convention */
-  MAX_VALUE = 12,
 }
 
 export enum Language {
@@ -1489,4 +1436,14 @@ export const enum AnimationPointDragType {
   FINISH_ENDPOINT_MOVE = 3,
   OTHER = 4,
   MAX_VALUE = 5,
+}
+
+export const enum TimelineNavigationSetting {
+  // Setting is set to classic when the first trace of the session is recorded or loaded.
+  CLASSIC_AT_SESSION_FIRST_TRACE = 0,
+  // Setting is set to modern when the first trace of the session is recorded or loaded.
+  MODERN_AT_SESSION_FIRST_TRACE = 1,
+  SWITCHED_TO_CLASSIC = 2,
+  SWITCHED_TO_MODERN = 3,
+  MAX_VALUE = 4,
 }

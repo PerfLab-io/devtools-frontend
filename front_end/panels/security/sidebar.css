@@ -16,6 +16,10 @@
   &::before {
     display: none;
   }
+
+  &:not(:first-child) {
+    margin-top: var(--sys-size-6);
+  }
 }
 
 .security-main-view-reload-message {
@@ -38,8 +42,11 @@
 
 .security-main-view-reload-message,
 .tree-outline li.security-sidebar-origins,
-.tree-outline li.security-group-list-item {
-  &:hover:not(:has(span[is="dt-checkbox"])) .selection {
+.tree-outline li.security-group-list-item,
+.tree-outline span {
+  font: var(--sys-typescale-body4-medium);
+
+  &:hover:not(:has(dt-checkbox)) .selection {
     background: transparent;
   }
 }

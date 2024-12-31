@@ -45,7 +45,7 @@ export class HideIssuesMenu extends HTMLElement {
 
   onMenuOpen(event: Event): void {
     event.stopPropagation();
-    const buttonElement = this.#shadow.querySelector('button');
+    const buttonElement = this.#shadow.querySelector('devtools-button');
     const contextMenu = new UI.ContextMenu.ContextMenu(event, {
       x: buttonElement?.getBoundingClientRect().left,
       y: buttonElement?.getBoundingClientRect().bottom,
@@ -63,7 +63,7 @@ export class HideIssuesMenu extends HTMLElement {
       .data=${{variant: Buttons.Button.Variant.ICON,iconName: 'dots-vertical', title: i18nString(UIStrings.tooltipTitle)} as Buttons.Button.ButtonData}
       .jslogContext=${'hide-issues'}
       class="hide-issues-menu-btn"
-      @click=${this.onMenuOpen.bind(this)}></devtools-button>
+      @click=${this.onMenuOpen}></devtools-button>
     `, this.#shadow, {host: this});
   }
 }

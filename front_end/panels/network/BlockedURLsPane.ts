@@ -129,7 +129,7 @@ export class BlockedURLsPane extends UI.Widget.VBox implements
     const count = this.blockedRequestsCount(pattern.url);
     const element = document.createElement('div');
     element.classList.add('blocked-url');
-    const checkbox = (element.createChild('input', 'blocked-url-checkbox') as HTMLInputElement);
+    const checkbox = element.createChild('input', 'blocked-url-checkbox');
     checkbox.type = 'checkbox';
     checkbox.checked = pattern.enabled;
     checkbox.disabled = !editable;
@@ -212,7 +212,7 @@ export class BlockedURLsPane extends UI.Widget.VBox implements
     return editor;
   }
 
-  update(): void {
+  override update(): void {
     const enabled = this.manager.blockingEnabled();
     this.list.element.classList.toggle('blocking-disabled', !enabled && Boolean(this.manager.blockedPatterns().length));
 

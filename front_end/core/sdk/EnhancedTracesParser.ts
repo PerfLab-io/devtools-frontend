@@ -6,11 +6,13 @@ import type * as Protocol from '../../generated/protocol.js';
 import {UserVisibleError} from '../platform/platform.js';
 
 import type {
-  EnhancedTracesData, RehydratingExecutionContext, RehydratingScript, RehydratingTarget} from './RehydratingObject.js';
+  HydratingDataPerTarget, RehydratingExecutionContext, RehydratingScript, RehydratingTarget} from
+  './RehydratingObject.js';
 
 interface RehydratingTraceBase {
   cat: string;
   pid: number;
+  args: {data: object};
 }
 
 interface TraceEventTargetRundown extends RehydratingTraceBase {
@@ -156,7 +158,7 @@ export class EnhancedTracesParser {
     }
   }
 
-  data(): EnhancedTracesData {
+  data(): HydratingDataPerTarget {
     // Put back execution context id
     const v8ContextToExecutionContextId: Map<string, Protocol.Runtime.ExecutionContextId> =
         new Map<string, Protocol.Runtime.ExecutionContextId>();
@@ -199,9 +201,7 @@ export class EnhancedTracesParser {
     for (const target of this.#targets) {
       data.set(target, this.groupContextsAndScriptsUnderTarget(target, this.#executionContexts, this.#scripts));
     }
-    return {
-      data,
-    };
+    return data;
   }
 
   private getScriptIsolateId(isolate: string, scriptId: Protocol.Runtime.ScriptId): string {
@@ -209,7 +209,8 @@ export class EnhancedTracesParser {
   }
 
   private isTraceEvent(event: unknown): event is RehydratingTraceBase {
-    return 'cat' in (event as RehydratingTraceBase) && 'pid' in (event as RehydratingTraceBase);
+    return 'cat' in (event as RehydratingTraceBase) && 'pid' in (event as RehydratingTraceBase) &&
+        'args' in (event as RehydratingTraceBase) && 'data' in (event as RehydratingTraceBase).args;
   }
 
   private isTargetRundownEvent(event: unknown): event is TraceEventTargetRundown {

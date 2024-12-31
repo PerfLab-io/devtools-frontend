@@ -16,6 +16,8 @@
 :root {
   height: 100%;
   overflow: hidden;
+  /* stylelint-disable-next-line property-no-unknown */
+  interpolate-size: allow-keywords;
   /**
    * NOTE: please don't add to these colours!
    * We are migrating to a new set of theme colors (see below for details) and over time these colors will be deprecated / removed.
@@ -346,6 +348,81 @@ input::placeholder {
   }
 }
 
+/* Radio inputs */
+input[type="radio"] {
+  height: 17px;
+  width: 17px;
+  min-width: 17px;
+  border-radius: 8px;
+  vertical-align: sub;
+  margin: 0 5px 5px 0;
+  accent-color: var(--sys-color-primary-bright);
+  color: var(--sys-color-on-primary);
+
+  &:focus {
+    box-shadow: var(--legacy-focus-ring-active-shadow);
+  }
+}
+
+@media (forced-colors: active) {
+  input[type="radio"] {
+    --gradient-start: ButtonFace;
+    --gradient-end: ButtonFace;
+
+    &:checked {
+      --gradient-start: Highlight;
+      --gradient-end: Highlight;
+    }
+  }
+}
+
+/* Range inputs */
+input[type="range"] {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  height: 10px;
+  width: 88px;
+  outline: none;
+  background: none;
+}
+
+input[type="range"]::-webkit-slider-thumb,
+.-theme-preserve {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background-color: var(--sys-color-primary);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--sys-color-surface-variant);
+}
+
+input[type="range"]:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px var(--sys-color-inverse-primary);
+}
+
+input[type="range"]:disabled::-webkit-slider-thumb {
+  background-color: var(--sys-color-state-disabled);
+}
+
+@media (forced-colors: active) {
+  input[type="range"] {
+    forced-color-adjust: none;
+  }
+}
+
 .highlighted-search-result.current-search-result {
   /* Note: this value is used in light & dark mode */
   --override-current-search-result-background-color: rgb(255 127 0 / 80%);
@@ -382,29 +459,26 @@ input::placeholder {
 .chrome-select {
   appearance: none;
   user-select: none;
-  border: 1px solid var(--sys-color-neutral-outline);
-  border-radius: 4px;
+  width: var(--sys-size-22);
+  height: var(--sys-size-11);
+  border: var(--sys-size-1) solid var(--sys-color-neutral-outline);
+  border-radius: var(--sys-shape-corner-extra-small);
   color: var(--sys-color-on-surface);
   font: inherit;
   margin: 0;
   outline: none;
-  padding-right: 20px;
-  padding-left: 6px;
-  background-image: var(--image-file-arrow-drop-down-light);
-  background-color: var(--sys-color-surface);
+  padding: 0 var(--sys-size-9) 0 var(--sys-size-5);
+  background-image: var(--combobox-dropdown-arrow);
+  background-color: transparent;
   background-position: right center;
   background-repeat: no-repeat;
-  min-height: 24px;
-  min-width: 80px;
 }
 
 .chrome-select:disabled {
-  opacity: 38%;
-}
-
-.theme-with-dark-background .chrome-select,
-:host-context(.theme-with-dark-background) .chrome-select {
-  background-image: var(--image-file-arrow-drop-down-dark);
+  opacity: 100%;
+  border: var(--sys-size-1) solid transparent;
+  color: var(--sys-color-state-disabled);
+  background-color: var(--sys-color-state-disabled-container);
 }
 
 .chrome-select:enabled {
@@ -416,31 +490,36 @@ input::placeholder {
     background-color: var(--sys-color-state-ripple-neutral-on-subtle);
   }
 
+  &:hover:active {
+    /* stylelint-disable plugin/use_theme_colors */
+    background:
+      var(--combobox-dropdown-arrow),
+      linear-gradient(var(--sys-color-state-hover-on-subtle), var(--sys-color-state-hover-on-subtle)),
+      linear-gradient(var(--sys-color-state-ripple-neutral-on-subtle), var(--sys-color-state-ripple-neutral-on-subtle));
+    /* stylelint-enable plugin/use_theme_colors */
+    background-position: right center;
+    background-repeat: no-repeat;
+  }
+
   &:focus {
-    outline: 2px solid var(--sys-color-state-focus-ring);
-    outline-offset: 2px;
+    outline: var(--sys-size-2) solid var(--sys-color-state-focus-ring);
+    outline-offset: -1px;
   }
 }
 
 @media (forced-colors: active) and (prefers-color-scheme: light) {
-  .chrome-select {
-    background-image: var(--image-file-arrow-drop-down-light);
-  }
-
-  .theme-with-dark-background .chrome-select,
-  :host-context(.theme-with-dark-background) .chrome-select {
-    background-image: var(--image-file-arrow-drop-down-light);
+  :root,
+  .theme-with-dark-background,
+  :host-context(.theme-with-dark-background) {
+    --combobox-dropdown-arrow: var(--image-file-arrow-drop-down-light);
   }
 }
 
 @media (forced-colors: active) and (prefers-color-scheme: dark) {
-  .chrome-select {
-    background-image: var(--image-file-arrow-drop-down-dark);
-  }
-
-  .theme-with-dark-background .chrome-select,
-  :host-context(.theme-with-dark-background) .chrome-select {
-    background-image: var(--image-file-arrow-drop-down-dark);
+  :root,
+  .theme-with-dark-background,
+  :host-context(.theme-with-dark-background) {
+    --combobox-dropdown-arrow: var(--image-file-arrow-drop-down-dark);
   }
 }
 
@@ -478,7 +557,7 @@ input::placeholder {
   white-space: nowrap;
 }
 
-span[is="dt-icon-label"] {
+dt-icon-label {
   flex: none;
 }
 
@@ -562,7 +641,8 @@ span[is="dt-icon-label"] {
 }
 
 ::selection {
-  background-color: var(--sys-color-tonal-container);
+  background-color: var(--sys-color-state-text-highlight);
+  color: var(--sys-color-state-on-text-highlight);
 }
 
 button.link {

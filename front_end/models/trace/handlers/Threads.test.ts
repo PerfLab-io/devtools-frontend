@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import * as TimelineModel from '../../../models/timeline_model/timeline_model.js';
 import {describeWithEnvironment} from '../../../testing/EnvironmentHelpers.js';
 import {TraceLoader} from '../../../testing/TraceLoader.js';
 import * as Trace from '../trace.js';
@@ -40,7 +39,7 @@ describeWithEnvironment('Handler Threads helper', function() {
     // it takes the CDP Profile and wraps it in fake trace events, before then
     // passing that through to the new engine.
     const rawEvents = await TraceLoader.rawCPUProfile(this, 'node-fibonacci-website.cpuprofile.gz');
-    const events = TimelineModel.TimelineJSProfile.TimelineJSProfileProcessor.createFakeTraceFromCpuProfile(
+    const events = Trace.Extras.TimelineJSProfile.TimelineJSProfileProcessor.createFakeTraceFromCpuProfile(
         rawEvents,
         Trace.Types.Events.ThreadID(1),
     );
@@ -52,7 +51,7 @@ describeWithEnvironment('Handler Threads helper', function() {
     assert.strictEqual(parsedTrace.Samples.profilesInProcess.size, 1);
 
     const threads = Trace.Handlers.Threads.threadsInTrace(parsedTrace);
-    assert.strictEqual(threads.length, 1);
+    assert.lengthOf(threads, 1);
 
     assert.strictEqual(threads.at(0)?.type, Trace.Handlers.Threads.ThreadType.CPU_PROFILE);
     assert.strictEqual(threads.at(0)?.entries.length, 875);

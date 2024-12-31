@@ -33,6 +33,7 @@ import '../../core/dom_extension/dom_extension.js';
 import * as Platform from '../../core/platform/platform.js';
 import * as LitHtml from '../../ui/lit-html/lit-html.js';
 import * as Helpers from '../components/helpers/helpers.js';
+import * as RenderCoordinator from '../components/render_coordinator/render_coordinator.js';
 
 import {Constraints, Size} from './Geometry.js';
 import * as ThemeSupport from './theme_support/theme_support.js';
@@ -109,6 +110,8 @@ function decrementWidgetCounter(parentElement: Element, childElement: Element): 
   }
 }
 
+let id = 0;
+
 export class Widget {
   readonly element: HTMLElement;
   contentElement: HTMLElement;
@@ -127,16 +130,14 @@ export class Widget {
   private constraintsInternal?: Constraints;
   private invalidationsRequested?: boolean;
   private externallyManaged?: boolean;
+  #id = `${this.constructor.name}_${id++}`;
   constructor(useShadowDom?: boolean, delegatesFocus?: boolean, element?: HTMLElement) {
     this.element = element || document.createElement('div');
     this.shadowRoot = this.element.shadowRoot || undefined;
     if (useShadowDom && !this.shadowRoot) {
       this.element.classList.add('vbox');
       this.element.classList.add('flex-auto');
-      this.shadowRoot = createShadowRootWithCoreStyles(this.element, {
-        cssFile: undefined,
-        delegatesFocus,
-      });
+      this.shadowRoot = createShadowRootWithCoreStyles(this.element, {delegatesFocus});
       this.contentElement = document.createElement('div');
       this.shadowRoot.appendChild(this.contentElement);
     } else {
@@ -664,6 +665,34 @@ export class Widget {
   markAsExternallyManaged(): void {
     assert(!this.parentWidgetInternal, 'Attempt to mark widget as externally managed after insertion to the DOM');
     this.externallyManaged = true;
+  }
+
+  /**
+   * Called by the RenderCoordinator to perform an update.
+   * This is not meant to be called directly. Instead, use update() to schedule an asynchronous update.
+   *
+   * @returns A promise that resolves when the update is complete.
+   */
+  protected doUpdate(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  /**
+   * Schedules an asynchronous update. The update will be deduplicated and executed with the animation frame.
+   */
+  update(): void {
+    void RenderCoordinator.RenderCoordinator.RenderCoordinator.instance().write(this.#id, () => this.doUpdate());
+  }
+
+  /**
+   * Returns a promise that resolves when the pending update is complete.
+   * Returns a resolved promise if there is no pending update.
+`  *
+   * @returns A probleme that resolves when the pending update is complete.
+   */
+  pendingUpdate(): Promise<void> {
+    return RenderCoordinator.RenderCoordinator.RenderCoordinator.instance().findPendingWrite(this.#id) ||
+        Promise.resolve();
   }
 }
 

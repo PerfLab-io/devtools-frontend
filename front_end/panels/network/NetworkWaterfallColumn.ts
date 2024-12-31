@@ -51,7 +51,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
     // TODO(allada) Make this a shadowDOM when the NetworkWaterfallColumn gets moved into NetworkLogViewColumns.
     super(false);
 
-    this.canvas = (this.contentElement.createChild('canvas') as HTMLCanvasElement);
+    this.canvas = this.contentElement.createChild('canvas');
     this.canvas.tabIndex = -1;
     this.setDefaultFocusedElement(this.canvas);
     this.canvasPosition = this.canvas.getBoundingClientRect();
@@ -341,7 +341,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
     void coordinator.write('NetworkWaterfallColumn.render', () => this.update());
   }
 
-  update(scrollTop?: number, eventDividers?: Map<string, number[]>, nodes?: NetworkNode[]): void {
+  override update(scrollTop?: number, eventDividers?: Map<string, number[]>, nodes?: NetworkNode[]): void {
     if (scrollTop !== undefined && this.scrollTop !== scrollTop) {
       this.popoverHelper.hidePopover();
       this.scrollTop = scrollTop;
@@ -505,6 +505,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
     }
   }
 
+  // Used when `network-color-code-resource-types` is true
   private getSimplifiedBarRange(request: SDK.NetworkRequest.NetworkRequest, borderOffset: number): {
     start: number,
     mid: number,
@@ -519,6 +520,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
     };
   }
 
+  // Used when `network-color-code-resource-types` is true
   private buildSimplifiedBarLayers(context: CanvasRenderingContext2D, node: NetworkNode, y: number): void {
     const request = node.request();
     if (!request) {

@@ -323,6 +323,11 @@ export const NativeFunctions = [
     receivers: ["CallableFunction","NewableFunction"]
   },
   {
+    name: "bind",
+    signatures: [["innerFunction","?thisArg","...args"]],
+    receivers: ["Performance"]
+  },
+  {
     name: "charAt",
     signatures: [["pos"]]
   },
@@ -813,6 +818,11 @@ export const NativeFunctions = [
     signatures: [["...items"]]
   },
   {
+    name: "reverse",
+    signatures: [["input","?options"]],
+    receivers: ["MLGraphBuilder"]
+  },
+  {
     name: "sort",
     signatures: [["?compareFn"]],
     receivers: ["Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
@@ -990,11 +1000,6 @@ export const NativeFunctions = [
     receivers: ["AbortController","WritableStream","WritableStreamDefaultWriter","AbortSignal"]
   },
   {
-    name: "abort",
-    signatures: [["reason"]],
-    receivers: ["UnderlyingSinkBase"]
-  },
-  {
     name: "addEventListener",
     signatures: [["type","listener","?options"]],
     receivers: ["AbortSignal","SharedWorker","Worker","ServiceWorker","Animation","AudioBufferSourceNode","AudioContext","AudioScheduledSourceNode","AudioWorkletNode","BaseAudioContext","BroadcastChannel","CSSAnimation","CSSTransition","CanvasCaptureMediaStreamTrack","ConstantSourceNode","Document","Element","EventSource","FileReader","FontFaceSet","Window","HTMLElement","MathMLElement","SVGElement","HTMLAnchorElement","HTMLAreaElement","HTMLAudioElement","HTMLBRElement","HTMLBaseElement","HTMLBodyElement","HTMLButtonElement","HTMLCanvasElement","HTMLDListElement","HTMLDataElement","HTMLDataListElement","HTMLDetailsElement","HTMLDialogElement","HTMLDirectoryElement","HTMLDivElement","HTMLDocument","HTMLEmbedElement","HTMLFieldSetElement","HTMLFontElement","HTMLFormElement","HTMLFrameElement","HTMLFrameSetElement","HTMLHRElement","HTMLHeadElement","HTMLHeadingElement","HTMLHtmlElement","HTMLIFrameElement","HTMLImageElement","HTMLInputElement","HTMLLIElement","HTMLLabelElement","HTMLLegendElement","HTMLLinkElement","HTMLMapElement","HTMLMarqueeElement","HTMLMediaElement","HTMLMenuElement","HTMLMetaElement","HTMLMeterElement","HTMLModElement","HTMLOListElement","HTMLObjectElement","HTMLOptGroupElement","HTMLOptionElement","HTMLOutputElement","HTMLParagraphElement","HTMLParamElement","HTMLPictureElement","HTMLPreElement","HTMLProgressElement","HTMLQuoteElement","HTMLScriptElement","HTMLSelectElement","HTMLSlotElement","HTMLSourceElement","HTMLSpanElement","HTMLStyleElement","HTMLTableCaptionElement","HTMLTableCellElement","HTMLTableColElement","HTMLTableDataCellElement","HTMLTableElement","HTMLTableHeaderCellElement","HTMLTableRowElement","HTMLTableSectionElement","HTMLTemplateElement","HTMLTextAreaElement","HTMLTimeElement","HTMLTitleElement","HTMLTrackElement","HTMLUListElement","HTMLUnknownElement","HTMLVideoElement","IDBDatabase","IDBOpenDBRequest","IDBRequest","IDBTransaction","MIDIAccess","MIDIInput","MIDIOutput","MIDIPort","MediaDevices","MediaKeySession","MediaQueryList","MediaRecorder","MediaSource","MediaStream","MediaStreamTrack","MessagePort","Notification","OfflineAudioContext","OffscreenCanvas","OscillatorNode","PaymentRequest","Performance","PermissionStatus","PictureInPictureWindow","RTCDTMFSender","RTCDataChannel","RTCDtlsTransport","RTCIceTransport","RTCPeerConnection","RTCSctpTransport","RemotePlayback","SVGAElement","SVGAnimateElement","SVGAnimateMotionElement","SVGAnimateTransformElement","SVGAnimationElement","SVGCircleElement","SVGClipPathElement","SVGComponentTransferFunctionElement","SVGDefsElement","SVGDescElement","SVGEllipseElement","SVGFEBlendElement","SVGFEColorMatrixElement","SVGFEComponentTransferElement","SVGFECompositeElement","SVGFEConvolveMatrixElement","SVGFEDiffuseLightingElement","SVGFEDisplacementMapElement","SVGFEDistantLightElement","SVGFEDropShadowElement","SVGFEFloodElement","SVGFEFuncAElement","SVGFEFuncBElement","SVGFEFuncGElement","SVGFEFuncRElement","SVGFEGaussianBlurElement","SVGFEImageElement","SVGFEMergeElement","SVGFEMergeNodeElement","SVGFEMorphologyElement","SVGFEOffsetElement","SVGFEPointLightElement","SVGFESpecularLightingElement","SVGFESpotLightElement","SVGFETileElement","SVGFETurbulenceElement","SVGFilterElement","SVGForeignObjectElement","SVGGElement","SVGGeometryElement","SVGGradientElement","SVGGraphicsElement","SVGImageElement","SVGLineElement","SVGLinearGradientElement","SVGMPathElement","SVGMarkerElement","SVGMaskElement","SVGMetadataElement","SVGPathElement","SVGPatternElement","SVGPolygonElement","SVGPolylineElement","SVGRadialGradientElement","SVGRectElement","SVGSVGElement","SVGScriptElement","SVGSetElement","SVGStopElement","SVGStyleElement","SVGSwitchElement","SVGSymbolElement","SVGTSpanElement","SVGTextContentElement","SVGTextElement","SVGTextPathElement","SVGTextPositioningElement","SVGTitleElement","SVGUseElement","SVGViewElement","ScreenOrientation","ScriptProcessorNode","ServiceWorkerContainer","ServiceWorkerRegistration","ShadowRoot","SourceBuffer","SourceBufferList","SpeechSynthesis","SpeechSynthesisUtterance","TextTrack","TextTrackCue","TextTrackList","VTTCue","VideoDecoder","VideoEncoder","VisualViewport","WakeLockSentinel","WebSocket","XMLDocument","XMLHttpRequest","XMLHttpRequestEventTarget","XMLHttpRequestUpload","DedicatedWorkerGlobalScope","ServiceWorkerGlobalScope","SharedWorkerGlobalScope","WorkerGlobalScope","Highlight"]
@@ -1096,11 +1101,6 @@ export const NativeFunctions = [
     name: "start",
     signatures: [["index"]],
     receivers: ["TimeRanges"]
-  },
-  {
-    name: "start",
-    signatures: [["controller"]],
-    receivers: ["UnderlyingSinkBase"]
   },
   {
     name: "start",
@@ -1668,12 +1668,7 @@ export const NativeFunctions = [
   {
     name: "createConicGradient",
     signatures: [["startAngle","cx","cy"]],
-    receivers: ["CanvasRenderingContext2D","PaintRenderingContext2D"]
-  },
-  {
-    name: "createConicGradient",
-    signatures: [["startAngle","centerX","centerY"]],
-    receivers: ["OffscreenCanvasRenderingContext2D"]
+    receivers: ["CanvasRenderingContext2D","OffscreenCanvasRenderingContext2D","PaintRenderingContext2D"]
   },
   {
     name: "createLinearGradient",
@@ -1889,13 +1884,7 @@ export const NativeFunctions = [
   },
   {
     name: "deleteData",
-    signatures: [["offset","count"]],
-    receivers: ["CharacterData"]
-  },
-  {
-    name: "deleteData",
-    signatures: [["key"]],
-    receivers: ["LockScreenData"]
+    signatures: [["offset","count"]]
   },
   {
     name: "insertData",
@@ -1990,11 +1979,6 @@ export const NativeFunctions = [
     name: "write",
     signatures: [["buffer","?options"]],
     receivers: ["FileSystemSyncAccessHandle"]
-  },
-  {
-    name: "write",
-    signatures: [["chunk","controller"]],
-    receivers: ["UnderlyingSinkBase"]
   },
   {
     name: "write",
@@ -2228,23 +2212,11 @@ export const NativeFunctions = [
   },
   {
     name: "getData",
-    signatures: [["format"]],
-    receivers: ["DataTransfer"]
-  },
-  {
-    name: "getData",
-    signatures: [["key"]],
-    receivers: ["LockScreenData"]
+    signatures: [["format"]]
   },
   {
     name: "setData",
-    signatures: [["format","data"]],
-    receivers: ["DataTransfer"]
-  },
-  {
-    name: "setData",
-    signatures: [["key","data"]],
-    receivers: ["LockScreenData"]
+    signatures: [["format","data"]]
   },
   {
     name: "setDragImage",
@@ -2451,7 +2423,13 @@ export const NativeFunctions = [
   },
   {
     name: "removeAttribute",
-    signatures: [["qualifiedName"],["name"]]
+    signatures: [["qualifiedName"],["name"]],
+    receivers: ["Element"]
+  },
+  {
+    name: "removeAttribute",
+    signatures: [["attribute"]],
+    receivers: ["Sanitizer"]
   },
   {
     name: "removeAttributeNS",
@@ -2510,7 +2488,13 @@ export const NativeFunctions = [
   },
   {
     name: "setHTMLUnsafe",
-    signatures: [["html"]]
+    signatures: [["html","?options"]],
+    receivers: ["Element"]
+  },
+  {
+    name: "setHTMLUnsafe",
+    signatures: [["html"]],
+    receivers: ["ShadowRoot"]
   },
   {
     name: "setPointerCapture",
@@ -3512,11 +3496,6 @@ export const NativeFunctions = [
   {
     name: "clearMeasures",
     signatures: [["?measureName"]]
-  },
-  {
-    name: "getEntries",
-    signatures: [["?options"]],
-    receivers: ["Performance"]
   },
   {
     name: "getEntriesByName",
@@ -5293,11 +5272,23 @@ export const NativeFunctions = [
   },
   {
     name: "atob",
-    signatures: [["data"]]
+    signatures: [["data"]],
+    receivers: ["Window","WorkerGlobalScope"]
+  },
+  {
+    name: "atob",
+    signatures: [["atob"]],
+    receivers: ["Window","ShadowRealmGlobalScope","WorkerGlobalScope"]
   },
   {
     name: "btoa",
-    signatures: [["data"]]
+    signatures: [["data"]],
+    receivers: ["Window","WorkerGlobalScope"]
+  },
+  {
+    name: "btoa",
+    signatures: [["btoa"]],
+    receivers: ["Window","ShadowRealmGlobalScope","WorkerGlobalScope"]
   },
   {
     name: "clearInterval",
@@ -6472,17 +6463,15 @@ export const NativeFunctions = [
   },
   {
     name: "parseHTMLUnsafe",
-    signatures: [["html"]]
+    signatures: [["html","?options"]]
+  },
+  {
+    name: "parseHTML",
+    signatures: [["html","?options"]]
   },
   {
     name: "caretPositionFromPoint",
-    signatures: [["x","y","?options"]],
-    receivers: ["Document"]
-  },
-  {
-    name: "caretPositionFromPoint",
-    signatures: [["x"]],
-    receivers: ["TextMetrics"]
+    signatures: [["x","y","?options"]]
   },
   {
     name: "hasPrivateToken",
@@ -6505,8 +6494,8 @@ export const NativeFunctions = [
     signatures: [["?message","?name"]]
   },
   {
-    name: "getInnerHTML",
-    signatures: [["?options"]]
+    name: "setHTML",
+    signatures: [["html","?options"]]
   },
   {
     name: "scrollIntoViewIfNeeded",
@@ -6531,10 +6520,6 @@ export const NativeFunctions = [
   {
     name: "NodePart",
     signatures: [["root","node","?init"]]
-  },
-  {
-    name: "moveBefore",
-    signatures: [["node","child"]]
   },
   {
     name: "Observable",
@@ -6567,6 +6552,10 @@ export const NativeFunctions = [
   {
     name: "last",
     signatures: [["?options"]]
+  },
+  {
+    name: "moveBefore",
+    signatures: [["node","child"]]
   },
   {
     name: "expand",
@@ -6869,6 +6858,10 @@ export const NativeFunctions = [
     signatures: [["?x","?y","?width","?height"]]
   },
   {
+    name: "highlightsFromPoint",
+    signatures: [["x","y","?options"]]
+  },
+  {
     name: "Highlight",
     signatures: [["...initRanges"]]
   },
@@ -6879,6 +6872,10 @@ export const NativeFunctions = [
   {
     name: "ImageData",
     signatures: [["sw","sh","?settings"],["data","sw","?sh","?settings"]]
+  },
+  {
+    name: "getIndexFromOffset",
+    signatures: [["x"]]
   },
   {
     name: "getSelectionRects",
@@ -6895,6 +6892,11 @@ export const NativeFunctions = [
   {
     name: "CloseWatcher",
     signatures: [["?options"]]
+  },
+  {
+    name: "requestClose",
+    signatures: [["?returnValue"]],
+    receivers: ["HTMLDialogElement"]
   },
   {
     name: "reportEvent",
@@ -7089,6 +7091,34 @@ export const NativeFunctions = [
     signatures: [["callback"]]
   },
   {
+    name: "Sanitizer",
+    signatures: [["?config"]]
+  },
+  {
+    name: "allowElement",
+    signatures: [["element"]]
+  },
+  {
+    name: "removeElement",
+    signatures: [["element"]]
+  },
+  {
+    name: "replaceWithChildrenElement",
+    signatures: [["element"]]
+  },
+  {
+    name: "allowAttribute",
+    signatures: [["attribute"]]
+  },
+  {
+    name: "setComments",
+    signatures: [["allow"]]
+  },
+  {
+    name: "setDataAttributes",
+    signatures: [["allow"]]
+  },
+  {
     name: "postTask",
     signatures: [["callback","?options"]]
   },
@@ -7237,6 +7267,10 @@ export const NativeFunctions = [
     signatures: [["feature"]]
   },
   {
+    name: "availability",
+    signatures: [["?options"]]
+  },
+  {
     name: "rewrite",
     signatures: [["input","?options"]]
   },
@@ -7245,29 +7279,16 @@ export const NativeFunctions = [
     signatures: [["input","?options"]]
   },
   {
-    name: "supportsType",
-    signatures: [["type"]]
+    name: "createOptionsAvailable",
+    signatures: [["options"]]
   },
   {
-    name: "supportsFormat",
-    signatures: [["format"]]
-  },
-  {
-    name: "supportsLength",
-    signatures: [["length"]]
-  },
-  {
-    name: "supportsInputLanguage",
+    name: "languageAvailable",
     signatures: [["languageTag"]]
   },
   {
     name: "writeStreaming",
     signatures: [["input","?options"]]
-  },
-  {
-    name: "canDetect",
-    signatures: [["languageTag"]],
-    receivers: ["AILanguageDetectorCapabilities"]
   },
   {
     name: "detect",
@@ -7276,13 +7297,12 @@ export const NativeFunctions = [
   },
   {
     name: "detect",
-    signatures: [["input"]],
-    receivers: ["LanguageDetector"]
-  },
-  {
-    name: "detect",
     signatures: [["image"]],
     receivers: ["BarcodeDetector","FaceDetector","TextDetector"]
+  },
+  {
+    name: "languagePairAvailable",
+    signatures: [["sourceLanguage","targetLanguage"]]
   },
   {
     name: "registerAnimator",
@@ -7420,20 +7440,12 @@ export const NativeFunctions = [
     signatures: [["expires"]]
   },
   {
-    name: "transferToGPUTexture",
-    signatures: [["options"]]
-  },
-  {
-    name: "CanvasFilter",
-    signatures: [["init"]]
-  },
-  {
     name: "beginLayer",
     signatures: [["?options"]]
   },
   {
-    name: "placeElement",
-    signatures: [["element","x","y"]]
+    name: "fillTextCluster",
+    signatures: [["textCluster","x","y","?options"]]
   },
   {
     name: "createMesh2DVertexBuffer",
@@ -7450,6 +7462,18 @@ export const NativeFunctions = [
   {
     name: "drawMesh",
     signatures: [["vertex_buffer","uv_buffer","index_buffer","image"]]
+  },
+  {
+    name: "transferToGPUTexture",
+    signatures: [["options"]]
+  },
+  {
+    name: "CanvasFilter",
+    signatures: [["init"]]
+  },
+  {
+    name: "placeElement",
+    signatures: [["element","x","y"]]
   },
   {
     name: "Path2D",
@@ -7638,14 +7662,6 @@ export const NativeFunctions = [
     signatures: [["fuzzer_id","fuzzer_data"]]
   },
   {
-    name: "GamepadAxisEvent",
-    signatures: [["type","?eventInitDict"]]
-  },
-  {
-    name: "GamepadButtonEvent",
-    signatures: [["type","?eventInitDict"]]
-  },
-  {
     name: "GamepadEvent",
     signatures: [["type","?eventInitDict"]]
   },
@@ -7696,6 +7712,10 @@ export const NativeFunctions = [
   {
     name: "takePhoto",
     signatures: [["?photoSettings"]]
+  },
+  {
+    name: "getAllRecords",
+    signatures: [["?options"]]
   },
   {
     name: "only",
@@ -7784,8 +7804,16 @@ export const NativeFunctions = [
     signatures: [["element"]]
   },
   {
+    name: "selectAudioOutput",
+    signatures: [["?options"]]
+  },
+  {
     name: "setCaptureHandleConfig",
     signatures: [["?config"]]
+  },
+  {
+    name: "setPreferredSinkId",
+    signatures: [["sinkId"]]
   },
   {
     name: "MediaStreamEvent",
@@ -7821,7 +7849,7 @@ export const NativeFunctions = [
   },
   {
     name: "constant",
-    signatures: [["desc","bufferView"]]
+    signatures: [["desc","buffer"]]
   },
   {
     name: "argMin",
@@ -8054,6 +8082,10 @@ export const NativeFunctions = [
   {
     name: "resample2d",
     signatures: [["input","?options"]]
+  },
+  {
+    name: "scatterElements",
+    signatures: [["input","indices","updates","?options"]]
   },
   {
     name: "scatterND",
@@ -8420,6 +8452,22 @@ export const NativeFunctions = [
     signatures: [["?options"]]
   },
   {
+    name: "SharedStorageAppendMethod",
+    signatures: [["key","value","?options"]]
+  },
+  {
+    name: "SharedStorageClearMethod",
+    signatures: [["?options"]]
+  },
+  {
+    name: "SharedStorageDeleteMethod",
+    signatures: [["key","?options"]]
+  },
+  {
+    name: "SharedStorageSetMethod",
+    signatures: [["key","value","?options"]]
+  },
+  {
     name: "selectURL",
     signatures: [["name","urls","?options"]]
   },
@@ -8497,7 +8545,7 @@ export const NativeFunctions = [
   },
   {
     name: "install",
-    signatures: [["manifest_id","?install_url"]]
+    signatures: [["?manifest_id","?install_url"]]
   },
   {
     name: "AnalyserNode",

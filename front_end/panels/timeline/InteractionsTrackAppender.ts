@@ -9,12 +9,13 @@ import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
 import {buildGroupStyle, buildTrackHeader} from './AppenderUtils.js';
 import {
   type CompatibilityTracksAppender,
-  type HighlightedEntryInfo,
+  type PopoverInfo,
   type TrackAppender,
   type TrackAppenderName,
   VisualLoggingTrackName,
 } from './CompatibilityTracksAppender.js';
 import * as Components from './components/components.js';
+import * as Utils from './utils/utils.js';
 
 const UIStrings = {
   /**
@@ -138,7 +139,7 @@ export class InteractionsTrackAppender implements TrackAppender {
    * Gets the color an event added by this appender should be rendered with.
    */
   colorForEvent(event: Trace.Types.Events.Event): string {
-    let idForColorGeneration = Components.EntryName.nameForEntry(event, this.#parsedTrace);
+    let idForColorGeneration = Utils.EntryName.nameForEntry(event, this.#parsedTrace);
     if (Trace.Types.Events.isSyntheticInteraction(event)) {
       // Append the ID so that we vary the colours, ensuring that two events of
       // the same type are coloured differently.
@@ -147,12 +148,11 @@ export class InteractionsTrackAppender implements TrackAppender {
     return this.#colorGenerator.colorForID(idForColorGeneration);
   }
 
-  highlightedEntryInfo(event: Trace.Types.Events.Event): HighlightedEntryInfo {
+  setPopoverInfo(event: Trace.Types.Events.Event, info: PopoverInfo): void {
     if (Trace.Types.Events.isSyntheticInteraction(event)) {
       const breakdown = new Components.InteractionBreakdown.InteractionBreakdown();
       breakdown.entry = event;
-      return {title: '', formattedTime: '', additionalElement: breakdown};
+      info.additionalElements.push(breakdown);
     }
-    return {title: '', formattedTime: ''};
   }
 }

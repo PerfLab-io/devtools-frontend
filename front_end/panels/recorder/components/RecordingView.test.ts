@@ -98,7 +98,7 @@ describeWithEnvironment('RecordingView', () => {
     const button = view.shadowRoot?.querySelector(
                        '.show-code',
                        ) as HTMLDivElement;
-    assert.ok(button);
+    assert.isOk(button);
     dispatchClickEvent(button);
   }
 
@@ -106,7 +106,7 @@ describeWithEnvironment('RecordingView', () => {
     const button = view.shadowRoot?.querySelector(
                        '[title="Hide code"]',
                        ) as HTMLDivElement;
-    assert.ok(button);
+    assert.isOk(button);
     dispatchClickEvent(button);
   }
 
@@ -122,7 +122,7 @@ describeWithEnvironment('RecordingView', () => {
     const menu = view.shadowRoot?.querySelector(
                      'devtools-select-menu',
                      ) as Menus.SelectMenu.SelectMenu;
-    assert.ok(menu);
+    assert.isOk(menu);
 
     const event = new Menus.SelectMenu.SelectMenuItemSelectedEvent(Models.ConverterIds.ConverterIds.REPLAY);
     menu.dispatchEvent(event);
@@ -135,13 +135,13 @@ describeWithEnvironment('RecordingView', () => {
 
     // Click is handled async, therefore, waiting for the text editor.
     const textEditor = await waitForTextEditor(view);
-    assert.deepStrictEqual(textEditor.editor.state.selection.toJSON(), {
+    assert.deepEqual(textEditor.editor.state.selection.toJSON(), {
       ranges: [{anchor: 0, head: 0}],
       main: 0,
     });
 
     hoverOverScrollStep(view);
-    assert.deepStrictEqual(textEditor.editor.state.selection.toJSON(), {
+    assert.deepEqual(textEditor.editor.state.selection.toJSON(), {
       ranges: [{anchor: 34, head: 68}],
       main: 0,
     });

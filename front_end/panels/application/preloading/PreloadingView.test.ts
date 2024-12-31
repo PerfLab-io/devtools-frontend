@@ -173,7 +173,7 @@ class NavigationEmulator {
     for (const prefetchAttempt of json['prefetch'] || []) {
       // For simplicity
       assert.strictEqual(prefetchAttempt['source'], 'list');
-      assert.strictEqual(prefetchAttempt['urls'].length, 1);
+      assert.lengthOf(prefetchAttempt['urls'], 1);
 
       const url = 'https://example.com' + prefetchAttempt['urls'][0];
 
@@ -194,9 +194,9 @@ class NavigationEmulator {
     }
 
     // For simplicity
-    assert.strictEqual(json['prerender'].length, 1);
+    assert.lengthOf(json['prerender'], 1);
     assert.strictEqual(json['prerender'][0]['source'], 'list');
-    assert.strictEqual(json['prerender'][0]['urls'].length, 1);
+    assert.lengthOf(json['prerender'][0]['urls'], 1);
 
     const prerenderUrl = 'https://example.com' + json['prerender'][0]['urls'][0];
 
@@ -206,6 +206,7 @@ class NavigationEmulator {
         action: Protocol.Preload.SpeculationAction.Prerender,
         url: prerenderUrl,
       },
+      pipelineId: `pipelineId:0.${this.seq}` as Protocol.Preload.PreloadPipelineId,
       status: Protocol.Preload.PreloadingStatus.Running,
     };
     dispatchEvent(this.primaryTarget, 'Preload.prerenderStatusUpdated', this.prerenderStatusUpdatedEvent);
@@ -289,6 +290,10 @@ function createSummaryView(target: SDK.Target.Target): Resources.PreloadingView.
 }
 
 describeWithMockConnection('PreloadingRuleSetView', () => {
+  beforeEach(() => {
+    SDK.ChildTargetManager.ChildTargetManager.install();
+  });
+
   it('renders grid and details', async () => {
     const emulator = new NavigationEmulator();
     await emulator.openDevTools();
@@ -494,6 +499,10 @@ describeWithMockConnection('PreloadingRuleSetView', () => {
 });
 
 describeWithMockConnection('PreloadingAttemptView', () => {
+  beforeEach(() => {
+    SDK.ChildTargetManager.ChildTargetManager.install();
+  });
+
   it('renders grid and details', async () => {
     const emulator = new NavigationEmulator();
     await emulator.openDevTools();
@@ -782,7 +791,7 @@ describeWithMockConnection('PreloadingAttemptView', () => {
 
     const buttons = report.querySelectorAll('devtools-report-value:nth-of-type(2) devtools-button');
     assert.strictEqual(buttons[0].textContent?.trim(), 'Inspect');
-    assert.strictEqual(buttons[0].getAttribute('disabled'), null);
+    assert.isNull(buttons[0].getAttribute('disabled'));
   });
 
   it('shows prerender details with Investigate button for Ready', async () => {
@@ -853,7 +862,7 @@ describeWithMockConnection('PreloadingAttemptView', () => {
 
     const buttons = report.querySelectorAll('devtools-report-value:nth-of-type(2) devtools-button');
     assert.strictEqual(buttons[0].textContent?.trim(), 'Inspect');
-    assert.strictEqual(buttons[0].getAttribute('disabled'), null);
+    assert.isNull(buttons[0].getAttribute('disabled'));
   });
 
   it('shows prerender details with Investigate (disabled) button for Failure', async () => {
@@ -941,6 +950,10 @@ describeWithMockConnection('PreloadingAttemptView', () => {
 });
 
 describeWithMockConnection('PreloadingSummaryView', () => {
+  beforeEach(() => {
+    SDK.ChildTargetManager.ChildTargetManager.install();
+  });
+
   it('shows information of preloading of the last page', async () => {
     const emulator = new NavigationEmulator();
     await emulator.openDevTools();
@@ -1006,6 +1019,10 @@ async function testWarnings(
 }
 
 describeWithMockConnection('PreloadingWarningsView', () => {
+  beforeEach(() => {
+    SDK.ChildTargetManager.ChildTargetManager.install();
+  });
+
   it('shows no warnings if holdback flags are disabled', async () => {
     await testWarnings(
         {

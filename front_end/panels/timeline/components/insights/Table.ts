@@ -2,23 +2,26 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import type * as Trace from '../../../../models/trace/trace.js';
 import * as ComponentHelpers from '../../../../ui/components/helpers/helpers.js';
 import * as LitHtml from '../../../../ui/lit-html/lit-html.js';
 import type * as Overlays from '../../overlays/overlays.js';
 
-import type {BaseInsight} from './Helpers.js';
+import type * as BaseInsightComponent from './BaseInsightComponent.js';
+import {EventReferenceClick} from './EventRef.js';
 import tableStyles from './table.css.js';
 
 const {html} = LitHtml;
+
+type BaseInsightComponent = BaseInsightComponent.BaseInsightComponent<Trace.Insights.Types.InsightModel<{}>>;
 
 /**
  * @fileoverview An interactive table component.
  *
  * On hover:
- *           desaturates the relevant time range (in both the minimap and the flamegraph), and
+ *           desaturates the relevant events (in both the minimap and the flamegraph), and
  *           replaces the current insight's overlays with the overlays attached to that row.
  *           The currently selected trace bounds does not change.
- *           TODO(crbug.com/373648873): make the "desaturates the flamegraph" part true
  *
  *           Removing the mouse from the table without clicking on any row restores the original
  *           overlays.
@@ -34,7 +37,7 @@ export type TableState = {
 };
 
 export interface TableData {
-  insight: BaseInsight;
+  insight: BaseInsightComponent;
   headers: string[];
   rows: TableDataRow[];
 }
@@ -48,7 +51,7 @@ export class Table extends HTMLElement {
 
   readonly #shadow = this.attachShadow({mode: 'open'});
   readonly #boundRender = this.#render.bind(this);
-  #insight?: BaseInsight;
+  #insight?: BaseInsightComponent;
   #state?: TableState;
   #headers?: string[];
   #rows?: TableDataRow[];
@@ -102,6 +105,14 @@ export class Table extends HTMLElement {
 
     const index = [...rowEl.parentElement.children].indexOf(rowEl);
     if (index === -1) {
+      return;
+    }
+
+    // If the desired overlays consist of just a single ENTRY_OUTLINE, then
+    // it is more intuitive to just select the target event.
+    const overlays = this.#rows?.[index]?.overlays;
+    if (overlays?.length === 1 && overlays[0].type === 'ENTRY_OUTLINE') {
+      this.dispatchEvent(new EventReferenceClick(overlays[0].entry));
       return;
     }
 

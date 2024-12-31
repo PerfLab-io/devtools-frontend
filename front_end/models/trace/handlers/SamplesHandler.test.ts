@@ -14,9 +14,6 @@ async function handleEventsFromTraceFile(context: Mocha.Context|Mocha.Suite|null
   Trace.Handlers.ModelHandlers.Meta.reset();
   Trace.Handlers.ModelHandlers.Samples.reset();
 
-  Trace.Handlers.ModelHandlers.Meta.initialize();
-  Trace.Handlers.ModelHandlers.Samples.initialize();
-
   for (const event of traceEvents) {
     Trace.Handlers.ModelHandlers.Meta.handleEvent(event);
     Trace.Handlers.ModelHandlers.Samples.handleEvent(event);
@@ -141,8 +138,6 @@ describeWithEnvironment('SamplesHandler', function() {
       ];
       Trace.Handlers.ModelHandlers.Samples.reset();
 
-      Trace.Handlers.ModelHandlers.Samples.initialize();
-
       for (const event of [mockProfileEvent, ...mockChunks]) {
         Trace.Handlers.ModelHandlers.Samples.handleEvent(event);
       }
@@ -229,7 +224,7 @@ describeWithEnvironment('SamplesHandler', function() {
       const cpuProfileData = profileById.values().next().value as Trace.Handlers.ModelHandlers.Samples.ProfileData;
       const cpuProfile = cpuProfileData.rawProfile;
       assert.deepEqual(Object.keys(cpuProfile), ['startTime', 'endTime', 'nodes', 'samples', 'timeDeltas', 'lines']);
-      assert.strictEqual(cpuProfile.nodes.length, 153);
+      assert.lengthOf(cpuProfile.nodes, 153);
       assert.strictEqual(cpuProfile.startTime, 287510826176);
       assert.strictEqual(cpuProfile.endTime, 287510847633);
       assert.strictEqual(cpuProfile.samples?.length, 39471);

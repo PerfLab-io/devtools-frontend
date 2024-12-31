@@ -8,7 +8,6 @@ import * as Common from '../../../core/common/common.js';
 import * as Host from '../../../core/host/host.js';
 import * as i18n from '../../../core/i18n/i18n.js';
 import type * as Platform from '../../../core/platform/platform.js';
-import * as SDK from '../../../core/sdk/sdk.js';
 import * as Marked from '../../../third_party/marked/marked.js';
 import * as Buttons from '../../../ui/components/buttons/buttons.js';
 import type * as IconButton from '../../../ui/components/icon_button/icon_button.js';
@@ -95,9 +94,9 @@ const UIStrings = {
    */
   notLoggedIn: 'This feature is only available when you sign into Chrome with your Google account.',
   /**
-   * @description The title of the button that opens Chrome settings.
+   * @description The title of a button which opens the Chrome SignIn page.
    */
-  updateSettings: 'Update Settings',
+  signIn: 'Sign in',
   /**
    * @description The header shown when the internet connection is not
    * available.
@@ -132,6 +131,10 @@ const UIStrings = {
    * @description Text for a link to Chrome DevTools Settings.
    */
   settingsLink: '`Console insights` in Settings',
+  /**
+   * @description The title of the list of references/recitations that were used to generate the insight.
+   */
+  references: 'Sources and related content',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/explain/components/ConsoleInsight.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -168,7 +171,7 @@ const CODE_SNIPPET_WARNING_URL = 'https://support.google.com/legal/answer/135054
 const LEARNMORE_URL = 'https://goo.gle/devtools-console-messages-ai' as Platform.DevToolsPath.UrlString;
 const REPORT_URL = 'https://support.google.com/legal/troubleshooter/1114905?hl=en#ts=1115658%2C13380504' as
     Platform.DevToolsPath.UrlString;
-const CHROME_SETTINGS_URL = 'chrome://settings' as Platform.DevToolsPath.UrlString;
+const SIGN_IN_URL = 'https://accounts.google.com' as Platform.DevToolsPath.UrlString;
 
 const enum State {
   INSIGHT = 'insight',
@@ -529,17 +532,8 @@ export class ConsoleInsight extends HTMLElement {
     }
   }
 
-  #onGoToChromeSettings(): void {
-    const rootTarget = SDK.TargetManager.TargetManager.instance().rootTarget();
-    if (rootTarget === null) {
-      return;
-    }
-    const url = CHROME_SETTINGS_URL;
-    void rootTarget.targetAgent().invoke_createTarget({url}).then(result => {
-      if (result.getError()) {
-        Host.InspectorFrontendHost.InspectorFrontendHostInstance.openInNewTab(url);
-      }
-    });
+  #onGoToSignIn(): void {
+    Host.InspectorFrontendHost.InspectorFrontendHostInstance.openInNewTab(SIGN_IN_URL);
   }
 
   #focusHeader(): void {
@@ -573,6 +567,34 @@ export class ConsoleInsight extends HTMLElement {
     // clang-format on
   }
 
+  #maybeRenderRelatedContent(): LitHtml.LitTemplate {
+    if (this.#state.type !== State.INSIGHT || !this.#state.metadata.factualityMetadata?.facts.length) {
+      return LitHtml.nothing;
+    }
+    // clang-format off
+    return html`
+      <details jslog=${VisualLogging.expand('references').track({click: true})}>
+        <summary>${i18nString(UIStrings.references)}</summary>
+        <ul>
+          ${this.#state.metadata?.factualityMetadata?.facts.map(fact => {
+            return fact.sourceUri ? html`
+              <li>
+                <x-link
+                  href=${fact.sourceUri}
+                  class="link"
+                  jslog=${VisualLogging.link('references.console-insights').track({click: true})}
+                >
+                  ${fact.sourceUri}
+                </x-link>
+              </li>
+            ` : LitHtml.nothing;
+          })}
+        </ul>
+      </details>
+    `;
+    // clang-format on
+  }
+
   #renderMain(): LitHtml.TemplateResult {
     const jslog = `${VisualLogging.section(this.#state.type).track({resize: true})}`;
     // clang-format off
@@ -594,10 +616,11 @@ export class ConsoleInsight extends HTMLElement {
         <main jslog=${jslog}>
           ${
             this.#state.validMarkdown ? html`<devtools-markdown-view
-              .data=${{tokens: this.#state.tokens, renderer: this.#renderer} as MarkdownView.MarkdownView.MarkdownViewData}>
+              .data=${{tokens: this.#state.tokens, renderer: this.#renderer, animationEnabled: true} as MarkdownView.MarkdownView.MarkdownViewData}>
             </devtools-markdown-view>`: this.#state.explanation
           }
-          <details style="--list-height: ${(this.#state.sources.length + (this.#state.isPageReloadRecommended ? 1 : 0)) * 20}px;" jslog=${VisualLogging.expand('sources').track({click: true})}>
+          ${this.#maybeRenderRelatedContent()}
+          <details jslog=${VisualLogging.expand('sources').track({click: true})}>
             <summary>${i18nString(UIStrings.inputData)}</summary>
             <devtools-console-insight-sources-list .sources=${this.#state.sources} .isPageReloadRecommended=${this.#state.isPageReloadRecommended}>
             </devtools-console-insight-sources-list>
@@ -740,7 +763,7 @@ export class ConsoleInsight extends HTMLElement {
         <div class="filler"></div>
         <div>
           <devtools-button
-            @click=${this.#onGoToChromeSettings}
+            @click=${this.#onGoToSignIn}
             .data=${
               {
                 variant: Buttons.Button.Variant.PRIMARY,
@@ -748,7 +771,7 @@ export class ConsoleInsight extends HTMLElement {
               } as Buttons.Button.ButtonData
             }
           >
-            ${UIStrings.updateSettings}
+            ${UIStrings.signIn}
           </devtools-button>
         </div>
       </footer>`;
@@ -798,10 +821,14 @@ export class ConsoleInsight extends HTMLElement {
               data-rating=${'true'}
               .data=${
                 {
-                  variant: Buttons.Button.Variant.ICON,
+                  variant: Buttons.Button.Variant.ICON_TOGGLE,
                   size: Buttons.Button.Size.SMALL,
                   iconName: 'thumb-up',
-                  active: this.#selectedRating !== undefined && this.#selectedRating,
+                  toggledIconName: 'thumb-up',
+                  toggleOnClick: false,
+                  toggleType: Buttons.Button.ToggleType.PRIMARY,
+                  disabled: this.#selectedRating !== undefined,
+                  toggled: this.#selectedRating === true,
                   title: i18nString(UIStrings.goodResponse),
                   jslogContext: 'thumbs-up',
                 } as Buttons.Button.ButtonData
@@ -812,10 +839,14 @@ export class ConsoleInsight extends HTMLElement {
               data-rating=${'false'}
               .data=${
                 {
-                  variant: Buttons.Button.Variant.ICON,
+                  variant: Buttons.Button.Variant.ICON_TOGGLE,
                   size: Buttons.Button.Size.SMALL,
                   iconName: 'thumb-down',
-                  active: this.#selectedRating !== undefined && !this.#selectedRating,
+                  toggledIconName: 'thumb-down',
+                  toggleOnClick: false,
+                  toggleType: Buttons.Button.ToggleType.PRIMARY,
+                  disabled: this.#selectedRating !== undefined,
+                  toggled: this.#selectedRating === false,
                   title: i18nString(UIStrings.badResponse),
                   jslogContext: 'thumbs-down',
                 } as Buttons.Button.ButtonData

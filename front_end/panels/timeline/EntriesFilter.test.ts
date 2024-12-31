@@ -69,7 +69,7 @@ describeWithEnvironment('EntriesFilter', function() {
     stack.applyFilterAction({type: PerfUI.FlameChart.FilterAction.MERGE_FUNCTION, entry: entryTwo});
     assert.isTrue(stack.invisibleEntries().includes(entryTwo), 'entryTwo is invisble');
     // Only one entry - the one for the `basicTwo` function - should have been hidden.
-    assert.strictEqual(stack.invisibleEntries().length, 1);
+    assert.lengthOf(stack.invisibleEntries(), 1);
   });
 
   it('adds the parent of the merged entry into the expandableEntries array', async function() {
@@ -451,7 +451,7 @@ describeWithEnvironment('EntriesFilter', function() {
     // UNDO_ALL_ACTIONS can be called on any visible entry
     stack.applyFilterAction({type: PerfUI.FlameChart.FilterAction.UNDO_ALL_ACTIONS, entry: basicTwoCallEntry});
     // If the length of invisibleEntries list is 0, all of the entries added earlier were removed and are now visible.
-    assert.strictEqual(stack.invisibleEntries().length, 0);
+    assert.lengthOf(stack.invisibleEntries(), 0);
   });
 
   it('supports resetting children of the closest expandable parent when a hidden entry is provided', async function() {
@@ -499,13 +499,13 @@ describeWithEnvironment('EntriesFilter', function() {
     });
 
     // Make sure no entries are hidden
-    assert.strictEqual(stack.invisibleEntries().length, 0);
+    assert.lengthOf(stack.invisibleEntries(), 0);
 
     // Collapse all children of basicTwo call:
     stack.applyFilterAction({type: PerfUI.FlameChart.FilterAction.COLLAPSE_FUNCTION, entry: basicTwoCallEntry});
 
     // Make sure all 37 of basicTwo descdendants are hidden
-    assert.strictEqual(stack.invisibleEntries().length, 37);
+    assert.lengthOf(stack.invisibleEntries(), 37);
 
     // Get the first fibonacci call that is one of the hidden children and make sure it is hidden
     const firstFibCallEntry = findFirstEntry(mainThread.entries, entry => {
@@ -517,7 +517,7 @@ describeWithEnvironment('EntriesFilter', function() {
     // Reveal the first fibonacci call and make sure that the all of the entries are now visible because the closest
     // expandable parent to the fib call is basicTwo and, therefore, we need to reset its children.
     stack.revealEntry(firstFibCallEntry);
-    assert.strictEqual(stack.invisibleEntries().length, 0);
+    assert.lengthOf(stack.invisibleEntries(), 0);
   });
 
   it('supports resetting all hidden children of a selected entry', async function() {
@@ -605,7 +605,7 @@ describeWithEnvironment('EntriesFilter', function() {
     assert.isTrue(allFoo2InStackAreVisible, 'Some foo2 calls are invisible');
 
     // Reset all children after second foo2 call
-    assert.strictEqual(foo2Calls.length, 3);
+    assert.lengthOf(foo2Calls, 3);
     stack.applyFilterAction({type: PerfUI.FlameChart.FilterAction.RESET_CHILDREN, entry: foo2Calls[1]});
 
     // All foo and foo2 calls except the second foo cll should now be visible
@@ -690,14 +690,14 @@ describeWithEnvironment('EntriesFilter', function() {
     });
 
     // Make sure the expandable entries are empty at first
-    assert.strictEqual(stack.expandableEntries().length, 0);
+    assert.lengthOf(stack.expandableEntries(), 0);
 
     // Hide the anonymous function
     stack.applyFilterAction(
         {type: PerfUI.FlameChart.FilterAction.MERGE_FUNCTION, entry: anonymousEntryWithInvisibleParent});
 
     // Make sure Task entry is added to expandable entries
-    assert.strictEqual(stack.expandableEntries().length, 1);
+    assert.lengthOf(stack.expandableEntries(), 1);
     assert.isTrue(stack.expandableEntries().includes(taskEntry));
   });
 
@@ -725,47 +725,30 @@ describeWithEnvironment('EntriesFilter', function() {
       return Trace.Types.Events.isProfileCall(entry) && entry.callFrame.functionName === 'foo' && entry.dur === 233;
     });
 
-    const stack = new Timeline.EntriesFilter.EntriesFilter(parsedTrace.Renderer.entryToNode);
-    if (!stack) {
+    const entriesFilter = new Timeline.EntriesFilter.EntriesFilter(parsedTrace.Renderer.entryToNode);
+    if (!entriesFilter) {
       throw new Error('EntriesFilter does not exist');
     }
+    const aiNodeTree = entriesFilter.getAIEventNodeTree(firstFooCallEntry);
+    assert.exists(aiNodeTree);
 
-    const traceEntryTree = stack.getTraceEntryTreeForAI(firstFooCallEntry);
+    const fooAiNode = Trace.Helpers.TreeHelpers.AINode.getSelectedNodeWithinTree(aiNodeTree);
+    assert.exists(fooAiNode);
 
-    assert.exists(traceEntryTree);
-
-    const selectedNode =
-        Trace.Helpers.TreeHelpers.TraceEntryNodeForAI.getSelectedNodeForTraceEntryTreeForAI(traceEntryTree);
-    assert.exists(selectedNode);
+    // Use the toJSON simplification for comparison.
+    const simpleFooNode = JSON.parse(JSON.stringify(fooAiNode));
+    assert.lengthOf(simpleFooNode.children, 1);
 
     // delete for smaller deepStrictEqual comparison
-    selectedNode.children = traceEntryTree.children = [];
+    simpleFooNode.children = [];
 
-    const expectedTraceEntryTree = new Trace.Helpers.TreeHelpers.TraceEntryNodeForAI(
-        'RunTask',
-        Trace.Types.Timing.MilliSeconds(336772948.813),
-        Trace.Types.Timing.MilliSeconds(4.614),
-        undefined,
-        Trace.Types.Timing.MilliSeconds(0.162),
-    );
-    expectedTraceEntryTree.id = 368 as Trace.Helpers.TreeHelpers.TraceEntryNodeId;
-    expectedTraceEntryTree.children = [];
-    assert.deepStrictEqual(traceEntryTree, expectedTraceEntryTree);
-
-    const expectedselectedNode = new Trace.Helpers.TreeHelpers.TraceEntryNodeForAI(
-        'ProfileCall',
-        Trace.Types.Timing.MilliSeconds(336772953.044),
-        Trace.Types.Timing.MilliSeconds(0.233),
-        undefined,
-        Trace.Types.Timing.MilliSeconds(0.162),
-    );
-    expectedselectedNode.id = 408 as Trace.Helpers.TreeHelpers.TraceEntryNodeId;
-    expectedselectedNode.column = 12;
-    expectedselectedNode.function = 'foo';
-    expectedselectedNode.line = 8;
-    expectedselectedNode.selected = true;
-    expectedselectedNode.domain = 'file://';
-    expectedselectedNode.children = [];
-    assert.deepStrictEqual(selectedNode, expectedselectedNode);
+    assert.deepEqual(simpleFooNode, {
+      dur: 0.2,
+      name: 'foo',
+      selected: true,
+      self: 0.2,
+      url: 'file:///usr/local/google/home/alinavarkki/stack/recursion.html',
+      children: [],
+    });
   });
 });

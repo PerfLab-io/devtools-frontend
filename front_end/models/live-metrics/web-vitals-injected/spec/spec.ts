@@ -7,25 +7,13 @@ import type {INPAttribution, MetricType} from '../../../../third_party/web-vital
 export const EVENT_BINDING_NAME = '__chromium_devtools_metrics_reporter';
 export const INTERNAL_KILL_SWITCH = '__chromium_devtools_kill_live_metrics';
 
+export const SCRIPTS_PER_LOAF_LIMIT = 10;
+export const LOAF_LIMIT = 5;
+
 export type MetricChangeEvent = Pick<MetricType, 'name'|'value'>;
 
-export type UniqueInteractionId = `interaction-${number}-${number}`;
+export type InteractionEntryGroupId = number&{_tag: 'InteractionEntryGroupId'};
 export type UniqueLayoutShiftId = `layout-shift-${number}-${number}`;
-
-/**
- * An interaction can have multiple associated `PerformanceEventTiming`s.
- * The `interactionId` available on `PerformanceEventTiming` isn't guaranteed to be unique. (e.g. a `keyup` event issued long after a `keydown` event will have the same `interactionId`).
- * Double-keying with the start time of the longest entry should uniquely identify each interaction.
- */
-export function getUniqueInteractionId(entries: PerformanceEventTiming[]): UniqueInteractionId {
-  const longestEntry = entries.reduce((prev, curr) => {
-    if (prev.duration === curr.duration) {
-      return prev.startTime < curr.startTime ? prev : curr;
-    }
-    return prev.duration > curr.duration ? prev : curr;
-  });
-  return `interaction-${longestEntry.interactionId}-${longestEntry.startTime}`;
-}
 
 export function getUniqueLayoutShiftId(entry: LayoutShift): UniqueLayoutShiftId {
   return `layout-shift-${entry.value}-${entry.startTime}`;
@@ -59,22 +47,54 @@ export interface INPChangeEvent extends MetricChangeEvent {
   name: 'INP';
   interactionType: INPAttribution['interactionType'];
   phases: INPPhases;
-  uniqueInteractionId: UniqueInteractionId;
+  startTime: number;
+  entryGroupId: InteractionEntryGroupId;
+}
+
+// These object keys will be user visible
+// TODO: Translate these keys before they are logged to console
+/* eslint-disable  @typescript-eslint/naming-convention */
+export interface LoAFScript {
+  'Duration': number;
+  'Invoker Type': string|null;
+  'Invoker': string|null;
+  'Function': string|null;
+  'Source': string|null;
+  'Char position': number|null;
+}
+/* eslint-enable  @typescript-eslint/naming-convention */
+
+export interface PerformanceScriptTimingJSON {
+  startTime: number;
+  duration: number;
+  invoker?: string;
+  invokerType?: string;
+  sourceFunctionName?: string;
+  sourceURL?: string;
+  sourceCharPosition?: number;
+}
+
+export interface PerformanceLongAnimationFrameTimingJSON {
+  renderStart: DOMHighResTimeStamp;
+  duration: DOMHighResTimeStamp;
+  scripts: PerformanceScriptTimingJSON[];
 }
 
 /**
  * This event is not 1:1 with the interactions that the user sees in the interactions log.
- * It is 1:1 with a `PerformanceEventTiming` entry that will be combined by `uniqueInteractionId`
- * in the DevTools client.
+ * It is 1:1 with a `PerformanceEventTiming` entry.
  */
 export interface InteractionEntryEvent {
   name: 'InteractionEntry';
   interactionType: INPAttribution['interactionType'];
   eventName: string;
-  uniqueInteractionId: UniqueInteractionId;
+  entryGroupId: InteractionEntryGroupId;
+  startTime: number;
+  nextPaintTime: number;
   duration: number;
   phases: INPPhases;
   nodeIndex?: number;
+  longAnimationFrameEntries: PerformanceLongAnimationFrameTimingJSON[];
 }
 
 export interface LayoutShiftEvent {

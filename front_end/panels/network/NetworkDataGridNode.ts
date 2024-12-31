@@ -46,6 +46,7 @@ import type * as HAR from '../../models/har/har.js';
 import * as Logs from '../../models/logs/logs.js';
 import * as Workspace from '../../models/workspace/workspace.js';
 import * as NetworkForward from '../../panels/network/forward/forward.js';
+import * as FloatingButton from '../../ui/components/floating_button/floating_button.js';
 import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as DataGrid from '../../ui/legacy/components/data_grid/data_grid.js';
 import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
@@ -557,6 +558,7 @@ export class NetworkRequestNode extends NetworkNode {
   private isOnInitiatorPathInternal: boolean;
   private isOnInitiatedPathInternal: boolean;
   private linkifiedInitiatorAnchor?: HTMLElement;
+
   constructor(parentView: NetworkLogViewInterface, request: SDK.NetworkRequest.NetworkRequest) {
     super(parentView);
     this.nameCell = null;
@@ -1106,6 +1108,12 @@ export class NetworkRequestNode extends NetworkNode {
       // render icons
       const iconElement = PanelUtils.getIconForNetworkRequest(this.requestInternal);
       cell.appendChild(iconElement);
+
+      // render Ask AI button
+      const aiButtonContainer = this.createAiButtonIfAvailable();
+      if (aiButtonContainer) {
+        cell.appendChild(aiButtonContainer);
+      }
     }
 
     if (columnId === 'name') {
@@ -1398,7 +1406,7 @@ export class NetworkRequestNode extends NetworkNode {
   }
 
   private renderSizeCell(cell: HTMLElement): void {
-    const resourceSize = Platform.NumberUtilities.bytesToString(this.requestInternal.resourceSize);
+    const resourceSize = i18n.ByteUtilities.bytesToString(this.requestInternal.resourceSize);
 
     if (this.requestInternal.cachedInMemory()) {
       UI.UIUtils.createTextChild(cell, i18nString(UIStrings.memoryCache));
@@ -1411,7 +1419,7 @@ export class NetworkRequestNode extends NetworkNode {
       UI.UIUtils.createTextChild(cell, i18n.i18n.lockedString('(ServiceWorker router)'));
       let tooltipText;
       if (serviceWorkerRouterInfo.matchedSourceType === Protocol.Network.ServiceWorkerRouterSource.Network) {
-        const transferSize = Platform.NumberUtilities.bytesToString(this.requestInternal.transferSize);
+        const transferSize = i18n.ByteUtilities.bytesToString(this.requestInternal.transferSize);
         tooltipText = i18nString(
             UIStrings.matchedToServiceWorkerRouterWithNetworkSource,
             {PH1: ruleIdMatched, PH2: transferSize, PH3: resourceSize});
@@ -1441,7 +1449,7 @@ export class NetworkRequestNode extends NetworkNode {
       UI.Tooltip.Tooltip.install(cell, i18nString(UIStrings.servedFromDiskCacheResourceSizeS, {PH1: resourceSize}));
       cell.classList.add('network-dim-cell');
     } else {
-      const transferSize = Platform.NumberUtilities.bytesToString(this.requestInternal.transferSize);
+      const transferSize = i18n.ByteUtilities.bytesToString(this.requestInternal.transferSize);
       UI.UIUtils.createTextChild(cell, transferSize);
       UI.Tooltip.Tooltip.install(cell, `${transferSize} transferred over network, resource size: ${resourceSize}`);
     }
@@ -1473,6 +1481,28 @@ export class NetworkRequestNode extends NetworkNode {
       UI.Tooltip.Tooltip.install(subtitleElement, tooltipText);
     }
     cellElement.appendChild(subtitleElement);
+  }
+
+  private createAiButtonIfAvailable(): HTMLSpanElement|void {
+    if (UI.ActionRegistry.ActionRegistry.instance().hasAction('drjones.network-floating-button')) {
+      const action = UI.ActionRegistry.ActionRegistry.instance().getAction('drjones.network-floating-button');
+      const aiButtonContainer = document.createElement('span');
+      aiButtonContainer.classList.add('ai-button-container');
+      const floatingButton = new FloatingButton.FloatingButton.FloatingButton({
+        title: action.title(),
+        iconName: 'smart-assistant',
+      });
+      floatingButton.addEventListener('click', ev => {
+        ev.stopPropagation();
+        this.select();
+        void action.execute();
+      }, {capture: true});
+      floatingButton.addEventListener('mousedown', ev => {
+        ev.stopPropagation();
+      }, {capture: true});
+      aiButtonContainer.appendChild(floatingButton);
+      return aiButtonContainer;
+    }
   }
 }
 

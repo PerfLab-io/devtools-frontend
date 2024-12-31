@@ -8,8 +8,6 @@ import '../../../ui/components/node_text/node_text.js';
 import * as i18n from '../../../core/i18n/i18n.js';
 import type * as SDK from '../../../core/sdk/sdk.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
-import type * as IconButton from '../../../ui/components/icon_button/icon_button.js';
-import type * as NodeText from '../../../ui/components/node_text/node_text.js';
 import * as Coordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
 import * as LitHtml from '../../../ui/lit-html/lit-html.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
@@ -288,11 +286,11 @@ export class ElementsBreadcrumbs extends HTMLElement {
           color: 'var(--sys-color-on-surface)',
           width: '12px',
           height: '10px',
-        } as IconButton.Icon.IconData}>
+        }}>
         </devtools-icon>
       </button>
       `;
-    // clang-format on
+          // clang-format on
   }
 
   #render(): void {
@@ -311,7 +309,7 @@ export class ElementsBreadcrumbs extends HTMLElement {
                 crumb: true,
                 selected: crumb.selected,
               };
-              // eslint-disable-next-line rulesdir/ban_a_tags_in_lit_html
+              // eslint-disable-next-line rulesdir/no-a-tags-in-lit-html
               return html`
                 <li class=${LitHtml.Directives.classMap(crumbClasses)}
                   data-node-id=${crumb.node.id}
@@ -330,7 +328,7 @@ export class ElementsBreadcrumbs extends HTMLElement {
                     nodeTitle: crumb.title.main,
                     nodeId: crumb.title.extras.id,
                     nodeClasses: crumb.title.extras.classes,
-                  } as NodeText.NodeText.NodeTextData}></devtools-node-text></a>
+                  }}></devtools-node-text></a>
                 </li>`;
             })}
           </ul>

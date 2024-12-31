@@ -655,6 +655,11 @@ declare namespace ProtocolProxyApi {
      */
     invoke_forcePseudoState(params: Protocol.CSS.ForcePseudoStateRequest): Promise<Protocol.ProtocolResponseWithError>;
 
+    /**
+     * Ensures that the given node is in its starting-style state.
+     */
+    invoke_forceStartingStyle(params: Protocol.CSS.ForceStartingStyleRequest): Promise<Protocol.ProtocolResponseWithError>;
+
     invoke_getBackgroundColors(params: Protocol.CSS.GetBackgroundColorsRequest): Promise<Protocol.CSS.GetBackgroundColorsResponse>;
 
     /**
@@ -663,10 +668,24 @@ declare namespace ProtocolProxyApi {
     invoke_getComputedStyleForNode(params: Protocol.CSS.GetComputedStyleForNodeRequest): Promise<Protocol.CSS.GetComputedStyleForNodeResponse>;
 
     /**
+     * Resolve the specified values in the context of the provided element.
+     * For example, a value of '1em' is evaluated according to the computed
+     * 'font-size' of the element and a value 'calc(1px + 2px)' will be
+     * resolved to '3px'.
+     */
+    invoke_resolveValues(params: Protocol.CSS.ResolveValuesRequest): Promise<Protocol.CSS.ResolveValuesResponse>;
+
+    /**
      * Returns the styles defined inline (explicitly in the "style" attribute and implicitly, using DOM
      * attributes) for a DOM node identified by `nodeId`.
      */
     invoke_getInlineStylesForNode(params: Protocol.CSS.GetInlineStylesForNodeRequest): Promise<Protocol.CSS.GetInlineStylesForNodeResponse>;
+
+    /**
+     * Returns the styles coming from animations & transitions
+     * including the animation & transition styles coming from inheritance chain.
+     */
+    invoke_getAnimatedStylesForNode(params: Protocol.CSS.GetAnimatedStylesForNodeRequest): Promise<Protocol.CSS.GetAnimatedStylesForNodeResponse>;
 
     /**
      * Returns requested styles for a DOM node identified by `nodeId`.
@@ -702,6 +721,16 @@ declare namespace ProtocolProxyApi {
      * returns an array of locations of the CSS selector in the style sheet.
      */
     invoke_getLocationForSelector(params: Protocol.CSS.GetLocationForSelectorRequest): Promise<Protocol.CSS.GetLocationForSelectorResponse>;
+
+    /**
+     * Starts tracking the given node for the computed style updates
+     * and whenever the computed style is updated for node, it queues
+     * a `computedStyleUpdated` event with throttling.
+     * There can only be 1 node tracked for computed style updates
+     * so passing a new node id removes tracking from the previous node.
+     * Pass `undefined` to disable tracking.
+     */
+    invoke_trackComputedStyleUpdatesForNode(params: Protocol.CSS.TrackComputedStyleUpdatesForNodeRequest): Promise<Protocol.ProtocolResponseWithError>;
 
     /**
      * Starts tracking the given computed styles for updates. The specified array of properties
@@ -819,6 +848,8 @@ declare namespace ProtocolProxyApi {
      * Fired whenever an active document stylesheet is removed.
      */
     styleSheetRemoved(params: Protocol.CSS.StyleSheetRemovedEvent): void;
+
+    computedStyleUpdated(params: Protocol.CSS.ComputedStyleUpdatedEvent): void;
 
   }
 
@@ -1173,9 +1204,10 @@ declare namespace ProtocolProxyApi {
 
     /**
      * Returns the query container of the given node based on container query
-     * conditions: containerName, physical, and logical axes. If no axes are
-     * provided, the style container is returned, which is the direct parent or the
-     * closest element with a matching container-name.
+     * conditions: containerName, physical and logical axes, and whether it queries
+     * scroll-state. If no axes are provided and queriesScrollState is false, the
+     * style container is returned, which is the direct parent or the closest
+     * element with a matching container-name.
      */
     invoke_getContainerForNode(params: Protocol.DOM.GetContainerForNodeRequest): Promise<Protocol.DOM.GetContainerForNodeResponse>;
 
@@ -2956,7 +2988,8 @@ declare namespace ProtocolProxyApi {
     javascriptDialogOpening(params: Protocol.Page.JavascriptDialogOpeningEvent): void;
 
     /**
-     * Fired for top level page lifecycle events such as navigation, load, paint, etc.
+     * Fired for lifecycle events (navigation, load, paint, etc) in the current
+     * target (including local frames).
      */
     lifecycleEvent(params: Protocol.Page.LifecycleEventEvent): void;
 

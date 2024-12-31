@@ -52,6 +52,7 @@ devtools_entrypoint("bundle") {
     "../../core/sdk:unittests",
     "../../entrypoints/main/*",
     "../../legacy_test_runner/*",
+    "../../panels/ai_assistance/*",
     "../../panels/application/*",
     "../../panels/console/*",
     "../../panels/coverage/*",

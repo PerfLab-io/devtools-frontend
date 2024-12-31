@@ -6,6 +6,7 @@ import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import type * as Platform from '../../core/platform/platform.js';
+import * as Root from '../../core/root/root.js';
 import * as Buttons from '../../ui/components/buttons/buttons.js';
 import type * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as Input from '../../ui/components/input/input.js';
@@ -46,8 +47,12 @@ const UIStrings = {
   /**
    *@description Text describing a fact to consider when using AI features
    */
-  adminSettings:
-      'Depending on your Google account management and/or region, Google may refrain from data collection. Depending on your organization’s settings, features available to managed users may vary.',
+  dataCollection: 'Depending on your region, Google may refrain from data collection.',
+  /**
+   *@description Text describing a fact to consider when using AI features
+   */
+  dataCollectionNoLogging:
+      'Your content will not be used by human reviewers to improve AI. Your organization may change these settings at any time. Depending on your Google account management and/or region, Google may refrain from data collection.',
   /**
    *@description Text describing the 'Console Insights' feature
    */
@@ -90,11 +95,16 @@ const UIStrings = {
   /**
    *@description Text describing the 'AI assistance' feature
    */
-  helpUnderstandStylingAndNetworkRequest: 'Get help with understanding CSS styles and network requests',
+  helpUnderstandStylingAndNetworkRequest: 'Get help with understanding CSS styles, and network requests',
   /**
    *@description Text describing the 'AI assistance' feature
    */
   helpUnderstandStylingNetworkAndFile: 'Get help with understanding CSS styles, network requests, and files',
+  /**
+   *@description Text describing the 'AI assistance' feature
+   */
+  helpUnderstandStylingNetworkPerformanceAndFile:
+      'Get help with understanding CSS styles, network requests, performance, and files',
   /**
    *@description Text which is a hyperlink to more documentation
    */
@@ -114,6 +124,11 @@ const UIStrings = {
   /**
    *@description Description of the AI assistance feature
    */
+  explainStylingNetworkPerformanceAndFile:
+      'Understand CSS styles, network activity, performance bottlenecks, and file origins with AI-powered insights',
+  /**
+   *@description Description of the AI assistance feature
+   */
   receiveStylingSuggestions: 'Improve your development workflow with contextual explanations and suggestions',
   /**
    *@description Explainer for which data is being sent by the AI assistance feature
@@ -129,10 +144,6 @@ const UIStrings = {
    */
   privacyNotice: 'Google Privacy Policy',
   /**
-   *@description Header for the AI innovations settings page
-   */
-  aiInnovations: 'AI innovations',
-  /**
    *@description Label for a toggle to enable the Console Insights feature
    */
   enableConsoleInsights: 'Enable `Console insights`',
@@ -143,7 +154,7 @@ const UIStrings = {
   /**
    * @description Message shown to the user if the age check is not successful.
    */
-  ageRestricted: 'This feature is only available to users who are 18 years of age or older',
+  ageRestricted: 'This feature is only available to users who are 18 years of age or older.',
   /**
    * @description The error message when the user is not logged in into Chrome.
    */
@@ -163,6 +174,7 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
   readonly #shadow = this.attachShadow({mode: 'open'});
   #consoleInsightsSetting?: Common.Settings.Setting<boolean>;
   #aiAssistanceSetting?: Common.Settings.Setting<boolean>;
+  #aiAssistanceHistorySetting?: Common.Settings.Setting<unknown[]>;
   #isConsoleInsightsSettingExpanded = false;
   #isAiAssistanceSettingExpanded = false;
   #aidaAvailability = Host.AidaClient.AidaAccessPreconditions.NO_ACCOUNT_EMAIL;
@@ -179,6 +191,13 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
       this.#aiAssistanceSetting = Common.Settings.Settings.instance().moduleSetting('ai-assistance-enabled');
     } catch {
       this.#aiAssistanceSetting = undefined;
+    }
+    try {
+      this.#aiAssistanceHistorySetting =
+          // Name needs to match the one in AiHistoryStorage
+          Common.Settings.Settings.instance().moduleSetting('ai-assistance-history-entries');
+    } catch {
+      this.#aiAssistanceHistorySetting = undefined;
     }
     this.#boundOnAidaAvailabilityChange = this.#onAidaAvailabilityChange.bind(this);
   }
@@ -205,10 +224,13 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
 
   #getAiAssistanceSettingDescription(): Platform.UIString.LocalizedString {
     const config = Common.Settings.Settings.instance().getHostConfig();
-    if (config.devToolsExplainThisResourceDogfood?.enabled) {
-      if (config.devToolsAiAssistanceFileAgentDogfood?.enabled) {
-        return i18nString(UIStrings.helpUnderstandStylingNetworkAndFile);
-      }
+    if (config.devToolsAiAssistancePerformanceAgent?.enabled) {
+      return i18nString(UIStrings.helpUnderstandStylingNetworkPerformanceAndFile);
+    }
+    if (config.devToolsAiAssistanceFileAgent?.enabled) {
+      return i18nString(UIStrings.helpUnderstandStylingNetworkAndFile);
+    }
+    if (config.devToolsAiAssistanceNetworkAgent?.enabled) {
       return i18nString(UIStrings.helpUnderstandStylingAndNetworkRequest);
     }
     return i18nString(UIStrings.helpUnderstandStyling);
@@ -216,10 +238,13 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
 
   #getAiAssistanceSettingInfo(): Platform.UIString.LocalizedString {
     const config = Common.Settings.Settings.instance().getHostConfig();
-    if (config.devToolsExplainThisResourceDogfood?.enabled) {
-      if (config.devToolsAiAssistanceFileAgentDogfood?.enabled) {
-        return i18nString(UIStrings.explainStylingNetworkAndFile);
-      }
+    if (config.devToolsAiAssistancePerformanceAgent?.enabled) {
+      return i18nString(UIStrings.explainStylingNetworkPerformanceAndFile);
+    }
+    if (config.devToolsAiAssistanceFileAgent?.enabled) {
+      return i18nString(UIStrings.explainStylingNetworkAndFile);
+    }
+    if (config.devToolsAiAssistanceNetworkAgent?.enabled) {
       return i18nString(UIStrings.explainStylingAndNetworkRequest);
     }
     return i18nString(UIStrings.explainStyling);
@@ -272,6 +297,11 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
     if (!oldSettingValue && !this.#isAiAssistanceSettingExpanded) {
       this.#isAiAssistanceSettingExpanded = true;
     }
+
+    // If history was create create and the value changes to `false`
+    if (this.#aiAssistanceHistorySetting && !this.#aiAssistanceSetting.get()) {
+      this.#aiAssistanceHistorySetting.set([]);
+    }
     void this.render();
   }
 
@@ -301,12 +331,17 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
     const privacyNoticeLink = UI.XLink.XLink.create(
         'https://policies.google.com/privacy', i18nString(UIStrings.privacyNotice), undefined, undefined,
         'privacy-notice');
+    const noLogging = Common.Settings.Settings.instance().getHostConfig().aidaAvailability?.enterprisePolicyValue ===
+        Root.Runtime.GenAiEnterprisePolicyValue.ALLOW_WITHOUT_LOGGING;
 
     const bulletPoints = [
       {icon: 'psychiatry', text: i18nString(UIStrings.experimentalFeatures)},
-      {icon: 'google', text: i18nString(UIStrings.sendsDataToGoogle)},
+      ...noLogging ? [] : [{icon: 'google', text: i18nString(UIStrings.sendsDataToGoogle)}],
       {icon: 'calendar-today', text: i18nString(UIStrings.retainData)},
-      {icon: 'corporate-fare', text: i18nString(UIStrings.adminSettings)},
+      {
+        icon: 'corporate-fare',
+        text: noLogging ? i18nString(UIStrings.dataCollectionNoLogging) : i18nString(UIStrings.dataCollection),
+      },
       {
         icon: 'policy',
         text: html`${i18n.i18n.getFormatLocalizedString(str_, UIStrings.termsOfServicePrivacyNotice, {
@@ -343,29 +378,38 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
     // clang-format on
   }
 
-  #getDisabledReason(setting: Common.Settings.Setting<boolean>|undefined): string|undefined {
+  #getDisabledReasons(): string[] {
+    const reasons = [];
     switch (this.#aidaAvailability) {
       case Host.AidaClient.AidaAccessPreconditions.NO_ACCOUNT_EMAIL:
       case Host.AidaClient.AidaAccessPreconditions.SYNC_IS_PAUSED:
-        return i18nString(UIStrings.notLoggedIn);
-      case Host.AidaClient.AidaAccessPreconditions.NO_INTERNET:
-        return i18nString(UIStrings.offline);
+        reasons.push(i18nString(UIStrings.notLoggedIn));
+        break;
+      // @ts-expect-error
+      case Host.AidaClient.AidaAccessPreconditions.NO_INTERNET:  // fallthrough
+        reasons.push(i18nString(UIStrings.offline));
+      case Host.AidaClient.AidaAccessPreconditions.AVAILABLE: {
+        // No age check if there is no logged in user. Age check would always fail in that case.
+        const config = Common.Settings.Settings.instance().getHostConfig();
+        if (config?.aidaAvailability?.blockedByAge === true) {
+          reasons.push(i18nString(UIStrings.ageRestricted));
+        }
+      }
     }
-
-    const config = Common.Settings.Settings.instance().getHostConfig();
-    if (config?.aidaAvailability?.blockedByAge === true) {
-      return i18nString(UIStrings.ageRestricted);
-    }
-    return setting?.disabledReason();
+    // `consoleInsightsSetting` and `aiAssistantSetting` are both disabled for the same reasons.
+    const disabledReasons = this.#consoleInsightsSetting?.disabledReasons() || [];
+    reasons.push(...disabledReasons);
+    return reasons;
   }
 
-  #renderConsoleInsightsSetting(): LitHtml.TemplateResult {
+  #renderConsoleInsightsSetting(disabledReasons: string[]): LitHtml.TemplateResult {
+    const isDisabled = disabledReasons.length > 0;
+    const disabledReasonsJoined = disabledReasons.join('\n') || undefined;
     const detailsClasses = {
       'whole-row': true,
       open: this.#isConsoleInsightsSettingExpanded,
     };
     const tabindex = this.#isConsoleInsightsSettingExpanded ? '0' : '-1';
-    const disabledReason = this.#getDisabledReason(this.#consoleInsightsSetting);
 
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
@@ -392,15 +436,15 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
       </div>
       <div class="divider"></div>
       <div class="toggle-container centered"
-        title=${ifDefined(disabledReason)}
+        title=${ifDefined(disabledReasonsJoined)}
         @click=${this.#toggleConsoleInsightsSetting.bind(this)}
       >
         <devtools-switch
-          .checked=${Boolean(this.#consoleInsightsSetting?.get()) && !Boolean(disabledReason)}
+          .checked=${Boolean(this.#consoleInsightsSetting?.get()) && !isDisabled}
           .jslogContext=${this.#consoleInsightsSetting?.name || ''}
-          .disabled=${Boolean(disabledReason)}
+          .disabled=${isDisabled}
           @switchchange=${this.#toggleConsoleInsightsSetting.bind(this)}
-          aria-label=${disabledReason || i18nString(UIStrings.enableConsoleInsights)}
+          aria-label=${disabledReasonsJoined || i18nString(UIStrings.enableConsoleInsights)}
         ></devtools-switch>
       </div>
       <div class=${classMap(detailsClasses)}>
@@ -428,13 +472,14 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
     // clang-format on
   }
 
-  #renderAiAssistanceSetting(): LitHtml.TemplateResult {
+  #renderAiAssistanceSetting(disabledReasons: string[]): LitHtml.TemplateResult {
+    const isDisabled = disabledReasons.length > 0;
+    const disabledReasonsJoined = disabledReasons.join('\n') || undefined;
     const detailsClasses = {
       'whole-row': true,
       open: this.#isAiAssistanceSettingExpanded,
     };
     const tabindex = this.#isAiAssistanceSettingExpanded ? '0' : '-1';
-    const disabledReason = this.#getDisabledReason(this.#aiAssistanceSetting);
 
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
@@ -461,15 +506,15 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
       </div>
       <div class="divider"></div>
       <div class="toggle-container centered"
-        title=${ifDefined(disabledReason)}
+        title=${ifDefined(disabledReasonsJoined)}
         @click=${this.#toggleAiAssistanceSetting.bind(this)}
       >
         <devtools-switch
-          .checked=${Boolean(this.#aiAssistanceSetting?.get()) && !Boolean(disabledReason)}
+          .checked=${Boolean(this.#aiAssistanceSetting?.get()) && !isDisabled}
           .jslogContext=${this.#aiAssistanceSetting?.name || ''}
-          .disabled=${Boolean(disabledReason)}
+          .disabled=${isDisabled}
           @switchchange=${this.#toggleAiAssistanceSetting.bind(this)}
-          aria-label=${disabledReason || i18nString(UIStrings.enableAiAssistance)}
+          aria-label=${disabledReasonsJoined || i18nString(UIStrings.enableAiAssistance)}
         ></devtools-switch>
       </div>
       <div class=${classMap(detailsClasses)}>
@@ -497,19 +542,41 @@ export class AISettingsTab extends LegacyWrapper.LegacyWrapper.WrappableComponen
     // clang-format on
   }
 
+  #renderDisabledExplainer(disabledReasons: string[]): LitHtml.LitTemplate {
+    // Disabled until https://crbug.com/1079231 is fixed.
+    // clang-format off
+    return html`
+      <div class="disabled-explainer">
+        ${disabledReasons.map(reason => html`
+          <div class="disabled-explainer-row">
+            <devtools-icon .data=${{
+              iconName: 'warning',
+              color: 'var(--sys-color-orange)',
+              width: 'var(--sys-size-8)',
+              height: 'var(--sys-size-8)',
+            } as IconButton.Icon.IconData}>
+            </devtools-icon>
+            ${reason}
+          </div>
+        `)}
+      </div>
+    `;
+    // clang-format on
+  }
+
   override async render(): Promise<void> {
+    const disabledReasons = this.#getDisabledReasons();
+
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     LitHtml.render(html`
-      <header>
-        <h1>${i18nString(UIStrings.aiInnovations)}</h1>
-      </header>
       <div class="settings-container-wrapper" jslog=${VisualLogging.pane('chrome-ai')}>
         ${this.#renderSharedDisclaimer()}
         ${this.#consoleInsightsSetting || this.#aiAssistanceSetting ? html`
+          ${disabledReasons.length ? this.#renderDisabledExplainer(disabledReasons) : LitHtml.nothing}
           <div class="settings-container">
-            ${this.#consoleInsightsSetting ? this.#renderConsoleInsightsSetting() : LitHtml.nothing}
-            ${this.#aiAssistanceSetting ? this.#renderAiAssistanceSetting() : LitHtml.nothing}
+            ${this.#consoleInsightsSetting ? this.#renderConsoleInsightsSetting(disabledReasons) : LitHtml.nothing}
+            ${this.#aiAssistanceSetting ? this.#renderAiAssistanceSetting(disabledReasons) : LitHtml.nothing}
           </div>
         ` : LitHtml.nothing}
       </div>

@@ -53,7 +53,7 @@ const UIStrings = {
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/SettingsUI.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export const createSettingCheckbox = function(
-    name: string, setting: Common.Settings.Setting<boolean>, omitParagraphElement?: boolean,
+    name: Common.UIString.LocalizedString, setting: Common.Settings.Setting<boolean>, omitParagraphElement?: boolean,
     tooltip?: string): Element {
   const label = CheckboxLabel.create(name, undefined, undefined, setting.name);
   if (tooltip) {
@@ -80,7 +80,7 @@ const createSettingSelect = function(
   const settingSelectElement = container.createChild('p');
   settingSelectElement.classList.add('settings-select');
   const label = settingSelectElement.createChild('label');
-  const select = (settingSelectElement.createChild('select', 'chrome-select') as HTMLSelectElement);
+  const select = settingSelectElement.createChild('select', 'chrome-select');
   label.textContent = name;
   if (subtitle) {
     container.classList.add('chrome-select-label');

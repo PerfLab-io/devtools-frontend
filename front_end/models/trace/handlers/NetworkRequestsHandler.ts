@@ -7,8 +7,9 @@ import * as Protocol from '../../../generated/protocol.js';
 import * as Helpers from '../helpers/helpers.js';
 import * as Types from '../types/types.js';
 
+import * as HandlerHelpers from './helpers.js';
 import {data as metaHandlerData} from './MetaHandler.js';
-import {type HandlerName, HandlerState} from './types.js';
+import type {HandlerName} from './types.js';
 
 const MILLISECONDS_TO_MICROSECONDS = 1000;
 const SECONDS_TO_MICROSECONDS = 1000000;
@@ -56,6 +57,7 @@ interface NetworkRequestData {
   byTime: Types.Events.SyntheticNetworkRequest[];
   eventToInitiator: Map<Types.Events.SyntheticNetworkRequest, Types.Events.SyntheticNetworkRequest>;
   webSocket: WebSocketTraceData[];
+  entityMappings: HandlerHelpers.EntityMappings;
 }
 
 const requestMap = new Map<string, TraceEventsForNetworkRequest>();
@@ -69,6 +71,17 @@ const requestsByTime: Types.Events.SyntheticNetworkRequest[] = [];
 
 const networkRequestEventByInitiatorUrl = new Map<string, Types.Events.SyntheticNetworkRequest[]>();
 const eventToInitiatorMap = new Map<Types.Events.SyntheticNetworkRequest, Types.Events.SyntheticNetworkRequest>();
+
+/**
+ * These are to store ThirdParty data relationships between entities and events. To reduce iterating through data
+ * more than we have to, here we start building the caches. After this, the RendererHandler will update
+ * the relationships. When handling ThirdParty references, use the one in the RendererHandler instead.
+ */
+const entityMappings: HandlerHelpers.EntityMappings = {
+  eventsByEntity: new Map<HandlerHelpers.Entity, Types.Events.Event[]>(),
+  entityByEvent: new Map<Types.Events.Event, HandlerHelpers.Entity>(),
+  createdEntityCache: new Map<string, HandlerHelpers.Entity>(),
+};
 
 function storeTraceEventWithRequestId<K extends keyof TraceEventsForNetworkRequest>(
     requestId: string, key: K, value: TraceEventsForNetworkRequest[K]): void {
@@ -103,8 +116,6 @@ function firstPositiveValueInList(entries: number[]): number {
   return 0;
 }
 
-let handlerState = HandlerState.UNINITIALIZED;
-
 export function reset(): void {
   requestsById.clear();
   requestsByOrigin.clear();
@@ -113,19 +124,12 @@ export function reset(): void {
   networkRequestEventByInitiatorUrl.clear();
   eventToInitiatorMap.clear();
   webSocketData.clear();
-
-  handlerState = HandlerState.UNINITIALIZED;
-}
-
-export function initialize(): void {
-  handlerState = HandlerState.INITIALIZED;
+  entityMappings.eventsByEntity.clear();
+  entityMappings.entityByEvent.clear();
+  entityMappings.createdEntityCache.clear();
 }
 
 export function handleEvent(event: Types.Events.Event): void {
-  if (handlerState !== HandlerState.INITIALIZED) {
-    throw new Error('Network Request handler is not initialized');
-  }
-
   if (Types.Events.isResourceChangePriority(event)) {
     storeTraceEventWithRequestId(event.args.data.requestId, 'changePriority', event);
     return;
@@ -187,10 +191,6 @@ export function handleEvent(event: Types.Events.Event): void {
 }
 
 export async function finalize(): Promise<void> {
-  if (handlerState !== HandlerState.INITIALIZED) {
-    throw new Error('Network Request handler is not initialized');
-  }
-
   const {rendererProcessesByFrame} = metaHandlerData();
   for (const [requestId, request] of requestMap.entries()) {
     // If we have an incomplete set of events here, we choose to drop the network
@@ -270,6 +270,9 @@ export async function finalize(): Promise<void> {
     if (request.changePriority) {
       finalPriority = request.changePriority.args.data.priority;
     }
+
+    // Network timings are complicated.
+    // https://raw.githubusercontent.com/GoogleChrome/lighthouse/main/docs/Network-Timings.svg is generally correct, but.. less so for navigations/redirects/etc.
 
     // Start time
     // =======================
@@ -438,10 +441,10 @@ export async function finalize(): Promise<void> {
               requestId,
               requestingFrameUrl,
               requestMethod: finalSendRequest.args.data.requestMethod,
-              resourceType: finalSendRequest.args.data.resourceType,
+              resourceType: finalSendRequest.args.data.resourceType ?? Protocol.Network.ResourceType.Other,
               statusCode: request.receiveResponse.args.data.statusCode,
               responseHeaders: request.receiveResponse.args.data.headers || [],
-              fetchPriorityHint: finalSendRequest.args.data.fetchPriorityHint,
+              fetchPriorityHint: finalSendRequest.args.data.fetchPriorityHint ?? 'auto',
               initiator: finalSendRequest.args.data.initiator,
               stackTrace: finalSendRequest.args.data.stackTrace,
               timing,
@@ -484,7 +487,8 @@ export async function finalize(): Promise<void> {
     requests.all.push(networkEvent);
     requestsByTime.push(networkEvent);
     requestsById.set(networkEvent.args.data.requestId, networkEvent);
-
+    // Update entity relationships for network events.
+    HandlerHelpers.updateEventForEntities(networkEvent, entityMappings);
     const initiatorUrl = networkEvent.args.data.initiator?.url ||
         Helpers.Trace.getZeroIndexedStackTraceForEvent(networkEvent)?.at(0)?.url;
     if (initiatorUrl) {
@@ -504,21 +508,20 @@ export async function finalize(): Promise<void> {
     }
   }
   finalizeWebSocketData();
-
-  handlerState = HandlerState.FINALIZED;
 }
 
 export function data(): NetworkRequestData {
-  if (handlerState !== HandlerState.FINALIZED) {
-    throw new Error('Network Request handler is not finalized');
-  }
-
   return {
     byId: requestsById,
     byOrigin: requestsByOrigin,
     byTime: requestsByTime,
     eventToInitiator: eventToInitiatorMap,
     webSocket: [...webSocketData.values()],
+    entityMappings: {
+      entityByEvent: new Map(entityMappings.entityByEvent),
+      eventsByEntity: new Map(entityMappings.eventsByEntity),
+      createdEntityCache: new Map(entityMappings.createdEntityCache),
+    },
   };
 }
 

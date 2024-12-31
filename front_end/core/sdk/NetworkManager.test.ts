@@ -37,7 +37,7 @@ describeWithMockConnection('MultitargetNetworkManager', () => {
           {requestId: 'mockId', request: {url: 'example.com'}} as Protocol.Network.RequestWillBeSentEvent);
 
       // 3) Check that the resulting NetworkRequest has the Trust Token Event data associated with it.
-      assert.strictEqual(startedRequests.length, 1);
+      assert.lengthOf(startedRequests, 1);
       assert.strictEqual(startedRequests[0].trustTokenOperationDoneEvent(), mockEvent);
     });
   });
@@ -57,6 +57,56 @@ describeWithMockConnection('MultitargetNetworkManager', () => {
       assert.isTrue(unexpectedCall.notCalled);
     }
     assert.isTrue(expectedCall.calledOnceWith({origin: 'https://example.com'}));
+  });
+
+  it('blocking settings are consistent after change', async () => {
+    const multitargetNetworkManager = SDK.NetworkManager.MultitargetNetworkManager.instance({forceNew: true});
+    let eventCounter = 0;
+    multitargetNetworkManager.addEventListener(
+        SDK.NetworkManager.MultitargetNetworkManager.Events.BLOCKED_PATTERNS_CHANGED, () => eventCounter++);
+    const blockingEnabledSetting = Common.Settings.Settings.instance().moduleSetting('request-blocking-enabled');
+    const blockedPatternsSetting: Common.Settings.Setting<SDK.NetworkManager.BlockedPattern[]> =
+        Common.Settings.Settings.instance().createSetting('network-blocked-patterns', []);
+
+    // Change blocking setting via Common.Settings.Settings.
+    assert.isFalse(multitargetNetworkManager.isBlocking());
+    assert.isFalse(multitargetNetworkManager.blockingEnabled());
+    blockingEnabledSetting.set(true);
+    assert.strictEqual(eventCounter, 1);
+    assert.isFalse(multitargetNetworkManager.isBlocking());
+    assert.isTrue(multitargetNetworkManager.blockingEnabled());
+    blockedPatternsSetting.set([{url: 'example.com', enabled: true}]);
+    assert.strictEqual(eventCounter, 2);
+    assert.isTrue(multitargetNetworkManager.isBlocking());
+    assert.isTrue(multitargetNetworkManager.blockingEnabled());
+    blockedPatternsSetting.set([]);
+    assert.strictEqual(eventCounter, 3);
+    assert.isFalse(multitargetNetworkManager.isBlocking());
+    assert.isTrue(multitargetNetworkManager.blockingEnabled());
+    blockingEnabledSetting.set(false);
+    assert.strictEqual(eventCounter, 4);
+    assert.isFalse(multitargetNetworkManager.isBlocking());
+    assert.isFalse(multitargetNetworkManager.blockingEnabled());
+
+    // Change blocking setting via MultitargetNetworkManager.
+    assert.isFalse(multitargetNetworkManager.isBlocking());
+    assert.isFalse(multitargetNetworkManager.blockingEnabled());
+    multitargetNetworkManager.setBlockingEnabled(true);
+    assert.strictEqual(eventCounter, 5);
+    assert.isFalse(multitargetNetworkManager.isBlocking());
+    assert.isTrue(multitargetNetworkManager.blockingEnabled());
+    multitargetNetworkManager.setBlockedPatterns([{url: 'example.com', enabled: true}]);
+    assert.strictEqual(eventCounter, 6);
+    assert.isTrue(multitargetNetworkManager.isBlocking());
+    assert.isTrue(multitargetNetworkManager.blockingEnabled());
+    multitargetNetworkManager.setBlockedPatterns([]);
+    assert.strictEqual(eventCounter, 7);
+    assert.isFalse(multitargetNetworkManager.isBlocking());
+    assert.isTrue(multitargetNetworkManager.blockingEnabled());
+    multitargetNetworkManager.setBlockingEnabled(false);
+    assert.strictEqual(eventCounter, 8);
+    assert.isFalse(multitargetNetworkManager.isBlocking());
+    assert.isFalse(multitargetNetworkManager.blockingEnabled());
   });
 });
 
@@ -208,7 +258,7 @@ describe('NetworkDispatcher', () => {
       networkDispatcher.requestWillBeSent(requestWillBeSentEvent);
       networkDispatcher.responseReceived(responseReceivedEvent);
 
-      assert.deepEqual(networkDispatcher.requestForId('mockId')?.fromEarlyHints(), true);
+      assert.isTrue(networkDispatcher.requestForId('mockId')?.fromEarlyHints());
     });
 
     it('has populated early hints headers after receiving \'repsonseReceivedEarlyHints\'', () => {
@@ -1053,6 +1103,6 @@ describeWithMockConnection('InterceptedRequest', () => {
       {name: 'set-cookie', value: 'override_duplicate'},
       {name: 'set-cookie', value: 'malformed_override'},
     ];
-    assert.deepStrictEqual(SDK.NetworkManager.InterceptedRequest.mergeSetCookieHeaders(original, overrides), expected);
+    assert.deepEqual(SDK.NetworkManager.InterceptedRequest.mergeSetCookieHeaders(original, overrides), expected);
   });
 });

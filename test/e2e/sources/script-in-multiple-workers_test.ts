@@ -108,7 +108,7 @@ describe('Multi-Workers', function() {
         await step('Wait for first worker to be expanded', async () => {
           await waitFor(selectedFile);
           const workers = await $$(expandedWorker);
-          assert.strictEqual(workers.length, 1);
+          assert.lengthOf(workers, 1);
         });
 
         await step('Break in and switch to a different worker', async () => {
@@ -118,10 +118,7 @@ describe('Multi-Workers', function() {
 
           // This typically happens too quickly to cause DevTools to switch to the other thread, so
           // click on the other paused thread.
-          await Promise.all([
-            click(THREADS_SELECTOR),
-            waitFor(THREADS_SELECTOR + '[aria-expanded="true"]'),
-          ]);
+          await waitFor(THREADS_SELECTOR + '[aria-expanded="true"]');
           await click('.thread-item:has( .thread-item-paused-state:not(:empty)):not(.selected)');
         });
 

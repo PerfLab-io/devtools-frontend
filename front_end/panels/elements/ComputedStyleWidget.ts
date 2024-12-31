@@ -42,7 +42,7 @@ import * as UI from '../../ui/legacy/legacy.js';
 import * as LitHtml from '../../ui/lit-html/lit-html.js';
 
 import * as ElementsComponents from './components/components.js';
-import {type ComputedStyle, ComputedStyleModel, Events} from './ComputedStyleModel.js';
+import {type ComputedStyle, type ComputedStyleModel, Events} from './ComputedStyleModel.js';
 import computedStyleSidebarPaneStyles from './computedStyleSidebarPane.css.js';
 import {ImagePreviewPopover} from './ImagePreviewPopover.js';
 import {PlatformFontsWidget} from './PlatformFontsWidget.js';
@@ -242,12 +242,13 @@ export class ComputedStyleWidget extends UI.ThrottledWidget.ThrottledWidget {
   #computedStylesTree = new TreeOutline.TreeOutline.TreeOutline<ComputedStyleData>();
   #treeData?: TreeOutline.TreeOutline.TreeOutlineData<ComputedStyleData>;
 
-  constructor() {
+  constructor(computedStyleModel: ComputedStyleModel) {
     super(true);
 
     this.contentElement.classList.add('styles-sidebar-computed-style-widget');
 
-    this.computedStyleModel = new ComputedStyleModel();
+    this.computedStyleModel = computedStyleModel;
+    this.computedStyleModel.addEventListener(Events.CSS_MODEL_CHANGED, this.update, this);
     this.computedStyleModel.addEventListener(Events.COMPUTED_STYLE_CHANGED, this.update, this);
 
     this.showInheritedComputedStylePropertiesSetting =
@@ -297,8 +298,13 @@ export class ComputedStyleWidget extends UI.ThrottledWidget.ThrottledWidget {
   }
 
   override wasShown(): void {
+    UI.Context.Context.instance().setFlavor(ComputedStyleWidget, this);
     super.wasShown();
     this.registerCSSFiles([computedStyleSidebarPaneStyles]);
+  }
+
+  override willHide(): void {
+    UI.Context.Context.instance().setFlavor(ComputedStyleWidget, null);
   }
 
   override async doUpdate(): Promise<void> {
@@ -484,7 +490,7 @@ export class ComputedStyleWidget extends UI.ThrottledWidget.ThrottledWidget {
             'contextmenu', this.handleContextMenuEvent.bind(this, matchedStyles, data.property));
         return html`${traceElement}`;
       }
-      return html`<span style="cursor: text; color: var(--sys-color-token-subtle);">${data.name}</span>`;
+      return html`<span style="cursor: text; color: var(--sys-color-on-surface-subtle);">${data.name}</span>`;
     };
   }
 

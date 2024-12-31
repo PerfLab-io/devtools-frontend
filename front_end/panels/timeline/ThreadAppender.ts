@@ -19,21 +19,21 @@ import {
 import {
   type CompatibilityTracksAppender,
   entryIsVisibleInTimeline,
-  type HighlightedEntryInfo,
+  type PopoverInfo,
   type TrackAppender,
   type TrackAppenderName,
   VisualLoggingTrackName,
 } from './CompatibilityTracksAppender.js';
-import * as Components from './components/components.js';
 import * as ModificationsManager from './ModificationsManager.js';
 import * as Utils from './utils/utils.js';
 
 const UIStrings = {
   /**
-   *@description Text shown for an entry in the flame chart that is ignored because it matches
+   * @description Text shown for an entry in the flame chart that is ignored because it matches
    * a predefined ignore list.
+   * @example {/analytics\.js$} rule
    */
-  onIgnoreList: 'On ignore list',
+  onIgnoreList: 'On ignore list ({rule})',
   /**
    * @description Refers to the "Main frame", meaning the top level frame. See https://www.w3.org/TR/html401/present/frames.html
    * @example{example.com} PH1
@@ -552,19 +552,19 @@ export class ThreadAppender implements TrackAppender {
 
     if (Trace.Types.Events.isProfileCall(event)) {
       if (event.callFrame.functionName === '(idle)') {
-        return Components.EntryStyles.getCategoryStyles().idle.getComputedColorValue();
+        return Utils.EntryStyles.getCategoryStyles().idle.getComputedColorValue();
       }
       if (event.callFrame.scriptId === '0') {
         // If we can not match this frame to a script, return the
         // generic "scripting" color.
-        return Components.EntryStyles.getCategoryStyles().scripting.getComputedColorValue();
+        return Utils.EntryStyles.getCategoryStyles().scripting.getComputedColorValue();
       }
       // Otherwise, return a color created based on its URL.
       return this.#colorGenerator.colorForID(event.callFrame.url);
     }
     const defaultColor =
-        Components.EntryStyles.getEventStyle(event.name as Trace.Types.Events.Name)?.category.getComputedColorValue();
-    return defaultColor || Components.EntryStyles.getCategoryStyles().other.getComputedColorValue();
+        Utils.EntryStyles.getEventStyle(event.name as Trace.Types.Events.Name)?.category.getComputedColorValue();
+    return defaultColor || Utils.EntryStyles.getCategoryStyles().other.getComputedColorValue();
   }
 
   /**
@@ -572,26 +572,22 @@ export class ThreadAppender implements TrackAppender {
    */
   titleForEvent(entry: Trace.Types.Events.Event): string {
     if (Utils.IgnoreList.isIgnoreListedEntry(entry)) {
-      return i18nString(UIStrings.onIgnoreList);
+      const rule = Utils.IgnoreList.getIgnoredReasonString(entry);
+      return i18nString(UIStrings.onIgnoreList, {rule});
     }
-    return Components.EntryName.nameForEntry(entry, this.#parsedTrace);
+    return Utils.EntryName.nameForEntry(entry, this.#parsedTrace);
   }
 
-  /**
-   * Returns the info shown when an event added by this appender
-   * is hovered in the timeline.
-   */
-  highlightedEntryInfo(event: Trace.Types.Events.Event): HighlightedEntryInfo {
-    let title = this.titleForEvent(event);
+  setPopoverInfo(event: Trace.Types.Events.Event, info: PopoverInfo): void {
     if (Trace.Types.Events.isParseHTML(event)) {
       const startLine = event.args['beginData']['startLine'];
       const endLine = event.args['endData'] && event.args['endData']['endLine'];
       const eventURL = event.args['beginData']['url'] as Platform.DevToolsPath.UrlString;
       const url = Bindings.ResourceUtils.displayNameForURL(eventURL);
       const range = (endLine !== -1 || endLine === startLine) ? `${startLine}...${endLine}` : startLine;
-      title += ` - ${url} [${range}]`;
+      info.title += ` - ${url} [${range}]`;
     }
     const selfTime = this.#parsedTrace.Renderer.entryToNode.get(event)?.selfTime;
-    return {title, formattedTime: getFormattedTime(event.dur, selfTime)};
+    info.formattedTime = getFormattedTime(event.dur, selfTime);
   }
 }

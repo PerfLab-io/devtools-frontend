@@ -53,8 +53,12 @@ describeWithMockConnection('LayoutPane', () => {
   }
 
   it('renders settings', async () => {
-    Common.Settings.Settings.instance().moduleSetting('show-grid-line-labels').setTitle('Enum setting title');
-    Common.Settings.Settings.instance().moduleSetting('show-grid-track-sizes').setTitle('Boolean setting title');
+    Common.Settings.Settings.instance()
+        .moduleSetting('show-grid-line-labels')
+        .setTitle('Enum setting title' as Platform.UIString.LocalizedString);
+    Common.Settings.Settings.instance()
+        .moduleSetting('show-grid-track-sizes')
+        .setTitle('Boolean setting title' as Platform.UIString.LocalizedString);
 
     const component = await renderComponent();
     assert.deepEqual(queryLabels(component, '[data-enum-setting]'), [{label: 'Enum setting title', input: 'SELECT'}]);
@@ -110,7 +114,7 @@ describeWithMockConnection('LayoutPane', () => {
     const component = await renderComponent();
     assert.isNotNull(component.shadowRoot);
 
-    assert.strictEqual(queryLabels(component, '[data-element]').length, 3);
+    assert.lengthOf(queryLabels(component, '[data-element]'), 3);
   });
 
   it('renders flex elements', async () => {
@@ -130,7 +134,7 @@ describeWithMockConnection('LayoutPane', () => {
     const component = await renderComponent();
     assert.isNotNull(component.shadowRoot);
 
-    assert.strictEqual(queryLabels(component, '[data-element]').length, 3);
+    assert.lengthOf(queryLabels(component, '[data-element]'), 3);
   });
 
   it('send an event when an element overlay is toggled', async () => {

@@ -24,7 +24,7 @@ describeWithEnvironment('AISettingsTab', () => {
 
   function mockHostConfigWithExplainThisResourceEnabled() {
     getGetHostConfigStub({
-      devToolsExplainThisResourceDogfood: {
+      devToolsAiAssistanceNetworkAgent: {
         enabled: true,
         modelId: 'test',
       },
@@ -40,6 +40,7 @@ describeWithEnvironment('AISettingsTab', () => {
     details: Element[],
     dropdownButtons: HTMLElement[],
     toggleContainers: HTMLElement[],
+    view: Settings.AISettingsTab.AISettingsTab,
   }> {
     Common.Settings.moduleSetting('console-insights-enabled').set(false);
     Common.Settings.moduleSetting('ai-assistance-enabled').set(true);
@@ -50,15 +51,15 @@ describeWithEnvironment('AISettingsTab', () => {
     assert.isNotNull(view.shadowRoot);
 
     const switches = Array.from(view.shadowRoot.querySelectorAll('devtools-switch')) as Switch.Switch.Switch[];
-    assert.strictEqual(switches.length, 2);
+    assert.lengthOf(switches, 2);
     const details = Array.from(view.shadowRoot.querySelectorAll('.whole-row'));
-    assert.strictEqual(details.length, 2);
+    assert.lengthOf(details, 2);
     const dropdownButtons = Array.from(view.shadowRoot.querySelectorAll('.dropdown devtools-button')) as HTMLElement[];
-    assert.strictEqual(dropdownButtons.length, 2);
+    assert.lengthOf(dropdownButtons, 2);
     const toggleContainers =
         Array.from(view.shadowRoot.querySelectorAll('.toggle-container')) as Switch.Switch.Switch[];
-    assert.strictEqual(toggleContainers.length, 2);
-    return {switches, details, dropdownButtons, toggleContainers};
+    assert.lengthOf(toggleContainers, 2);
+    return {switches, details, dropdownButtons, toggleContainers, view};
   }
 
   it('renders', async () => {
@@ -73,12 +74,48 @@ describeWithEnvironment('AISettingsTab', () => {
     const sharedDisclaimerHeader = view.shadowRoot.querySelector('.shared-disclaimer h2');
     assert.strictEqual(sharedDisclaimerHeader?.textContent, 'Boost your productivity with AI');
 
+    const disclaimers = view.shadowRoot.querySelectorAll('.shared-disclaimer .disclaimer-list div');
+    assert.strictEqual(
+        disclaimers[3].textContent,
+        'These features send relevant data to Google. Google collects this data and feedback to improve its products and services with the help of human reviewers. Avoid sharing sensitive or personal information.');
+    assert.strictEqual(
+        disclaimers[7].textContent, 'Depending on your region, Google may refrain from data collection.');
+
     const settingCards = view.shadowRoot.querySelectorAll('.setting-card h2');
     const settingNames = Array.from(settingCards).map(element => element.textContent);
     assert.deepEqual(settingNames, ['Console Insights', 'AI assistance']);
 
     const settingCardDesc = view.shadowRoot.querySelectorAll('.setting-description');
     assert.strictEqual(settingCardDesc[1].textContent, 'Get help with understanding CSS styles');
+  });
+
+  it('renders different dislaimers for managed users which have logging disabled', async () => {
+    Common.Settings.moduleSetting('console-insights-enabled').set(true);
+    Common.Settings.moduleSetting('ai-assistance-enabled').set(true);
+    const stub = getGetHostConfigStub({
+      aidaAvailability: {
+        enabled: true,
+        blockedByAge: false,
+        blockedByEnterprisePolicy: false,
+        blockedByGeo: false,
+        disallowLogging: true,
+        enterprisePolicyValue: 1,
+      },
+    });
+
+    view = new Settings.AISettingsTab.AISettingsTab();
+    renderElementIntoDOM(view);
+    await view.render();
+    assert.isNotNull(view.shadowRoot);
+
+    const disclaimers = view.shadowRoot.querySelectorAll('.shared-disclaimer .disclaimer-list div');
+    assert.strictEqual(
+        disclaimers[3].textContent,
+        'Usage data will be retained for up to 18 months and stored in such a way that Google can’t tell who provided it.');
+    assert.strictEqual(
+        disclaimers[5].textContent,
+        'Your content will not be used by human reviewers to improve AI. Your organization may change these settings at any time. Depending on your Google account management and/or region, Google may refrain from data collection.');
+    stub.restore();
   });
 
   it('renders with explain this resource enabled', async () => {
@@ -92,7 +129,7 @@ describeWithEnvironment('AISettingsTab', () => {
     assert.isNotNull(view.shadowRoot);
 
     const settingCardDesc = view.shadowRoot.querySelectorAll('.setting-description');
-    assert.strictEqual(settingCardDesc[1].textContent, 'Get help with understanding CSS styles and network requests');
+    assert.strictEqual(settingCardDesc[1].textContent, 'Get help with understanding CSS styles, and network requests');
   });
 
   it('can turn feature on, which automatically expands it', async () => {
@@ -131,7 +168,7 @@ describeWithEnvironment('AISettingsTab', () => {
   });
 
   it('disables switches if blocked by age', async () => {
-    const underAgeExplainer = 'This feature is only available to users who are 18 years of age or older';
+    const underAgeExplainer = 'This feature is only available to users who are 18 years of age or older.';
     const aidaAccessStub = sinon.stub(Host.AidaClient.AidaClient, 'checkAccessPreconditions');
     aidaAccessStub.returns(Promise.resolve(Host.AidaClient.AidaAccessPreconditions.AVAILABLE));
     const hostConfigStub = getGetHostConfigStub({
@@ -146,7 +183,8 @@ describeWithEnvironment('AISettingsTab', () => {
       },
     });
 
-    const {switches, toggleContainers} = await renderAISettings();
+    const {switches, toggleContainers, view} = await renderAISettings();
+    assert.strictEqual(view.shadowRoot?.querySelector('.disabled-explainer')?.textContent?.trim(), underAgeExplainer);
     assert.isTrue(switches[0].disabled);
     assert.strictEqual(toggleContainers[0].title, underAgeExplainer);
     assert.isTrue(switches[1].disabled);
@@ -161,7 +199,9 @@ describeWithEnvironment('AISettingsTab', () => {
     const aidaAccessStub = sinon.stub(Host.AidaClient.AidaClient, 'checkAccessPreconditions');
     aidaAccessStub.returns(Promise.resolve(Host.AidaClient.AidaAccessPreconditions.NO_ACCOUNT_EMAIL));
 
-    const {switches, toggleContainers} = await renderAISettings();
+    const {switches, toggleContainers, view} = await renderAISettings();
+    assert.strictEqual(
+        view.shadowRoot?.querySelector('.disabled-explainer')?.textContent?.trim(), notLoggedInExplainer);
     assert.isTrue(switches[0].disabled);
     assert.strictEqual(toggleContainers[0].title, notLoggedInExplainer);
     assert.isTrue(switches[1].disabled);
@@ -171,6 +211,7 @@ describeWithEnvironment('AISettingsTab', () => {
     Host.AidaClient.HostConfigTracker.instance().dispatchEventToListeners(
         Host.AidaClient.Events.AIDA_AVAILABILITY_CHANGED);
     await drainMicroTasks();
+    assert.isNull(view.shadowRoot?.querySelector('.disabled-explainer'));
     assert.isFalse(switches[0].disabled);
     assert.isFalse(switches[1].disabled);
     aidaAccessStub.restore();
@@ -182,7 +223,7 @@ describeWithEnvironment('AISettingsTab', () => {
       settingType: Common.Settings.SettingType.BOOLEAN,
       defaultValue: false,
       disabledCondition: () => {
-        return {disabled: true, reason: 'reason 1'};
+        return {disabled: true, reasons: ['some reason']};
       },
     });
     Common.Settings.moduleSetting('ai-assistance-enabled').setRegistration({
@@ -190,17 +231,28 @@ describeWithEnvironment('AISettingsTab', () => {
       settingType: Common.Settings.SettingType.BOOLEAN,
       defaultValue: true,
       disabledCondition: () => {
-        return {disabled: true, reason: 'reason 2'};
+        return {disabled: true, reasons: ['some reason']};
       },
     });
     const stub = sinon.stub(Host.AidaClient.AidaClient, 'checkAccessPreconditions');
     stub.returns(Promise.resolve(Host.AidaClient.AidaAccessPreconditions.AVAILABLE));
 
-    const {switches, toggleContainers} = await renderAISettings();
+    const {switches, toggleContainers, view} = await renderAISettings();
+    assert.strictEqual(view.shadowRoot?.querySelector('.disabled-explainer')?.textContent?.trim(), 'some reason');
     assert.isTrue(switches[0].disabled);
-    assert.strictEqual(toggleContainers[0].title, 'reason 1');
+    assert.strictEqual(toggleContainers[0].title, 'some reason');
     assert.isTrue(switches[1].disabled);
-    assert.strictEqual(toggleContainers[1].title, 'reason 2');
+    assert.strictEqual(toggleContainers[1].title, 'some reason');
     stub.restore();
+  });
+
+  it('can turn feature off and clear history', async () => {
+    const {switches} = await renderAISettings();
+    Common.Settings.moduleSetting('ai-assistance-enabled').set(true);
+    Common.Settings.moduleSetting('ai-assistance-history-entries').set([{}, {}]);
+
+    (switches[1].parentElement as HTMLElement).click();
+    assert.isFalse(Common.Settings.moduleSetting('ai-assistance-enabled').get());
+    assert.isEmpty(Common.Settings.moduleSetting('ai-assistance-history-entries').get());
   });
 });

@@ -6,27 +6,16 @@ import './Table.js';
 
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as Platform from '../../../../core/platform/platform.js';
+import type {INPInsightModel} from '../../../../models/trace/insights/InteractionToNextPaint.js';
 import * as Trace from '../../../../models/trace/trace.js';
 import * as LitHtml from '../../../../ui/lit-html/lit-html.js';
 import type * as Overlays from '../../overlays/overlays.js';
 
-import {BaseInsight, shouldRenderForCategory} from './Helpers.js';
-import type * as SidebarInsight from './SidebarInsight.js';
-import type {TableData} from './Table.js';
-import {Category} from './types.js';
+import {BaseInsightComponent} from './BaseInsightComponent.js';
 
 const {html} = LitHtml;
 
 const UIStrings = {
-  /**
-   * @description Text to tell the user about the longest user interaction.
-   */
-  description:
-      'Start investigating with the longest phase. [Delays can be minimized](https://web.dev/articles/optimize-inp#optimize_interactions). To reduce processing duration, [optimize the main-thread costs](https://web.dev/articles/optimize-long-tasks), often JS.',
-  /**
-   * @description Title for the performance insight "INP by phase", which shows a breakdown of INP by phases / sections.
-   */
-  title: 'INP by phase',
   /**
    *@description Label used for the phase/component/stage/section of a larger duration.
    */
@@ -49,26 +38,25 @@ const UIStrings = {
    *@description Text shown next to the interaction event's presentation delay time in the detail view.
    */
   presentationDelay: 'Presentation delay',
+  /**
+   * @description Text status indicating that no user interactions were detected.
+   */
+  noInteractions: 'No interactions detected',
 };
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/insights/InteractionToNextPaint.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
-export class InteractionToNextPaint extends BaseInsight {
+export class InteractionToNextPaint extends BaseInsightComponent<INPInsightModel> {
   static override readonly litTagName = LitHtml.literal`devtools-performance-inp`;
-  override insightCategory: Category = Category.INP;
   override internalName: string = 'inp';
-  override userVisibleTitle: string = i18nString(UIStrings.title);
-  override description: string = i18nString(UIStrings.description);
 
   override createOverlays(): Overlays.Overlays.TimelineOverlay[] {
-    const insight =
-        Trace.Insights.Common.getInsight('InteractionToNextPaint', this.data.insights, this.data.insightSetKey);
-    if (!insight) {
+    if (!this.model) {
       return [];
     }
 
-    const event = insight.longestInteractionEvent;
+    const event = this.model.longestInteractionEvent;
     if (!event) {
       return [];
     }
@@ -110,64 +98,40 @@ export class InteractionToNextPaint extends BaseInsight {
     ];
   }
 
-  #render(event: Trace.Types.Events.SyntheticInteractionPair): LitHtml.TemplateResult {
+  override renderContent(): LitHtml.LitTemplate {
+    const event = this.model?.longestInteractionEvent;
+    if (!event) {
+      return html`<div class="insight-section">${i18nString(UIStrings.noInteractions)}</div>`;
+    }
+
     const time = (us: Trace.Types.Timing.MicroSeconds): string =>
         i18n.TimeUtilities.millisToString(Platform.Timing.microSecondsToMilliSeconds(us));
 
     // clang-format off
     return html`
-        <div class="insights">
-            <devtools-performance-sidebar-insight .data=${{
-            title: this.userVisibleTitle,
-            description: this.description,
-            internalName: this.internalName,
-            expanded: this.isActive(),
-            } as SidebarInsight.InsightDetails}
-            @insighttoggleclick=${this.onSidebarClick}>
-                <div slot="insight-content" class="insight-section">
-                  ${html`<devtools-performance-table
-                    .data=${{
-                      insight: this,
-                      headers: [i18nString(UIStrings.phase), i18nString(UIStrings.duration)],
-                      rows: [
-                        {
-                          values: [i18nString(UIStrings.inputDelay), time(event.inputDelay)],
-                          overlays: this.#createOverlaysForPhase(event, 0),
-                        },
-                        {
-                          values: [i18nString(UIStrings.processingDuration), time(event.mainThreadHandling)],
-                          overlays: this.#createOverlaysForPhase(event, 1),
-                        },
-                        {
-                          values: [i18nString(UIStrings.presentationDelay), time(event.presentationDelay)],
-                          overlays: this.#createOverlaysForPhase(event, 2),
-                        },
-                      ],
-                    } as TableData}>
-                  </devtools-performance-table>`}
-                </div>
-            </devtools-performance-sidebar-insight>
-        </div>`;
+      <div class="insight-section">
+        ${html`<devtools-performance-table
+          .data=${{
+            insight: this,
+            headers: [i18nString(UIStrings.phase), i18nString(UIStrings.duration)],
+            rows: [
+              {
+                values: [i18nString(UIStrings.inputDelay), time(event.inputDelay)],
+                overlays: this.#createOverlaysForPhase(event, 0),
+              },
+              {
+                values: [i18nString(UIStrings.processingDuration), time(event.mainThreadHandling)],
+                overlays: this.#createOverlaysForPhase(event, 1),
+              },
+              {
+                values: [i18nString(UIStrings.presentationDelay), time(event.presentationDelay)],
+                overlays: this.#createOverlaysForPhase(event, 2),
+              },
+            ],
+          }}>
+        </devtools-performance-table>`}
+      </div>`;
     // clang-format on
-  }
-
-  override getRelatedEvents(): Trace.Types.Events.Event[] {
-    const insight =
-        Trace.Insights.Common.getInsight('InteractionToNextPaint', this.data.insights, this.data.insightSetKey);
-    return insight?.relatedEvents ?? [];
-  }
-
-  override render(): void {
-    const insight =
-        Trace.Insights.Common.getInsight('InteractionToNextPaint', this.data.insights, this.data.insightSetKey);
-    const event = insight?.longestInteractionEvent;
-
-    const matchesCategory = shouldRenderForCategory({
-      activeCategory: this.data.activeCategory,
-      insightCategory: this.insightCategory,
-    });
-    const output = event && matchesCategory ? this.#render(event) : LitHtml.nothing;
-    LitHtml.render(output, this.shadow, {host: this});
   }
 }
 

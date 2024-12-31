@@ -29,6 +29,7 @@ describeWithMockConnection('DebuggerModel', () => {
       setMockConnectionResponseHandler('DOM.disable', () => ({}));
       setMockConnectionResponseHandler('CSS.disable', () => ({}));
       setMockConnectionResponseHandler('Overlay.disable', () => ({}));
+      setMockConnectionResponseHandler('Animation.disable', () => ({}));
       setMockConnectionResponseHandler('Overlay.setShowGridOverlays', () => ({}));
       setMockConnectionResponseHandler('Overlay.setShowFlexOverlays', () => ({}));
       setMockConnectionResponseHandler('Overlay.setShowScrollSnapOverlays', () => ({}));
@@ -43,6 +44,7 @@ describeWithMockConnection('DebuggerModel', () => {
       setMockConnectionResponseHandler('DOM.enable', () => ({}));
       setMockConnectionResponseHandler('Overlay.enable', () => ({}));
       setMockConnectionResponseHandler('CSS.enable', () => ({}));
+      setMockConnectionResponseHandler('Animation.enable', () => ({}));
     });
 
     it('deactivates breakpoints on construction with inactive breakpoints', async () => {
@@ -146,7 +148,7 @@ describeWithMockConnection('DebuggerModel', () => {
       });
       assert.strictEqual(debuggerModel?.createRawLocationByURL(url, 0)?.scriptId, SCRIPT_ID_ONE);
       assert.strictEqual(debuggerModel?.createRawLocationByURL(url, 20, 1)?.scriptId, SCRIPT_ID_TWO);
-      assert.strictEqual(debuggerModel?.createRawLocationByURL(url, 5, 5), null);
+      assert.isNull(debuggerModel?.createRawLocationByURL(url, 5, 5));
     });
   });
 
@@ -325,7 +327,7 @@ describe('DebuggerModel', () => {
       }
 
       assert.lengthOf(consoleMessages, 1);
-      assert.deepStrictEqual(consoleMessages[0].text, expectedWarning);
+      assert.deepEqual(consoleMessages[0].text, expectedWarning);
     }
 
     it('prioritizes external DWARF over all types', () => {

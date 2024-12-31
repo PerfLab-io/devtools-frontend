@@ -45,7 +45,7 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin<EventT
   private readonly cursorArea: HTMLElement;
   private cursorElement: HTMLElement;
   private overviewControls: TimelineOverview[];
-  private markers: Map<number, Element>;
+  private markers: Map<number, HTMLDivElement>;
   private readonly overviewInfo: OverviewInfo;
   private readonly updateThrottler: Common.Throttler.Throttler;
   private cursorEnabled: boolean;
@@ -89,12 +89,13 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin<EventT
     this.muteOnWindowChanged = false;
 
     this.#dimHighlightSVG = UI.UIUtils.createSVGChild(this.element, 'svg', 'timeline-minimap-dim-highlight-svg hidden');
+    this.#initializeDimHighlightSVG();
   }
 
   enableCreateBreadcrumbsButton(): void {
-    const breacrumbsElement = this.overviewGrid.enableCreateBreadcrumbsButton();
-    breacrumbsElement.addEventListener('mousemove', this.onMouseMove.bind(this), true);
-    breacrumbsElement.addEventListener('mouseleave', this.hideCursor.bind(this), true);
+    const breadcrumbsElement = this.overviewGrid.enableCreateBreadcrumbsButton();
+    breadcrumbsElement.addEventListener('mousemove', this.onMouseMove.bind(this), true);
+    breadcrumbsElement.addEventListener('mouseleave', this.hideCursor.bind(this), true);
   }
 
   private onMouseMove(event: Event): void {
@@ -108,6 +109,19 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin<EventT
     this.cursorPosition = mouseEvent.offsetX + offsetLeftRelativeToCursorArea;
     this.cursorElement.style.left = this.cursorPosition + 'px';
     this.cursorElement.style.visibility = 'visible';
+
+    // Dispatch an event to notify the flame chart to show a timestamp marker for the current timestamp if it's visible
+    // in the flame chart.
+    const timeInMilliSeconds = this.overviewCalculator.positionToTime(this.cursorPosition);
+    const timeWindow = this.overviewGrid.calculateWindowValue();
+    if (Trace.Types.Timing.MilliSeconds(timeWindow.rawStartValue) <= timeInMilliSeconds &&
+        timeInMilliSeconds <= Trace.Types.Timing.MilliSeconds(timeWindow.rawEndValue)) {
+      const timeInMicroSeconds = Trace.Helpers.Timing.millisecondsToMicroseconds(timeInMilliSeconds);
+      this.dispatchEventToListeners(Events.OVERVIEW_PANE_MOUSE_MOVE, {timeInMicroSeconds});
+    } else {
+      this.dispatchEventToListeners(Events.OVERVIEW_PANE_MOUSE_LEAVE);
+    }
+
     void this.overviewInfo.setContent(this.buildOverviewInfo());
   }
 
@@ -123,6 +137,7 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin<EventT
 
   private hideCursor(): void {
     this.cursorElement.style.visibility = 'hidden';
+    this.dispatchEventToListeners(Events.OVERVIEW_PANE_MOUSE_LEAVE);
     this.overviewInfo.hide();
   }
 
@@ -181,7 +196,7 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin<EventT
     });
   }
 
-  private update(start?: Trace.Types.Timing.MilliSeconds, end?: Trace.Types.Timing.MilliSeconds): void {
+  override update(start?: Trace.Types.Timing.MilliSeconds, end?: Trace.Types.Timing.MilliSeconds): void {
     if (!this.isShowing()) {
       return;
     }
@@ -194,12 +209,31 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin<EventT
     this.updateWindow();
   }
 
-  setMarkers(markers: Map<number, Element>): void {
+  setMarkers(markers: Map<number, HTMLDivElement>): void {
     this.markers = markers;
   }
 
-  getMarkers(): Map<number, Element> {
+  getMarkers(): Map<number, HTMLDivElement> {
     return this.markers;
+  }
+
+  /**
+   * Dim the time marker outside the highlight time bounds.
+   *
+   * @param highlightBounds the time bounds to highlight, if it is empty, it means to highlight everything.
+   */
+  #dimMarkers(highlightBounds?: Trace.Types.Timing.TraceWindowMicroSeconds): void {
+    for (const time of this.markers.keys()) {
+      const marker = this.markers.get(time);
+      if (!marker) {
+        continue;
+      }
+      const timeInMicroSeconds = Trace.Helpers.Timing.millisecondsToMicroseconds(Trace.Types.Timing.MilliSeconds(time));
+      const dim = highlightBounds && !Trace.Helpers.Timing.timestampIsInBounds(highlightBounds, timeInMicroSeconds);
+
+      // `filter: grayscale(1)`  will make the element fully completely grayscale.
+      marker.style.filter = `grayscale(${dim ? 1 : 0})`;
+    }
   }
 
   private updateMarkers(): void {
@@ -290,60 +324,101 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin<EventT
     const left = haveRecords && this.windowStartTime ? Math.min((this.windowStartTime - absoluteMin) / timeSpan, 1) : 0;
     const right = haveRecords && this.windowEndTime < Infinity ? (this.windowEndTime - absoluteMin) / timeSpan : 1;
     this.muteOnWindowChanged = true;
-    this.overviewGrid.setWindow(left, right);
+    this.overviewGrid.setWindowRatio(left, right);
     this.muteOnWindowChanged = false;
   }
 
-  highlightBounds(bounds: Trace.Types.Timing.TraceWindowMicroSeconds): void {
-    let mask = this.#dimHighlightSVG?.querySelector('mask');
-    if (!mask) {
-      // Set up the desaturation mask
-      const defs = UI.UIUtils.createSVGChild(this.#dimHighlightSVG, 'defs');
-      mask = UI.UIUtils.createSVGChild(defs, 'mask') as SVGMaskElement;
-      mask.id = 'dim-highlight-cutouts';
-      /* Within the mask...
-          - black fill = punch, fully transparently, through to the next thing. these are the cutouts to the color.
-          - white fill = be 100% desaturated
-          - grey fill  = show at the Lightness level of grayscale/desaturation
-      */
-      const showAllRect = UI.UIUtils.createSVGChild(mask, 'rect');
-      showAllRect.setAttribute('width', '100%');
-      showAllRect.setAttribute('height', '100%');
-      showAllRect.setAttribute('fill', 'hsl(0deg 0% 95%)');
+  /**
+   * This function will create three rectangles and a polygon, which will be use to highlight the time range.
+   */
+  #initializeDimHighlightSVG(): void {
+    // Set up the desaturation mask
+    const defs = UI.UIUtils.createSVGChild(this.#dimHighlightSVG, 'defs');
+    const mask = UI.UIUtils.createSVGChild(defs, 'mask') as SVGMaskElement;
+    mask.id = 'dim-highlight-cutouts';
+    /* Within the mask...
+        - black fill = punch, fully transparently, through to the next thing. these are the cutouts to the color.
+        - white fill = be 100% desaturated
+        - grey fill  = show at the Lightness level of grayscale/desaturation
+    */
 
-      const desaturateRect = UI.UIUtils.createSVGChild(this.#dimHighlightSVG, 'rect') as SVGRectElement;
-      desaturateRect.setAttribute('width', '100%');
-      desaturateRect.setAttribute('height', '100%');
-      desaturateRect.setAttribute('fill', '#ffffff');
-      desaturateRect.setAttribute('mask', `url(#${mask.id})`);
-      desaturateRect.style.mixBlendMode = 'saturation';
+    // This a rectangle covers the entire SVG and has a light gray fill. This sets the base desaturation level for the
+    // masked area.
+    // The colour here should be fixed because the colour's brightness changes the desaturation level.
+    const showAllRect = UI.UIUtils.createSVGChild(mask, 'rect');
+    showAllRect.setAttribute('width', '100%');
+    showAllRect.setAttribute('height', '100%');
+    showAllRect.setAttribute('fill', 'hsl(0deg 0% 95%)');
 
-      const punchRect = UI.UIUtils.createSVGChild(mask, 'rect', 'punch');
-      punchRect.setAttribute('y', '0');
-      punchRect.setAttribute('height', '100%');
-      punchRect.setAttribute('fill', 'black');
+    // This rectangle also covers the entire SVG and has a fill with the current background. It is linked to the
+    // `mask` element.
+    // The `mixBlendMode` is set to 'saturation', so this rectangle will completely desaturate the area it covers
+    // within the mask.
+    const desaturateRect = UI.UIUtils.createSVGChild(this.#dimHighlightSVG, 'rect', 'background') as SVGRectElement;
+    desaturateRect.setAttribute('width', '100%');
+    desaturateRect.setAttribute('height', '100%');
+    desaturateRect.setAttribute('fill', ThemeSupport.ThemeSupport.instance().getComputedValue('--color-background'));
+    desaturateRect.setAttribute('mask', `url(#${mask.id})`);
+    desaturateRect.style.mixBlendMode = 'saturation';
 
-      const bracketColor = ThemeSupport.ThemeSupport.instance().getComputedValue('--sys-color-state-on-header-hover');
-      const bracket = UI.UIUtils.createSVGChild(this.#dimHighlightSVG, 'polygon') as SVGRectElement;
-      bracket.setAttribute('fill', bracketColor);
-    }
+    // This rectangle is positioned at the top of the not-to-desaturate time range, with full height and a black fill.
+    // It will be used to "punch" through the desaturation, revealing the original colours beneath.
+    // The *black* fill on the "punch-out" rectangle is crucial because black is fully transparent in a mask.
+    const punchRect = UI.UIUtils.createSVGChild(mask, 'rect', 'punch');
+    punchRect.setAttribute('y', '0');
+    punchRect.setAttribute('height', '100%');
+    punchRect.setAttribute('fill', 'black');
 
+    // This polygon is for the bracket beyond the not desaturated area.
+    const bracketColor = ThemeSupport.ThemeSupport.instance().getComputedValue('--sys-color-state-on-header-hover');
+    const bracket = UI.UIUtils.createSVGChild(this.#dimHighlightSVG, 'polygon') as SVGRectElement;
+    bracket.setAttribute('fill', bracketColor);
+
+    ThemeSupport.ThemeSupport.instance().addEventListener(ThemeSupport.ThemeChangeEvent.eventName, () => {
+      const desaturateRect = this.#dimHighlightSVG.querySelector('rect.background');
+      desaturateRect?.setAttribute('fill', ThemeSupport.ThemeSupport.instance().getComputedValue('--color-background'));
+
+      const bracket = this.#dimHighlightSVG.querySelector('polygon');
+      bracket?.setAttribute(
+          'fill', ThemeSupport.ThemeSupport.instance().getComputedValue('--sys-color-state-on-header-hover'));
+    });
+  }
+
+  #addBracket(left: number, right: number): void {
+    const TRIANGLE_SIZE = 5;  // px size of triangles
+    const bracket = this.#dimHighlightSVG.querySelector('polygon');
+    bracket?.setAttribute(
+        'points',
+        `${left},0 ${left},${TRIANGLE_SIZE} ${left + TRIANGLE_SIZE - 1},1 ${right - TRIANGLE_SIZE - 1},1 ${right},${
+            TRIANGLE_SIZE} ${right},0`);
+    bracket?.classList.remove('hidden');
+  }
+
+  #hideBracket(): void {
+    const bracket = this.#dimHighlightSVG.querySelector('polygon');
+    bracket?.classList.add('hidden');
+  }
+
+  highlightBounds(bounds: Trace.Types.Timing.TraceWindowMicroSeconds, withBracket: boolean): void {
     const left = this.overviewCalculator.computePosition(Trace.Helpers.Timing.microSecondsToMilliseconds(bounds.min));
     const right = this.overviewCalculator.computePosition(Trace.Helpers.Timing.microSecondsToMilliseconds(bounds.max));
-
+    this.#dimMarkers(bounds);
+    // Update the punch out rectangle to the not-to-desaturate time range.
     const punchRect = this.#dimHighlightSVG.querySelector('rect.punch');
     punchRect?.setAttribute('x', left.toString());
     punchRect?.setAttribute('width', (right - left).toString());
 
-    const size = 5;  // px size of triangles
-    const bracket = this.#dimHighlightSVG.querySelector('polygon');
-    bracket?.setAttribute(
-        'points', `${left},0 ${left},${size} ${left + size - 1},1 ${right - size - 1},1 ${right},${size} ${right},0`);
+    if (withBracket) {
+      this.#addBracket(left, right);
+    } else {
+      this.#hideBracket();
+    }
 
     this.#dimHighlightSVG.classList.remove('hidden');
   }
 
   clearBoundsHighlight(): void {
+    this.#dimMarkers();
     this.#dimHighlightSVG.classList.add('hidden');
   }
 }
@@ -351,7 +426,8 @@ export class TimelineOverviewPane extends Common.ObjectWrapper.eventMixin<EventT
 export const enum Events {
   OVERVIEW_PANE_WINDOW_CHANGED = 'OverviewPaneWindowChanged',
   OVERVIEW_PANE_BREADCRUMB_ADDED = 'OverviewPaneBreadcrumbAdded',
-  OPEN_SIDEBAR_BUTTON_CLICKED = 'OpenSidebarButtonClicked',
+  OVERVIEW_PANE_MOUSE_MOVE = 'OverviewPaneMouseMove',
+  OVERVIEW_PANE_MOUSE_LEAVE = 'OverviewPaneMouseLeave',
 }
 
 export interface OverviewPaneWindowChangedEvent {
@@ -364,12 +440,15 @@ export interface OverviewPaneBreadcrumbAddedEvent {
   endTime: Trace.Types.Timing.MilliSeconds;
 }
 
-export interface OpenSidebarButtonClicked {}
+export interface OverviewPaneMouseMoveEvent {
+  timeInMicroSeconds: Trace.Types.Timing.MicroSeconds;
+}
 
 export type EventTypes = {
   [Events.OVERVIEW_PANE_WINDOW_CHANGED]: OverviewPaneWindowChangedEvent,
   [Events.OVERVIEW_PANE_BREADCRUMB_ADDED]: OverviewPaneBreadcrumbAddedEvent,
-  [Events.OPEN_SIDEBAR_BUTTON_CLICKED]: OpenSidebarButtonClicked,
+  [Events.OVERVIEW_PANE_MOUSE_MOVE]: OverviewPaneMouseMoveEvent,
+  [Events.OVERVIEW_PANE_MOUSE_LEAVE]: void,
 };
 
 export interface TimelineOverview {
@@ -391,7 +470,7 @@ export class TimelineOverviewBase extends UI.Widget.VBox implements TimelineOver
   constructor() {
     super();
     this.calculatorInternal = null;
-    this.canvas = (this.element.createChild('canvas', 'fill') as HTMLCanvasElement);
+    this.canvas = this.element.createChild('canvas', 'fill');
     this.contextInternal = this.canvas.getContext('2d');
   }
 
@@ -414,7 +493,7 @@ export class TimelineOverviewBase extends UI.Widget.VBox implements TimelineOver
     return this.calculatorInternal;
   }
 
-  update(): void {
+  override update(): void {
     throw new Error('Not implemented');
   }
 
@@ -462,12 +541,10 @@ export class OverviewInfo {
     this.glassPane.setMarginBehavior(UI.GlassPane.MarginBehavior.ARROW);
     this.glassPane.setSizeBehavior(UI.GlassPane.SizeBehavior.MEASURE_CONTENT);
     this.visible = false;
-    this.element = UI.UIUtils
-                       .createShadowRootWithCoreStyles(this.glassPane.contentElement, {
-                         cssFile: [timelineOverviewInfoStyles],
-                         delegatesFocus: undefined,
-                       })
-                       .createChild('div', 'overview-info');
+    this.element =
+        UI.UIUtils
+            .createShadowRootWithCoreStyles(this.glassPane.contentElement, {cssFile: [timelineOverviewInfoStyles]})
+            .createChild('div', 'overview-info');
   }
 
   async setContent(contentPromise: Promise<DocumentFragment>): Promise<void> {

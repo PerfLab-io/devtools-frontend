@@ -145,7 +145,7 @@ export class DeveloperResourcesListView extends UI.Widget.VBox {
     }
   }
 
-  update(items: Iterable<SDK.PageResourceLoader.PageResource>): void {
+  override update(items: Iterable<SDK.PageResourceLoader.PageResource> = []): void {
     let hadUpdates = false;
     const rootNode = this.dataGrid.rootNode();
     for (const item of items) {
@@ -195,6 +195,10 @@ export class DeveloperResourcesListView extends UI.Widget.VBox {
     if (hadTreeUpdates) {
       this.sortingChanged();
     }
+  }
+
+  getNumberOfVisibleItems(): number {
+    return this.dataGrid.rootNode().children.length;
   }
 
   private sortingChanged(): void {

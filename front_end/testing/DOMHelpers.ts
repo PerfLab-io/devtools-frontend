@@ -33,7 +33,6 @@ export const renderElementIntoDOM = (element: HTMLElement, renderOptions: Render
   if (container.childNodes.length !== 0 && !allowMultipleChildren) {
     throw new Error(`renderElementIntoDOM expects the container to be empty ${container.innerHTML}`);
   }
-
   container.appendChild(element);
   return element;
 };
@@ -140,6 +139,11 @@ export function dispatchClickEvent<T extends Element>(element: T, options: Mouse
 export function dispatchMouseUpEvent<T extends Element>(element: T, options: MouseEventInit = {}) {
   const clickEvent = new MouseEvent('mouseup', options);
   element.dispatchEvent(clickEvent);
+}
+
+export function dispatchBlurEvent<T extends Element>(element: T, options: FocusEventInit = {}) {
+  const focusEvent = new FocusEvent('blur', options);
+  element.dispatchEvent(focusEvent);
 }
 
 export function dispatchFocusEvent<T extends Element>(element: T, options: FocusEventInit = {}) {
@@ -260,6 +264,16 @@ export function getCleanTextContentFromElements(el: ShadowRoot|HTMLElement, sele
   return elements.map(element => {
     return element.textContent ? element.textContent.trim().replace(/[ \n]{2,}/g, ' ') : '';
   });
+}
+
+/**
+ * Returns the text content for the first element matching the given `selector` within the provided `el`.
+ * Will error if no element is found matching the selector.
+ */
+export function getCleanTextContentFromSingleElement(el: ShadowRoot|HTMLElement, selector: string): string {
+  const element = el.querySelector(selector);
+  assert.isOk(element, `Could not find element with selector ${selector}`);
+  return element.textContent ? element.textContent.trim().replace(/[ \n]{2,}/g, ' ') : '';
 }
 
 export function assertNodeTextContent(component: NodeText.NodeText.NodeText, expectedContent: string) {

@@ -62,8 +62,7 @@ export function buildGroupStyle(extra?: Partial<PerfUI.FlameChart.GroupStyle>): 
  */
 export function buildTrackHeader(
     jslogContext: VisualLoggingTrackName|null, startLevel: number, name: string, style: PerfUI.FlameChart.GroupStyle,
-    selectable: boolean, expanded?: boolean, showStackContextMenu?: boolean,
-    legends?: PerfUI.FlameChart.Legend[]): PerfUI.FlameChart.Group {
+    selectable: boolean, expanded?: boolean, showStackContextMenu?: boolean): PerfUI.FlameChart.Group {
   const group: PerfUI.FlameChart.Group = {
     startLevel,
     name: name as Common.UIString.LocalizedString,
@@ -71,7 +70,6 @@ export function buildTrackHeader(
     selectable,
     expanded,
     showStackContextMenu,
-    legends,
   };
   if (jslogContext !== null) {
     group.jslogContext = jslogContext;
@@ -83,7 +81,7 @@ export function buildTrackHeader(
  * Returns the time info shown when an event is hovered in the timeline.
  * @param totalTime the total time of the hovered event.
  * @param selfTime the self time of the hovered event.
- * @returns the formatted time string for highlightedEntryInfo
+ * @returns the formatted time string for popoverInfo
  */
 export function getFormattedTime(
     totalTime?: Trace.Types.Timing.MicroSeconds, selfTime?: Trace.Types.Timing.MicroSeconds): string {
@@ -108,6 +106,8 @@ export function getFormattedTime(
 
 /**
  * Returns the first level that is available for an event.
+ * Important: if you are walking through an array of events and calling this,
+ * the events MUST be sorted.
  */
 export function getEventLevel(event: Trace.Types.Events.Event, lastTimestampByLevel: LastTimestampByLevel): number {
   let level = 0;

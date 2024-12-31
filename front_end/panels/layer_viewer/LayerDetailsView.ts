@@ -30,7 +30,6 @@
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
-import * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import type * as Protocol from '../../generated/protocol.js';
 import * as UI from '../../ui/legacy/legacy.js';
@@ -298,7 +297,7 @@ export class LayerDetailsView extends Common.ObjectWrapper.eventMixin<EventTypes
         i18nString(UIStrings.nearestLayerShiftingContaining), constraint.nearestLayerShiftingContainingBlock());
   }
 
-  update(): void {
+  override update(): void {
     const layer = this.selection && this.selection.layer();
     if (!layer) {
       this.tableElement.remove();
@@ -316,7 +315,7 @@ export class LayerDetailsView extends Common.ObjectWrapper.eventMixin<EventTypes
       this.paintCountCell.parentElement.classList.toggle('hidden', !layer.paintCount());
     }
     this.paintCountCell.textContent = String(layer.paintCount());
-    this.memoryEstimateCell.textContent = Platform.NumberUtilities.bytesToString(layer.gpuMemoryUsage());
+    this.memoryEstimateCell.textContent = i18n.ByteUtilities.bytesToString(layer.gpuMemoryUsage());
     void layer.requestCompositingReasons().then(this.updateCompositingReasons.bind(this));
     this.scrollRectsCell.removeChildren();
     layer.scrollRects().forEach(this.createScrollRectElement.bind(this));
@@ -329,16 +328,16 @@ export class LayerDetailsView extends Common.ObjectWrapper.eventMixin<EventTypes
   }
 
   private buildContent(): void {
-    this.tableElement = this.contentElement.createChild('table') as HTMLElement;
-    this.tbodyElement = this.tableElement.createChild('tbody') as HTMLElement;
+    this.tableElement = this.contentElement.createChild('table');
+    this.tbodyElement = this.tableElement.createChild('tbody');
     this.sizeCell = this.createRow(i18nString(UIStrings.size));
     this.compositingReasonsCell = this.createRow(i18nString(UIStrings.compositingReasons));
     this.memoryEstimateCell = this.createRow(i18nString(UIStrings.memoryEstimate));
     this.paintCountCell = this.createRow(i18nString(UIStrings.paintCount));
     this.scrollRectsCell = this.createRow(i18nString(UIStrings.slowScrollRegions));
     this.stickyPositionConstraintCell = this.createRow(i18nString(UIStrings.stickyPositionConstraint));
-    this.paintProfilerLink = this.contentElement.createChild(
-                                 'button', 'hidden devtools-link link-margin text-button link-style') as HTMLElement;
+    this.paintProfilerLink =
+        this.contentElement.createChild('button', 'hidden devtools-link link-margin text-button link-style');
     UI.ARIAUtils.markAsLink(this.paintProfilerLink);
     this.paintProfilerLink.textContent = i18nString(UIStrings.paintProfiler);
     this.paintProfilerLink.tabIndex = 0;

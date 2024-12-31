@@ -599,7 +599,7 @@ export class HeapSnapshotView extends UI.View.SimpleView implements DataDisplayD
   onIdsRangeChanged(event: Common.EventTarget.EventTargetEvent<IdsRangeChangedEvent>): void {
     const {minId, maxId} = event.data;
     this.selectedSizeText.setText(
-        i18nString(UIStrings.selectedSizeS, {PH1: Platform.NumberUtilities.bytesToString(event.data.size)}));
+        i18nString(UIStrings.selectedSizeS, {PH1: i18n.ByteUtilities.bytesToString(event.data.size)}));
     if (this.constructorsDataGrid.snapshot) {
       this.constructorsDataGrid.setSelectionRange(minId, maxId);
     }
@@ -1746,7 +1746,7 @@ export class HeapProfileHeader extends ProfileHeader {
     if (!this.snapshotProxy) {
       return;
     }
-    this.updateStatus(Platform.NumberUtilities.bytesToString(this.snapshotProxy.totalSize), false);
+    this.updateStatus(i18n.ByteUtilities.bytesToString(this.snapshotProxy.totalSize), false);
   }
 
   transferChunk(chunk: string): void {
@@ -1960,7 +1960,7 @@ export class HeapAllocationStackView extends UI.Widget.Widget {
     const stackDiv = this.element.createChild('div', 'heap-allocation-stack');
     stackDiv.addEventListener('keydown', this.onStackViewKeydown.bind(this), false);
     for (const frame of frames) {
-      const frameDiv = (stackDiv.createChild('div', 'stack-frame') as HTMLElement);
+      const frameDiv = stackDiv.createChild('div', 'stack-frame');
       this.frameElements.push(frameDiv);
       frameDiv.tabIndex = -1;
       const name = frameDiv.createChild('div');

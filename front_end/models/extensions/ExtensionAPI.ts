@@ -28,7 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import type * as PublicAPI from '../../../extension-api/ExtensionAPI'; // eslint-disable-line rulesdir/es_modules_import
+import type * as PublicAPI from '../../../extension-api/ExtensionAPI'; // eslint-disable-line rulesdir/es-modules-import
 import type * as Platform from '../../core/platform/platform.js';
 import type * as HAR from '../har/har.js';
 
@@ -1146,9 +1146,17 @@ self.injectedExtensionAPI = function(
     },
   };
 
+  const protocolGet = Object.getOwnPropertyDescriptor(URL.prototype, 'protocol')?.get;
+  function getProtocol(url: string): string {
+    if (!protocolGet) {
+      throw new Error('URL.protocol is not available');
+    }
+    return protocolGet.call(new URL(url));
+  }
+
   function canAccessResource(resource: APIImpl.ResourceData): boolean {
     try {
-      return extensionInfo.allowFileAccess || (new URL(resource.url)).protocol !== 'file:';
+      return extensionInfo.allowFileAccess || getProtocol(resource.url) !== 'file:';
     } catch (e) {
       return false;
     }

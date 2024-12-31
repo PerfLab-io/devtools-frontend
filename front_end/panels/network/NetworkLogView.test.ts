@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
+import * as i18n from '../../core/i18n/i18n.js';
 import type * as Platform from '../../core/platform/platform.js';
 import * as Root from '../../core/root/root.js';
 import * as SDK from '../../core/sdk/sdk.js';
@@ -139,11 +140,11 @@ describeWithMockConnection('NetworkLogView', () => {
     });
     assert.strictEqual(
         await Network.NetworkLogView.NetworkLogView.generateCurlCommand(request, 'unix'),
-        'curl \'http://localhost\' -H \'cookie: eva=\"Sg4=\"\'',
+        'curl \'http://localhost\' -b \'eva=\"Sg4=\"\'',
     );
     assert.strictEqual(
         await Network.NetworkLogView.NetworkLogView.generateCurlCommand(request, 'win'),
-        'curl ^"http://localhost^" -H ^"cookie: eva=^\\^"Sg4=^\\^"^"',
+        'curl ^"http://localhost^" -b ^"eva=^\\^"Sg4=^\\^"^"',
     );
   });
 
@@ -153,11 +154,11 @@ describeWithMockConnection('NetworkLogView', () => {
     });
     assert.strictEqual(
         await Network.NetworkLogView.NetworkLogView.generateCurlCommand(request, 'unix'),
-        'curl \'http://localhost\' -H \'cookie: eva=%22Sg4%3D%22\'',
+        'curl \'http://localhost\' -b \'eva=%22Sg4%3D%22\'',
     );
     assert.strictEqual(
         await Network.NetworkLogView.NetworkLogView.generateCurlCommand(request, 'win'),
-        'curl ^"http://localhost^" -H ^"cookie: eva=^%^22Sg4^%^3D^%^22^"',
+        'curl ^"http://localhost^" -b ^"eva=^%^22Sg4^%^3D^%^22^"',
     );
   });
 
@@ -167,11 +168,11 @@ describeWithMockConnection('NetworkLogView', () => {
     });
     assert.strictEqual(
         await Network.NetworkLogView.NetworkLogView.generateCurlCommand(request, 'unix'),
-        'curl \'http://localhost\' -H $\'cookie: query=evil\\n\\n & cmd /c calc.exe \\n\\n\'',
+        'curl \'http://localhost\' -b $\'query=evil\\n\\n & cmd /c calc.exe \\n\\n\'',
     );
     assert.strictEqual(
         await Network.NetworkLogView.NetworkLogView.generateCurlCommand(request, 'win'),
-        'curl ^\"http://localhost^\" -H ^\"cookie: query=evil^\n\n^\n\n ^& cmd /c calc.exe ^\n\n^\n\n^\"',
+        'curl ^\"http://localhost^\" -b ^\"query=evil^\n\n^\n\n ^& cmd /c calc.exe ^\n\n^\n\n^\"',
     );
   });
 
@@ -303,7 +304,7 @@ describeWithMockConnection('NetworkLogView', () => {
           'Load: 251\u00a0ms',
         ]);
       } else {
-        assert.strictEqual(textElements.length, 0);
+        assert.lengthOf(textElements, 0);
       }
     });
   };
@@ -538,10 +539,39 @@ describeWithMockConnection('NetworkLogView', () => {
     networkLogView.show(document.body);
 
     const rootNode = networkLogView.columns().dataGrid().rootNode();
-    assert.strictEqual(rootNode.children.length, 1);
+    assert.lengthOf(rootNode.children, 1);
 
     networkLog.dispatchEventToListeners(Logs.NetworkLog.Events.RequestRemoved, {request});
-    assert.strictEqual(rootNode.children.length, 0);
+    assert.lengthOf(rootNode.children, 0);
+  });
+
+  it('correctly shows/hides "Copy all as HAR (with sensitive data)" menu item', async () => {
+    const networkShowOptionsToGenerateHarWithSensitiveDataSetting = Common.Settings.Settings.instance().createSetting(
+        'network.show-options-to-generate-har-with-sensitive-data', false);
+    createNetworkRequest('url1', {target});
+    networkLogView = createNetworkLogView(new UI.FilterBar.FilterBar('network-panel', true));
+    networkLogView.markAsRoot();
+    networkLogView.show(document.body);
+    networkLogView.columns().dataGrid().rootNode().children[0].select();
+    const {element} = networkLogView.columns().dataGrid();
+
+    {
+      // Setting is disabled (default), menu item must be hidden.
+      networkShowOptionsToGenerateHarWithSensitiveDataSetting.set(false);
+      const contextMenu = getContextMenuForElement(element);
+      const clipboardSection = contextMenu.clipboardSection();
+      const copyMenu = findMenuItemWithLabel(clipboardSection, 'Copy') as UI.ContextMenu.SubMenu;
+      assert.isUndefined(findMenuItemWithLabel(copyMenu.footerSection(), 'Copy all as HAR (with sensitive data)'));
+    }
+
+    {
+      // Setting is enabled, menu item must be shown.
+      networkShowOptionsToGenerateHarWithSensitiveDataSetting.set(true);
+      const contextMenu = getContextMenuForElement(element);
+      const clipboardSection = contextMenu.clipboardSection();
+      const copyMenu = findMenuItemWithLabel(clipboardSection, 'Copy') as UI.ContextMenu.SubMenu;
+      assert.isDefined(findMenuItemWithLabel(copyMenu.footerSection(), 'Copy all as HAR (with sensitive data)'));
+    }
   });
 
   it('correctly shows and hides waterfall column', async () => {
@@ -672,6 +702,37 @@ describeWithMockConnection('NetworkLogView', () => {
       urlContentOverridden,
       urlHeaderAndContentOverridden,
     ]);
+  });
+
+  it('filters localized resource categories', async () => {
+    // "simulate" other locale by stubbing out resource categories with a different text
+    sinon.stub(Common.ResourceType.resourceCategories.Document, 'title')
+        .returns(i18n.i18n.lockedString('<localized document>'));
+    sinon.stub(Common.ResourceType.resourceCategories.XHR, 'title').returns(i18n.i18n.lockedString('<localized xhr>'));
+
+    const documentRequest = createNetworkRequest('urlDocument', {finished: true});
+    documentRequest.setResourceType(Common.ResourceType.resourceTypes.Document);
+    const fetchRequest = createNetworkRequest('urlFetch', {finished: true});
+    fetchRequest.setResourceType(Common.ResourceType.resourceTypes.Fetch);
+
+    const filterBar = new UI.FilterBar.FilterBar('network-panel', true);
+    networkLogView = createNetworkLogView(filterBar);
+
+    networkLogView.markAsRoot();
+    networkLogView.show(document.body);
+    const rootNode = networkLogView.columns().dataGrid().rootNode();
+    const shownRequestUrls = () => rootNode.children.map(
+        n => (n as Network.NetworkDataGridNode.NetworkNode).request()?.url() as string | undefined);
+
+    const setting = Common.Settings.Settings.instance().createSetting('network-resource-type-filters', {});
+    setting.set({all: true});
+    assert.deepEqual(shownRequestUrls(), ['urlDocument', 'urlFetch']);
+
+    setting.set({[Common.ResourceType.resourceCategories.Document.name]: true});
+    assert.deepEqual(shownRequestUrls(), ['urlDocument']);
+
+    setting.set({[Common.ResourceType.resourceCategories.XHR.name]: true});
+    assert.deepEqual(shownRequestUrls(), ['urlFetch']);
   });
 
   it('"Copy all" commands respects filters', async () => {
@@ -851,7 +912,7 @@ function clickCheckbox(checkbox: HTMLInputElement) {
 
 function getCheckbox(filterBar: UI.FilterBar.FilterBar, title: string) {
   const checkbox =
-      filterBar.element.querySelector(`[title="${title}"] span`)?.shadowRoot?.querySelector('input') || null;
+      filterBar.element.querySelector(`[title="${title}"] dt-checkbox`)?.shadowRoot?.querySelector('input') || null;
   assert.instanceOf(checkbox, HTMLInputElement);
   return checkbox;
 }

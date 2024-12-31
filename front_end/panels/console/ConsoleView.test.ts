@@ -208,7 +208,7 @@ describeWithMockConnection('ConsoleView', () => {
       assert.instanceOf(messagesElement, HTMLElement);
       dispatchPasteEvent(messagesElement, {clipboardData: dt, bubbles: true});
 
-      assert.strictEqual(Common.Console.Console.instance().messages().length, 0);
+      assert.lengthOf(Common.Console.Console.instance().messages(), 0);
       stub.restore();
     });
   });
@@ -227,7 +227,7 @@ describeWithMockConnection('ConsoleView', () => {
         SDK.ConsoleModel.Events.MessageAdded,
         createConsoleMessage(target, 'await new Promise(() => ())', SDK.ConsoleModel.FrontendMessageType.Command));
 
-    assert.deepStrictEqual(consoleHistorySetting.get(), ['await new Promise(() => ())']);
+    assert.deepEqual(consoleHistorySetting.get(), ['await new Promise(() => ())']);
   });
 
   it('keeps updating the issue counter when re-attached after detaching', async () => {

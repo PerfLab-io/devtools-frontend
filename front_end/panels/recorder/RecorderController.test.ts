@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-/* eslint-disable rulesdir/es_modules_import */
+/* eslint-disable rulesdir/es-modules-import */
 
 import {
   describeWithEnvironment,
@@ -57,7 +57,7 @@ describeWithEnvironment('RecorderController', () => {
       const createRecordingView = controller.shadowRoot?.querySelector(
           'devtools-create-recording-view',
       );
-      assert.ok(createRecordingView);
+      assert.isOk(createRecordingView);
       createRecordingView?.dispatchEvent(
           new Components.CreateRecordingView.RecordingCancelledEvent(),
       );
@@ -74,7 +74,7 @@ describeWithEnvironment('RecorderController', () => {
       const recordingView = controller.shadowRoot?.querySelector(
           'devtools-recording-view',
       );
-      assert.ok(recordingView);
+      assert.isOk(recordingView);
       recordingView?.dispatchEvent(event);
       await coordinator.done();
     }
@@ -100,7 +100,7 @@ describeWithEnvironment('RecorderController', () => {
       );
 
       const flow = controller.getUserFlow();
-      assert.deepStrictEqual(flow, {
+      assert.deepEqual(flow, {
         title: 'test',
         steps: [
           {
@@ -133,7 +133,7 @@ describeWithEnvironment('RecorderController', () => {
       );
 
       const flow = controller.getUserFlow();
-      assert.deepStrictEqual(flow, {
+      assert.deepEqual(flow, {
         title: 'test',
         steps: [
           {
@@ -161,7 +161,7 @@ describeWithEnvironment('RecorderController', () => {
       );
 
       const flow = controller.getUserFlow();
-      assert.deepStrictEqual(flow, {
+      assert.deepEqual(flow, {
         title: 'test',
         steps: [
           {
@@ -186,7 +186,7 @@ describeWithEnvironment('RecorderController', () => {
       );
 
       const flow = controller.getUserFlow();
-      assert.deepStrictEqual(flow, {title: 'test', steps: []});
+      assert.deepEqual(flow, {title: 'test', steps: []});
     });
 
     it('should adding a new step before a step with a breakpoint update the breakpoint indexes correctly', async () => {

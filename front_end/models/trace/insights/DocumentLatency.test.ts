@@ -3,19 +3,15 @@
 // found in the LICENSE file.
 
 import {describeWithEnvironment} from '../../../testing/EnvironmentHelpers.js';
-import {createContextForNavigation, getFirstOrError, getInsightOrError} from '../../../testing/InsightHelpers.js';
+import {
+  createContextForNavigation,
+  getFirstOrError,
+  getInsightOrError,
+  processTrace,
+} from '../../../testing/InsightHelpers.js';
 import {TraceLoader} from '../../../testing/TraceLoader.js';
 import * as Trace from '../trace.js';
 import * as Types from '../types/types.js';
-
-export async function processTrace(testContext: Mocha.Suite|Mocha.Context|null, traceFile: string) {
-  const {parsedTrace, insights} = await TraceLoader.traceEngine(testContext, traceFile);
-  if (!insights) {
-    throw new Error('No insights');
-  }
-
-  return {data: parsedTrace, insights};
-}
 
 describeWithEnvironment('DocumentLatency', function() {
   it('reports savings for main document with redirects', async () => {
@@ -58,7 +54,7 @@ describeWithEnvironment('DocumentLatency', function() {
 
     const navigation = getFirstOrError(data.Meta.navigationsByNavigationId.values());
     const context = createContextForNavigation(data, navigation, data.Meta.mainFrameId);
-    const insight = Trace.Insights.InsightRunners.DocumentLatency.generateInsight(data, context);
+    const insight = Trace.Insights.Models.DocumentLatency.generateInsight(data, context);
     assert.strictEqual(insight.data?.serverResponseTime, 1043);
     assert(insight.data?.serverResponseTooSlow);
     assert.deepEqual(insight.metricSavings, {FCP: 943, LCP: 943} as Trace.Insights.Types.MetricSavings);
@@ -92,7 +88,7 @@ describeWithEnvironment('DocumentLatency', function() {
 
     const navigation = getFirstOrError(data.Meta.navigationsByNavigationId.values());
     const context = createContextForNavigation(data, navigation, data.Meta.mainFrameId);
-    const insight = Trace.Insights.InsightRunners.DocumentLatency.generateInsight(data, context);
+    const insight = Trace.Insights.Models.DocumentLatency.generateInsight(data, context);
     assert.strictEqual(insight.data?.uncompressedResponseBytes, 39799);
     assert.deepEqual(insight.metricSavings, {FCP: 0, LCP: 0} as Trace.Insights.Types.MetricSavings);
   });

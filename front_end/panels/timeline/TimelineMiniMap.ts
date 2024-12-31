@@ -5,10 +5,8 @@
 import * as Common from '../../core/common/common.js';
 import * as Trace from '../../models/trace/trace.js';
 import * as TraceBounds from '../../services/trace_bounds/trace_bounds.js';
-import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as UI from '../../ui/legacy/legacy.js';
-import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
 import * as TimelineComponents from './components/components.js';
 import {ModificationsManager} from './ModificationsManager.js';
@@ -57,12 +55,6 @@ export class TimelineMiniMap extends
     this.#breadcrumbsUI = new TimelineComponents.BreadcrumbsUI.BreadcrumbsUI();
     this.element.prepend(this.#breadcrumbsUI);
 
-    const icon = new IconButton.Icon.Icon();
-    icon.setAttribute('name', 'left-panel-open');
-    icon.setAttribute('jslog', `${VisualLogging.action('timeline.sidebar-open').track({click: true})}`);
-    icon.addEventListener('click', () => {
-      this.dispatchEventToListeners(PerfUI.TimelineOverviewPane.Events.OPEN_SIDEBAR_BUTTON_CLICKED, {});
-    });
     this.#overviewComponent.show(this.element);
 
     this.#overviewComponent.addEventListener(PerfUI.TimelineOverviewPane.Events.OVERVIEW_PANE_WINDOW_CHANGED, event => {
@@ -72,6 +64,16 @@ export class TimelineMiniMap extends
         PerfUI.TimelineOverviewPane.Events.OVERVIEW_PANE_BREADCRUMB_ADDED, event => {
           this.addBreadcrumb(event.data);
         });
+
+    // We want to add/remove an overlay for these two events, and the overlay system is controlled by
+    // `TimelineFlameChartView`, so we need to dispatch them up to the `TimelinePanel` level to call
+    // `TimelineFlameChartView` -> `addOverlay()/removeOverlay()`.
+    this.#overviewComponent.addEventListener(PerfUI.TimelineOverviewPane.Events.OVERVIEW_PANE_MOUSE_MOVE, event => {
+      this.dispatchEventToListeners(PerfUI.TimelineOverviewPane.Events.OVERVIEW_PANE_MOUSE_MOVE, event.data);
+    });
+    this.#overviewComponent.addEventListener(PerfUI.TimelineOverviewPane.Events.OVERVIEW_PANE_MOUSE_LEAVE, () => {
+      this.dispatchEventToListeners(PerfUI.TimelineOverviewPane.Events.OVERVIEW_PANE_MOUSE_LEAVE);
+    });
 
     this.#breadcrumbsUI.addEventListener(TimelineComponents.BreadcrumbsUI.BreadcrumbActivatedEvent.eventName, event => {
       const {breadcrumb, childBreadcrumbsRemoved} =
@@ -200,8 +202,8 @@ export class TimelineMiniMap extends
     };
   }
 
-  highlightBounds(bounds: Trace.Types.Timing.TraceWindowMicroSeconds): void {
-    this.#overviewComponent.highlightBounds(bounds);
+  highlightBounds(bounds: Trace.Types.Timing.TraceWindowMicroSeconds, withBracket: boolean = false): void {
+    this.#overviewComponent.highlightBounds(bounds, withBracket);
   }
   clearBoundsHighlight(): void {
     this.#overviewComponent.clearBoundsHighlight();
@@ -238,21 +240,15 @@ export class TimelineMiniMap extends
   }
 
   #setMarkers(parsedTrace: Trace.Handlers.Types.ParsedTrace): void {
-    const markers = new Map<number, Element>();
+    const markers = new Map<number, HTMLDivElement>();
 
-    const {Meta, PageLoadMetrics} = parsedTrace;
+    const {Meta} = parsedTrace;
 
-    // Add markers for navigation start times.
+    // Only add markers for navigation start times.
     const navStartEvents = Meta.mainFrameNavigations;
     const minTimeInMilliseconds = Trace.Helpers.Timing.microSecondsToMilliseconds(Meta.traceBounds.min);
 
     for (const event of navStartEvents) {
-      const {startTime} = Trace.Helpers.Timing.eventTimingsMilliSeconds(event);
-      markers.set(startTime, TimelineUIUtils.createEventDivider(event, minTimeInMilliseconds));
-    }
-
-    // Now add markers for the page load events
-    for (const event of PageLoadMetrics.allMarkerEvents) {
       const {startTime} = Trace.Helpers.Timing.eventTimingsMilliSeconds(event);
       markers.set(startTime, TimelineUIUtils.createEventDivider(event, minTimeInMilliseconds));
     }

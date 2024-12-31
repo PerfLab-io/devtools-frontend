@@ -10,15 +10,24 @@ export class TimelineOverviewCalculator implements Calculator {
   #minimumBoundary: Trace.Types.Timing.MilliSeconds = Trace.Types.Timing.MilliSeconds(0);
   #maximumBoundary: Trace.Types.Timing.MilliSeconds = Trace.Types.Timing.MilliSeconds(100);
 
-  private workingArea!: number;
+  #displayWidth: number = 0;
   private navStartTimes?: readonly Trace.Types.Events.NavigationStart[];
 
+  /**
+   * Given a timestamp, returns its x position in the minimap.
+   *
+   * @param time
+   * @returns position in pixel
+   */
   computePosition(time: Trace.Types.Timing.MilliSeconds): number {
-    return (time - this.#minimumBoundary) / this.boundarySpan() * this.workingArea;
+    return (time - this.#minimumBoundary) / this.boundarySpan() * this.#displayWidth;
   }
 
-  positionToTime(position: number): number {
-    return position / this.workingArea * this.boundarySpan() + this.#minimumBoundary;
+  positionToTime(position: number): Trace.Types.Timing.MilliSeconds {
+    if (this.#displayWidth === 0) {
+      return Trace.Types.Timing.MilliSeconds(0);
+    }
+    return Trace.Types.Timing.MilliSeconds(position / this.#displayWidth * this.boundarySpan() + this.#minimumBoundary);
   }
 
   setBounds(minimumBoundary: Trace.Types.Timing.MilliSeconds, maximumBoundary: Trace.Types.Timing.MilliSeconds): void {
@@ -31,7 +40,7 @@ export class TimelineOverviewCalculator implements Calculator {
   }
 
   setDisplayWidth(clientWidth: number): void {
-    this.workingArea = clientWidth;
+    this.#displayWidth = clientWidth;
   }
 
   reset(): void {
@@ -41,7 +50,7 @@ export class TimelineOverviewCalculator implements Calculator {
     );
   }
 
-  formatValue(value: number, precision?: number): string {
+  formatValue(time: Trace.Types.Timing.MilliSeconds, precision?: number): string {
     // If there are nav start times the value needs to be remapped.
     if (this.navStartTimes) {
       // Find the latest possible nav start time which is considered earlier
@@ -51,14 +60,14 @@ export class TimelineOverviewCalculator implements Calculator {
             this.navStartTimes[i].ts,
         );
 
-        if (value > startTimeMilliseconds) {
-          value -= (startTimeMilliseconds - this.zeroTime());
+        if (time > startTimeMilliseconds) {
+          time = Trace.Types.Timing.MilliSeconds(time - (startTimeMilliseconds - this.zeroTime()));
           break;
         }
       }
     }
 
-    return i18n.TimeUtilities.preciseMillisToString(value - this.zeroTime(), precision);
+    return i18n.TimeUtilities.preciseMillisToString(time - this.zeroTime(), precision);
   }
 
   maximumBoundary(): Trace.Types.Timing.MilliSeconds {
@@ -73,6 +82,11 @@ export class TimelineOverviewCalculator implements Calculator {
     return this.#minimumBoundary;
   }
 
+  /**
+   * This function returns the time different between min time and max time of current minimap.
+   *
+   * @returns the time range in milliseconds
+   */
   boundarySpan(): Trace.Types.Timing.MilliSeconds {
     return Trace.Types.Timing.MilliSeconds(this.#maximumBoundary - this.#minimumBoundary);
   }
