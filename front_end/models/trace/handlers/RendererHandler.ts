@@ -7,9 +7,11 @@ import * as Helpers from '../helpers/helpers.js';
 import * as Types from '../types/types.js';
 
 import {data as auctionWorkletsData} from './AuctionWorkletsHandler.js';
+import * as HandlerHelpers from './helpers.js';
 import {data as metaHandlerData, type FrameProcessData} from './MetaHandler.js';
+import {data as networkRequestHandlerData} from './NetworkRequestsHandler.js';
 import {data as samplesHandlerData} from './SamplesHandler.js';
-import {type HandlerName, HandlerState} from './types.js';
+import type {HandlerName} from './types.js';
 
 /**
  * This handler builds the hierarchy of trace events and profile calls
@@ -25,6 +27,12 @@ import {type HandlerName, HandlerState} from './types.js';
 
 const processes = new Map<Types.Events.ProcessID, RendererProcess>();
 
+const entityMappings: HandlerHelpers.EntityMappings = {
+  eventsByEntity: new Map<HandlerHelpers.Entity, Types.Events.Event[]>(),
+  entityByEvent: new Map<Types.Events.Event, HandlerHelpers.Entity>(),
+  createdEntityCache: new Map<string, HandlerHelpers.Entity>(),
+};
+
 // We track the compositor tile worker thread name events so that at the end we
 // can return these keyed by the process ID. These are used in the frontend to
 // show the user the rasterization thread(s) on the main frame as tracks.
@@ -37,7 +45,6 @@ let allTraceEntries: Types.Events.Event[] = [];
 
 const completeEventStack: (Types.Events.SyntheticComplete)[] = [];
 
-let handlerState = HandlerState.UNINITIALIZED;
 let config: Types.Configuration.Configuration = Types.Configuration.defaults();
 
 const makeRendererProcess = (): RendererProcess => ({
@@ -50,6 +57,8 @@ const makeRendererThread = (): RendererThread => ({
   name: null,
   entries: [],
   profileCalls: [],
+  layoutEvents: [],
+  updateLayoutTreeEvents: [],
 });
 
 const getOrCreateRendererProcess =
@@ -68,25 +77,15 @@ export function handleUserConfig(userConfig: Types.Configuration.Configuration):
 export function reset(): void {
   processes.clear();
   entryToNode.clear();
+  entityMappings.eventsByEntity.clear();
+  entityMappings.entityByEvent.clear();
+  entityMappings.createdEntityCache.clear();
   allTraceEntries.length = 0;
   completeEventStack.length = 0;
   compositorTileWorkers.length = 0;
-  handlerState = HandlerState.UNINITIALIZED;
-}
-
-export function initialize(): void {
-  if (handlerState !== HandlerState.UNINITIALIZED) {
-    throw new Error('Renderer Handler was not reset');
-  }
-
-  handlerState = HandlerState.INITIALIZED;
 }
 
 export function handleEvent(event: Types.Events.Event): void {
-  if (handlerState !== HandlerState.INITIALIZED) {
-    throw new Error('Renderer Handler is not initialized');
-  }
-
   if (Types.Events.isThreadName(event) && event.args.name?.startsWith('CompositorTileWorker')) {
     compositorTileWorkers.push({
       pid: event.pid,
@@ -112,32 +111,44 @@ export function handleEvent(event: Types.Events.Event): void {
     thread.entries.push(event);
     allTraceEntries.push(event);
   }
+
+  if (Types.Events.isLayout(event)) {
+    const process = getOrCreateRendererProcess(processes, event.pid);
+    const thread = getOrCreateRendererThread(process, event.tid);
+    thread.layoutEvents.push(event);
+  }
+
+  if (Types.Events.isUpdateLayoutTree(event)) {
+    const process = getOrCreateRendererProcess(processes, event.pid);
+    const thread = getOrCreateRendererThread(process, event.tid);
+    thread.updateLayoutTreeEvents.push(event);
+  }
 }
 
 export async function finalize(): Promise<void> {
-  if (handlerState !== HandlerState.INITIALIZED) {
-    throw new Error('Renderer Handler is not initialized');
-  }
-
   const {mainFrameId, rendererProcessesByFrame, threadsInProcess} = metaHandlerData();
+  const {entityMappings: networkEntityMappings} = networkRequestHandlerData();
+  // Build on top of the created entity cache to avoid de-dupes of entities that are made up.
+  entityMappings.createdEntityCache = new Map(networkEntityMappings.createdEntityCache);
+
   assignMeta(processes, mainFrameId, rendererProcessesByFrame, threadsInProcess);
   sanitizeProcesses(processes);
   buildHierarchy(processes);
   sanitizeThreads(processes);
   Helpers.Trace.sortTraceEventsInPlace(allTraceEntries);
-  handlerState = HandlerState.FINALIZED;
 }
 
 export function data(): RendererHandlerData {
-  if (handlerState !== HandlerState.FINALIZED) {
-    throw new Error('Renderer Handler is not finalized');
-  }
-
   return {
     processes: new Map(processes),
     compositorTileWorkers: new Map(gatherCompositorThreads()),
     entryToNode: new Map(entryToNode),
     allTraceEntries: [...allTraceEntries],
+    entityMappings: {
+      entityByEvent: new Map(entityMappings.entityByEvent),
+      eventsByEntity: new Map(entityMappings.eventsByEntity),
+      createdEntityCache: new Map(entityMappings.createdEntityCache),
+    },
   };
 }
 
@@ -345,6 +356,7 @@ export function buildHierarchy(
       // Update the entryToNode map with the entries from this thread
       for (const [entry, node] of treeData.entryToNode) {
         entryToNode.set(entry, node);
+        HandlerHelpers.updateEventForEntities(entry, entityMappings);
       }
     }
   }
@@ -383,7 +395,7 @@ export function makeCompleteEvent(event: Types.Events.Begin|Types.Events.End): T
 }
 
 export function deps(): HandlerName[] {
-  return ['Meta', 'Samples', 'AuctionWorklets'];
+  return ['Meta', 'Samples', 'AuctionWorklets', 'NetworkRequests'];
 }
 
 export interface RendererHandlerData {
@@ -399,6 +411,7 @@ export interface RendererHandlerData {
    * samples.
    */
   allTraceEntries: Types.Events.Event[];
+  entityMappings: HandlerHelpers.EntityMappings;
 }
 
 export interface RendererProcess {
@@ -417,5 +430,7 @@ export interface RendererThread {
    */
   entries: Types.Events.Event[];
   profileCalls: Types.Events.SyntheticProfileCall[];
+  layoutEvents: Types.Events.Layout[];
+  updateLayoutTreeEvents: Types.Events.UpdateLayoutTree[];
   tree?: Helpers.TreeHelpers.TraceEntryTree;
 }

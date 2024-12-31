@@ -49,7 +49,8 @@ describe('StylesSidebarPane', () => {
 
     describe('rebuildSectionsForMatchedStyleRulesForTest', () => {
       it('should add @position-try section', async () => {
-        const stylesSidebarPane = Elements.StylesSidebarPane.StylesSidebarPane.instance({forceNew: true});
+        const stylesSidebarPane =
+            new Elements.StylesSidebarPane.StylesSidebarPane(new Elements.ComputedStyleModel.ComputedStyleModel());
         const matchedStyles = await SDK.CSSMatchedStyles.CSSMatchedStyles.create({
           cssModel: stylesSidebarPane.cssModel() as SDK.CSSModel.CSSModel,
           node: sinon.createStubInstance(SDK.DOMModel.DOMNode),
@@ -79,15 +80,16 @@ describe('StylesSidebarPane', () => {
         const sectionBlocks =
             await stylesSidebarPane.rebuildSectionsForMatchedStyleRulesForTest(matchedStyles, new Map(), new Map());
 
-        assert.strictEqual(sectionBlocks.length, 2);
+        assert.lengthOf(sectionBlocks, 2);
         assert.strictEqual(sectionBlocks[1].titleElement()?.textContent, '@position-try --try-one');
-        assert.strictEqual(sectionBlocks[1].sections.length, 1);
+        assert.lengthOf(sectionBlocks[1].sections, 1);
         assert.instanceOf(sectionBlocks[1].sections[0], Elements.StylePropertiesSection.PositionTryRuleSection);
       });
     });
 
     it('should add @font-palette-values section to the end', async () => {
-      const stylesSidebarPane = Elements.StylesSidebarPane.StylesSidebarPane.instance({forceNew: true});
+      const stylesSidebarPane =
+          new Elements.StylesSidebarPane.StylesSidebarPane(new Elements.ComputedStyleModel.ComputedStyleModel());
       const matchedStyles = await SDK.CSSMatchedStyles.CSSMatchedStyles.create({
         cssModel: stylesSidebarPane.cssModel() as SDK.CSSModel.CSSModel,
         node: sinon.createStubInstance(SDK.DOMModel.DOMNode),
@@ -117,9 +119,9 @@ describe('StylesSidebarPane', () => {
       const sectionBlocks =
           await stylesSidebarPane.rebuildSectionsForMatchedStyleRulesForTest(matchedStyles, new Map(), new Map());
 
-      assert.strictEqual(sectionBlocks.length, 2);
+      assert.lengthOf(sectionBlocks, 2);
       assert.strictEqual(sectionBlocks[1].titleElement()?.textContent, '@font-palette-values --palette');
-      assert.strictEqual(sectionBlocks[1].sections.length, 1);
+      assert.lengthOf(sectionBlocks[1].sections, 1);
       assert.instanceOf(sectionBlocks[1].sections[0], Elements.StylePropertiesSection.FontPaletteValuesRuleSection);
     });
   });

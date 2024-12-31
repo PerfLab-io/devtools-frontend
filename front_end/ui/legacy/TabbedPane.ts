@@ -75,6 +75,14 @@ const UIStrings = {
    *@description Indicates that a tab contains a preview feature (i.e., a beta / experimental feature).
    */
   previewFeature: 'Preview feature',
+  /**
+   * @description Text to move a tab forwar.
+   */
+  moveTabRight: 'Move right',
+  /**
+   * @description Text to move a tab backward.
+   */
+  moveTabLeft: 'Move left',
 };
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/TabbedPane.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -123,7 +131,7 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.tabsElement = this.headerContentsElement.createChild('div', 'tabbed-pane-header-tabs');
     this.tabsElement.setAttribute('role', 'tablist');
     this.tabsElement.addEventListener('keydown', this.keyDown.bind(this), false);
-    this.contentElementInternal = this.contentElement.createChild('div', 'tabbed-pane-content') as HTMLDivElement;
+    this.contentElementInternal = this.contentElement.createChild('div', 'tabbed-pane-content');
     this.contentElementInternal.createChild('slot');
     this.tabs = [];
     this.tabsHistory = [];
@@ -385,6 +393,21 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
     const index = this.tabs.indexOf((this.currentTab as TabbedPaneTab));
     const nextIndex = Platform.NumberUtilities.mod(index - 1, this.tabs.length);
     this.selectTab(this.tabs[nextIndex].id, true);
+  }
+
+  getTabIndex(id: string): number {
+    const index = this.tabs.indexOf((this.tabsById.get(id) as TabbedPaneTab));
+    return index;
+  }
+
+  moveTabBackward(id: string, index: number): void {
+    this.insertBefore((this.tabsById.get(id) as TabbedPaneTab), index - 1);
+    this.updateTabSlider();
+  }
+
+  moveTabForward(id: string, index: number): void {
+    this.insertBefore((this.tabsById.get(id) as TabbedPaneTab), index + 2);
+    this.updateTabSlider();
   }
 
   lastOpenedTabIds(tabsCount: number): string[] {
@@ -1153,7 +1176,7 @@ export class TabbedPaneTab {
     iconContainer.classList.add('tabbed-pane-header-tab-icon');
     const iconNode = measuring ? this.createMeasureClone(this.icon) : this.icon;
     iconContainer.appendChild(iconNode);
-    tabElement.insertBefore(iconContainer, titleElement);
+    titleElement.insertAdjacentElement('beforebegin', iconContainer);
     tabIcons.set(tabElement, iconContainer);
   }
 
@@ -1218,7 +1241,6 @@ export class TabbedPaneTab {
       tabElement.classList.add('measuring');
     } else {
       tabElement.addEventListener('click', this.tabClicked.bind(this), false);
-      tabElement.addEventListener('keydown', this.tabKeyDown.bind(this), false);
       tabElement.addEventListener('auxclick', this.tabClicked.bind(this), false);
       tabElement.addEventListener('mousedown', this.tabMouseDown.bind(this), false);
       tabElement.addEventListener('mouseup', this.tabMouseUp.bind(this), false);
@@ -1267,19 +1289,6 @@ export class TabbedPaneTab {
   private isCloseIconClicked(element: HTMLElement): boolean {
     return element?.classList.contains('tabbed-pane-close-button') ||
         element?.parentElement?.classList.contains('tabbed-pane-close-button') || false;
-  }
-
-  private tabKeyDown(ev: Event): void {
-    const event = ev as KeyboardEvent;
-    switch (event.key) {
-      case 'Enter':
-      case ' ':
-        if (this.isCloseIconClicked(event.target as HTMLElement)) {
-          this.closeTabs([this.id]);
-          ev.consume(true);
-          return;
-        }
-    }
   }
 
   private tabClicked(ev: Event): void {
@@ -1335,6 +1344,14 @@ export class TabbedPaneTab {
       this.closeTabs(this.tabbedPane.tabsToTheRight(this.id));
     }
 
+    function moveTabForward(this: TabbedPaneTab, tabIndex: number): void {
+      this.tabbedPane.moveTabForward(this.id, tabIndex);
+    }
+
+    function moveTabBackward(this: TabbedPaneTab, tabIndex: number): void {
+      this.tabbedPane.moveTabBackward(this.id, tabIndex);
+    }
+
     const contextMenu = new ContextMenu(event);
     if (this.closeable) {
       contextMenu.defaultSection().appendItem(i18nString(UIStrings.close), close.bind(this), {jslogContext: 'close'});
@@ -1348,6 +1365,15 @@ export class TabbedPaneTab {
     }
     if (this.delegate) {
       this.delegate.onContextMenu(this.id, contextMenu);
+    }
+    const tabIndex = this.tabbedPane.getTabIndex(this.id);
+    if (tabIndex > 0) {
+      contextMenu.defaultSection().appendItem(
+          i18nString(UIStrings.moveTabLeft), moveTabBackward.bind(this, tabIndex), {jslogContext: 'move-tab-backward'});
+    }
+    if (tabIndex < this.tabbedPane.tabsElement.childNodes.length - 1) {
+      contextMenu.defaultSection().appendItem(
+          i18nString(UIStrings.moveTabRight), moveTabForward.bind(this, tabIndex), {jslogContext: 'move-tab-forward'});
     }
     void contextMenu.show();
   }

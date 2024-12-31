@@ -125,16 +125,29 @@ const UIStrings = {
    */
   importHarFile: 'Import `HAR` file...',
   /**
-   * @description Tooltip text that appears when hovering over the largeicon download button in the
-   * Network Panel. HAR is a file format (HTTP Archive) and should not be translated. This action
-   * triggers the download of a HAR file.
+   * @description Tooltip text that appears when hovering over the download button in the Network
+   * panel, when the setting to allow generating HAR files with sensitive data is enabled. HAR is
+   * a file format (HTTP Archive) and should not be translated. This action triggers a context
+   * menu with two options, one to download HAR sanitized and one to download HAR with sensitive
+   * data.
+   */
+  exportHar: 'Export `HAR` (either sanitized or with sensitive data)',
+  /**
+   * @description Tooltip text that appears when hovering over the download button in the Network
+   * panel, when the setting to allow generating HAR files with sensitive data is disabled. HAR is
+   * a file format (HTTP Archive) and should not be translated. This action triggers the download
+   * of a HAR file.
+   *
+   * This string is also used as the first item in the context menu for the download button in
+   * the Network panel, when the setting to allow generating HAR files with sensitive data is
+   * enabled.
    */
   exportHarSanitized: 'Export `HAR` (sanitized)...',
   /**
-   * @description Context menu item in the export long click button of the Network panel, which is
-   * only available when the Network setting to allow generating HAR with sensitive data is active.
-   * HAR is a file format (HTTP Archive) and should not be translated. This action triggers the
-   * download of a HAR file with sensitive data included.
+   * @description Context menu item in the context menu for the download button of the Network panel,
+   * which is only available when the Network setting to allow generating HAR with sensitive data
+   * is active. HAR is a file format (HTTP Archive) and should not be translated. This action
+   * triggers the download of a HAR file with sensitive data included.
    */
   exportHarWithSensitiveData: 'Export `HAR` (with sensitive data)...',
   /**
@@ -147,9 +160,18 @@ const UIStrings = {
    */
   hitSToReloadAndCaptureFilmstrip: 'Hit {PH1} to reload and capture filmstrip.',
   /**
-   *@description A context menu item in the Network Panel of the Network panel
+   * @description A context menu item that is shown for resources in other panels
+   * to open them in the Network panel.
    */
-  revealInNetworkPanel: 'Reveal in Network panel',
+  openInNetworkPanel: 'Open in Network panel',
+  /**
+   * @description A context menu item that is shown for resources in other panels
+   * to open them in the Network panel, but when there's no associated network
+   * request. This context menu item is always disabled and only provided to give
+   * the developer an idea of why they cannot open the resource in the Network
+   * panel.
+   */
+  openInNetworkPanelMissingRequest: 'Open in Network panel (missing request)',
   /**
    *@description Text in Network Panel that is displayed whilst the recording is in progress.
    */
@@ -196,7 +218,7 @@ export class NetworkPanel extends UI.Panel.Panel implements
   networkLogView: NetworkLogView;
   private readonly fileSelectorElement: HTMLElement;
   private readonly detailsWidget: UI.Widget.VBox;
-  private readonly closeButtonElement: HTMLDivElement;
+  private readonly closeButtonElement: UI.UIUtils.DevToolsCloseButton;
   private preserveLogSetting: Common.Settings.Setting<boolean>;
   recordLogSetting: Common.Settings.Setting<boolean>;
   private readonly throttlingSelect: UI.Toolbar.ToolbarComboBox;
@@ -300,7 +322,7 @@ export class NetworkPanel extends UI.Panel.Panel implements
     this.detailsWidget.element.classList.add('network-details-view');
     this.splitWidget.setMainWidget(this.detailsWidget);
 
-    this.closeButtonElement = document.createElement('div', {is: 'dt-close-button'});
+    this.closeButtonElement = document.createElement('dt-close-button');
     this.closeButtonElement.addEventListener('click', async () => {
       const action = UI.ActionRegistry.ActionRegistry.instance().getAction('network.hide-request-details');
       await action.execute();
@@ -461,6 +483,19 @@ export class NetworkPanel extends UI.Panel.Panel implements
         this.networkRecordFilmStripSetting, i18nString(UIStrings.captureScreenshotsWhenLoadingA),
         i18nString(UIStrings.captureScreenshots)));
 
+    const exportHarContextMenu = (contextMenu: UI.ContextMenu.ContextMenu): void => {
+      contextMenu.defaultSection().appendItem(
+          i18nString(UIStrings.exportHarSanitized),
+          this.networkLogView.exportAll.bind(this.networkLogView, {sanitize: true}),
+          {jslogContext: 'export-har'},
+      );
+      contextMenu.defaultSection().appendItem(
+          i18nString(UIStrings.exportHarWithSensitiveData),
+          this.networkLogView.exportAll.bind(this.networkLogView, {sanitize: false}),
+          {jslogContext: 'export-har-with-sensitive-data'},
+      );
+    };
+
     this.panelToolbar.appendSeparator();
     const importHarButton =
         new UI.Toolbar.ToolbarButton(i18nString(UIStrings.importHarFile), 'import', undefined, 'import-har');
@@ -473,35 +508,17 @@ export class NetworkPanel extends UI.Panel.Panel implements
         UI.Toolbar.ToolbarButton.Events.CLICK,
         this.networkLogView.exportAll.bind(this.networkLogView, {sanitize: true}), this);
     this.panelToolbar.appendToolbarItem(exportHarButton);
+    const exportHarMenuButton = new UI.Toolbar.ToolbarMenuButton(
+        exportHarContextMenu, /* isIconDropdown */ true, /* useSoftMenu */ false, 'export-har-menu', 'download');
+    exportHarMenuButton.setTitle(i18nString(UIStrings.exportHar));
+    this.panelToolbar.appendToolbarItem(exportHarMenuButton);
 
-    // Support for exporting HAR (with sensitive data), which is added via a long-click
-    // context menu on the Export button in the Network panel.
-    // Checkout https://goo.gle/devtools-har-exclude-cookies-design for more details.
     const networkShowOptionsToGenerateHarWithSensitiveData = Common.Settings.Settings.instance().createSetting(
         'network.show-options-to-generate-har-with-sensitive-data', false);
-    let controller: UI.UIUtils.LongClickController|null = null;
     const updateShowOptionsToGenerateHarWithSensitiveData = (): void => {
-      exportHarButton.setLongClickable(networkShowOptionsToGenerateHarWithSensitiveData.get());
-      if (controller !== null) {
-        controller.dispose();
-        controller = null;
-      }
-      if (networkShowOptionsToGenerateHarWithSensitiveData.get()) {
-        controller = new UI.UIUtils.LongClickController(exportHarButton.element, event => {
-          const contextMenu = new UI.ContextMenu.ContextMenu(event);
-          contextMenu.defaultSection().appendItem(
-              i18nString(UIStrings.exportHarSanitized),
-              this.networkLogView.exportAll.bind(this.networkLogView, {sanitize: true}),
-              {jslogContext: 'export-har'},
-          );
-          contextMenu.defaultSection().appendItem(
-              i18nString(UIStrings.exportHarWithSensitiveData),
-              this.networkLogView.exportAll.bind(this.networkLogView, {sanitize: false}),
-              {jslogContext: 'export-har-with-sensitive-data'},
-          );
-          void contextMenu.show();
-        });
-      }
+      const showOptionsToGenerateHarWithSensitiveData = networkShowOptionsToGenerateHarWithSensitiveData.get();
+      exportHarButton.setVisible(!showOptionsToGenerateHarWithSensitiveData);
+      exportHarMenuButton.setVisible(showOptionsToGenerateHarWithSensitiveData);
     };
     networkShowOptionsToGenerateHarWithSensitiveData.addChangeListener(updateShowOptionsToGenerateHarWithSensitiveData);
     updateShowOptionsToGenerateHarWithSensitiveData();
@@ -514,8 +531,7 @@ export class NetworkPanel extends UI.Panel.Panel implements
   private createThrottlingConditionsSelect(): UI.Toolbar.ToolbarComboBox {
     const toolbarItem = new UI.Toolbar.ToolbarComboBox(null, i18nString(UIStrings.throttling));
     toolbarItem.setMaxWidth(160);
-    MobileThrottling.ThrottlingManager.throttlingManager().decorateSelectWithNetworkThrottling(
-        toolbarItem.selectElement());
+    MobileThrottling.ThrottlingManager.throttlingManager().createNetworkThrottlingSelector(toolbarItem.selectElement());
     return toolbarItem;
   }
 
@@ -757,16 +773,22 @@ export class NetworkPanel extends UI.Panel.Panel implements
       TimelineUtils.NetworkRequest.TimelineNetworkRequest): void {
     const appendRevealItem = (request: SDK.NetworkRequest.NetworkRequest): void => {
       contextMenu.revealSection().appendItem(
-          i18nString(UIStrings.revealInNetworkPanel),
+          i18nString(UIStrings.openInNetworkPanel),
           () => UI.ViewManager.ViewManager.instance()
                     .showView('network')
                     .then(this.networkLogView.resetFilter.bind(this.networkLogView))
                     .then(this.revealAndHighlightRequest.bind(this, request)),
           {jslogContext: 'reveal-in-network'});
     };
+    const appendRevealItemMissingData = (): void => {
+      contextMenu.revealSection().appendItem(i18nString(UIStrings.openInNetworkPanelMissingRequest), () => {}, {
+        disabled: true,
+        jslogContext: 'reveal-in-network',
+      });
+    };
     const appendRevealItemAndSelect = (request: TimelineUtils.NetworkRequest.TimelineNetworkRequest): void => {
       contextMenu.revealSection().appendItem(
-          i18nString(UIStrings.revealInNetworkPanel),
+          i18nString(UIStrings.openInNetworkPanel),
           () => UI.ViewManager.ViewManager.instance()
                     .showView('network')
                     .then(this.networkLogView.resetFilter.bind(this.networkLogView))
@@ -783,6 +805,8 @@ export class NetworkPanel extends UI.Panel.Panel implements
     if (target instanceof SDK.Resource.Resource) {
       if (target.request) {
         appendRevealItem(target.request);
+      } else {
+        appendRevealItemMissingData();
       }
       return;
     }
@@ -790,6 +814,8 @@ export class NetworkPanel extends UI.Panel.Panel implements
       const resource = Bindings.ResourceUtils.resourceForURL(target.url());
       if (resource && resource.request) {
         appendRevealItem(resource.request);
+      } else {
+        appendRevealItemMissingData();
       }
       return;
     }

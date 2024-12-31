@@ -221,10 +221,9 @@ class MessageLevelSelector implements UI.SoftDropDown.Delegate<SelectableLevel> 
 
   createElementForItem(item: SelectableLevel): Element {
     const element = document.createElement('div');
-    const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(
-        element, {cssFile: [playerMessagesViewStyles], delegatesFocus: undefined});
+    const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(element, {cssFile: [playerMessagesViewStyles]});
     const container = shadowRoot.createChild('div', 'media-messages-level-dropdown-element');
-    const checkBox = container.createChild('div', 'media-messages-level-dropdown-checkbox') as HTMLElement;
+    const checkBox = container.createChild('div', 'media-messages-level-dropdown-checkbox');
     const text = container.createChild('span', 'media-messages-level-dropdown-text');
     UI.UIUtils.createTextChild(text, item.title);
     this.elementsForItems.set(item, checkBox);

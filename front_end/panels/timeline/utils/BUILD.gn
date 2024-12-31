@@ -7,6 +7,10 @@ import("../../../../scripts/build/ninja/devtools_module.gni")
 
 devtools_module("utils") {
   sources = [
+    "AICallTree.ts",
+    "EntityMapper.ts",
+    "EntryName.ts",
+    "EntryStyles.ts",
     "Helpers.ts",
     "IgnoreList.ts",
     "ImageCache.ts",
@@ -20,9 +24,15 @@ devtools_module("utils") {
     "../../../core/sdk:bundle",
     "../../../generated",
     "../../../models/bindings:bundle",
+    "../../../models/crux-manager:bundle",
     "../../../models/source_map_scopes:bundle",
+    "../../../models/timeline_model:bundle",
     "../../../models/trace:bundle",
     "../../../models/workspace:bundle",
+    "../../../panels/mobile_throttling:bundle",
+    "../../../third_party/marked:bundle",
+    "../../../ui/components/markdown_view:bundle",
+    "../../../ui/legacy:bundle",
   ]
 }
 
@@ -34,9 +44,14 @@ devtools_entrypoint("bundle") {
   visibility = [
     ":*",
     "..:*",
+    "../../ai_assistance/*",
     "../../network/*",
     "../components:*",
     "../components/insights:*",
+    "../overlays/*",
+
+    # only for use in tests
+    "../../../models/trace/handlers/*",
   ]
 }
 
@@ -44,6 +59,9 @@ ts_library("unittests") {
   testonly = true
 
   sources = [
+    "AICallTree.test.ts",
+    "EntityMapper.test.ts",
+    "EntryName.test.ts",
     "Helpers.test.ts",
     "IgnoreList.test.ts",
     "ImageCache.test.ts",

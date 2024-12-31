@@ -4,7 +4,6 @@
 
 import type * as Common from '../../core/common/common.js';
 import type * as Platform from '../../core/platform/platform.js';
-import * as Root from '../../core/root/root.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Protocol from '../../generated/protocol.js';
 import {createTarget, stubNoopSettings} from '../../testing/EnvironmentHelpers.js';
@@ -146,7 +145,7 @@ describeWithMockConnection('ApplicationPanelSidebar', () => {
     resourceTreeModel.dispatchEventToListeners(SDK.ResourceTreeModel.Events.CachedResourcesLoaded, resourceTreeModel);
 
     assert.strictEqual(sidebar.cookieListTreeElement.childCount(), 2);
-    assert.deepStrictEqual(
+    assert.deepEqual(
         sidebar.cookieListTreeElement.children().map(e => e.title),
         ['http://www.example.com', 'http://www.example.org']);
   });
@@ -181,7 +180,7 @@ describeWithMockConnection('ApplicationPanelSidebar', () => {
     assert.isTrue(setTrackingSpy.calledOnceWithExactly({enable: true}));
 
     assert.strictEqual(sidebar.sharedStorageListTreeElement.childCount(), 3);
-    assert.deepStrictEqual(sidebar.sharedStorageListTreeElement.children().map(e => e.title), [
+    assert.deepEqual(sidebar.sharedStorageListTreeElement.children().map(e => e.title), [
       TEST_ORIGIN_A,
       TEST_ORIGIN_B,
       TEST_ORIGIN_C,
@@ -196,8 +195,6 @@ describeWithMockConnection('ApplicationPanelSidebar', () => {
   });
 
   it('shows extension storage based on added models', async () => {
-    Root.Runtime.experiments.enableForTest(Root.Runtime.ExperimentName.EXTENSION_STORAGE_VIEWER);
-
     for (const useTreeView of [false, true]) {
       Application.ResourcesPanel.ResourcesPanel.instance({forceNew: true});
       const sidebar = await Application.ResourcesPanel.ResourcesPanel.showAndGetSidebar();
@@ -224,12 +221,11 @@ describeWithMockConnection('ApplicationPanelSidebar', () => {
       if (useTreeView) {
         assert.strictEqual(sidebar.extensionStorageListTreeElement!.childCount(), 1);
         assert.strictEqual(sidebar.extensionStorageListTreeElement!.children()[0].title, TEST_EXTENSION_NAME);
-        assert.deepStrictEqual(
+        assert.deepEqual(
             sidebar.extensionStorageListTreeElement!.children()[0].children().map(e => e.title), ['Session', 'Local']);
       } else {
         assert.strictEqual(sidebar.extensionStorageListTreeElement!.childCount(), 2);
-        assert.deepStrictEqual(
-            sidebar.extensionStorageListTreeElement!.children().map(e => e.title), ['Session', 'Local']);
+        assert.deepEqual(sidebar.extensionStorageListTreeElement!.children().map(e => e.title), ['Session', 'Local']);
       }
 
       extensionStorageModel.dispatchEventToListeners(
@@ -241,8 +237,6 @@ describeWithMockConnection('ApplicationPanelSidebar', () => {
   });
 
   it('does not add extension storage if already added by another model', async () => {
-    Root.Runtime.experiments.enableForTest(Root.Runtime.ExperimentName.EXTENSION_STORAGE_VIEWER);
-
     Application.ResourcesPanel.ResourcesPanel.instance({forceNew: true});
     const sidebar = await Application.ResourcesPanel.ResourcesPanel.showAndGetSidebar();
 
@@ -286,7 +280,7 @@ describeWithMockConnection('ApplicationPanelSidebar', () => {
     Application.ResourcesPanel.ResourcesPanel.instance({forceNew: true});
     const sidebar = await Application.ResourcesPanel.ResourcesPanel.showAndGetSidebar();
     const components = expectedCall.split('.');
-    assert.strictEqual(components.length, 2);
+    assert.lengthOf(components, 2);
     // @ts-ignore
     const object = sidebar[components[0]];
     assert.exists(object);
@@ -370,7 +364,7 @@ describeWithMockConnection('ApplicationPanelSidebar', () => {
     sinon.stub(model, getter).returns([MOCK_GETTER_ITEM]);
     SDK.TargetManager.TargetManager.instance().setScopeTarget(target);
     await new Promise(resolve => setTimeout(resolve, 0));
-    assert.strictEqual(expectedCall.called, true);
+    assert.isTrue(expectedCall.called);
   };
 
   it('adds DOM storage element after scope change',

@@ -1112,16 +1112,19 @@ class DOMInheritanceCascade {
               record.updateRoot(childRecord);
               return null;
             }
-          } else {
-            const cssVariableValue = this.innerComputeCSSVariable(nodeCascade, match.name, sccRecord);
-            // Variable reference is resolved, so return it.
-            const childRecord = sccRecord.get(nodeCascade, match.name);
-            // The SCC record for the referenced variable may not exist if the var was already computed in a previous
-            // iteration. That means it's in a different SCC.
-            childRecord && record.updateRoot(childRecord);
-            if (cssVariableValue?.value) {
-              return cssVariableValue?.value;
-            }
+
+            // We've seen the variable before, so we can look up the text directly.
+            return this.#computedCSSVariables.get(nodeCascade)?.get(match.name)?.value ?? null;
+          }
+
+          const cssVariableValue = this.innerComputeCSSVariable(nodeCascade, match.name, sccRecord);
+          // Variable reference is resolved, so return it.
+          const newChildRecord = sccRecord.get(nodeCascade, match.name);
+          // The SCC record for the referenced variable may not exist if the var was already computed in a previous
+          // iteration. That means it's in a different SCC.
+          newChildRecord && record.updateRoot(newChildRecord);
+          if (cssVariableValue?.value !== undefined) {
+            return cssVariableValue.value;
           }
 
           // Variable reference is not resolved, use the fallback.
@@ -1133,7 +1136,7 @@ class DOMInheritanceCascade {
         })]);
 
     const decl = PropertyParser.ASTUtils.siblings(PropertyParser.ASTUtils.declValue(matching.ast.tree));
-    const computedText = matching.getComputedTextRange(decl[0], decl[decl.length - 1]);
+    const computedText = decl.length > 0 ? matching.getComputedTextRange(decl[0], decl[decl.length - 1]) : '';
 
     if (record.isRootEntry) {
       // Variables are kept on the stack until all descendents in the same SCC have been visited. That's the case when
@@ -1141,13 +1144,13 @@ class DOMInheritanceCascade {
       const scc = sccRecord.finishSCC(record);
       if (scc.length > 1) {
         for (const entry of scc) {
-          console.assert(entry.nodeCascade !== nodeCascade, 'Circles should be within the cascade');
+          console.assert(entry.nodeCascade === nodeCascade, 'Circles should be within the cascade');
           computedCSSVariables.set(entry.name, null);
         }
         return null;
       }
     }
-    if (matching.hasUnresolvedVarsRange(decl[0], decl[decl.length - 1])) {
+    if (decl.length > 0 && matching.hasUnresolvedVarsRange(decl[0], decl[decl.length - 1])) {
       computedCSSVariables.set(variableName, null);
       return null;
     }

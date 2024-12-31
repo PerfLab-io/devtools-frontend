@@ -5,8 +5,6 @@
 import * as Helpers from '../helpers/helpers.js';
 import * as Types from '../types/types.js';
 
-import {HandlerState} from './types.js';
-
 const animations: Types.Events.Animation[] = [];
 const animationsSyntheticEvents: Types.Events.SyntheticAnimationPair[] = [];
 const animationFrames: Array<
@@ -15,13 +13,12 @@ const animationFrames: Array<
                         Types.Events.TraceEventAnimationFramePaintGroupingEvent |
                         Types.Events.TraceEventAnimationFrameScriptGroupingEvent
                         > = [];
-const animationFramesSyntheticEvents: Types.Events.SyntheticAnimationFramePair[] = [];
+const animationFramesSyntheticEvents: Types.Events.SyntheticExtendedAnimationFramePair[] = [];
 
 export interface AnimationData {
   animations: readonly Types.Events.SyntheticAnimationPair[];
-  animationFrames: readonly Types.Events.SyntheticAnimationFramePair[];
+  animationFrames: readonly Types.Events.SyntheticExtendedAnimationFramePair[];
 }
-let handlerState = HandlerState.UNINITIALIZED;
 
 export function reset(): void {
   animations.length = 0;
@@ -87,17 +84,12 @@ export async function finalize(): Promise<void> {
   const syntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animations);
   animationsSyntheticEvents.push(...syntheticEvents);
 
-  const afSyntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animationFrames) as Types.Events.SyntheticAnimationFramePair[];
+  const afSyntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(animationFrames) as Types.Events.SyntheticExtendedAnimationFramePair[];
   animationFramesSyntheticEvents.push(...afSyntheticEvents);
 
-  handlerState = HandlerState.FINALIZED;
 }
 
 export function data(): AnimationData {
-  if (handlerState !== HandlerState.FINALIZED) {
-    throw new Error('Animation handler is not finalized');
-  }
-
   return {
     animations: animationsSyntheticEvents,
     animationFrames: animationFramesSyntheticEvents,

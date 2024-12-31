@@ -8,6 +8,7 @@ import * as Trace from '../../../models/trace/trace.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
 import * as LitHtml from '../../../ui/lit-html/lit-html.js';
 
+import {shouldRenderForCategory} from './insights/Helpers.js';
 import * as Insights from './insights/insights.js';
 import type {ActiveInsight} from './Sidebar.js';
 import styles from './sidebarSingleInsightSet.css.js';
@@ -23,15 +24,19 @@ const UIStrings = {
    *@example {poor} PH3
    */
   metricScore: '{PH1}: {PH2} {PH3} score',
+  /**
+   * @description Summary text for an expandable dropdown that contains all insights in a passing state.
+   * @example {4} PH1
+   */
+  passedInsights: 'Passed insights ({PH1})',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/SidebarSingleInsightSet.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export interface SidebarSingleInsightSetData {
-  parsedTrace: Trace.Handlers.Types.ParsedTrace|null;
   insights: Trace.Insights.Types.TraceInsightSets|null;
   insightSetKey: Trace.Types.Events.NavigationId|null;
-  activeCategory: Insights.Types.Category;
+  activeCategory: Trace.Insights.Types.InsightCategory;
   activeInsight: ActiveInsight|null;
 }
 
@@ -40,37 +45,42 @@ export interface SidebarSingleInsightSetData {
  * "enable experimental performance insights" experiment. This is used to enable
  * us to ship incrementally without turning insights on by default for all
  * users. */
-const EXPERIMENTAL_INSIGHTS: ReadonlySet<typeof Insights.Helpers.BaseInsight> = new Set([
-  Insights.FontDisplay.FontDisplay,
+const EXPERIMENTAL_INSIGHTS: ReadonlySet<string> = new Set([
+  'FontDisplay',
+  'DOMSize',
 ]);
 
+type InsightNameToComponentMapping =
+    Record<string, typeof Insights.BaseInsightComponent.BaseInsightComponent<Trace.Insights.Types.InsightModel<{}>>>;
+
 /**
- * Every insight (INCLUDING experimental ones)
- * The order of this array is the order the insights will be shown in the sidebar.
- * TODO(crbug.com/368135130): sort this in a smart way!
+ * Every insight (INCLUDING experimental ones).
+ *
+ * Order does not matter (but keep alphabetized).
  */
-const ALL_INSIGHTS: typeof Insights.Helpers.BaseInsight[] = [
-  Insights.InteractionToNextPaint.InteractionToNextPaint,
-  Insights.LCPPhases.LCPPhases,
-  Insights.LCPDiscovery.LCPDiscovery,
-  Insights.CLSCulprits.CLSCulprits,
-  Insights.RenderBlocking.RenderBlockingRequests,
-  Insights.DocumentLatency.DocumentLatency,
-  Insights.FontDisplay.FontDisplay,
-  Insights.Viewport.Viewport,
-  Insights.ThirdParties.ThirdParties,
-  Insights.SlowCSSSelector.SlowCSSSelector,
-] as const;
+const INSIGHT_NAME_TO_COMPONENT: InsightNameToComponentMapping = {
+  CLSCulprits: Insights.CLSCulprits.CLSCulprits,
+  DOMSize: Insights.DOMSize.DOMSize,
+  DocumentLatency: Insights.DocumentLatency.DocumentLatency,
+  FontDisplay: Insights.FontDisplay.FontDisplay,
+  ImageDelivery: Insights.ImageDelivery.ImageDelivery,
+  InteractionToNextPaint: Insights.InteractionToNextPaint.InteractionToNextPaint,
+  LCPDiscovery: Insights.LCPDiscovery.LCPDiscovery,
+  LCPPhases: Insights.LCPPhases.LCPPhases,
+  RenderBlocking: Insights.RenderBlocking.RenderBlocking,
+  SlowCSSSelector: Insights.SlowCSSSelector.SlowCSSSelector,
+  ThirdParties: Insights.ThirdParties.ThirdParties,
+  Viewport: Insights.Viewport.Viewport,
+};
 
 export class SidebarSingleInsightSet extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
   #renderBound = this.#render.bind(this);
 
   #data: SidebarSingleInsightSetData = {
-    parsedTrace: null,
     insights: null,
     insightSetKey: null,
-    activeCategory: Insights.Types.Category.ALL,
+    activeCategory: Trace.Insights.Types.InsightCategory.ALL,
     activeInsight: null,
   };
 
@@ -84,7 +94,7 @@ export class SidebarSingleInsightSet extends HTMLElement {
   }
 
   #metricIsVisible(label: 'LCP'|'CLS'|'INP'): boolean {
-    if (this.#data.activeCategory === Insights.Types.Category.ALL) {
+    if (this.#data.activeCategory === Trace.Insights.Types.InsightCategory.ALL) {
       return true;
     }
     return label === this.#data.activeCategory;
@@ -122,53 +132,10 @@ export class SidebarSingleInsightSet extends HTMLElement {
     // clang-format on
   }
 
-  #getINP(insightSetKey: string):
-      {value: Trace.Types.Timing.MicroSeconds, event: Trace.Types.Events.SyntheticInteractionPair}|null {
-    const insight = Trace.Insights.Common.getInsight('InteractionToNextPaint', this.#data.insights, insightSetKey);
-    if (!insight?.longestInteractionEvent?.dur) {
-      return null;
-    }
-
-    const value = insight.longestInteractionEvent.dur;
-    return {value, event: insight.longestInteractionEvent};
-  }
-
-  #getLCP(insightSetKey: string):
-      {value: Trace.Types.Timing.MicroSeconds, event: Trace.Types.Events.LargestContentfulPaintCandidate}|null {
-    const insight = Trace.Insights.Common.getInsight('LargestContentfulPaint', this.#data.insights, insightSetKey);
-    if (!insight || !insight.lcpMs || !insight.lcpEvent) {
-      return null;
-    }
-
-    const value = Trace.Helpers.Timing.millisecondsToMicroseconds(insight.lcpMs);
-    return {value, event: insight.lcpEvent};
-  }
-
-  #getCLS(insightSetKey: string): {value: number, worstShiftEvent: Trace.Types.Events.Event|null} {
-    const insight = Trace.Insights.Common.getInsight('CumulativeLayoutShift', this.#data.insights, insightSetKey);
-    if (!insight) {
-      // Unlike the other metrics, there is still a value for this metric even with no data.
-      // This means this view will always display a CLS score.
-      return {value: 0, worstShiftEvent: null};
-    }
-
-    // TODO(cjamcl): the CLS insight should be doing this for us.
-    let maxScore = 0;
-    let worstCluster;
-    for (const cluster of insight.clusters) {
-      if (cluster.clusterCumulativeScore > maxScore) {
-        maxScore = cluster.clusterCumulativeScore;
-        worstCluster = cluster;
-      }
-    }
-
-    return {value: maxScore, worstShiftEvent: worstCluster?.worstShiftEvent ?? null};
-  }
-
   #renderMetrics(insightSetKey: string): LitHtml.TemplateResult {
-    const lcp = this.#getLCP(insightSetKey);
-    const cls = this.#getCLS(insightSetKey);
-    const inp = this.#getINP(insightSetKey);
+    const lcp = Trace.Insights.Common.getLCP(this.#data.insights, insightSetKey);
+    const cls = Trace.Insights.Common.getCLS(this.#data.insights, insightSetKey);
+    const inp = Trace.Insights.Common.getINP(this.#data.insights, insightSetKey);
 
     return html`
     <div class="metrics-row">
@@ -193,46 +160,76 @@ export class SidebarSingleInsightSet extends HTMLElement {
     `;
   }
 
-  #insightsForRendering(): typeof Insights.Helpers.BaseInsight[] {
+  #renderInsights(
+      insightSets: Trace.Insights.Types.TraceInsightSets|null,
+      insightSetKey: string,
+      ): LitHtml.LitTemplate {
     const includeExperimental = Root.Runtime.experiments.isEnabled(
         Root.Runtime.ExperimentName.TIMELINE_EXPERIMENTAL_INSIGHTS,
     );
 
-    if (includeExperimental) {
-      return ALL_INSIGHTS;
+    const insightSet = insightSets?.get(insightSetKey);
+    if (!insightSet) {
+      return LitHtml.nothing;
     }
 
-    return ALL_INSIGHTS.filter(insight => !EXPERIMENTAL_INSIGHTS.has(insight));
-  }
+    const models = insightSet.model;
+    const shownInsights: LitHtml.TemplateResult[] = [];
+    const passedInsights: LitHtml.TemplateResult[] = [];
+    for (const [name, model] of Object.entries(models)) {
+      const componentClass = INSIGHT_NAME_TO_COMPONENT[name as keyof Trace.Insights.Types.InsightModels];
+      if (!componentClass) {
+        continue;
+      }
 
-  #renderInsights(
-      insights: Trace.Insights.Types.TraceInsightSets|null,
-      parsedTrace: Trace.Handlers.Types.ParsedTrace|null,
-      insightSetKey: string,
-      ): LitHtml.TemplateResult {
-    const insightComponents = this.#insightsForRendering();
-    // clang-format off
-    return html`${insightComponents.map(component => {
-      return html`<div data-single-insight-wrapper>
-        <${component.litTagName}
-          .insights=${insights}
-          .parsedTrace=${parsedTrace}
+      if (!includeExperimental && EXPERIMENTAL_INSIGHTS.has(name)) {
+        continue;
+      }
+
+      if (!model ||
+          !shouldRenderForCategory({activeCategory: this.#data.activeCategory, insightCategory: model.category})) {
+        continue;
+      }
+
+      // clang-format off
+      const component = html`<div>
+        <${componentClass.litTagName}
+          .selected=${this.#data.activeInsight?.model === model}
+          .model=${model}
+          .bounds=${insightSet.bounds}
           .insightSetKey=${insightSetKey}
-          .activeInsight=${this.#data.activeInsight}
-          .activeCategory=${this.#data.activeCategory}>
-        </${component.litTagName}>
+        </${componentClass.litTagName}>
       </div>`;
-    })}`;
+      // clang-format on
+
+      if (model.shouldShow) {
+        shownInsights.push(component);
+      } else {
+        passedInsights.push(component);
+      }
+    }
+
+    // clang-format off
+    return html`
+      ${shownInsights}
+      ${passedInsights.length ? html`
+        <details class="passed-insights-section">
+          <summary>${i18nString(UIStrings.passedInsights, {
+            PH1: passedInsights.length,
+          })}</summary>
+          ${passedInsights}
+        </details>
+      ` : LitHtml.nothing}
+    `;
     // clang-format on
   }
 
   #render(): void {
     const {
-      parsedTrace,
       insights,
       insightSetKey,
     } = this.#data;
-    if (!parsedTrace || !insights || !insightSetKey) {
+    if (!insights || !insightSetKey) {
       LitHtml.render(html``, this.#shadow, {host: this});
       return;
     }
@@ -241,7 +238,7 @@ export class SidebarSingleInsightSet extends HTMLElement {
     LitHtml.render(html`
       <div class="navigation">
         ${this.#renderMetrics(insightSetKey)}
-        ${this.#renderInsights(insights, parsedTrace, insightSetKey)}
+        ${this.#renderInsights(insights, insightSetKey)}
         </div>
       `, this.#shadow, {host: this});
     // clang-format on

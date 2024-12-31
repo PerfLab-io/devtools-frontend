@@ -4,18 +4,17 @@
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
-import type * as TimelineModel from '../../models/timeline_model/timeline_model.js';
 import * as Trace from '../../models/trace/trace.js';
 import * as DataGrid from '../../ui/legacy/components/data_grid/data_grid.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
-import * as Components from './components/components.js';
 import {Category, IsLong} from './TimelineFilters.js';
 import type {TimelineModeViewDelegate} from './TimelinePanel.js';
-import {TimelineSelection} from './TimelineSelection.js';
+import {selectionIsEvent, type TimelineSelection} from './TimelineSelection.js';
 import {TimelineTreeView} from './TimelineTreeView.js';
 import {TimelineUIUtils} from './TimelineUIUtils.js';
+import * as Utils from './utils/utils.js';
 
 const UIStrings = {
   /**
@@ -27,11 +26,6 @@ const UIStrings = {
    */
   durationFilter: 'Duration filter',
   /**
-   *@description Text in Events Timeline Tree View of the Performance panel
-   *@example {2} PH1
-   */
-  Dms: '{PH1} ms',
-  /**
    *@description Text for everything
    */
   all: 'All',
@@ -41,7 +35,7 @@ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class EventsTimelineTreeView extends TimelineTreeView {
   private readonly filtersControl: Filters;
   private readonly delegate: TimelineModeViewDelegate;
-  private currentTree!: TimelineModel.TimelineProfileTree.Node;
+  private currentTree!: Trace.Extras.TraceTree.Node;
   constructor(delegate: TimelineModeViewDelegate) {
     super();
     this.element.setAttribute('jslog', `${VisualLogging.pane('event-log').track({resize: true})}`);
@@ -53,18 +47,18 @@ export class EventsTimelineTreeView extends TimelineTreeView {
     this.splitWidget.showBoth();
   }
 
-  override filters(): TimelineModel.TimelineModelFilter.TimelineModelFilter[] {
+  override filters(): Trace.Extras.TraceFilter.TraceFilter[] {
     return [...super.filters(), ...this.filtersControl.filters()];
   }
 
   override updateContents(selection: TimelineSelection): void {
     super.updateContents(selection);
-    if (TimelineSelection.isTraceEventSelection(selection.object)) {
-      this.selectEvent(selection.object, true);
+    if (selectionIsEvent(selection)) {
+      this.selectEvent(selection.event, true);
     }
   }
 
-  override buildTree(): TimelineModel.TimelineProfileTree.Node {
+  override buildTree(): Trace.Extras.TraceTree.Node {
     this.currentTree = this.buildTopDownTree(true, null);
     return this.currentTree;
   }
@@ -78,7 +72,7 @@ export class EventsTimelineTreeView extends TimelineTreeView {
     }
   }
 
-  private findNodeWithEvent(event: Trace.Types.Events.Event): TimelineModel.TimelineProfileTree.Node|null {
+  private findNodeWithEvent(event: Trace.Types.Events.Event): Trace.Extras.TraceTree.Node|null {
     if (event.name === Trace.Types.Events.Name.RUN_TASK) {
       // No node is ever created for the top level RunTask event, so
       // bail out preemptively
@@ -132,7 +126,7 @@ export class EventsTimelineTreeView extends TimelineTreeView {
     this.filtersControl.populateToolbar(toolbar);
   }
 
-  override showDetailsForNode(node: TimelineModel.TimelineProfileTree.Node): boolean {
+  override showDetailsForNode(node: Trace.Extras.TraceTree.Node): boolean {
     const parsedTrace = this.parsedTrace();
     if (!parsedTrace) {
       return false;
@@ -146,7 +140,7 @@ export class EventsTimelineTreeView extends TimelineTreeView {
     return true;
   }
 
-  override onHover(node: TimelineModel.TimelineProfileTree.Node|null): void {
+  override onHover(node: Trace.Extras.TraceTree.Node|null): void {
     this.delegate.highlightEvent(node && node.event);
   }
 }
@@ -162,7 +156,7 @@ export class Filters extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
     this.filtersInternal = [this.categoryFilter, this.durationFilter];
   }
 
-  filters(): TimelineModel.TimelineModelFilter.TimelineModelFilter[] {
+  filters(): Trace.Extras.TraceFilter.TraceFilter[] {
     return this.filtersInternal;
   }
 
@@ -171,21 +165,21 @@ export class Filters extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
         durationFilterChanged.bind(this), i18nString(UIStrings.durationFilter), undefined, 'duration');
     for (const durationMs of Filters.durationFilterPresetsMs) {
       durationFilterUI.addOption(durationFilterUI.createOption(
-          durationMs ? `≥ ${i18nString(UIStrings.Dms, {PH1: durationMs})}` : i18nString(UIStrings.all),
+          durationMs ? `≥ ${i18n.TimeUtilities.millisToString(durationMs)}` : i18nString(UIStrings.all),
           String(durationMs)));
     }
     toolbar.appendToolbarItem(durationFilterUI);
 
     const categoryFiltersUI = new Map<string, UI.Toolbar.ToolbarCheckbox>();
-    const categories = Components.EntryStyles.getCategoryStyles();
+    const categories = Utils.EntryStyles.getCategoryStyles();
     for (const categoryName in categories) {
-      const category = categories[categoryName as Components.EntryStyles.EventCategory];
+      const category = categories[categoryName as Utils.EntryStyles.EventCategory];
       if (!category.visible) {
         continue;
       }
       const checkbox = new UI.Toolbar.ToolbarCheckbox(
           category.title, undefined,
-          categoriesFilterChanged.bind(this, categoryName as Components.EntryStyles.EventCategory), categoryName);
+          categoriesFilterChanged.bind(this, categoryName as Utils.EntryStyles.EventCategory), categoryName);
       checkbox.setChecked(true);
       checkbox.inputElement.style.backgroundColor = category.color;
       categoryFiltersUI.set(category.name, checkbox);
@@ -199,8 +193,8 @@ export class Filters extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
       this.notifyFiltersChanged();
     }
 
-    function categoriesFilterChanged(this: Filters, name: Components.EntryStyles.EventCategory): void {
-      const categories = Components.EntryStyles.getCategoryStyles();
+    function categoriesFilterChanged(this: Filters, name: Utils.EntryStyles.EventCategory): void {
+      const categories = Utils.EntryStyles.getCategoryStyles();
       const checkBox = categoryFiltersUI.get(name);
       categories[name].hidden = !checkBox || !checkBox.checked();
       this.notifyFiltersChanged();

@@ -42,6 +42,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.SUCCESS,
           prefetchStatus: null,
           requestId: 'requestId:1' as Protocol.Network.RequestId,
@@ -55,6 +56,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prerender,
             url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
           prerenderStatus: Protocol.Preload.PrerenderFinalStatus.TriggerDestroyed,
           disallowedMojoInterface: null,
@@ -73,8 +75,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
     const sections = getElementsWithinComponent(
         component, 'devtools-report devtools-report-section', ReportView.ReportView.ReportSection);
 
-    assert.strictEqual(headers.length, 2);
-    assert.strictEqual(sections.length, 3);
+    assert.lengthOf(headers, 2);
+    assert.lengthOf(sections, 3);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.strictEqual(sections[0]?.querySelector('.status-badge span')?.textContent?.trim(), 'Success');
@@ -82,7 +84,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[1]?.textContent, 'Speculations initiated by this page');
     const badges = sections[1]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 1);
+    assert.lengthOf(badges, 1);
     assert.strictEqual(badges[0]?.textContent?.trim(), 'No speculative loads');
 
     assert.include(sections[2]?.textContent, 'Learn more: Speculative loading on developer.chrome.com');
@@ -99,6 +101,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
           prefetchStatus: null,
           requestId: 'requestId:1' as Protocol.Network.RequestId,
@@ -112,6 +115,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prerender,
             url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.SUCCESS,
           prerenderStatus: null,
           disallowedMojoInterface: null,
@@ -130,8 +134,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
     const sections = getElementsWithinComponent(
         component, 'devtools-report devtools-report-section', ReportView.ReportView.ReportSection);
 
-    assert.strictEqual(headers.length, 2);
-    assert.strictEqual(sections.length, 3);
+    assert.lengthOf(headers, 2);
+    assert.lengthOf(sections, 3);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.strictEqual(sections[0]?.querySelector('.status-badge span')?.textContent?.trim(), 'Success');
@@ -139,7 +143,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[1]?.textContent, 'Speculations initiated by this page');
     const badges = sections[1]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 1);
+    assert.lengthOf(badges, 1);
     assert.strictEqual(badges[0]?.textContent?.trim(), 'No speculative loads');
 
     assert.include(sections[2]?.textContent, 'Learn more: Speculative loading on developer.chrome.com');
@@ -156,6 +160,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
           prefetchStatus: Protocol.Preload.PrefetchStatus.PrefetchFailedIneligibleRedirect,
           requestId: 'requestId:1' as Protocol.Network.RequestId,
@@ -169,6 +174,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prerender,
             url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
           prerenderStatus: Protocol.Preload.PrerenderFinalStatus.TriggerDestroyed,
           disallowedMojoInterface: null,
@@ -187,8 +193,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
     const sections = getElementsWithinComponent(
         component, 'devtools-report devtools-report-section', ReportView.ReportView.ReportSection);
 
-    assert.strictEqual(headers.length, 3);
-    assert.strictEqual(sections.length, 4);
+    assert.lengthOf(headers, 3);
+    assert.lengthOf(sections, 4);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.strictEqual(sections[0]?.querySelector('.status-badge span')?.textContent?.trim(), 'Failure');
@@ -201,7 +207,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[2]?.textContent, 'Speculations initiated by this page');
     const badges = sections[2]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 1);
+    assert.lengthOf(badges, 1);
     assert.strictEqual(badges[0]?.textContent?.trim(), 'No speculative loads');
 
     assert.include(sections[3]?.textContent, 'Learn more: Speculative loading on developer.chrome.com');
@@ -218,6 +224,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
           prefetchStatus: null,
           requestId: 'requestId:1' as Protocol.Network.RequestId,
@@ -231,6 +238,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prerender,
             url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
           prerenderStatus: Protocol.Preload.PrerenderFinalStatus.MojoBinderPolicy,
           disallowedMojoInterface: 'device.mojom.GamepadMonitor',
@@ -249,8 +257,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
     const sections = getElementsWithinComponent(
         component, 'devtools-report devtools-report-section', ReportView.ReportView.ReportSection);
 
-    assert.strictEqual(headers.length, 3);
-    assert.strictEqual(sections.length, 4);
+    assert.lengthOf(headers, 3);
+    assert.lengthOf(sections, 4);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.strictEqual(sections[0]?.querySelector('.status-badge span')?.textContent?.trim(), 'Failure');
@@ -264,7 +272,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[2]?.textContent, 'Speculations initiated by this page');
     const badges = sections[2]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 1);
+    assert.lengthOf(badges, 1);
     assert.strictEqual(badges[0]?.textContent?.trim(), 'No speculative loads');
 
     assert.include(sections[3]?.textContent, 'Learn more: Speculative loading on developer.chrome.com');
@@ -281,6 +289,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
           prefetchStatus: null,
           requestId: 'requestId:1' as Protocol.Network.RequestId,
@@ -294,6 +303,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prerender,
             url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
           prerenderStatus: Protocol.Preload.PrerenderFinalStatus.ActivationNavigationParameterMismatch,
           disallowedMojoInterface: null,
@@ -326,8 +336,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
         component, 'devtools-resources-preloading-mismatched-headers-grid',
         PreloadingComponents.PreloadingMismatchedHeadersGrid.PreloadingMismatchedHeadersGrid);
 
-    assert.strictEqual(headers.length, 4);
-    assert.strictEqual(sections.length, 5);
+    assert.lengthOf(headers, 4);
+    assert.lengthOf(sections, 5);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.include(
@@ -351,7 +361,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[3]?.textContent, 'Speculations initiated by this page');
     const badges = sections[3]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 1);
+    assert.lengthOf(badges, 1);
     assert.strictEqual(badges[0]?.textContent?.trim(), 'No speculative loads');
 
     assert.include(sections[4]?.textContent, 'Learn more: Speculative loading on developer.chrome.com');
@@ -368,6 +378,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/downgraded.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.SUCCESS,
           prefetchStatus: null,
           requestId: 'requestId:1' as Protocol.Network.RequestId,
@@ -381,6 +392,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prerender,
             url: 'https://example.com/downgraded.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
           prerenderStatus: Protocol.Preload.PrerenderFinalStatus.MojoBinderPolicy,
           disallowedMojoInterface: 'device.mojom.GamepadMonitor',
@@ -399,8 +411,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
     const sections = getElementsWithinComponent(
         component, 'devtools-report devtools-report-section', ReportView.ReportView.ReportSection);
 
-    assert.strictEqual(headers.length, 3);
-    assert.strictEqual(sections.length, 4);
+    assert.lengthOf(headers, 3);
+    assert.lengthOf(sections, 4);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.strictEqual(sections[0]?.querySelector('.status-badge span')?.textContent?.trim(), 'Success');
@@ -414,7 +426,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[2]?.textContent, 'Speculations initiated by this page');
     const badges = sections[2]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 1);
+    assert.lengthOf(badges, 1);
     assert.strictEqual(badges[0]?.textContent?.trim(), 'No speculative loads');
 
     assert.include(sections[3]?.textContent, 'Learn more: Speculative loading on developer.chrome.com');
@@ -434,8 +446,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
     const sections = getElementsWithinComponent(
         component, 'devtools-report devtools-report-section', ReportView.ReportView.ReportSection);
 
-    assert.strictEqual(headers.length, 2);
-    assert.strictEqual(sections.length, 3);
+    assert.lengthOf(headers, 2);
+    assert.lengthOf(sections, 3);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.strictEqual(sections[0]?.querySelector('.status-badge span')?.textContent?.trim(), 'No speculative loads');
@@ -444,7 +456,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[1]?.textContent, 'Speculations initiated by this page');
     const badges = sections[1]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 1);
+    assert.lengthOf(badges, 1);
     assert.strictEqual(badges[0]?.textContent?.trim(), 'No speculative loads');
 
     assert.include(sections[2]?.textContent, 'Learn more: Speculative loading on developer.chrome.com');
@@ -461,6 +473,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetched.html#beta' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.SUCCESS,
           prefetchStatus: null,
           requestId: 'requestId:1' as Protocol.Network.RequestId,
@@ -478,8 +491,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
     const sections = getElementsWithinComponent(
         component, 'devtools-report devtools-report-section', ReportView.ReportView.ReportSection);
 
-    assert.strictEqual(headers.length, 2);
-    assert.strictEqual(sections.length, 3);
+    assert.lengthOf(headers, 2);
+    assert.lengthOf(sections, 3);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.strictEqual(sections[0]?.querySelector('.status-badge span')?.textContent?.trim(), 'Success');
@@ -487,7 +500,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[1]?.textContent, 'Speculations initiated by this page');
     const badges = sections[1]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 1);
+    assert.lengthOf(badges, 1);
     assert.strictEqual(badges[0]?.textContent?.trim(), 'No speculative loads');
 
     assert.include(sections[2]?.textContent, 'Learn more: Speculative loading on developer.chrome.com');
@@ -505,6 +518,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prerender,
             url: 'https://example.com/prerendered.html#beta' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
           prerenderStatus: null,
           disallowedMojoInterface: null,
@@ -523,8 +537,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
     const sections = getElementsWithinComponent(
         component, 'devtools-report devtools-report-section', ReportView.ReportView.ReportSection);
 
-    assert.strictEqual(headers.length, 4);
-    assert.strictEqual(sections.length, 5);
+    assert.lengthOf(headers, 4);
+    assert.lengthOf(sections, 5);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.strictEqual(sections[0]?.querySelector('.status-badge span')?.textContent?.trim(), 'No speculative loads');
@@ -545,7 +559,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[3]?.textContent, 'Speculations initiated by this page');
     const badges = sections[3]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 1);
+    assert.lengthOf(badges, 1);
     assert.strictEqual(badges[0]?.textContent?.trim(), 'No speculative loads');
 
     assert.include(sections[4]?.textContent, 'Learn more: Speculative loading on developer.chrome.com');
@@ -562,6 +576,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
           prefetchStatus: null,
           requestId: 'requestId:1' as Protocol.Network.RequestId,
@@ -575,6 +590,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prerender,
             url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
           prerenderStatus: Protocol.Preload.PrerenderFinalStatus.TriggerDestroyed,
           disallowedMojoInterface: null,
@@ -593,8 +609,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
     const sections = getElementsWithinComponent(
         component, 'devtools-report devtools-report-section', ReportView.ReportView.ReportSection);
 
-    assert.strictEqual(headers.length, 4);
-    assert.strictEqual(sections.length, 5);
+    assert.lengthOf(headers, 4);
+    assert.lengthOf(sections, 5);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.strictEqual(sections[0]?.querySelector('.status-badge span')?.textContent?.trim(), 'No speculative loads');
@@ -607,7 +623,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[3]?.textContent, 'Speculations initiated by this page');
     const badges = sections[3]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 1);
+    assert.lengthOf(badges, 1);
     assert.strictEqual(badges[0]?.textContent?.trim(), 'No speculative loads');
 
     assert.include(sections[4]?.textContent, 'Learn more: Speculative loading on developer.chrome.com');
@@ -625,6 +641,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetch-not-triggered.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: null,
           status: SDK.PreloadingModel.PreloadingStatus.NOT_TRIGGERED,
           prefetchStatus: null,
           requestId: 'requestId:1' as Protocol.Network.RequestId,
@@ -638,6 +655,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetch-running.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.RUNNING,
           prefetchStatus: null,
           requestId: 'requestId:2' as Protocol.Network.RequestId,
@@ -651,6 +669,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetch-ready.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:3' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
           prefetchStatus: null,
           requestId: 'requestId:3' as Protocol.Network.RequestId,
@@ -664,6 +683,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prefetch,
             url: 'https://example.com/prefetch-failure.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:4' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
           prefetchStatus: null,
           requestId: 'requestId:4' as Protocol.Network.RequestId,
@@ -677,6 +697,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prerender,
             url: 'https://example.com/prerender-pending.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:5' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.PENDING,
           prerenderStatus: null,
           disallowedMojoInterface: null,
@@ -691,6 +712,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
             action: Protocol.Preload.SpeculationAction.Prerender,
             url: 'https://example.com/prerender-ready.html' as Platform.DevToolsPath.UrlString,
           },
+          pipelineId: 'pipelineId:6' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
           prerenderStatus: null,
           mismatchedHeaders: null,
@@ -708,8 +730,8 @@ describeWithEnvironment('UsedPreloadingView', () => {
     const sections = getElementsWithinComponent(
         component, 'devtools-report devtools-report-section', ReportView.ReportView.ReportSection);
 
-    assert.strictEqual(headers.length, 2);
-    assert.strictEqual(sections.length, 3);
+    assert.lengthOf(headers, 2);
+    assert.lengthOf(sections, 3);
 
     assert.include(headers[0]?.textContent, 'Speculative loading status');
     assert.strictEqual(sections[0]?.querySelector('.status-badge span')?.textContent?.trim(), 'No speculative loads');
@@ -718,7 +740,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
     assert.include(headers[1]?.textContent, 'Speculations initiated by this page');
     const badges = sections[1]?.querySelectorAll('.status-badge span') || [];
-    assert.strictEqual(badges.length, 4);
+    assert.lengthOf(badges, 4);
     assert.strictEqual(badges[0]?.textContent?.trim(), '1 not triggered');
     assert.strictEqual(badges[1]?.textContent?.trim(), '2 in progress');
     assert.strictEqual(badges[2]?.textContent?.trim(), '2 success');

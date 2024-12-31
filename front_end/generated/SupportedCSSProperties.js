@@ -5,22 +5,6 @@
 /* eslint-disable quotes, quote-props */
 export const generatedProperties = [
  {
-  "longhands": [
-   "animation-duration",
-   "animation-timing-function",
-   "animation-delay",
-   "animation-iteration-count",
-   "animation-direction",
-   "animation-fill-mode",
-   "animation-play-state",
-   "animation-name",
-   "animation-timeline",
-   "animation-range-start",
-   "animation-range-end"
-  ],
-  "name": "-alternative-animation-with-timeline"
- },
- {
   "inherited": true,
   "name": "-webkit-border-horizontal-spacing"
  },
@@ -514,11 +498,11 @@ export const generatedProperties = [
    "initial-letter",
    "initial-value",
    "inline-size",
-   "inset-area",
    "inset-block-end",
    "inset-block-start",
    "inset-inline-end",
    "inset-inline-start",
+   "interactivity",
    "interpolate-size",
    "isolation",
    "justify-content",
@@ -553,6 +537,8 @@ export const generatedProperties = [
    "mask-repeat",
    "mask-size",
    "mask-type",
+   "masonry-direction",
+   "masonry-fill",
    "masonry-slack",
    "masonry-template-tracks",
    "masonry-track-end",
@@ -638,6 +624,7 @@ export const generatedProperties = [
    "ry",
    "scale",
    "scroll-behavior",
+   "scroll-initial-target",
    "scroll-margin-block-end",
    "scroll-margin-block-start",
    "scroll-margin-bottom",
@@ -660,7 +647,6 @@ export const generatedProperties = [
    "scroll-snap-type",
    "scroll-start-block",
    "scroll-start-inline",
-   "scroll-start-target",
    "scroll-start-x",
    "scroll-start-y",
    "scroll-timeline-axis",
@@ -741,6 +727,7 @@ export const generatedProperties = [
    "view-timeline-axis",
    "view-timeline-inset",
    "view-timeline-name",
+   "view-transition-capture-mode",
    "view-transition-class",
    "view-transition-group",
    "view-transition-name",
@@ -781,7 +768,10 @@ export const generatedProperties = [
    "animation-direction",
    "animation-fill-mode",
    "animation-play-state",
-   "animation-name"
+   "animation-name",
+   "animation-timeline",
+   "animation-range-start",
+   "animation-range-end"
   ],
   "name": "animation"
  },
@@ -2482,26 +2472,6 @@ export const generatedProperties = [
   "name": "inset"
  },
  {
-  "keywords": [
-   "none",
-   "top",
-   "bottom",
-   "center",
-   "left",
-   "right",
-   "x-start",
-   "x-end",
-   "y-start",
-   "y-end",
-   "start",
-   "end",
-   "self-start",
-   "self-end",
-   "all"
-  ],
-  "name": "inset-area"
- },
- {
   "longhands": [
    "inset-block-start",
    "inset-block-end"
@@ -2526,6 +2496,14 @@ export const generatedProperties = [
  },
  {
   "name": "inset-inline-start"
+ },
+ {
+  "inherited": true,
+  "keywords": [
+   "auto",
+   "inert"
+  ],
+  "name": "interactivity"
  },
  {
   "inherited": true,
@@ -2784,6 +2762,22 @@ export const generatedProperties = [
    "alpha"
   ],
   "name": "mask-type"
+ },
+ {
+  "keywords": [
+   "row",
+   "row-reverse",
+   "column",
+   "column-reverse"
+  ],
+  "name": "masonry-direction"
+ },
+ {
+  "keywords": [
+   "normal",
+   "reverse"
+  ],
+  "name": "masonry-fill"
  },
  {
   "keywords": [
@@ -3417,6 +3411,13 @@ export const generatedProperties = [
   "name": "scroll-behavior"
  },
  {
+  "keywords": [
+   "none",
+   "nearest"
+  ],
+  "name": "scroll-initial-target"
+ },
+ {
   "longhands": [
    "scroll-margin-top",
    "scroll-margin-right",
@@ -3583,13 +3584,6 @@ export const generatedProperties = [
  },
  {
   "name": "scroll-start-inline"
- },
- {
-  "keywords": [
-   "none",
-   "auto"
-  ],
-  "name": "scroll-start-target"
  },
  {
   "name": "scroll-start-x"
@@ -3814,7 +3808,7 @@ export const generatedProperties = [
   "name": "text-box"
  },
  {
-  "inherited": false,
+  "inherited": true,
   "name": "text-box-edge"
  },
  {
@@ -4191,6 +4185,13 @@ export const generatedProperties = [
  },
  {
   "keywords": [
+   "flat",
+   "layered"
+  ],
+  "name": "view-transition-capture-mode"
+ },
+ {
+  "keywords": [
    "none"
   ],
   "name": "view-transition-class"
@@ -4215,8 +4216,7 @@ export const generatedProperties = [
   "keywords": [
    "visible",
    "hidden",
-   "collapse",
-   "inert"
+   "collapse"
   ],
   "name": "visibility"
  },
@@ -5413,23 +5413,10 @@ export const generatedPropertyValues = {
    "auto"
   ]
  },
- "inset-area": {
+ "interactivity": {
   "values": [
-   "none",
-   "top",
-   "bottom",
-   "center",
-   "left",
-   "right",
-   "x-start",
-   "x-end",
-   "y-start",
-   "y-end",
-   "start",
-   "end",
-   "self-start",
-   "self-end",
-   "all"
+   "auto",
+   "inert"
   ]
  },
  "interpolate-size": {
@@ -5560,6 +5547,20 @@ export const generatedPropertyValues = {
   "values": [
    "luminance",
    "alpha"
+  ]
+ },
+ "masonry-direction": {
+  "values": [
+   "row",
+   "row-reverse",
+   "column",
+   "column-reverse"
+  ]
+ },
+ "masonry-fill": {
+  "values": [
+   "normal",
+   "reverse"
   ]
  },
  "masonry-slack": {
@@ -5915,6 +5916,12 @@ export const generatedPropertyValues = {
    "smooth"
   ]
  },
+ "scroll-initial-target": {
+  "values": [
+   "none",
+   "nearest"
+  ]
+ },
  "scroll-marker-group": {
   "values": [
    "none",
@@ -5986,12 +5993,6 @@ export const generatedPropertyValues = {
    "both",
    "mandatory",
    "proximity"
-  ]
- },
- "scroll-start-target": {
-  "values": [
-   "none",
-   "auto"
   ]
  },
  "scrollbar-color": {
@@ -6341,6 +6342,12 @@ export const generatedPropertyValues = {
    "middle"
   ]
  },
+ "view-transition-capture-mode": {
+  "values": [
+   "flat",
+   "layered"
+  ]
+ },
  "view-transition-class": {
   "values": [
    "none"
@@ -6363,8 +6370,7 @@ export const generatedPropertyValues = {
   "values": [
    "visible",
    "hidden",
-   "collapse",
-   "inert"
+   "collapse"
   ]
  },
  "white-space-collapse": {
@@ -6465,10 +6471,6 @@ export const generatedAliasesFor = new Map([
  [
   "-webkit-align-self",
   "align-self"
- ],
- [
-  "-webkit-alternative-animation-with-timeline",
-  "-alternative-animation-with-timeline"
  ],
  [
   "-webkit-animation",

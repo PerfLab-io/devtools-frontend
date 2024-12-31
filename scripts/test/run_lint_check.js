@@ -11,14 +11,14 @@ const {extname, join} = require('path');
 const globby = require('globby');
 const yargs = require('yargs/yargs');
 const {hideBin} = require('yargs/helpers');
-const childProcess = require('child_process');
-const {promisify} = require('util');
-const spawnAsync = promisify(childProcess.spawnSync);
+const {spawn} = require('child_process');
+const {readFileSync} = require('fs');
 
 const {
   devtoolsRootPath,
   litAnalyzerExecutablePath,
   nodePath,
+  tsconfigJsonPath,
 } = require('../devtools_paths.js');
 
 const flags = yargs(hideBin(process.argv))
@@ -91,26 +91,67 @@ async function runStylelint(files) {
 }
 
 /**
- * @param {string[]} files
+ * Runs the `lit-analyzer` on the `files`.
+ *
+ * The configuration for the `lit-analyzer` is parsed from the options for
+ * the "ts-lit-plugin" from the toplevel `tsconfig.json` file.
+ *
+ * @param {string[]} files the input files to analyze.
  */
 async function runLitAnalyzer(files) {
-  const rules = {
-    'no-missing-import': 'error',
-    'no-unknown-tag-name': 'error',
-    'no-complex-attribute-binding': 'off',
+  const readLitAnalyzerConfigFromCompilerOptions = () => {
+    const {compilerOptions} = JSON.parse(
+        readFileSync(tsconfigJsonPath(), 'utf-8'),
+    );
+    const {plugins} = compilerOptions;
+    const tsLitPluginOptions = plugins.find(
+        plugin => plugin.name === 'ts-lit-plugin',
+    );
+    if (tsLitPluginOptions === null) {
+      throw new Error(
+          `Failed to find ts-lit-plugin options in ${tsconfigJsonPath()}`,
+      );
+    }
+    return tsLitPluginOptions;
   };
+
+  const {rules} = readLitAnalyzerConfigFromCompilerOptions();
   const getLitAnalyzerResult = async subsetFiles => {
     const args = [
       litAnalyzerExecutablePath(),
       ...Object.entries(rules).flatMap(([k, v]) => [`--rules.${k}`, v]),
       ...subsetFiles,
     ];
-    const result = await spawnAsync(nodePath(), args, {
-      encoding: 'utf-8',
-      cwd: devtoolsRootPath(),
-      stdio: 'inherit',
+
+    const result = {
+      output: '',
+      error: '',
+      status: false,
+    };
+
+    return await new Promise(resolve => {
+      const litAnalyzerProcess = spawn(nodePath(), args, {
+        encoding: 'utf-8',
+        cwd: devtoolsRootPath(),
+      });
+
+      litAnalyzerProcess.stdout.on('data', data => {
+        result.output += `\n${data.toString()}`;
+      });
+      litAnalyzerProcess.stderr.on('data', data => {
+        result.error += `\n${data.toString()}`;
+      });
+
+      litAnalyzerProcess.on('error', message => {
+        result.error += `\n${message}`;
+        resolve(result);
+      });
+
+      litAnalyzerProcess.on('exit', code => {
+        result.status = code === 0;
+        resolve(result);
+      });
     });
-    return result.status === 0;
   };
 
   const getSplitFiles = filesToSplit => {
@@ -132,13 +173,21 @@ async function runLitAnalyzer(files) {
     return splitFiles;
   };
 
-  const result = await Promise.all(
+  const results = await Promise.all(
       getSplitFiles(files).map(filesBatch => {
         return getLitAnalyzerResult(filesBatch);
       }),
   );
+  for (const result of results) {
+    if (result.output) {
+      console.log(result.output);
+    }
+    if (result.error) {
+      console.log(result.error);
+    }
+  }
 
-  return result.every(r => r);
+  return results.every(r => r.status);
 }
 
 async function run() {

@@ -83,7 +83,7 @@ export async function addDocument(document: Document): Promise<void> {
 }
 
 export async function stopLogging(): Promise<void> {
-  await keyboardLogThrottler.process?.();
+  await keyboardLogThrottler.schedule(async () => {}, Common.Throttler.Scheduling.AS_SOON_AS_POSSIBLE);
   logging = false;
   unregisterAllLoggables();
   for (const document of documents) {
@@ -215,15 +215,21 @@ async function process(): Promise<void> {
           if (!(event instanceof InputEvent)) {
             return;
           }
-          if (loggingState.lastInputEventType && loggingState.lastInputEventType !== event.inputType) {
+          if (loggingState.pendingChangeContext && loggingState.pendingChangeContext !== event.inputType) {
             void logPendingChange(element);
           }
-          loggingState.lastInputEventType = event.inputType;
+          loggingState.pendingChangeContext = event.inputType;
           pendingChange.add(element);
         }, {capture: true});
-        element.addEventListener('change', () => logPendingChange(element), {capture: true});
+        element.addEventListener('change', (event: Event) => {
+          const target = event?.target ?? element;
+          if (['checkbox', 'radio'].includes((target as HTMLInputElement).type)) {
+            loggingState.pendingChangeContext = (target as HTMLInputElement).checked ? 'on' : 'off';
+          }
+          logPendingChange(element);
+        }, {capture: true});
         element.addEventListener('focusout', () => {
-          if (loggingState.lastInputEventType) {
+          if (loggingState.pendingChangeContext) {
             void logPendingChange(element);
           }
         }, {capture: true});
@@ -302,7 +308,7 @@ function logPendingChange(element: Element): void {
     return;
   }
   void logChange(element);
-  delete loggingState.lastInputEventType;
+  delete loggingState.pendingChangeContext;
   pendingChange.delete(element);
 }
 

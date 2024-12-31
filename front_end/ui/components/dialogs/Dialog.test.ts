@@ -4,7 +4,8 @@
 
 import * as Platform from '../../../core/platform/platform.js';
 import type * as WindowBoundsService from '../../../services/window_bounds/window_bounds.js';
-import * as Helpers from '../../../testing/DOMHelpers.js';  // eslint-disable-line rulesdir/es_modules_import
+import * as Helpers from '../../../testing/DOMHelpers.js';  // eslint-disable-line rulesdir/es-modules-import
+import {describeWithLocale} from '../../../testing/EnvironmentHelpers.js';
 import * as Coordinator from '../render_coordinator/render_coordinator.js';
 
 import * as Dialogs from './dialogs.js';
@@ -38,7 +39,6 @@ describe('Dialog', () => {
       host.style.height = '100px';
 
       dialog.position = Dialogs.Dialog.DialogVerticalPosition.TOP;
-      dialog.showConnector = true;
       dialog.origin = host;
     });
     it('places the Dialog hit area correctly', async () => {
@@ -78,7 +78,6 @@ describe('Dialog', () => {
       content.innerHTML = 'Hi';
 
       dialog.horizontalAlignment = Dialogs.Dialog.DialogHorizontalAlignment.AUTO;
-      dialog.showConnector = true;
       dialog.origin = host;
 
       // Set the dialog's "window" to be the container element we just created.
@@ -138,7 +137,6 @@ describe('Dialog', () => {
       content.innerHTML = 'Hello, World<br/> I am <br/> a Dialog!';
 
       dialog.position = Dialogs.Dialog.DialogVerticalPosition.AUTO;
-      dialog.showConnector = true;
       dialog.origin = host;
 
       // Set the dialog's "window" to be the container element we just created.
@@ -181,7 +179,6 @@ describe('Dialog', () => {
       content.innerHTML = 'Hello, World<br/> I am <br/> a Dialog!';
 
       dialog.position = Dialogs.Dialog.DialogVerticalPosition.AUTO;
-      dialog.showConnector = true;
       dialog.origin = host;
 
       // Set the dialog's "window" to be the container element we just created.
@@ -254,6 +251,7 @@ describe('Dialog', () => {
         });
     describe('with an anchor and possible overflow', () => {
       const CONTAINER_WIDTH = 500;
+      const CONTAINER_HEIGHT = 500;
       const HOST_OFFSET = 100;
       const HOST_HEIGHT = 100;
       const devtoolsDialog = new Dialogs.Dialog.Dialog();
@@ -264,7 +262,7 @@ describe('Dialog', () => {
         // of DevTools bounding element.
         container = document.createElement('div');
         container.style.width = `${CONTAINER_WIDTH}px`;
-        container.style.height = `${CONTAINER_WIDTH}px`;
+        container.style.height = `${CONTAINER_HEIGHT}px`;
         container.style.position = 'fixed';
         container.style.top = '0';
         container.style.left = '0';
@@ -317,7 +315,7 @@ describe('Dialog', () => {
            assert.strictEqual(dialogLeftBorderLimitPosition, CONTAINER_WIDTH);
            assert.strictEqual(
                dialog.clientHeight,
-               CONTAINER_WIDTH - Dialogs.Dialog.CONNECTOR_HEIGHT - HOST_HEIGHT - HOST_OFFSET +
+               CONTAINER_HEIGHT - Dialogs.Dialog.DIALOG_PADDING_FROM_WINDOW - HOST_HEIGHT - HOST_OFFSET +
                    2 * Dialogs.Dialog.DIALOG_VERTICAL_PADDING);
          });
       it('sets the max width and height correctly when the dialog\'s content dimensions exceed the viewport and the dialog is anchored to the right',
@@ -550,6 +548,49 @@ describe('Dialog', () => {
         assert.fail('Dialog was closed');
         return;
       }
+    });
+  });
+
+  describeWithLocale('rendering', () => {
+    it('do not render dialog header line if title is empty and there is no close button', async () => {
+      const dialog = new Dialogs.Dialog.Dialog();
+      dialog.closeButton = false;
+      dialog.dialogTitle = '';
+      Helpers.renderElementIntoDOM(dialog);
+      await coordinator.done();
+
+      assert.isNotNull(dialog.shadowRoot);
+      const dialogHeader = dialog.shadowRoot.querySelector('.dialog-header');
+      assert.exists(dialogHeader);
+      assert.isEmpty(dialogHeader.children);
+    });
+
+    it('should render a close button in the dialog if closeButton is true', async () => {
+      const dialog = new Dialogs.Dialog.Dialog();
+      dialog.closeButton = true;
+      Helpers.renderElementIntoDOM(dialog);
+      await coordinator.done();
+
+      assert.isNotNull(dialog.shadowRoot);
+      const dialogHeader = dialog.shadowRoot.querySelector('.dialog-header');
+      assert.exists(dialogHeader);
+      const closeButton = dialogHeader.querySelector('devtools-button');
+      assert.exists(closeButton);
+    });
+
+    it('should render dialog title if it is not empty', async () => {
+      const dialogTitle = 'Button dialog example';
+      const dialog = new Dialogs.Dialog.Dialog();
+      dialog.dialogTitle = dialogTitle;
+      Helpers.renderElementIntoDOM(dialog);
+      await coordinator.done();
+
+      assert.isNotNull(dialog.shadowRoot);
+      const dialogHeader = dialog.shadowRoot.querySelector('.dialog-header');
+      assert.exists(dialogHeader);
+      const dialogTitleElement = dialogHeader.querySelector('.dialog-header-text');
+      assert.exists(dialogTitleElement);
+      assert.strictEqual(dialogTitleElement.textContent, dialogTitle);
     });
   });
 });

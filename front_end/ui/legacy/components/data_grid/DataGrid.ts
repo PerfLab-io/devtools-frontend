@@ -24,7 +24,7 @@
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable rulesdir/check_license_header */
+/* eslint-disable rulesdir/check-license-header */
 
 import * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
@@ -213,13 +213,13 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
 
     this.dataTableColumnGroup = this.dataTable.createChild('colgroup');
 
-    this.dataTableHeadInternal = this.dataTable.createChild('thead') as HTMLTableSectionElement;
+    this.dataTableHeadInternal = this.dataTable.createChild('thead');
     this.headerRow = this.dataTableHeadInternal.createChild('tr');
 
     this.dataTableBody = this.dataTable.createChild('tbody');
-    this.topFillerRow = (this.dataTableBody.createChild('tr', 'data-grid-filler-row revealed') as HTMLElement);
+    this.topFillerRow = this.dataTableBody.createChild('tr', 'data-grid-filler-row revealed');
     UI.ARIAUtils.setHidden(this.topFillerRow, true);
-    this.bottomFillerRow = (this.dataTableBody.createChild('tr', 'data-grid-filler-row revealed') as HTMLElement);
+    this.bottomFillerRow = this.dataTableBody.createChild('tr', 'data-grid-filler-row revealed');
     UI.ARIAUtils.setHidden(this.bottomFillerRow, true);
 
     this.setVerticalPadding(0, 0, true);
@@ -228,7 +228,7 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     this.editing = false;
     this.selectedNode = null;
     this.expandNodesWhenArrowing = false;
-    this.setRootNode((new DataGridNode() as DataGridNode<T>));
+    this.setRootNode(new DataGridNode<T>());
 
     this.setHasSelection(false);
 
@@ -478,12 +478,12 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     for (let i = 0; i < this.visibleColumnsArray.length; ++i) {
       const column = this.visibleColumnsArray[i];
       const columnId = column.id;
-      const dataColumn = (this.dataTableColumnGroup.createChild('col') as HTMLElement);
+      const dataColumn = this.dataTableColumnGroup.createChild('col');
       if (column.width) {
         dataColumn.style.width = column.width;
       }
       this.headerRow.appendChild(this.dataTableHeaders[columnId]);
-      const topFillerRowCell = (this.topFillerRow.createChild('th', 'top-filler-td') as HTMLTableCellElement);
+      const topFillerRowCell = this.topFillerRow.createChild('th', 'top-filler-td');
       topFillerRowCell.textContent = column.title || null;
       topFillerRowCell.scope = 'col';
       const bottomFillerRowChild = this.bottomFillerRow.createChild('td', 'bottom-filler-td');
@@ -493,7 +493,7 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     const headerCorner = this.headerRow.createChild('th', 'corner');
     UI.ARIAUtils.setHidden(headerCorner, true);
 
-    const topFillerRowCornerCell = (this.topFillerRow.createChild('th', 'corner') as HTMLTableCellElement);
+    const topFillerRowCornerCell = this.topFillerRow.createChild('th', 'corner');
     topFillerRowCornerCell.classList.add('top-filler-td');
     topFillerRowCornerCell.scope = 'col';
 
@@ -666,11 +666,16 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
   }
 
   private startEditingConfig(_element: Element): UI.InplaceEditor.Config<any> {
-    return new UI.InplaceEditor.Config(this.editingCommitted.bind(this), this.editingCancelled.bind(this));
+    return new UI.InplaceEditor.Config(this.editingCommitted.bind(this), this.editingCancelled.bind(this), undefined);
   }
 
   private editingCommitted(
-      element: Element, newText: any, oldText: any, context: string|undefined, moveDirection: string): void {
+      element: Element,
+      newText: any,
+      _oldText: string|boolean|null,
+      _context: string|undefined,
+      moveDirection: string,
+      ): void {
     const columnId = this.columnIdFromNode(element);
     if (!columnId) {
       this.editingCancelled(element);
@@ -681,8 +686,7 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     if (!this.editingNode) {
       return;
     }
-    const valueBeforeEditing =
-        (this.editingNode.data[columnId] === null ? '' : this.editingNode.data[columnId] as string | boolean);
+    const valueBeforeEditing = this.editingNode.data[columnId];
     const currentEditingNode = this.editingNode;
 
     function moveToNextIfNeeded(this: DataGridImpl<T>, wasChange: boolean): void {
@@ -1549,9 +1553,9 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     return 0;
   }
 
-  asWidget(): DataGridWidget<T> {
+  asWidget(element?: HTMLElement): DataGridWidget<T> {
     if (!this.dataGridWidget) {
-      this.dataGridWidget = new DataGridWidget(this);
+      this.dataGridWidget = new DataGridWidget(this, element);
     }
     return this.dataGridWidget;
   }
@@ -1699,7 +1703,7 @@ export class DataGridNode<T> {
     return this.elementInternal as Element;
   }
 
-  protected createElement(): Element {
+  protected createElement(): HTMLElement {
     this.elementInternal = document.createElement('tr');
     this.elementInternal.setAttribute(
         'jslog', `${VisualLogging.tableRow().track({keydown: 'ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Enter|Space'})}`);
@@ -1732,7 +1736,7 @@ export class DataGridNode<T> {
     return this.elementInternal;
   }
 
-  existingElement(): Element|null {
+  existingElement(): HTMLElement|null {
     return this.elementInternal || null;
   }
 
@@ -1999,7 +2003,7 @@ export class DataGridNode<T> {
     this.cellAccessibleTextMap.set(columnId, name);
     // Mark all direct children of cell as hidden so cell name is properly announced
     for (let i = 0; i < cell.children.length; i++) {
-      UI.ARIAUtils.markAsHidden(cell.children[i]);
+      UI.ARIAUtils.setHidden(cell.children[i], true);
     }
     UI.ARIAUtils.setLabel(cell, name);
   }
@@ -2441,9 +2445,9 @@ export class CreationDataGridNode<T> extends DataGridNode<T> {
 }
 
 export class DataGridWidget<T> extends UI.Widget.VBox {
-  private readonly dataGrid: DataGridImpl<T>;
-  constructor(dataGrid: DataGridImpl<T>) {
-    super();
+  readonly dataGrid: DataGridImpl<T>;
+  constructor(dataGrid: DataGridImpl<T>, element?: HTMLElement) {
+    super(undefined, undefined, element);
     this.dataGrid = dataGrid;
     this.element.appendChild(dataGrid.element);
     this.setDefaultFocusedElement(dataGrid.element);
@@ -2466,6 +2470,93 @@ export class DataGridWidget<T> extends UI.Widget.VBox {
     return [this.dataGrid.scrollContainer];
   }
 }
+
+export type DataGridWidgetOptions<T> = Parameters&{
+  markAsRoot?: boolean,
+  striped?: boolean, nodes: DataGridNode<T>[],
+};
+
+export class DataGridWidgetElement<T> extends UI.Widget.WidgetElement<DataGridWidget<T>> {
+  #options: DataGridWidgetOptions<T>;
+  widget?: DataGridWidget<T>;
+
+  constructor() {
+    super();
+    // default values for options
+    this.#options = {
+      displayName: 'dataGrid',
+      columns: [],
+      nodes: [],
+    };
+  }
+
+  set options(options: DataGridWidgetOptions<T>) {
+    this.#options = options;
+    this.#updateGrid();
+  }
+
+  override createWidget(): DataGridWidget<T> {
+    const dataGridImpl = new DataGridImpl<T>(this.#options);
+
+    // Translate existing DataGridImpl ("ObjectWrapper") events to DOM CustomEvents so clients can
+    // use lit templates to bind listeners.
+    dataGridImpl.addEventListener(Events.SELECTED_NODE, this.#selectedNode.bind(this));
+    dataGridImpl.addEventListener(Events.DESELECTED_NODE, this.#deselectedNode.bind(this));
+    dataGridImpl.addEventListener(Events.OPENED_NODE, this.#openedNode.bind(this));
+    dataGridImpl.addEventListener(Events.SORTING_CHANGED, this.#sortingChanged.bind(this));
+    dataGridImpl.addEventListener(Events.PADDING_CHANGED, this.#paddingChanged.bind(this));
+    this.widget = dataGridImpl.asWidget(this);
+
+    if (this.#options.markAsRoot) {
+      this.widget.markAsRoot();
+    }
+
+    this.#updateGrid();
+
+    return this.widget;
+  }
+
+  #updateGrid(): void {
+    if (this.widget) {
+      this.widget.dataGrid.rootNode().removeChildren();
+      for (const node of this.#options.nodes) {
+        this.widget.dataGrid.rootNode().appendChild(node);
+      }
+
+      if (this.#options.striped) {
+        this.widget.dataGrid.setStriped(true);
+      }
+    }
+  }
+
+  #selectedNode(event: Common.EventTarget.EventTargetEvent<DataGridNode<T>>): void {
+    const domEvent = new CustomEvent('selectedNode', {detail: event.data});
+    this.dispatchEvent(domEvent);
+  }
+
+  #deselectedNode(): void {
+    const domEvent = new CustomEvent('deselectedNode');
+    this.dispatchEvent(domEvent);
+  }
+
+  #openedNode(event: Common.EventTarget.EventTargetEvent<DataGridNode<T>>): void {
+    const domEvent = new CustomEvent('openedNode', {detail: event.data});
+    this.dispatchEvent(domEvent);
+  }
+
+  #sortingChanged(): void {
+    const domEvent = new CustomEvent('sortingChanged');
+    this.dispatchEvent(domEvent);
+  }
+
+  #paddingChanged(): void {
+    const domEvent = new CustomEvent('paddingChanged');
+    this.dispatchEvent(domEvent);
+  }
+}
+
+customElements.define('devtools-data-grid-widget', DataGridWidgetElement);
+
 export interface Parameters {
   displayName: string;
   columns: ColumnDescriptor[];

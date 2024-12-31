@@ -12,8 +12,7 @@ import * as Timeline from '../timeline.js';
 
 function initTrackAppender(
     flameChartData: PerfUI.FlameChart.FlameChartTimelineData, parsedTrace: Trace.Handlers.Types.ParsedTrace,
-    entryData: Timeline.TimelineFlameChartDataProvider.TimelineFlameChartEntry[],
-    entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[]):
+    entryData: Trace.Types.Events.Event[], entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[]):
     Timeline.ServerTimingsTrackAppender.ServerTimingsTrackAppender {
   const compatibilityTracksAppender = new Timeline.CompatibilityTracksAppender.CompatibilityTracksAppender(
       flameChartData, parsedTrace, entryData, entryTypeByLevel);
@@ -23,7 +22,7 @@ function initTrackAppender(
 describeWithEnvironment('ServerTimingsTrackAppender', function() {
   let parsedTrace: Trace.Handlers.Types.ParsedTrace;
   let serverTimingsTrackAppender: Timeline.ServerTimingsTrackAppender.ServerTimingsTrackAppender;
-  let entryData: Timeline.TimelineFlameChartDataProvider.TimelineFlameChartEntry[] = [];
+  let entryData: Trace.Types.Events.Event[] = [];
   let flameChartData = PerfUI.FlameChart.FlameChartTimelineData.createEmpty();
   let entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[] = [];
 
@@ -45,12 +44,12 @@ describeWithEnvironment('ServerTimingsTrackAppender', function() {
 
   describe('appendTrackAtLevel', function() {
     it('creates a flamechart group for the Server timings track', function() {
-      assert.strictEqual(flameChartData.groups.length, 1);
+      assert.lengthOf(flameChartData.groups, 1);
       assert.strictEqual(flameChartData.groups[0].name, 'Server Timings — https://node-server-tan.vercel.app');
     });
 
     it('Adds a description to server timings tracks', function() {
-      assert.strictEqual(flameChartData.groups.length, 1);
+      assert.lengthOf(flameChartData.groups, 1);
       assert.strictEqual(
           flameChartData.groups[0].description,
           'This track contains timings taken from Server-Timing network response headers. Their respective start times are only estimated and may not be accurate.');
@@ -112,15 +111,6 @@ describeWithEnvironment('ServerTimingsTrackAppender', function() {
         assert.strictEqual(serverTimingsTrackAppender.titleForEvent(event), event.name);
         assert.strictEqual(serverTimingsTrackAppender.colorForEvent(), 'rgb(4 4 4)');
       }
-    });
-  });
-
-  describe('highlightedEntryInfo', function() {
-    it('returns the info for an entry correctly', function() {
-      const serverTimings = parsedTrace.ServerTimings.serverTimings;
-      const highlightedEntryInfo = serverTimingsTrackAppender.highlightedEntryInfo(serverTimings[0]);
-      // The i18n encodes spaces using the u00A0 unicode character.
-      assert.strictEqual(highlightedEntryInfo.formattedTime, '1.00\u00A0s');
     });
   });
 });

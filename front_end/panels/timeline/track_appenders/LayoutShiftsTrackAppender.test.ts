@@ -10,8 +10,7 @@ import * as Timeline from '../timeline.js';
 
 function initTrackAppender(
     flameChartData: PerfUI.FlameChart.FlameChartTimelineData, parsedTrace: Trace.Handlers.Types.ParsedTrace,
-    entryData: Timeline.TimelineFlameChartDataProvider.TimelineFlameChartEntry[],
-    entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[]):
+    entryData: Trace.Types.Events.Event[], entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[]):
     Timeline.LayoutShiftsTrackAppender.LayoutShiftsTrackAppender {
   const compatibilityTracksAppender = new Timeline.CompatibilityTracksAppender.CompatibilityTracksAppender(
       flameChartData, parsedTrace, entryData, entryTypeByLevel);
@@ -23,11 +22,11 @@ describeWithEnvironment('LayoutShiftsTrackAppender', function() {
     entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[],
     flameChartData: PerfUI.FlameChart.FlameChartTimelineData,
     layoutShiftsTrackAppender: Timeline.LayoutShiftsTrackAppender.LayoutShiftsTrackAppender,
-    entryData: Timeline.TimelineFlameChartDataProvider.TimelineFlameChartEntry[],
+    entryData: Trace.Types.Events.Event[],
     parsedTrace: Readonly<Trace.Handlers.Types.ParsedTrace>,
   }> {
     const entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[] = [];
-    const entryData: Timeline.TimelineFlameChartDataProvider.TimelineFlameChartEntry[] = [];
+    const entryData: Trace.Types.Events.Event[] = [];
     const flameChartData = PerfUI.FlameChart.FlameChartTimelineData.createEmpty();
     const {parsedTrace} = await TraceLoader.traceEngine(context, trace);
     const layoutShiftsTrackAppender = initTrackAppender(flameChartData, parsedTrace, entryData, entryTypeByLevel);
@@ -45,7 +44,7 @@ describeWithEnvironment('LayoutShiftsTrackAppender', function() {
   it('marks all levels used by the track with the TrackAppender type', async function() {
     const {entryTypeByLevel} = await renderTrackAppender(this, 'cls-single-frame.json.gz');
     // Only one row of layout shifts.
-    assert.strictEqual(entryTypeByLevel.length, 1);
+    assert.lengthOf(entryTypeByLevel, 1);
     assert.deepEqual(entryTypeByLevel, [
       Timeline.TimelineFlameChartDataProvider.EntryType.TRACK_APPENDER,
     ]);
@@ -59,7 +58,7 @@ describeWithEnvironment('LayoutShiftsTrackAppender', function() {
 
   it('creates a flamechart group', async function() {
     const {flameChartData} = await renderTrackAppender(this, 'cls-single-frame.json.gz');
-    assert.strictEqual(flameChartData.groups.length, 1);
+    assert.lengthOf(flameChartData.groups, 1);
     assert.strictEqual(flameChartData.groups[0].name, 'Layout shifts');
   });
 
@@ -85,9 +84,18 @@ describeWithEnvironment('LayoutShiftsTrackAppender', function() {
     const {layoutShiftsTrackAppender, parsedTrace} = await renderTrackAppender(this, 'cls-no-nav.json.gz');
     const shifts = parsedTrace.LayoutShifts.clusters.flatMap(c => c.events);
     await layoutShiftsTrackAppender.preloadScreenshots(shifts);
-    const info = layoutShiftsTrackAppender.highlightedEntryInfo(shifts[3]);
+
+    const info: Timeline.CompatibilityTracksAppender.PopoverInfo = {
+      title: 'title',
+      formattedTime: 'time',
+      warningElements: [],
+      additionalElements: [],
+      url: null,
+    };
+
+    layoutShiftsTrackAppender.setPopoverInfo(shifts[3], info);
     assert.strictEqual(info.title, 'Layout shift');
     assert.strictEqual(info.formattedTime, '0.0197');
-    assert.strictEqual(info.additionalElement?.nodeName, 'DIV');
+    assert.strictEqual(info.additionalElements?.at(0)?.nodeName, 'DIV');
   });
 });

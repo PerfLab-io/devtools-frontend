@@ -8,7 +8,6 @@ import type * as Protocol from '../../../../generated/protocol.js';
 import * as Formatter from '../../../../models/formatter/formatter.js';
 import * as CodeMirror from '../../../../third_party/codemirror.next/codemirror.next.js';
 import * as CodeHighlighter from '../../../../ui/components/code_highlighter/code_highlighter.js';
-import type * as IconButton from '../../../../ui/components/icon_button/icon_button.js';
 import * as LegacyWrapper from '../../../../ui/components/legacy_wrapper/legacy_wrapper.js';
 import * as Coordinator from '../../../../ui/components/render_coordinator/render_coordinator.js';
 import * as TextEditor from '../../../../ui/components/text_editor/text_editor.js';
@@ -46,13 +45,13 @@ export class RuleSetDetailsView extends LegacyWrapper.LegacyWrapper.WrappableCom
   }
 
   async #render(): Promise<void> {
-    const sourceText = await this.#getSourceText();
-
-    await coordinator.write('RuleSetDetailsView render', () => {
+    await coordinator.write('RuleSetDetailsView render', async () => {
       if (this.#data === null) {
         LitHtml.render(LitHtml.nothing, this.#shadow, {host: this});
         return;
       }
+
+      const sourceText = await this.#getSourceText();
 
       // Disabled until https://crbug.com/1079231 is fixed.
       // clang-format off
@@ -87,12 +86,12 @@ export class RuleSetDetailsView extends LegacyWrapper.LegacyWrapper.WrappableCom
             color: 'var(--icon-error)',
             width: '16px',
             height: '16px',
-          } as IconButton.Icon.IconData}>
+          }}>
         </devtools-icon>
         <span id="error-message-text">${this.#data.errorMessage}</span>
       </div>
     `;
-    // clang-format on
+            // clang-format on
   }
 
   #renderSource(sourceText: string): LitHtml.LitTemplate {

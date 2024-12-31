@@ -825,10 +825,10 @@ describeWithEnvironment('SourceMap', () => {
       const sourceMapJsonUrl = 'wp://test/source-map.json' as Platform.DevToolsPath.UrlString;
       const sourceMap = new SDK.SourceMap.SourceMap(compiledUrl, sourceMapJsonUrl, mappingPayload);
 
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor.js' as Platform.DevToolsPath.UrlString), true);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///main.js' as Platform.DevToolsPath.UrlString), false);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///example.js' as Platform.DevToolsPath.UrlString), false);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///other.js' as Platform.DevToolsPath.UrlString), true);
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor.js' as Platform.DevToolsPath.UrlString));
+      assert.isFalse(sourceMap.hasIgnoreListHint('wp:///main.js' as Platform.DevToolsPath.UrlString));
+      assert.isFalse(sourceMap.hasIgnoreListHint('wp:///example.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///other.js' as Platform.DevToolsPath.UrlString));
     });
 
     it('parses the known third parties from the deprecated `x_google_ignoreList` section if `ignoreList` is not present',
@@ -849,10 +849,10 @@ describeWithEnvironment('SourceMap', () => {
          const sourceMapJsonUrl = 'wp://test/source-map.json' as Platform.DevToolsPath.UrlString;
          const sourceMap = new SDK.SourceMap.SourceMap(compiledUrl, sourceMapJsonUrl, mappingPayload);
 
-         assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor.js' as Platform.DevToolsPath.UrlString), true);
-         assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///main.js' as Platform.DevToolsPath.UrlString), false);
-         assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///example.js' as Platform.DevToolsPath.UrlString), false);
-         assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///other.js' as Platform.DevToolsPath.UrlString), true);
+         assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor.js' as Platform.DevToolsPath.UrlString));
+         assert.isFalse(sourceMap.hasIgnoreListHint('wp:///main.js' as Platform.DevToolsPath.UrlString));
+         assert.isFalse(sourceMap.hasIgnoreListHint('wp:///example.js' as Platform.DevToolsPath.UrlString));
+         assert.isTrue(sourceMap.hasIgnoreListHint('wp:///other.js' as Platform.DevToolsPath.UrlString));
        });
 
     it('parses the known third parties from the `ignoreList` section and ignores deprecated `x_google_ignoreList`',
@@ -874,10 +874,10 @@ describeWithEnvironment('SourceMap', () => {
          const sourceMapJsonUrl = 'wp://test/source-map.json' as Platform.DevToolsPath.UrlString;
          const sourceMap = new SDK.SourceMap.SourceMap(compiledUrl, sourceMapJsonUrl, mappingPayload);
 
-         assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor.js' as Platform.DevToolsPath.UrlString), true);
-         assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///main.js' as Platform.DevToolsPath.UrlString), false);
-         assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///example.js' as Platform.DevToolsPath.UrlString), false);
-         assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///other.js' as Platform.DevToolsPath.UrlString), true);
+         assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor.js' as Platform.DevToolsPath.UrlString));
+         assert.isFalse(sourceMap.hasIgnoreListHint('wp:///main.js' as Platform.DevToolsPath.UrlString));
+         assert.isFalse(sourceMap.hasIgnoreListHint('wp:///example.js' as Platform.DevToolsPath.UrlString));
+         assert.isTrue(sourceMap.hasIgnoreListHint('wp:///other.js' as Platform.DevToolsPath.UrlString));
        });
 
     it('computes ranges for third party code in a simple case', () => {
@@ -897,10 +897,10 @@ describeWithEnvironment('SourceMap', () => {
       const sourceMapJsonUrl = 'wp://test/source-map.json' as Platform.DevToolsPath.UrlString;
       const sourceMap = new SDK.SourceMap.SourceMap(compiledUrl, sourceMapJsonUrl, mappingPayload);
 
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///foo.js' as Platform.DevToolsPath.UrlString), false);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor1.js' as Platform.DevToolsPath.UrlString), true);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor2.js' as Platform.DevToolsPath.UrlString), true);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor3.js' as Platform.DevToolsPath.UrlString), true);
+      assert.isFalse(sourceMap.hasIgnoreListHint('wp:///foo.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor1.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor2.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor3.js' as Platform.DevToolsPath.UrlString));
 
       assert.deepEqual(sourceMap.findRanges(url => sourceMap.hasIgnoreListHint(url)) as [], [
         {
@@ -935,12 +935,12 @@ describeWithEnvironment('SourceMap', () => {
       const sourceMapJsonUrl = 'wp://test/source-map.json' as Platform.DevToolsPath.UrlString;
       const sourceMap = new SDK.SourceMap.SourceMap(compiledUrl, sourceMapJsonUrl, mappingPayload);
 
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///foo.js' as Platform.DevToolsPath.UrlString), false);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///bar.js' as Platform.DevToolsPath.UrlString), false);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///baz.js' as Platform.DevToolsPath.UrlString), false);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor1.js' as Platform.DevToolsPath.UrlString), true);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor2.js' as Platform.DevToolsPath.UrlString), true);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor3.js' as Platform.DevToolsPath.UrlString), true);
+      assert.isFalse(sourceMap.hasIgnoreListHint('wp:///foo.js' as Platform.DevToolsPath.UrlString));
+      assert.isFalse(sourceMap.hasIgnoreListHint('wp:///bar.js' as Platform.DevToolsPath.UrlString));
+      assert.isFalse(sourceMap.hasIgnoreListHint('wp:///baz.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor1.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor2.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor3.js' as Platform.DevToolsPath.UrlString));
 
       assert.deepEqual(sourceMap.findRanges(url => sourceMap.hasIgnoreListHint(url)) as [], [
         {
@@ -981,10 +981,10 @@ describeWithEnvironment('SourceMap', () => {
       const sourceMapJsonUrl = 'wp://test/source-map.json' as Platform.DevToolsPath.UrlString;
       const sourceMap = new SDK.SourceMap.SourceMap(compiledUrl, sourceMapJsonUrl, mappingPayload);
 
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///foo.js' as Platform.DevToolsPath.UrlString), false);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor1.js' as Platform.DevToolsPath.UrlString), true);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor2.js' as Platform.DevToolsPath.UrlString), true);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor3.js' as Platform.DevToolsPath.UrlString), true);
+      assert.isFalse(sourceMap.hasIgnoreListHint('wp:///foo.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor1.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor2.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor3.js' as Platform.DevToolsPath.UrlString));
 
       assert.deepEqual(sourceMap.findRanges(url => sourceMap.hasIgnoreListHint(url)) as [], [
         {
@@ -1023,10 +1023,10 @@ describeWithEnvironment('SourceMap', () => {
       const sourceMapJsonUrl = 'wp://test/source-map.json' as Platform.DevToolsPath.UrlString;
       const sourceMap = new SDK.SourceMap.SourceMap(compiledUrl, sourceMapJsonUrl, mappingPayload);
 
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///foo.js' as Platform.DevToolsPath.UrlString), false);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor1.js' as Platform.DevToolsPath.UrlString), true);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor2.js' as Platform.DevToolsPath.UrlString), true);
-      assert.strictEqual(sourceMap.hasIgnoreListHint('wp:///vendor3.js' as Platform.DevToolsPath.UrlString), true);
+      assert.isFalse(sourceMap.hasIgnoreListHint('wp:///foo.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor1.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor2.js' as Platform.DevToolsPath.UrlString));
+      assert.isTrue(sourceMap.hasIgnoreListHint('wp:///vendor3.js' as Platform.DevToolsPath.UrlString));
 
       assert.deepEqual(sourceMap.findRanges(url => sourceMap.hasIgnoreListHint(url)) as [], [
         {
@@ -1239,12 +1239,12 @@ describeWithEnvironment('SourceMap', () => {
       // 'foo' calls 'bar', 'bar' calls 'baz'. 'bar' and 'baz' are inlined into 'foo'.
       const names: string[] = [];
       const originalScopes = [new OriginalScopeBuilder(names)
-                                  .start(0, 0, 'global')
-                                  .start(10, 0, 'function', 'foo')
+                                  .start(0, 0, {kind: 'global'})
+                                  .start(10, 0, {kind: 'function', name: 'foo'})
                                   .end(20, 0)
-                                  .start(30, 0, 'function', 'bar')
+                                  .start(30, 0, {kind: 'function', name: 'bar'})
                                   .end(40, 0)
-                                  .start(50, 0, 'function', 'baz')
+                                  .start(50, 0, {kind: 'function', name: 'baz'})
                                   .end(60, 0)
                                   .end(70, 0)
                                   .build()];
@@ -1252,7 +1252,7 @@ describeWithEnvironment('SourceMap', () => {
       const generatedRanges =
           new GeneratedRangeBuilder(names)
               .start(0, 0, {definition: {sourceIdx: 0, scopeIdx: 0}})
-              .start(0, 0, {definition: {sourceIdx: 0, scopeIdx: 1}, isFunctionScope: true})
+              .start(0, 0, {definition: {sourceIdx: 0, scopeIdx: 1}, isStackFrame: true})
               .start(0, 5, {definition: {sourceIdx: 0, scopeIdx: 3}, callsite: {sourceIdx: 0, line: 15, column: 0}})
               .start(0, 5, {definition: {sourceIdx: 0, scopeIdx: 5}, callsite: {sourceIdx: 0, line: 35, column: 0}})
               .end(0, 10)

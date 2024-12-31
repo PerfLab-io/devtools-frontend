@@ -150,7 +150,7 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
     this.transformController.addEventListener(TransformControllerEvents.TRANSFORM_CHANGED, this.update, this);
 
     this.initToolbar();
-    this.canvasElement = this.contentElement.createChild('canvas') as HTMLCanvasElement;
+    this.canvasElement = this.contentElement.createChild('canvas');
     this.canvasElement.tabIndex = 0;
     this.canvasElement.addEventListener('dblclick', this.onDoubleClick.bind(this), false);
     this.canvasElement.addEventListener('mousedown', this.onMouseDown.bind(this), false);
@@ -738,7 +738,7 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
     }
   }
 
-  private update(): void {
+  override update(): void {
     if (!this.isShowing()) {
       this.needsUpdate = true;
       return;
@@ -820,8 +820,9 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
     return closestObject;
   }
 
-  private createVisibilitySetting(caption: string, name: string, value: boolean, toolbar: UI.Toolbar.Toolbar):
-      Common.Settings.Setting<boolean> {
+  private createVisibilitySetting(
+      caption: Common.UIString.LocalizedString, name: string, value: boolean,
+      toolbar: UI.Toolbar.Toolbar): Common.Settings.Setting<boolean> {
     const setting = Common.Settings.Settings.instance().createSetting(name, value);
     setting.setTitle(caption);
     setting.addChangeListener(this.update, this);

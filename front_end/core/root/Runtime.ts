@@ -103,7 +103,9 @@ export class Runtime {
   }
 
   loadLegacyModule(modulePath: string): Promise<void> {
-    return import(`../../${modulePath}`);
+    const importPath =
+        `../../${modulePath}`;  // Extracted as a variable so esbuild doesn't attempt to bundle all the things.
+    return import(importPath);
   }
 }
 
@@ -291,15 +293,21 @@ export const enum ExperimentName {
   NETWORK_PANEL_FILTER_BAR_REDESIGN = 'network-panel-filter-bar-redesign',
   AUTOFILL_VIEW = 'autofill-view',
   TIMELINE_SHOW_POST_MESSAGE_EVENTS = 'timeline-show-postmessage-events',
-  TIMELINE_ANNOTATIONS = 'perf-panel-annotations',
-  TIMELINE_INSIGHTS = 'timeline-rpp-sidebar',
   TIMELINE_DEBUG_MODE = 'timeline-debug-mode',
-  TIMELINE_OBSERVATIONS = 'timeline-observations',
   TIMELINE_ENHANCED_TRACES = 'timeline-enhanced-traces',
   TIMELINE_SERVER_TIMINGS = 'timeline-server-timings',
-  EXTENSION_STORAGE_VIEWER = 'extension-storage-viewer',
   FLOATING_ENTRY_POINTS_FOR_AI_ASSISTANCE = 'floating-entry-points-for-ai-assistance',
   TIMELINE_EXPERIMENTAL_INSIGHTS = 'timeline-experimental-insights',
+  TIMELINE_DIM_UNRELATED_EVENTS = 'timeline-dim-unrelated-events',
+  TIMELINE_ALTERNATIVE_NAVIGATION = 'timeline-alternative-navigation',
+  TIMELINE_THIRD_PARTY_DEPENDENCIES = 'timeline-third-party-dependencies',
+  // when adding to this enum, you'll need to also add to REGISTERED_EXPERIMENTS in EnvironmentHelpers.ts
+}
+
+export enum GenAiEnterprisePolicyValue {
+  ALLOW = 0,
+  ALLOW_WITHOUT_LOGGING = 1,
+  DISABLE = 2,
 }
 
 export interface AidaAvailability {
@@ -308,6 +316,7 @@ export interface AidaAvailability {
   blockedByEnterprisePolicy: boolean;
   blockedByGeo: boolean;
   disallowLogging: boolean;
+  enterprisePolicyValue: number;
 }
 
 export interface HostConfigConsoleInsights {
@@ -330,21 +339,21 @@ export interface HostConfigFreestyler {
   executionMode?: HostConfigFreestylerExecutionMode;
 }
 
-export interface HostConfigExplainThisResourceDogfood {
+export interface HostConfigAiAssistanceNetworkAgent {
   modelId: string;
   temperature: number;
   enabled: boolean;
   userTier: string;
 }
 
-export interface HostConfigAiAssistancePerformanceAgentDogfood {
+export interface HostConfigAiAssistancePerformanceAgent {
   modelId: string;
   temperature: number;
   enabled: boolean;
   userTier: string;
 }
 
-export interface HostConfigAiAssistanceFileAgentDogfood {
+export interface HostConfigAiAssistanceFileAgent {
   modelId: string;
   temperature: number;
   enabled: boolean;
@@ -360,6 +369,22 @@ export interface HostConfigPrivacyUI {
   enabled: boolean;
 }
 
+export interface HostConfigEnableOriginBoundCookies {
+  portBindingEnabled: boolean;
+  schemeBindingEnabled: boolean;
+}
+
+export interface HostConfigAnimationStylesInStylesTab {
+  enabled: boolean;
+}
+
+export interface HostConfigThirdPartyCookieControls {
+  thirdPartyCookieRestrictionEnabled: boolean;
+  thirdPartyCookieMetadataEnabled: boolean;
+  thirdPartyCookieHeuristicsEnabled: boolean;
+  managedBlockThirdPartyCookies: string|boolean;
+}
+
 // We use `RecursivePartial` here to enforce that DevTools code is able to
 // handle `HostConfig` objects of an unexpected shape. This can happen if
 // the implementation in the Chromium backend is changed without correctly
@@ -371,9 +396,9 @@ export type HostConfig = Platform.TypeScriptUtilities.RecursivePartial<{
   aidaAvailability: AidaAvailability,
   devToolsConsoleInsights: HostConfigConsoleInsights,
   devToolsFreestyler: HostConfigFreestyler,
-  devToolsExplainThisResourceDogfood: HostConfigExplainThisResourceDogfood,
-  devToolsAiAssistancePerformanceAgentDogfood: HostConfigAiAssistancePerformanceAgentDogfood,
-  devToolsAiAssistanceFileAgentDogfood: HostConfigAiAssistanceFileAgentDogfood,
+  devToolsAiAssistanceNetworkAgent: HostConfigAiAssistanceNetworkAgent,
+  devToolsAiAssistanceFileAgent: HostConfigAiAssistanceFileAgent,
+  devToolsAiAssistancePerformanceAgent: HostConfigAiAssistancePerformanceAgent,
   devToolsVeLogging: HostConfigVeLogging,
   devToolsPrivacyUI: HostConfigPrivacyUI,
   /**
@@ -381,6 +406,9 @@ export type HostConfig = Platform.TypeScriptUtilities.RecursivePartial<{
    * or guest mode, rather than a "normal" profile.
    */
   isOffTheRecord: boolean,
+  devToolsEnableOriginBoundCookies: HostConfigEnableOriginBoundCookies,
+  devToolsAnimationStylesInStylesTab: HostConfigAnimationStylesInStylesTab,
+  thirdPartyCookieControls: HostConfigThirdPartyCookieControls,
 }>;
 
 /**

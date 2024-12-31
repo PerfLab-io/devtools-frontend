@@ -251,7 +251,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
   #newAuthenticatorSection: HTMLElement|undefined;
   #newAuthenticatorForm: HTMLElement|undefined;
   #protocolSelect: HTMLSelectElement|undefined;
-  #transportSelect: HTMLSelectElement|undefined;
+  transportSelect: HTMLSelectElement|undefined;
   #residentKeyCheckboxLabel: UI.UIUtils.CheckboxLabel|undefined;
   residentKeyCheckbox: HTMLInputElement|undefined;
   #userVerificationCheckboxLabel: UI.UIUtils.CheckboxLabel|undefined;
@@ -481,23 +481,43 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
   }
 
   #updateEnabledTransportOptions(enabledOptions: Protocol.WebAuthn.AuthenticatorTransport[]): void {
-    if (!this.#transportSelect) {
+    if (!this.transportSelect) {
       return;
     }
 
-    const prevValue = this.#transportSelect.value;
-    this.#transportSelect.removeChildren();
+    const prevValue = this.transportSelect.value;
+    this.transportSelect.removeChildren();
 
     for (const option of enabledOptions) {
-      this.#transportSelect.appendChild(UI.UIUtils.createOption(option, option, option));
+      this.transportSelect.appendChild(UI.UIUtils.createOption(option, option, option));
     }
 
     // Make sure the currently selected value stays the same.
-    this.#transportSelect.value = prevValue;
+    this.transportSelect.value = prevValue;
     // If the new set does not include the previous value.
-    if (!this.#transportSelect.value) {
+    if (!this.transportSelect.value) {
       // Select the first available value.
-      this.#transportSelect.selectedIndex = 0;
+      this.transportSelect.selectedIndex = 0;
+    }
+    this.#updateInternalTransportAvailability();
+  }
+
+  #updateInternalTransportAvailability(): void {
+    if (!this.transportSelect?.options) {
+      return;
+    }
+    const hasInternal = Boolean(this.#availableAuthenticatorSetting.get().find(
+        authenticator => authenticator.transport === Protocol.WebAuthn.AuthenticatorTransport.Internal));
+    for (let i = 0; i < this.transportSelect.options.length; ++i) {
+      const option = this.transportSelect.options[i];
+      if (option.value === Protocol.WebAuthn.AuthenticatorTransport.Internal) {
+        option.disabled = hasInternal;
+        // This relies on "internal" never being the first or only element.
+        if (i === this.transportSelect.selectedIndex) {
+          --this.transportSelect.selectedIndex;
+        }
+        break;
+      }
     }
   }
 
@@ -518,8 +538,6 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
         Protocol.WebAuthn.AuthenticatorTransport.Usb,
         Protocol.WebAuthn.AuthenticatorTransport.Ble,
         Protocol.WebAuthn.AuthenticatorTransport.Nfc,
-        // TODO (crbug.com/1034663): Toggle cable as option depending on if cablev2 flag is on.
-        // Protocol.WebAuthn.AuthenticatorTransport.Cable,
         Protocol.WebAuthn.AuthenticatorTransport.Internal,
       ]);
     } else {
@@ -565,7 +583,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
 
     const protocolSelectTitle = UI.UIUtils.createLabel(i18nString(UIStrings.protocol), 'authenticator-option-label');
     protocolGroup.appendChild(protocolSelectTitle);
-    this.#protocolSelect = (protocolGroup.createChild('select', 'chrome-select') as HTMLSelectElement);
+    this.#protocolSelect = protocolGroup.createChild('select', 'chrome-select');
     this.#protocolSelect.setAttribute('jslog', `${VisualLogging.dropDown('protocol').track({change: true})}`);
     UI.ARIAUtils.bindLabelToControl(protocolSelectTitle, (this.#protocolSelect as Element));
     Object.values(PROTOCOL_AUTHENTICATOR_VALUES).sort().forEach((option: Protocol.WebAuthn.AuthenticatorProtocol) => {
@@ -580,9 +598,9 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
 
     const transportSelectTitle = UI.UIUtils.createLabel(i18nString(UIStrings.transport), 'authenticator-option-label');
     transportGroup.appendChild(transportSelectTitle);
-    this.#transportSelect = (transportGroup.createChild('select', 'chrome-select') as HTMLSelectElement);
-    this.#transportSelect.setAttribute('jslog', `${VisualLogging.dropDown('transport').track({change: true})}`);
-    UI.ARIAUtils.bindLabelToControl(transportSelectTitle, (this.#transportSelect as Element));
+    this.transportSelect = transportGroup.createChild('select', 'chrome-select');
+    this.transportSelect.setAttribute('jslog', `${VisualLogging.dropDown('transport').track({change: true})}`);
+    UI.ARIAUtils.bindLabelToControl(transportSelectTitle, (this.transportSelect as Element));
     // transportSelect will be populated in updateNewAuthenticatorSectionOptions.
 
     this.#residentKeyCheckboxLabel =
@@ -642,6 +660,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
       const mediaQueryList = window.matchMedia('(prefers-reduced-motion: reduce)');
       const prefersReducedMotion = mediaQueryList.matches;
       section.scrollIntoView({block: 'start', behavior: prefersReducedMotion ? 'auto' : 'smooth'});
+      this.#updateInternalTransportAvailability();
     }
   }
 
@@ -660,16 +679,16 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
 
     await this.#clearActiveAuthenticator();
     const activeButtonContainer = headerElement.createChild('div', 'active-button-container');
-    const activeLabel =
-        UI.UIUtils.createRadioLabel(`active-authenticator-${authenticatorId}`, i18nString(UIStrings.active));
-    activeLabel.radioElement.addEventListener('change', this.#setActiveAuthenticator.bind(this, authenticatorId));
+    const {label: activeLabel, radio: activeRadio} = UI.UIUtils.createRadioButton(
+        'active-authenticator', i18nString(UIStrings.active), 'webauthn.active-authenticator');
+    activeRadio.addEventListener('change', this.#setActiveAuthenticator.bind(this, authenticatorId));
+    activeRadio.checked = true;
     activeButtonContainer.appendChild(activeLabel);
-    (activeLabel.radioElement as HTMLInputElement).checked = true;
     this.#activeAuthId = authenticatorId;  // Newly added authenticator is automatically set as active.
 
     const removeButton = headerElement.createChild('button', 'text-button');
     removeButton.textContent = i18nString(UIStrings.remove);
-    removeButton.addEventListener('click', this.#removeAuthenticator.bind(this, authenticatorId));
+    removeButton.addEventListener('click', this.removeAuthenticator.bind(this, authenticatorId));
     removeButton.setAttribute('jslog', `${VisualLogging.action('webauthn.remove-authenticator').track({click: true})}`);
 
     const toolbar = new UI.Toolbar.Toolbar('edit-name-toolbar', titleElement);
@@ -677,7 +696,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
     const saveName = new UI.Toolbar.ToolbarButton(i18nString(UIStrings.saveName), 'checkmark', undefined, 'save-name');
     saveName.setVisible(false);
 
-    const nameField = (titleElement.createChild('input', 'authenticator-name-field') as HTMLInputElement);
+    const nameField = titleElement.createChild('input', 'authenticator-name-field');
     nameField.placeholder = i18nString(UIStrings.enterNewName);
     nameField.disabled = true;
     nameField.setAttribute('jslog', `${VisualLogging.textField('name').track({keydown: 'Enter', change: true})}`);
@@ -804,7 +823,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
 
   #handleSaveNameButton(
       titleElement: Element, nameField: HTMLInputElement, editName: UI.Toolbar.ToolbarItem,
-      saveName: UI.Toolbar.ToolbarItem, activeLabel: UI.UIUtils.DevToolsRadioButton): void {
+      saveName: UI.Toolbar.ToolbarItem, activeLabel: HTMLLabelElement): void {
     const name = nameField.value;
     if (!name) {
       return;
@@ -816,15 +835,15 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
     this.#updateActiveLabelTitle(activeLabel, name);
   }
 
-  #updateActiveLabelTitle(activeLabel: UI.UIUtils.DevToolsRadioButton, authenticatorName: string): void {
+  #updateActiveLabelTitle(activeLabel: HTMLLabelElement, authenticatorName: string): void {
     UI.Tooltip.Tooltip.install(
-        activeLabel.radioElement, i18nString(UIStrings.setSAsTheActiveAuthenticator, {PH1: authenticatorName}));
+        activeLabel, i18nString(UIStrings.setSAsTheActiveAuthenticator, {PH1: authenticatorName}));
   }
 
   /**
    * Removes both the authenticator and its respective UI element.
    */
-  #removeAuthenticator(authenticatorId: Protocol.WebAuthn.AuthenticatorId): void {
+  removeAuthenticator(authenticatorId: Protocol.WebAuthn.AuthenticatorId): void {
     if (this.#authenticatorsView) {
       const child = this.#authenticatorsView.querySelector(`[data-authenticator-id=${CSS.escape(authenticatorId)}]`);
       if (child) {
@@ -854,11 +873,12 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
         this.#activeAuthId = null;
       }
     }
+    this.#updateInternalTransportAvailability();
   }
 
   #createOptionsFromCurrentInputs(): Protocol.WebAuthn.VirtualAuthenticatorOptions {
     // TODO(crbug.com/1034663): Add optionality for isUserVerified param.
-    if (!this.#protocolSelect || !this.#transportSelect || !this.residentKeyCheckbox ||
+    if (!this.#protocolSelect || !this.transportSelect || !this.residentKeyCheckbox ||
         !this.#userVerificationCheckbox || !this.largeBlobCheckbox) {
       throw new Error('Unable to create options from current inputs');
     }
@@ -867,7 +887,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
       protocol: this.#protocolSelect.options[this.#protocolSelect.selectedIndex].value as
           Protocol.WebAuthn.AuthenticatorProtocol,
       ctap2Version: Protocol.WebAuthn.Ctap2Version.Ctap2_1,
-      transport: this.#transportSelect.options[this.#transportSelect.selectedIndex].value as
+      transport: this.transportSelect.options[this.transportSelect.selectedIndex].value as
           Protocol.WebAuthn.AuthenticatorTransport,
       hasResidentKey: this.residentKeyCheckbox.checked,
       hasUserVerification: this.#userVerificationCheckbox.checked,
@@ -899,7 +919,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
   #updateActiveButtons(): void {
     const authenticators = this.#authenticatorsView.getElementsByClassName('authenticator-section');
     Array.from(authenticators).forEach((authenticator: Element) => {
-      const button = (authenticator.querySelector('input.dt-radio-button') as HTMLInputElement);
+      const button = (authenticator.querySelector('input[type="radio"]') as HTMLInputElement);
       if (!button) {
         return;
       }

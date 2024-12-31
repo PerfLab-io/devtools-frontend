@@ -14,7 +14,7 @@ import * as Bindings from '../../../models/bindings/bindings.js';
 import * as Buttons from '../../../ui/components/buttons/buttons.js';
 import type * as DataGrid from '../../../ui/components/data_grid/data_grid.js';
 import type * as SplitView from '../../../ui/components/split_view/split_view.js';
-// eslint-disable-next-line rulesdir/es_modules_import
+// eslint-disable-next-line rulesdir/es-modules-import
 import emptyWidgetStyles from '../../../ui/legacy/emptyWidget.css.js';
 import * as UI from '../../../ui/legacy/legacy.js';
 import * as LitHtml from '../../../ui/lit-html/lit-html.js';
@@ -226,6 +226,7 @@ export class PreloadingRuleSetView extends UI.Widget.VBox {
       this.updateRuleSetDetails();
     };
 
+    // clang-format off
     LitHtml.render(
         html`
         <devtools-split-view .horizontal=${true} style="--min-sidebar-size: max(100vh-200px, 0px)">
@@ -245,13 +246,12 @@ export class PreloadingRuleSetView extends UI.Widget.VBox {
           .toggleType=${Buttons.Button.ToggleType.PRIMARY}
           .title=${i18nString(UIStrings.prettyPrint)}
           .variant=${Buttons.Button.Variant.ICON_TOGGLE}
-          .size=${Buttons.Button.Size.SMALL}
+          .size=${Buttons.Button.Size.REGULAR}
           @click=${onPrettyPrintToggle}
-          jslog=${VisualLogging.action().track({click: true}).context('preloading-status-panel-pretty-print')}>
-        </devtools-button>
-        </div>
-        `,
+          jslog=${VisualLogging.action().track({click: true}).context('preloading-status-panel-pretty-print')}></devtools-button>
+        </div>`,
         this.contentElement, {host: this});
+    // clang-format on
     this.hsplit = this.contentElement.querySelector('devtools-split-view') as SplitView.SplitView.SplitView;
   }
 
@@ -327,6 +327,8 @@ export class PreloadingRuleSetView extends UI.Widget.VBox {
 
 export class PreloadingAttemptView extends UI.Widget.VBox {
   private model: SDK.PreloadingModel.PreloadingModel;
+  // Note that we use id of (representative) preloading attempt while we show pipelines in grid.
+  // This is because `NOT_TRIGGERED` preloading attempts don't have pipeline id and we can use it.
   private focusedPreloadingAttemptId: SDK.PreloadingModel.PreloadingAttemptId|null = null;
 
   private readonly warningsContainer: HTMLDivElement;
@@ -423,10 +425,11 @@ export class PreloadingAttemptView extends UI.Widget.VBox {
     if (preloadingAttempt === null) {
       this.preloadingDetails.data = null;
     } else {
+      const pipeline = this.model.getPipeline(preloadingAttempt);
       const ruleSets = preloadingAttempt.ruleSetIds.map(id => this.model.getRuleSetById(id)).filter(x => x !== null) as
           Protocol.Preload.RuleSet[];
       this.preloadingDetails.data = {
-        preloadingAttempt,
+        pipeline,
         ruleSets,
         pageURL: pageURL(),
       };
@@ -434,17 +437,18 @@ export class PreloadingAttemptView extends UI.Widget.VBox {
   }
 
   render(): void {
-    // Update preloaidng grid
+    // Update preloading grid
     const filteringRuleSetId = this.ruleSetSelector.getSelected();
-    const rows = this.model.getPreloadingAttempts(filteringRuleSetId).map(({id, value}) => {
+    const rows = this.model.getRepresentativePreloadingAttempts(filteringRuleSetId).map(({id, value}) => {
       const attempt = value;
+      const pipeline = this.model.getPipeline(attempt);
       const ruleSets = attempt.ruleSetIds.flatMap(id => {
         const ruleSet = this.model.getRuleSetById(id);
         return ruleSet === null ? [] : [ruleSet];
       });
       return {
         id,
-        attempt,
+        pipeline,
         ruleSets,
       };
     });
@@ -528,8 +532,8 @@ export class PreloadingSummaryView extends UI.Widget.VBox {
     this.usedPreloading.data = {
       pageURL: SDK.TargetManager.TargetManager.instance().scopeTarget()?.inspectedURL() ||
           ('' as Platform.DevToolsPath.UrlString),
-      previousAttempts: this.model.getPreloadingAttemptsOfPreviousPage().map(({value}) => value),
-      currentAttempts: this.model.getPreloadingAttempts(null).map(({value}) => value),
+      previousAttempts: this.model.getRepresentativePreloadingAttemptsOfPreviousPage().map(({value}) => value),
+      currentAttempts: this.model.getRepresentativePreloadingAttempts(null).map(({value}) => value),
     };
   }
 
@@ -656,8 +660,7 @@ class PreloadingRuleSetSelector implements
   // Method for UI.SoftDropDown.Delegate<Protocol.Preload.RuleSetId|typeof AllRuleSetRootId>
   createElementForItem(id: Protocol.Preload.RuleSetId|typeof AllRuleSetRootId): Element {
     const element = document.createElement('div');
-    const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(
-        element, {cssFile: [preloadingViewDropDownStyles], delegatesFocus: undefined});
+    const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(element, {cssFile: [preloadingViewDropDownStyles]});
     const title = shadowRoot.createChild('div', 'title');
     UI.UIUtils.createTextChild(title, Platform.StringUtilities.trimEndWithMaxLength(this.titleFor(id), 100));
     const subTitle = shadowRoot.createChild('div', 'subtitle');

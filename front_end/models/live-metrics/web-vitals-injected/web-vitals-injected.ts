@@ -77,11 +77,11 @@ function sendEventToDevTools(event: Spec.WebVitalsEvent): void {
   window[Spec.EVENT_BINDING_NAME](payload);
 }
 
-const nodeList: Node[] = [];
+const nodeList: WeakRef<Node>[] = [];
 
 function establishNodeIndex(node: Node): number {
   const index = nodeList.length;
-  nodeList.push(node);
+  nodeList.push(new WeakRef(node));
   return index;
 }
 
@@ -95,8 +95,31 @@ function establishNodeIndex(node: Node): number {
  * for the specified index.
  */
 window.getNodeForIndex = (index: number): Node|undefined => {
-  return nodeList[index];
+  return nodeList[index].deref();
 };
+
+function limitScripts(loafs: Spec.PerformanceLongAnimationFrameTimingJSON[]):
+    Spec.PerformanceLongAnimationFrameTimingJSON[] {
+  return loafs.map(loaf => {
+    const longestScripts: Spec.PerformanceScriptTimingJSON[] = [];
+    for (const script of loaf.scripts) {
+      if (longestScripts.length < Spec.SCRIPTS_PER_LOAF_LIMIT) {
+        longestScripts.push(script);
+        continue;
+      }
+
+      const shorterIndex = longestScripts.findIndex(s => s.duration < script.duration);
+      if (shorterIndex === -1) {
+        continue;
+      }
+
+      longestScripts[shorterIndex] = script;
+    }
+    longestScripts.sort((a, b) => a.startTime - b.startTime);
+    loaf.scripts = longestScripts;
+    return loaf;
+  });
+}
 
 function initialize(): void {
   sendEventToDevTools({name: 'reset'});
@@ -148,7 +171,8 @@ function initialize(): void {
         processingDuration: metric.attribution.processingDuration,
         presentationDelay: metric.attribution.presentationDelay,
       },
-      uniqueInteractionId: Spec.getUniqueInteractionId(metric.entries),
+      startTime: metric.entries[0].startTime,
+      entryGroupId: metric.entries[0].interactionId as Spec.InteractionEntryGroupId,
       interactionType: metric.attribution.interactionType,
     };
     sendEventToDevTools(event);
@@ -166,9 +190,14 @@ function initialize(): void {
         processingDuration: interaction.attribution.processingDuration,
         presentationDelay: interaction.attribution.presentationDelay,
       },
-      uniqueInteractionId: Spec.getUniqueInteractionId(interaction.entries),
+      startTime: interaction.entries[0].startTime,
+      entryGroupId: interaction.entries[0].interactionId as Spec.InteractionEntryGroupId,
+      nextPaintTime: interaction.attribution.nextPaintTime,
       interactionType: interaction.attribution.interactionType,
       eventName: interaction.entries[0].name,
+      // To limit the amount of events, just get the last 5 LoAFs
+      longAnimationFrameEntries: limitScripts(
+          interaction.attribution.longAnimationFrameEntries.slice(-Spec.LOAF_LIMIT).map(loaf => loaf.toJSON())),
     };
     const node = interaction.attribution.interactionTargetElement;
     if (node) {

@@ -27,12 +27,8 @@ below.**
 *   [Contribution Guide](./contributing/README.md)
 *   [UX Style Guide](./styleguide/ux/README.md)
 *   [Testing Guide](../test/README.md)
-*   [Release Management](release_management.md)
-*   [Dependencies](dependencies.md)
-*   [Localization](l10n.md)
+*   [Cookbook](./cookbook/README.md)
 *   [Visual logging in DevTools](../front_end/ui/visual_logging/README.md)
-*   [UMA metrics in DevTools](uma_metrics.md)
-    *   [How to add UMA metrics in DevTools frontend](add_uma_metrics.md)
 *   [Style Guides](./styleguide/README.md)
 
 ### Architectural Documentation
@@ -52,6 +48,11 @@ below.**
 *   [DevTools support checklist for Blink Intents](./checklist/README.md)
 *   [DevTools support checklist for JavaScript features](./checklist/javascript.md)
 *   [DevTools support checklist for WebAssembly features](./checklist/webassembly.md)
+
+### Policies
+
+*   [Chromium DevTools Slow-Close Policy](./policy/slow-close.md)
+*   [DevTools Page Zoom Accessibility Policy](./policy/gar-page-zoom-policy.md)
 
 ### Useful Commands
 

@@ -31,6 +31,13 @@ export const openPanelViaMoreTools = async (panelTitle: string) => {
   // Click the desired menu item
   await click(`aria/${panelTitle}[role="menuitem"]`);
 
+  // Wait for the triple dot menu to be collapsed.
+  const button = await waitForAria('Customize and control DevTools');
+  await waitForFunction(async () => {
+    const expanded = await button.evaluate(el => el.getAttribute('aria-expanded'));
+    return expanded === null;
+  });
+
   // Wait for the corresponding panel to appear.
   await waitForAria(`${panelTitle} panel[role="tabpanel"]`);
 };
@@ -86,8 +93,8 @@ export const setIgnoreListPattern = async (pattern: string) => {
 
 export const toggleIgnoreListing = async (enable: boolean) => {
   await openSettingsTab('Ignore list');
-  const enabledPattern = '.ignore-list-options:not(.ignore-listing-disabled)';
-  const disabledPattern = '.ignore-list-options.ignore-listing-disabled';
+  const enabledPattern = '.ignore-list-settings:not(.ignore-listing-disabled)';
+  const disabledPattern = '.ignore-list-settings.ignore-listing-disabled';
   await waitFor(enable ? disabledPattern : enabledPattern);
   await click('[title="Enable ignore listing"]');
   await waitFor(enable ? enabledPattern : disabledPattern);

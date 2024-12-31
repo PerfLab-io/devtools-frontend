@@ -688,12 +688,12 @@ export class RecordingView extends HTMLElement {
           // clang-format off
           replaySettingsFragments.push(html`<div>
             ${i18nString(UIStrings.download, {
-              value: Platform.NumberUtilities.bytesToString(
+              value: i18n.ByteUtilities.bytesToString(
                 this.#settings.networkConditionsSettings.download,
               ),
             })},
             ${i18nString(UIStrings.upload, {
-              value: Platform.NumberUtilities.bytesToString(
+              value: i18n.ByteUtilities.bytesToString(
                 this.#settings.networkConditionsSettings.upload,
               ),
             })},
@@ -748,7 +748,6 @@ export class RecordingView extends HTMLElement {
             .showArrow=${true}
             .sideButton=${false}
             .showSelectedItem=${true}
-            .showConnector=${false}
             .jslogContext=${'network-conditions'}
             .position=${Dialogs.Dialog.DialogVerticalPosition.BOTTOM}
             .buttonTitle=${menuButtonTitle}
@@ -881,7 +880,6 @@ export class RecordingView extends HTMLElement {
                 .showArrow=${true}
                 .sideButton=${false}
                 .showSelectedItem=${true}
-                .showConnector=${false}
                 .position=${Dialogs.Dialog.DialogVerticalPosition.BOTTOM}
                 .buttonTitle=${converterFormatName || ''}
                 .jslogContext=${'code-format'}

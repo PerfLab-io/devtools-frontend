@@ -52,6 +52,7 @@ declare global {
 export interface ParseOptions {
   /**
    * If the trace was just recorded on the current page, rather than an imported file.
+   * TODO(paulirish): Maybe remove. This is currently unused by the Processor and Handlers
    * @default false
    */
   isFreshRecording?: boolean;
@@ -60,6 +61,7 @@ export interface ParseOptions {
    * @default false
    */
   isCPUProfile?: boolean;
+  metadata?: Types.File.MetaData;
 }
 
 export class TraceProcessor extends EventTarget {
@@ -75,9 +77,9 @@ export class TraceProcessor extends EventTarget {
     return new TraceProcessor(Handlers.ModelHandlers, Types.Configuration.defaults());
   }
 
-  static getEnabledInsightRunners(parsedTrace: Handlers.Types.ParsedTrace): Partial<Insights.Types.InsightRunnersType> {
-    const enabledInsights = {} as Insights.Types.InsightRunnersType;
-    for (const [name, insight] of Object.entries(Insights.InsightRunners)) {
+  static getEnabledInsightRunners(parsedTrace: Handlers.Types.ParsedTrace): Partial<Insights.Types.InsightModelsType> {
+    const enabledInsights = {} as Insights.Types.InsightModelsType;
+    for (const [name, insight] of Object.entries(Insights.Models)) {
       const deps = insight.deps();
       if (deps.some(dep => !parsedTrace[dep])) {
         continue;
@@ -170,9 +172,9 @@ export class TraceProcessor extends EventTarget {
     }
     try {
       this.#status = Status.PARSING;
-      await this.#computeParsedTrace(traceEvents, Boolean(options.isFreshRecording));
+      await this.#computeParsedTrace(traceEvents);
       if (this.#data && !options.isCPUProfile) {  // We do not calculate insights for CPU Profiles.
-        this.#computeInsights(this.#data, traceEvents);
+        this.#computeInsights(this.#data, traceEvents, options);
       }
       this.#status = Status.FINISHED_PARSING;
     } catch (e) {
@@ -184,7 +186,7 @@ export class TraceProcessor extends EventTarget {
   /**
    * Run all the handlers and set the result to `#data`.
    */
-  async #computeParsedTrace(traceEvents: readonly Types.Events.Event[], freshRecording: boolean): Promise<void> {
+  async #computeParsedTrace(traceEvents: readonly Types.Events.Event[]): Promise<void> {
     /**
      * We want to yield regularly to maintain responsiveness. If we yield too often, we're wasting idle time.
      * We could do this by checking `performance.now()` regularly, but it's an expensive call in such a hot loop.
@@ -200,11 +202,6 @@ export class TraceProcessor extends EventTarget {
     // Reset.
     for (const handler of sortedHandlers) {
       handler.reset();
-    }
-
-    // Initialize.
-    for (const handler of sortedHandlers) {
-      handler.initialize?.(freshRecording);
     }
 
     // Handle each event.
@@ -319,6 +316,10 @@ export class TraceProcessor extends EventTarget {
     const processedNavigation = LanternComputationData.createProcessedNavigation(parsedTrace, frameId, navigationId);
 
     const networkAnalysis = Lantern.Core.NetworkAnalyzer.analyze(requests);
+    if (!networkAnalysis) {
+      return;
+    }
+
     const simulator: Lantern.Simulation.Simulator<Types.Events.SyntheticNetworkRequest> =
         Lantern.Simulation.Simulator.createSimulator({
           // TODO(crbug.com/372674229): if devtools throttling was on, does this network analysis capture
@@ -342,10 +343,105 @@ export class TraceProcessor extends EventTarget {
     return {graph, simulator, metrics};
   }
 
-  #computeInsightSets(
+  /**
+   * Sort the insight models based on the impact of each insight's estimated savings, additionally weighted by the
+   * worst metrics according to field data (if present).
+   */
+  sortInsightSet(
+      insights: Insights.Types.TraceInsightSets, insightSet: Insights.Types.InsightSet,
+      metadata: Types.File.MetaData|null): void {
+    // The initial order of the insights is alphabetical, based on `front_end/models/trace/insights/Models.ts`.
+    // The order here provides a baseline that groups insights in a more logical way.
+    const baselineOrder: Record<keyof Insights.Types.InsightModels, null> = {
+      InteractionToNextPaint: null,
+      LCPPhases: null,
+      LCPDiscovery: null,
+      CLSCulprits: null,
+      RenderBlocking: null,
+      ImageDelivery: null,
+      DocumentLatency: null,
+      FontDisplay: null,
+      Viewport: null,
+      DOMSize: null,
+      ThirdParties: null,
+      SlowCSSSelector: null,
+    };
+
+    // Determine the weights for each metric based on field data, utilizing the same scoring curve that Lighthouse uses.
+    const weights = Insights.Common.calculateMetricWeightsForSorting(insightSet, metadata);
+
+    // Normalize the estimated savings to a single number, weighted by its relative impact
+    // to the page experience based on the same scoring curve that Lighthouse uses.
+    const observedLcp = Insights.Common.getLCP(insights, insightSet.id)?.value;
+    const observedCls = Insights.Common.getCLS(insights, insightSet.id).value;
+
+    // INP is special - if users did not interact with the page, we'll have no INP, but we should still
+    // be able to prioritize insights based on this metric. When we observe no interaction, instead use
+    // a default value for the baseline INP.
+    const observedInp = Insights.Common.getINP(insights, insightSet.id)?.value ?? 200;
+
+    const observedLcpScore =
+        observedLcp !== undefined ? Insights.Common.evaluateLCPMetricScore(observedLcp) : undefined;
+    const observedInpScore = Insights.Common.evaluateINPMetricScore(observedInp);
+    const observedClsScore = Insights.Common.evaluateCLSMetricScore(observedCls);
+
+    const insightToSortingRank = new Map<string, number>();
+    for (const [name, model] of Object.entries(insightSet.model)) {
+      const lcp = model.metricSavings?.LCP ?? 0;
+      const inp = model.metricSavings?.INP ?? 0;
+      const cls = model.metricSavings?.CLS ?? 0;
+
+      const lcpPostSavings = observedLcp !== undefined ? Math.max(0, observedLcp - lcp) : undefined;
+      const inpPostSavings = Math.max(0, observedInp - inp);
+      const clsPostSavings = Math.max(0, observedCls - cls);
+
+      let score = 0;
+      if (weights.lcp && lcp && observedLcpScore !== undefined && lcpPostSavings !== undefined) {
+        score += weights.lcp * (Insights.Common.evaluateLCPMetricScore(lcpPostSavings) - observedLcpScore);
+      }
+      if (weights.inp && inp && observedInpScore !== undefined) {
+        score += weights.inp * (Insights.Common.evaluateINPMetricScore(inpPostSavings) - observedInpScore);
+      }
+      if (weights.cls && cls && observedClsScore !== undefined) {
+        score += weights.cls * (Insights.Common.evaluateCLSMetricScore(clsPostSavings) - observedClsScore);
+      }
+
+      insightToSortingRank.set(name, score);
+    }
+
+    // Now perform the actual sorting.
+    const baselineOrderKeys = Object.keys(baselineOrder);
+    const orderedKeys = Object.keys(insightSet.model);
+    orderedKeys.sort((a, b) => {
+      const a1 = baselineOrderKeys.indexOf(a);
+      const b1 = baselineOrderKeys.indexOf(b);
+      if (a1 >= 0 && b1 >= 0) {
+        return a1 - b1;
+      }
+      if (a1 >= 0) {
+        return -1;
+      }
+      if (b1 >= 0) {
+        return 1;
+      }
+      return 0;
+    });
+    orderedKeys.sort((a, b) => (insightToSortingRank.get(b) ?? 0) - (insightToSortingRank.get(a) ?? 0));
+
+    const newModel = {} as Insights.Types.InsightModels;
+    for (const key of orderedKeys as Array<keyof Insights.Types.InsightModels>) {
+      const model = insightSet.model[key];
+      // @ts-expect-error Maybe someday typescript will be powerful enough to handle this.
+      newModel[key] = model;
+    }
+    insightSet.model = newModel;
+  }
+
+  #computeInsightSet(
       insights: Insights.Types.TraceInsightSets, parsedTrace: Handlers.Types.ParsedTrace,
-      insightRunners: Partial<typeof Insights.InsightRunners>, context: Insights.Types.InsightSetContext): void {
-    const data = {} as Insights.Types.InsightSets['data'];
+      insightRunners: Partial<typeof Insights.Models>, context: Insights.Types.InsightSetContext,
+      options: ParseOptions): void {
+    const model = {} as Insights.Types.InsightSet['model'];
 
     for (const [name, insight] of Object.entries(insightRunners)) {
       let insightResult;
@@ -354,7 +450,7 @@ export class TraceProcessor extends EventTarget {
       } catch (err) {
         insightResult = err;
       }
-      Object.assign(data, {[name]: insightResult});
+      Object.assign(model, {[name]: insightResult});
     }
 
     let id, urlString, navigation;
@@ -376,21 +472,24 @@ export class TraceProcessor extends EventTarget {
       return;
     }
 
-    const insightSets = {
+    const insightSet: Insights.Types.InsightSet = {
       id,
       url,
       navigation,
       frameId: context.frameId,
       bounds: context.bounds,
-      data,
+      model,
     };
-    insights.set(insightSets.id, insightSets);
+    insights.set(insightSet.id, insightSet);
+    this.sortInsightSet(insights, insightSet, options.metadata ?? null);
   }
 
   /**
    * Run all the insights and set the result to `#insights`.
    */
-  #computeInsights(parsedTrace: Handlers.Types.ParsedTrace, traceEvents: readonly Types.Events.Event[]): void {
+  #computeInsights(
+      parsedTrace: Handlers.Types.ParsedTrace, traceEvents: readonly Types.Events.Event[],
+      options: ParseOptions): void {
     this.#insights = new Map();
 
     const enabledInsightRunners = TraceProcessor.getEnabledInsightRunners(parsedTrace);
@@ -410,7 +509,7 @@ export class TraceProcessor extends EventTarget {
           bounds,
           frameId: parsedTrace.Meta.mainFrameId,
         };
-        this.#computeInsightSets(this.#insights, parsedTrace, enabledInsightRunners, context);
+        this.#computeInsightSet(this.#insights, parsedTrace, enabledInsightRunners, context, options);
       }
       // If threshold is not met, then the very beginning of the trace is ignored by the insights engine.
     } else {
@@ -418,7 +517,7 @@ export class TraceProcessor extends EventTarget {
         bounds: parsedTrace.Meta.traceBounds,
         frameId: parsedTrace.Meta.mainFrameId,
       };
-      this.#computeInsightSets(this.#insights, parsedTrace, enabledInsightRunners, context);
+      this.#computeInsightSet(this.#insights, parsedTrace, enabledInsightRunners, context, options);
     }
 
     // Now run the insights for each navigation in isolation.
@@ -451,7 +550,7 @@ export class TraceProcessor extends EventTarget {
         } else if (!expectedErrors.some(err => e.message === err)) {
           // To reduce noise from tests, only print errors that are not expected to occur because a trace is
           // too old (for which there is no single check).
-          console.error(e.message);
+          console.error(e);
         }
       }
 
@@ -466,7 +565,7 @@ export class TraceProcessor extends EventTarget {
         lantern,
       };
 
-      this.#computeInsightSets(this.#insights, parsedTrace, enabledInsightRunners, context);
+      this.#computeInsightSet(this.#insights, parsedTrace, enabledInsightRunners, context, options);
     }
   }
 }

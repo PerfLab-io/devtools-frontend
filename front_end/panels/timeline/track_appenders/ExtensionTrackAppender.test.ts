@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import { // eslint-disable-line rulesdir/es_modules_import
+import { // eslint-disable-line rulesdir/es-modules-import
   createTraceExtensionDataFromTestInput,
   type ExtensionTestData,
 } from '../../../models/trace/handlers/ExtensionTraceDataHandler.test.js';
@@ -16,10 +16,8 @@ import * as Timeline from '../timeline.js';
 
 function initTrackAppender(
     flameChartData: PerfUI.FlameChart.FlameChartTimelineData, parsedTrace: Trace.Handlers.Types.ParsedTrace,
-    entryData: Timeline.TimelineFlameChartDataProvider.TimelineFlameChartEntry[],
-    entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[]):
+    entryData: Trace.Types.Events.Event[], entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[]):
     Timeline.ExtensionTrackAppender.ExtensionTrackAppender[] {
-  Timeline.ExtensionDataGatherer.ExtensionDataGatherer.instance().modelChanged(parsedTrace);
   const compatibilityTracksAppender = new Timeline.CompatibilityTracksAppender.CompatibilityTracksAppender(
       flameChartData, parsedTrace, entryData, entryTypeByLevel);
 
@@ -30,12 +28,11 @@ function initTrackAppender(
 describeWithEnvironment('ExtensionTrackAppender', function() {
   let parsedTrace: Trace.Handlers.Types.ParsedTrace;
   let extensionTrackAppenders: Timeline.ExtensionTrackAppender.ExtensionTrackAppender[];
-  let entryData: Timeline.TimelineFlameChartDataProvider.TimelineFlameChartEntry[] = [];
+  let entryData: Trace.Types.Events.Event[] = [];
   let flameChartData = PerfUI.FlameChart.FlameChartTimelineData.createEmpty();
   let entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[] = [];
 
   beforeEach(async function() {
-    Timeline.ExtensionDataGatherer.ExtensionDataGatherer.removeInstance();
     ({parsedTrace} = await TraceLoader.traceEngine(this, 'extension-tracks-and-marks.json.gz'));
     extensionTrackAppenders = initTrackAppender(flameChartData, parsedTrace, entryData, entryTypeByLevel);
     let level = 0;
@@ -52,7 +49,7 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
 
   describe('appendTrackAtLevel', function() {
     it('creates flamechart groups for the Extension tracks properly', function() {
-      assert.strictEqual(flameChartData.groups.length, 3);
+      assert.lengthOf(flameChartData.groups, 3);
       assert.strictEqual(flameChartData.groups[0].name, 'A track group — Custom track');
       assert.strictEqual(flameChartData.groups[0].startLevel, 0);
       assert.strictEqual(flameChartData.groups[0].style.nestingLevel, 0);
@@ -118,7 +115,6 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
          ] as ExtensionTestData[];
          const traceExtensionData = await createTraceExtensionDataFromTestInput(extensionData);
          const testParsedTrace = getBaseTraceParseModelData({ExtensionTraceData: traceExtensionData});
-         Timeline.ExtensionDataGatherer.ExtensionDataGatherer.removeInstance();
          entryData = [];
          flameChartData = PerfUI.FlameChart.FlameChartTimelineData.createEmpty();
          entryTypeByLevel = [];
@@ -147,8 +143,8 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
       styleElement.id = 'fake-perf-panel-colors';
       styleElement.textContent = `
         :root {
-          --ref-palette-primary70: rgb(4 4 4);
-          --ref-palette-tertiary70: rgb(10 10 10);
+          --ref-palette-blue70: rgb(4 4 4);
+          --ref-palette-green70: rgb(10 10 10);
         }
       `;
       document.documentElement.appendChild(styleElement);
@@ -168,12 +164,12 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
       for (const event of allExtensionTrackEntries) {
         assert.strictEqual(extensionTrackAppenders[0].titleForEvent(event), event.name);
         if (event.args.color === 'tertiary') {
-          // "tertiary" color category is mapped to --ref-palette-tertiary70
+          // "tertiary" color category is mapped to --ref-palette-green70
           // which is faked out to 10, 10, 10
           assert.strictEqual(extensionTrackAppenders[0].colorForEvent(event), 'rgb(10 10 10)');
         } else {
           // Unknown colors are mapped to "primary" by default, and
-          // "primary" color category is mapped to --ref-palette-primary70
+          // "primary" color category is mapped to --ref-palette-blue70
           // which is faked out to 4, 4, 4
           assert.strictEqual(extensionTrackAppenders[0].colorForEvent(event), 'rgb(4 4 4)');
         }
@@ -197,7 +193,7 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
         },
         cat: 'devtools.extension',
       } as unknown as Trace.Types.Events.Event;
-      // "primary" color category is mapped to --ref-palette-primary70
+      // "primary" color category is mapped to --ref-palette-blue70
       // which is faked out to 4, 4, 4
       assert.strictEqual(extensionTrackAppenders[0].colorForEvent(mockExtensionEntryNoColor), 'rgb(4 4 4)');
       assert.strictEqual(extensionTrackAppenders[0].colorForEvent(mockExtensionEntryUnknownColor), 'rgb(4 4 4)');
@@ -206,7 +202,6 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
 
   describe('toggling', function() {
     it('Does not append extension data when the configuration is set to disabled', async function() {
-      Timeline.ExtensionDataGatherer.ExtensionDataGatherer.removeInstance();
       entryData = [];
       flameChartData = PerfUI.FlameChart.FlameChartTimelineData.createEmpty();
       entryTypeByLevel = [];
@@ -217,19 +212,36 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
       extensionTrackAppenders.forEach(appender => {
         level = appender.appendTrackAtLevel(level);
       });
-      assert.strictEqual(flameChartData.groups.length, 0);
+      assert.lengthOf(flameChartData.groups, 0);
       Timeline.TimelinePanel.TimelinePanel.extensionDataVisibilitySetting().set(true);
     });
   });
 
-  describe('highlightedEntryInfo', function() {
-    it('returns the info for an entry correctly', function() {
+  describe('titleForEvent', function() {
+    it('returns the title for an entry correctly', function() {
       const allExtensionTrackEntries =
           parsedTrace.ExtensionTraceData.extensionTrackData.map(track => Object.values(track.entriesByTrack)).flat(2);
-      const highlightedEntryInfo = extensionTrackAppenders[0].highlightedEntryInfo(allExtensionTrackEntries[0]);
+      const title = extensionTrackAppenders[0].titleForEvent(allExtensionTrackEntries[0]);
+      assert.strictEqual(title, 'An extension measurement');
+    });
+  });
+
+  describe('setPopoverInfo', function() {
+    it('build the tooltip content for an entry correctly', function() {
+      const info: Timeline.CompatibilityTracksAppender.PopoverInfo = {
+        title: 'title',
+        formattedTime: 'time',
+        warningElements: [],
+        additionalElements: [],
+        url: null,
+      };
+      const allExtensionTrackEntries =
+          parsedTrace.ExtensionTraceData.extensionTrackData.map(track => Object.values(track.entriesByTrack)).flat(2);
+      extensionTrackAppenders[0].setPopoverInfo(allExtensionTrackEntries[0], info);
+      assert.strictEqual(info.title, 'A hint if needed');
       // The i18n encodes spaces using the u00A0 unicode character.
-      assert.strictEqual(highlightedEntryInfo.formattedTime, '1.00\u00A0s');
-      assert.strictEqual(highlightedEntryInfo.title, 'A hint if needed');
+      assert.strictEqual(info.formattedTime, '1.00\u00A0s');
+      assert.isUndefined(info.additionalElements?.at(0)?.nodeName);
     });
   });
 });

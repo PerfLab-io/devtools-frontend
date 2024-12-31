@@ -96,7 +96,7 @@ const UIStrings = {
   /**
    *@description Context menu item for style property in edit mode
    */
-  revealInSourcesPanel: 'Reveal in Sources panel',
+  openInSourcesPanel: 'Open in Sources panel',
   /**
    *@description A context menu item in Styles panel to copy CSS declaration
    */
@@ -141,6 +141,10 @@ const UIStrings = {
    *@description A context menu item in Styles panel to copy all declarations of CSS rule as JavaScript properties.
    */
   copyAllCssDeclarationsAsJs: 'Copy all declarations as JS',
+  /**
+   *@description Title of the link in Styles panel to jump to the Animations panel.
+   */
+  jumpToAnimationsPanel: 'Jump to Animations panel',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/elements/StylePropertyTreeElement.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -259,7 +263,7 @@ export class VariableRenderer implements MatchRenderer<SDK.CSSPropertyParser.Var
     const renderedFallback = match.fallback.length > 0 ? Renderer.render(match.fallback, context) : undefined;
 
     const {declaration, value: variableValue} = this.resolveVariable(match) ?? {};
-    const fromFallback = !variableValue;
+    const fromFallback = variableValue === undefined;
     const computedValue = variableValue ?? this.fallbackValue(match);
 
     const varSwatch = new InlineEditor.LinkSwatch.CSSVarSwatch();
@@ -756,6 +760,34 @@ export class LinkableNameRenderer implements MatchRenderer<LinkableNameMatch> {
       },
       jslogContext,
     };
+
+    if (match.propertyName === LinkableNameProperties.ANIMATION ||
+        match.propertyName === LinkableNameProperties.ANIMATION_NAME) {
+      const el = document.createElement('span');
+      el.appendChild(swatch);
+
+      const node = this.#treeElement.node();
+      if (node) {
+        const animationModel = node.domModel().target().model(SDK.AnimationModel.AnimationModel);
+        void animationModel?.getAnimationGroupForAnimation(match.text, node.id).then(maybeAnimationGroup => {
+          if (!maybeAnimationGroup) {
+            return;
+          }
+
+          const icon = IconButton.Icon.create('animation', 'open-in-animations-panel');
+          icon.setAttribute('jslog', `${VisualLogging.link('open-in-animations-panel').track({click: true})}`);
+          icon.setAttribute('role', 'button');
+          icon.setAttribute('title', i18nString(UIStrings.jumpToAnimationsPanel));
+          icon.addEventListener('mouseup', ev => {
+            ev.consume(true);
+
+            void Common.Revealer.reveal(maybeAnimationGroup);
+          });
+          el.insertBefore(icon, swatch);
+        });
+      }
+      return [el];
+    }
 
     return [swatch];
   }
@@ -1679,7 +1711,7 @@ export class StylePropertyTreeElement extends UI.TreeOutline.TreeElement {
         })]);
 
     const decl = SDK.CSSPropertyParser.ASTUtils.siblings(SDK.CSSPropertyParser.ASTUtils.declValue(matching.ast.tree));
-    return matching.getComputedTextRange(decl[0], decl[decl.length - 1]);
+    return decl.length > 0 ? matching.getComputedTextRange(decl[0], decl[decl.length - 1]) : '';
   }
 
   refreshIfComputedValueChanged(): void {
@@ -1934,7 +1966,7 @@ export class StylePropertyTreeElement extends UI.TreeOutline.TreeElement {
     }
     const revealCallback = this.navigateToSource.bind(this) as () => void;
     contextMenu.defaultSection().appendItem(
-        i18nString(UIStrings.revealInSourcesPanel), revealCallback, {jslogContext: 'reveal-in-sources-panel'});
+        i18nString(UIStrings.openInSourcesPanel), revealCallback, {jslogContext: 'reveal-in-sources-panel'});
     void contextMenu.show();
   }
 

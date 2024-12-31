@@ -40,6 +40,10 @@ function getDetailedCompareText(view: Element): HTMLElement|null {
   return view.shadowRoot!.querySelector('.detailed-compare-text');
 }
 
+function getWarnings(view: Element): string[] {
+  return Array.from(view.shadowRoot!.querySelectorAll('.warning')).map(w => w.textContent!);
+}
+
 function getEnvironmentRecs(view: Element): string[] {
   const recs = Array.from(view.shadowRoot!.querySelectorAll('.environment-recs li'));
   return recs.map(rec => rec.textContent!);
@@ -145,7 +149,7 @@ describeWithMockConnection('MetricCard', () => {
 
     const localValueEl = getLocalMetricValue(view);
     assert.strictEqual(localValueEl.className, 'metric-value poor');
-    assert.strictEqual(localValueEl.innerText, '2000 ms');
+    assert.strictEqual(localValueEl.innerText, '2,000 ms');
 
     const fieldValueEl = getFieldMetricValue(view);
     assert.strictEqual(fieldValueEl!.className, 'metric-value good');
@@ -175,6 +179,25 @@ describeWithMockConnection('MetricCard', () => {
     assert.match(histogramLabels[0], /Good\s+\(≤2.50 s\)/);
     assert.match(histogramLabels[1], /Needs improvement\s+\(2.50 s-4.00 s\)/);
     assert.match(histogramLabels[2], /Poor\s+\(>4.00 s\)/);
+  });
+
+  it('should show warnings', async () => {
+    const view = new Components.MetricCard.MetricCard();
+    view.data = {
+      metric: 'LCP',
+      localValue: 2000,
+      fieldValue: 1,
+      histogram: createMockHistogram(),
+      warnings: ['LCP warning'],
+    };
+
+    renderElementIntoDOM(view);
+    await coordinator.done();
+
+    const warnings = getWarnings(view);
+    assert.deepEqual(warnings, [
+      'LCP warning',
+    ]);
   });
 
   describe('phase table', () => {
@@ -212,7 +235,7 @@ describeWithMockConnection('MetricCard', () => {
       await coordinator.done();
 
       const phaseTable = getPhaseTable(view);
-      assert.deepStrictEqual(phaseTable, [
+      assert.deepEqual(phaseTable, [
         ['TTFB', '500'],
         ['Phase 1', '0'],
         ['Phase 2', '124'],
@@ -265,7 +288,7 @@ describeWithMockConnection('MetricCard', () => {
       assert.match(histogramLabels[2], /Poor\s+\(>4.00 s\)/);
 
       const histogramPercents = getFieldHistogramPercents(view);
-      assert.deepStrictEqual(histogramPercents, ['50%', '30%', '20%']);
+      assert.deepEqual(histogramPercents, ['50%', '30%', '20%']);
 
       const fieldValueEl = getFieldMetricValue(view);
       assert.strictEqual(fieldValueEl!.textContent, '0.20 s');
@@ -287,7 +310,7 @@ describeWithMockConnection('MetricCard', () => {
       assert.match(histogramLabels[2], /Poor\s+\(>4.00 s\)/);
 
       const histogramPercents = getFieldHistogramPercents(view);
-      assert.deepStrictEqual(histogramPercents, ['-', '-', '-']);
+      assert.deepEqual(histogramPercents, ['-', '-', '-']);
 
       const fieldValueEl = getFieldMetricValue(view);
       assert.strictEqual(fieldValueEl!.textContent, '-');
@@ -504,7 +527,7 @@ describeWithMockConnection('MetricCard', () => {
       await coordinator.done();
 
       const recs = getEnvironmentRecs(view);
-      assert.deepStrictEqual(recs, [
+      assert.deepEqual(recs, [
         'Real users may experience longer page loads due to slower network conditions. Increasing network throttling will simulate slower network conditions.',
         'Screen size can influence what the LCP element is. Ensure you are testing common viewport sizes.',
         'The LCP element can vary between page loads if content is dynamic.',
@@ -524,7 +547,7 @@ describeWithMockConnection('MetricCard', () => {
       await coordinator.done();
 
       const recs = getEnvironmentRecs(view);
-      assert.deepStrictEqual(recs, [
+      assert.deepEqual(recs, [
         'Screen size can influence what the LCP element is. Ensure you are testing common viewport sizes.',
         'The LCP element can vary between page loads if content is dynamic.',
       ]);
@@ -543,7 +566,7 @@ describeWithMockConnection('MetricCard', () => {
       await coordinator.done();
 
       const recs = getEnvironmentRecs(view);
-      assert.deepStrictEqual(recs, [
+      assert.deepEqual(recs, [
         'Screen size can influence what layout shifts happen. Ensure you are testing common viewport sizes.',
         'How a user interacts with the page can influence layout shifts. Ensure you are testing common interactions like scrolling the page.',
         'Dynamic content can influence what layout shifts happen.',
@@ -563,7 +586,7 @@ describeWithMockConnection('MetricCard', () => {
       await coordinator.done();
 
       const recs = getEnvironmentRecs(view);
-      assert.deepStrictEqual(recs, [
+      assert.deepEqual(recs, [
         'Real users may experience longer interactions due to slower CPU speeds. Increasing CPU throttling will simulate a slower device.',
         'How a user interacts with the page influences interaction delays. Ensure you are testing common interactions.',
       ]);
@@ -582,7 +605,7 @@ describeWithMockConnection('MetricCard', () => {
       await coordinator.done();
 
       const recs = getEnvironmentRecs(view);
-      assert.deepStrictEqual(recs, [
+      assert.deepEqual(recs, [
         'How a user interacts with the page influences interaction delays. Ensure you are testing common interactions.',
       ]);
     });

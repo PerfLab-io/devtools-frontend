@@ -38,6 +38,10 @@ const UIStrings = {
    * @description Similar with forceElementState but allows users to force specific state of the selected element.
    */
   forceElementSpecificStates: 'Force specific element state',
+  /**
+   *@description Text that is usually a hyperlink to more documentation
+   */
+  learnMore: 'Learn more',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/elements/ElementStatePaneWidget.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -55,15 +59,17 @@ enum SpecificPseudoStates {
   IN_RANGE = 'in-range',
   OUT_OF_RANGE = 'out-of-range',
   VISITED = 'visited',
+  LINK = 'link',
   CHECKED = 'checked',
   INDETERMINATE = 'indeterminate',
   PLACEHOLDER_SHOWN = 'placeholder-shown',
   AUTOFILL = 'autofill',
-}  // TODO(crbug.com/332914922): Also add :link and tests for :visited when the bug is fixed.
+}
 
 export class ElementStatePaneWidget extends UI.Widget.Widget {
   private readonly inputs: HTMLInputElement[];
   private readonly inputStates: WeakMap<HTMLInputElement, string>;
+  private readonly duals: Map<SpecificPseudoStates, SpecificPseudoStates>;
   private cssModel?: SDK.CSSModel.CSSModel|null;
   private specificPseudoStateDivs: Map<SpecificPseudoStates, HTMLDivElement>;
   private specificHeader: HTMLDetailsElement;
@@ -76,6 +82,7 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
     const inputs: HTMLInputElement[] = [];
     this.inputs = inputs;
     this.inputStates = new WeakMap();
+    this.duals = new Map();
     const createSectionHeader = (title: string): HTMLDivElement => {
       const sectionHeaderContainer = document.createElement('div');
       sectionHeaderContainer.classList.add('section-header');
@@ -92,12 +99,18 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
       if (!state) {
         return;
       }
-      node.domModel().cssModel().forcePseudoState(node, state, event.target.checked);
+      const checked = event.target.checked;
+      const dual = this.duals.get(state as SpecificPseudoStates);
+      if (checked && dual) {
+        node.domModel().cssModel().forcePseudoState(node, dual, false);
+      }
+      node.domModel().cssModel().forcePseudoState(node, state, checked);
     };
     const createElementStateCheckbox = (state: string): HTMLDivElement => {
       const div = document.createElement('div');
       div.id = state;
-      const label = UI.UIUtils.CheckboxLabel.create(':' + state, undefined, undefined, undefined, true);
+      const label =
+          UI.UIUtils.CheckboxLabel.createWithStringLiteral(':' + state, undefined, undefined, undefined, true);
       const input = label.checkboxElement;
       this.inputStates.set(input, state);
       input.addEventListener('click', (clickListener as EventListener), false);
@@ -106,7 +119,10 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
       div.appendChild(label);
       return div;
     };
-
+    const setDualStateCheckboxes = (first: SpecificPseudoStates, second: SpecificPseudoStates): void => {
+      this.duals.set(first, second);
+      this.duals.set(second, first);
+    };
     const createEmulateFocusedPageCheckbox = (): Element => {
       const div = document.createElement('div');
       div.classList.add('page-state-checkbox');
@@ -125,6 +141,7 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
         iconName: 'help',
         size: Buttons.Button.Size.SMALL,
         jslogContext: 'learn-more',
+        title: i18nString(UIStrings.learnMore),
       };
       learnMoreButton.addEventListener(
           'click',
@@ -192,6 +209,7 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
         SpecificPseudoStates.OUT_OF_RANGE, createElementStateCheckbox(SpecificPseudoStates.OUT_OF_RANGE));
     this.specificPseudoStateDivs.set(
         SpecificPseudoStates.VISITED, createElementStateCheckbox(SpecificPseudoStates.VISITED));
+    this.specificPseudoStateDivs.set(SpecificPseudoStates.LINK, createElementStateCheckbox(SpecificPseudoStates.LINK));
     this.specificPseudoStateDivs.set(
         SpecificPseudoStates.CHECKED, createElementStateCheckbox(SpecificPseudoStates.CHECKED));
     this.specificPseudoStateDivs.set(
@@ -204,6 +222,13 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
     this.specificPseudoStateDivs.forEach(div => {
       elementSpecificContainer.appendChild(div);
     });
+
+    setDualStateCheckboxes(SpecificPseudoStates.VALID, SpecificPseudoStates.INVALID);
+    setDualStateCheckboxes(SpecificPseudoStates.USER_VALID, SpecificPseudoStates.USER_INVALID);
+    setDualStateCheckboxes(SpecificPseudoStates.READ_ONLY, SpecificPseudoStates.READ_WRITE);
+    setDualStateCheckboxes(SpecificPseudoStates.IN_RANGE, SpecificPseudoStates.OUT_OF_RANGE);
+    setDualStateCheckboxes(SpecificPseudoStates.ENABLED, SpecificPseudoStates.DISABLED);
+    setDualStateCheckboxes(SpecificPseudoStates.VISITED, SpecificPseudoStates.LINK);
 
     this.specificHeader = document.createElement('details');
     this.specificHeader.classList.add('specific-details');
@@ -238,7 +263,7 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
     this.registerCSSFiles([elementStatePaneWidgetStyles]);
     this.update();
   }
-  private update(): void {
+  override update(): void {
     let node = UI.Context.Context.instance().flavor(SDK.DOMModel.DOMNode);
     if (node) {
       node = node.enclosingElementOrSelf();
@@ -282,6 +307,19 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
       return isElementOfTypes(node, ['input']) &&
           (node.getAttribute('type') === 'checkbox' || node.getAttribute('type') === 'radio');
     };
+    const isContentEditable = (node: SDK.DOMModel.DOMNode): boolean => {
+      return node.getAttribute('contenteditable') !== undefined ||
+          Boolean(node.parentNode && isContentEditable(node.parentNode));
+    };
+    const isDisabled = (node: SDK.DOMModel.DOMNode): boolean => {
+      return node.getAttribute('disabled') !== undefined;
+    };
+    const isMutable = (node: SDK.DOMModel.DOMNode): boolean => {
+      if (isElementOfTypes(node, ['input', 'textarea'])) {
+        return node.getAttribute('readonly') === undefined && !isDisabled(node);
+      }
+      return isContentEditable(node);
+    };
     // An autonomous custom element is called a form-associated custom element if the element is associated with a custom element definition whose form-associated field is set to true.
     // https://html.spec.whatwg.org/multipage/custom-elements.html#form-associated-custom-element
     const isFormAssociatedCustomElement = async(node: SDK.DOMModel.DOMNode): Promise<boolean> => {
@@ -295,8 +333,8 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
 
     if (isElementOfTypes(node, ['button', 'input', 'select', 'textarea', 'optgroup', 'option', 'fieldset']) ||
         isFormAssociated) {
-      hideSpecificCheckbox(SpecificPseudoStates.ENABLED, false);
-      hideSpecificCheckbox(SpecificPseudoStates.DISABLED, false);
+      hideSpecificCheckbox(SpecificPseudoStates.ENABLED, !isDisabled(node));
+      hideSpecificCheckbox(SpecificPseudoStates.DISABLED, isDisabled(node));
     } else {
       hideSpecificCheckbox(SpecificPseudoStates.ENABLED, true);
       hideSpecificCheckbox(SpecificPseudoStates.DISABLED, true);
@@ -314,8 +352,13 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
     if (isElementOfTypes(node, ['input', 'select', 'textarea'])) {
       hideSpecificCheckbox(SpecificPseudoStates.USER_VALID, false);
       hideSpecificCheckbox(SpecificPseudoStates.USER_INVALID, false);
-      hideSpecificCheckbox(SpecificPseudoStates.REQUIRED, false);
-      hideSpecificCheckbox(SpecificPseudoStates.OPTIONAL, false);
+      if (node.getAttribute('required') === undefined) {
+        hideSpecificCheckbox(SpecificPseudoStates.REQUIRED, false);
+        hideSpecificCheckbox(SpecificPseudoStates.OPTIONAL, true);
+      } else {
+        hideSpecificCheckbox(SpecificPseudoStates.REQUIRED, true);
+        hideSpecificCheckbox(SpecificPseudoStates.OPTIONAL, false);
+      }
     } else {
       hideSpecificCheckbox(SpecificPseudoStates.USER_VALID, true);
       hideSpecificCheckbox(SpecificPseudoStates.USER_INVALID, true);
@@ -323,27 +366,11 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
       hideSpecificCheckbox(SpecificPseudoStates.OPTIONAL, true);
     }
 
-    if (isElementOfTypes(node, ['input', 'textarea'])) {
-      hideSpecificCheckbox(SpecificPseudoStates.READ_WRITE, false);
-    } else {
+    if (isMutable(node)) {
       hideSpecificCheckbox(SpecificPseudoStates.READ_WRITE, true);
-    }
-
-    if (isElementOfTypes(node, [
-          'button',
-          'datalist',
-          'fieldset',
-          'label',
-          'legend',
-          'meter',
-          'optgroup',
-          'option',
-          'output',
-          'progress',
-          'select',
-        ])) {
       hideSpecificCheckbox(SpecificPseudoStates.READ_ONLY, false);
     } else {
+      hideSpecificCheckbox(SpecificPseudoStates.READ_WRITE, false);
       hideSpecificCheckbox(SpecificPseudoStates.READ_ONLY, true);
     }
 
@@ -358,8 +385,10 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
 
     if (isElementOfTypes(node, ['a', 'area']) && node.getAttribute('href') !== undefined) {
       hideSpecificCheckbox(SpecificPseudoStates.VISITED, false);
+      hideSpecificCheckbox(SpecificPseudoStates.LINK, false);
     } else {
       hideSpecificCheckbox(SpecificPseudoStates.VISITED, true);
+      hideSpecificCheckbox(SpecificPseudoStates.LINK, true);
     }
 
     if (isInputWithTypeRadioOrCheckbox(node) || isElementOfTypes(node, ['option'])) {

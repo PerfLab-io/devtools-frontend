@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
-import * as Root from '../../core/root/root.js';
 import * as Trace from '../../models/trace/trace.js';
 import * as ComponentHelpers from '../../ui/components/helpers/helpers.js';
 import * as UI from '../../ui/legacy/legacy.js';
@@ -13,7 +12,7 @@ import {buildGroupStyle, buildTrackHeader} from './AppenderUtils.js';
 import {
   type CompatibilityTracksAppender,
   type DrawOverride,
-  type HighlightedEntryInfo,
+  type PopoverInfo,
   type TrackAppender,
   type TrackAppenderName,
   VisualLoggingTrackName,
@@ -100,13 +99,10 @@ export class LayoutShiftsTrackAppender implements TrackAppender {
    * layout shifts (the first available level to append more data).
    */
   #appendLayoutShiftsAtLevel(currentLevel: number): number {
+    const allClusters = this.#parsedTrace.LayoutShifts.clusters;
+    this.#compatibilityBuilder.appendEventsAtLevel(allClusters, currentLevel, this);
+
     const allLayoutShifts = this.#parsedTrace.LayoutShifts.clusters.flatMap(cluster => cluster.events);
-
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_INSIGHTS)) {
-      const allClusters = this.#parsedTrace.LayoutShifts.clusters;
-      this.#compatibilityBuilder.appendEventsAtLevel(allClusters, currentLevel, this);
-    }
-
     void this.preloadScreenshots(allLayoutShifts);
     return this.#compatibilityBuilder.appendEventsAtLevel(allLayoutShifts, currentLevel, this);
   }
@@ -143,53 +139,28 @@ export class LayoutShiftsTrackAppender implements TrackAppender {
     return '';
   }
 
-  /**
-   * Returns the info shown when an event added by this appender
-   * is hovered in the timeline.
-   */
-  highlightedEntryInfo(event: Trace.Types.Events.Event): HighlightedEntryInfo {
+  setPopoverInfo(event: Trace.Types.Events.Event, info: PopoverInfo): void {
     const score = Trace.Types.Events.isLayoutShift(event)       ? event.args.data?.weighted_score_delta ?? 0 :
         Trace.Types.Events.isSyntheticLayoutShiftCluster(event) ? event.clusterCumulativeScore :
                                                                   -1;
-    const title = Trace.Types.Events.isLayoutShift(event)       ? i18nString(UIStrings.layoutShift) :
+    // Score isn't a duration, but the UI works anyhow.
+    info.formattedTime = score.toFixed(4);
+    info.title = Trace.Types.Events.isLayoutShift(event)        ? i18nString(UIStrings.layoutShift) :
         Trace.Types.Events.isSyntheticLayoutShiftCluster(event) ? i18nString(UIStrings.layoutShiftCluster) :
                                                                   event.name;
 
-    let additionalElement;
     if (Trace.Types.Events.isSyntheticLayoutShift(event)) {
       // Screenshots are max 500x500 naturally, but on a laptop in dock-to-right, 500px tall usually doesn't fit.
       // In the future, we may investigate a way to dynamically scale this tooltip content per available space.
       const maxSize = new UI.Geometry.Size(510, 400);
       const vizElem = LayoutShiftsTrackAppender.createShiftViz(event, this.#parsedTrace, maxSize);
       if (vizElem) {
-        additionalElement = vizElem;
+        info.additionalElements.push(vizElem);
       }
     }
-
-    // Score isn't a duration, but the UI works anyhow.
-    return {title, formattedTime: score.toFixed(4), additionalElement};
   }
 
   getDrawOverride(event: Trace.Types.Events.Event): DrawOverride|undefined {
-    if (!Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_INSIGHTS)) {
-      // If the new CLS experience isn't on.. Continue to present that Shifts are 5ms long. (but now via drawOverrides)
-      // TODO: Remove this when the experiment ships
-      if (Trace.Types.Events.isLayoutShift(event)) {
-        return (context, x, y, _width, levelHeight, timeToPosition) => {
-          const fakeDurMs = Trace.Helpers.Timing.microSecondsToMilliseconds(
-              Trace.Types.Timing.MicroSeconds(event.ts + LAYOUT_SHIFT_SYNTHETIC_DURATION));
-          const barEnd = timeToPosition(fakeDurMs);
-          const barWidth = barEnd - x;
-          context.fillStyle = this.colorForEvent(event);
-          context.fillRect(x, y, barWidth - 0.5, levelHeight - 1);
-          return {
-            x,
-            width: barWidth,
-          };
-        };
-      }
-    }
-
     if (Trace.Types.Events.isLayoutShift(event)) {
       const score = event.args.data?.weighted_score_delta || 0;
 
@@ -202,7 +173,7 @@ export class LayoutShiftsTrackAppender implements TrackAppender {
       // A LS score of ~0 will create a diamond of minimum size (exactly 0 should not happen in practice)
       const bufferScale = 1 - Math.min(score / 0.10, 1);
 
-      return (context, x, y, _width, levelHeight) => {
+      return (context, x, y, _width, levelHeight, _, transformColor) => {
         // levelHeight is 17px, so this math translates to a minimum diamond size of 5.6px tall.
         const maxBuffer = levelHeight / 3;
         const buffer = bufferScale * maxBuffer;
@@ -216,7 +187,7 @@ export class LayoutShiftsTrackAppender implements TrackAppender {
         context.lineTo(x, y + levelHeight - buffer);
         context.lineTo(x - halfSize + buffer, y + halfSize);
         context.closePath();
-        context.fillStyle = this.colorForEvent(event);
+        context.fillStyle = transformColor(this.colorForEvent(event));
 
         context.fill();
         context.restore();
@@ -227,10 +198,10 @@ export class LayoutShiftsTrackAppender implements TrackAppender {
       };
     }
     if (Trace.Types.Events.isSyntheticLayoutShiftCluster(event)) {
-      return (context, x, y, width, levelHeight) => {
+      return (context, x, y, width, levelHeight, _, transformColor) => {
         const barHeight = levelHeight * 0.2;
         const barY = y + (levelHeight - barHeight) / 2 + 0.5;
-        context.fillStyle = this.colorForEvent(event);
+        context.fillStyle = transformColor(this.colorForEvent(event));
         context.fillRect(x, barY, width - 0.5, barHeight - 1);
         return {x, width, z: -1};
       };

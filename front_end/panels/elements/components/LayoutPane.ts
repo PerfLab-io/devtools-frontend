@@ -11,9 +11,8 @@ import * as SDK from '../../../core/sdk/sdk.js';
 import * as Buttons from '../../../ui/components/buttons/buttons.js';
 import * as Input from '../../../ui/components/input/input.js';
 import * as LegacyWrapper from '../../../ui/components/legacy_wrapper/legacy_wrapper.js';
-import type * as NodeText from '../../../ui/components/node_text/node_text.js';
 import * as Coordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
-// eslint-disable-next-line rulesdir/es_modules_import
+// eslint-disable-next-line rulesdir/es-modules-import
 import inspectorCommonStyles from '../../../ui/legacy/inspectorCommon.css.js';
 import * as UI from '../../../ui/legacy/legacy.js';
 import * as LitHtml from '../../../ui/lit-html/lit-html.js';
@@ -467,7 +466,7 @@ export class LayoutPane extends LegacyWrapper.LegacyWrapper.WrappableComponent {
             nodeId: element.domId,
             nodeTitle: element.name,
             nodeClasses: element.domClasses,
-          } as NodeText.NodeText.NodeTextData}></devtools-node-text>
+          }}></devtools-node-text>
         </span>
       </label>
       <label @keyup=${onColorLabelKeyUp} @keydown=${onColorLabelKeyDown} class="color-picker-label" style="background: ${element.color};" jslog=${VisualLogging.showStyleEditor('color').track({click: true})}>
@@ -482,7 +481,7 @@ export class LayoutPane extends LegacyWrapper.LegacyWrapper.WrappableComponent {
                                            .variant=${Buttons.Button.Variant.ICON}
                                            @click=${onElementClick}></devtools-button>
     </div>`;
-    // clang-format on
+            // clang-format on
   }
 
   #renderBooleanSetting(setting: BooleanSetting): LitHtml.TemplateResult {

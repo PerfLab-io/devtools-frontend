@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import * as Common from '../../core/common/common.js';
+import * as Platform from '../../core/platform/platform.js';
 import * as Root from '../../core/root/root.js';
 import * as Trace from '../../models/trace/trace.js';
 import type * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
@@ -11,7 +12,6 @@ import * as ThemeSupport from '../../ui/legacy/theme_support/theme_support.js';
 import {AnimationsTrackAppender} from './AnimationsTrackAppender.js';
 import {getEventLevel, getFormattedTime, type LastTimestampByLevel} from './AppenderUtils.js';
 import * as TimelineComponents from './components/components.js';
-import {ExtensionDataGatherer} from './ExtensionDataGatherer.js';
 import {ExtensionTrackAppender} from './ExtensionTrackAppender.js';
 import {GPUTrackAppender} from './GPUTrackAppender.js';
 import {InteractionsTrackAppender} from './InteractionsTrackAppender.js';
@@ -21,16 +21,29 @@ import {ThreadAppender} from './ThreadAppender.js';
 import {
   EntryType,
   InstantEventVisibleDurationMs,
-  type TimelineFlameChartEntry,
 } from './TimelineFlameChartDataProvider.js';
+import {TimelinePanel} from './TimelinePanel.js';
 import {TimingsTrackAppender} from './TimingsTrackAppender.js';
+import * as TimelineUtils from './utils/utils.js';
 
-export type HighlightedEntryInfo = {
+export type PopoverInfo = {
   title: string,
   formattedTime: string,
-  warningElements?: HTMLSpanElement[],
-  additionalElement?: HTMLElement,
+  url: string|null,
+  warningElements: HTMLSpanElement[],
+  additionalElements: HTMLElement[],
 };
+
+let showPostMessageEvents: boolean|undefined;
+function isShowPostMessageEventsEnabled(): boolean {
+  // Everytime the experiment is toggled devtools is reloaded so the
+  // cache is updated automatically.
+  if (showPostMessageEvents === undefined) {
+    showPostMessageEvents =
+        Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_SHOW_POST_MESSAGE_EVENTS);
+  }
+  return showPostMessageEvents;
+}
 
 export function entryIsVisibleInTimeline(
     entry: Trace.Types.Events.Event, parsedTrace?: Trace.Handlers.Types.ParsedTrace): boolean {
@@ -49,9 +62,10 @@ export function entryIsVisibleInTimeline(
     return true;
   }
 
-  // Gate the visibility of post message events behind the experiement flag
-  if (Trace.Types.Events.isSchedulePostMessage(entry) || Trace.Types.Events.isHandlePostMessage(entry)) {
-    return Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_SHOW_POST_MESSAGE_EVENTS);
+  if (isShowPostMessageEventsEnabled()) {
+    if (Trace.Types.Events.isSchedulePostMessage(entry) || Trace.Types.Events.isHandlePostMessage(entry)) {
+      return true;
+    }
   }
 
   if (Trace.Types.Extensions.isSyntheticExtensionEntry(entry) || Trace.Types.Events.isSyntheticServerTiming(entry)) {
@@ -60,7 +74,7 @@ export function entryIsVisibleInTimeline(
 
   // Default styles are globally defined for each event name. Some
   // events are hidden by default.
-  const eventStyle = TimelineComponents.EntryStyles.getEventStyle(entry.name as Trace.Types.Events.Name);
+  const eventStyle = TimelineUtils.EntryStyles.getEventStyle(entry.name as Trace.Types.Events.Name);
   const eventIsTiming = Trace.Types.Events.isConsoleTime(entry) || Trace.Types.Events.isPerformanceMeasure(entry) ||
       Trace.Types.Events.isPerformanceMark(entry);
 
@@ -112,9 +126,9 @@ export interface TrackAppender {
    */
   titleForEvent?(event: Trace.Types.Events.Event): string;
   /**
-   * Returns the info shown when an event in the timeline is hovered.
+   * Updates the standard popover (AKA tooltip) some appender specific details.
    */
-  highlightedEntryInfo?(event: Trace.Types.Events.Event): Partial<HighlightedEntryInfo>;
+  setPopoverInfo?(event: Trace.Types.Events.Event, info: PopoverInfo): void;
   /**
    * Returns the a callback function to draw an event to overrides the normal rectangle draw operation.
    */
@@ -175,7 +189,7 @@ export class CompatibilityTracksAppender {
   #trackEventsForTreeview = new Map<TrackAppender, Trace.Types.Events.Event[]>();
   #flameChartData: PerfUI.FlameChart.FlameChartTimelineData;
   #parsedTrace: Trace.Handlers.Types.ParsedTrace;
-  #entryData: TimelineFlameChartEntry[];
+  #entryData: Trace.Types.Events.Event[];
   #colorGenerator: Common.Color.Generator;
   #allTrackAppenders: TrackAppender[] = [];
   #visibleTrackNames: Set<TrackAppenderName> = new Set([...TrackNames]);
@@ -204,7 +218,7 @@ export class CompatibilityTracksAppender {
    */
   constructor(
       flameChartData: PerfUI.FlameChart.FlameChartTimelineData, parsedTrace: Trace.Handlers.Types.ParsedTrace,
-      entryData: TimelineFlameChartEntry[], legacyEntryTypeByLevel: EntryType[]) {
+      entryData: Trace.Types.Events.Event[], legacyEntryTypeByLevel: EntryType[]) {
     this.#flameChartData = flameChartData;
     this.#parsedTrace = parsedTrace;
     this.#entryData = entryData;
@@ -244,7 +258,7 @@ export class CompatibilityTracksAppender {
   }
 
   setFlameChartDataAndEntryData(
-      flameChartData: PerfUI.FlameChart.FlameChartTimelineData, entryData: TimelineFlameChartEntry[],
+      flameChartData: PerfUI.FlameChart.FlameChartTimelineData, entryData: Trace.Types.Events.Event[],
       legacyEntryTypeByLevel: EntryType[]): void {
     this.#trackForGroup.clear();
     this.#flameChartData = flameChartData;
@@ -266,7 +280,10 @@ export class CompatibilityTracksAppender {
   }
 
   #addExtensionAppenders(): void {
-    const tracks = ExtensionDataGatherer.instance().getExtensionData().extensionTrackData;
+    if (!TimelinePanel.extensionDataVisibilitySetting().get()) {
+      return;
+    }
+    const tracks = this.#parsedTrace.ExtensionTraceData.extensionTrackData;
     for (const trackData of tracks) {
       this.#allTrackAppenders.push(new ExtensionTrackAppender(this, trackData));
     }
@@ -628,52 +645,47 @@ export class CompatibilityTracksAppender {
     if (track.titleForEvent) {
       return track.titleForEvent(event);
     }
-    return TimelineComponents.EntryName.nameForEntry(event, this.#parsedTrace);
+    return TimelineUtils.EntryName.nameForEntry(event, this.#parsedTrace);
   }
   /**
    * Returns the info shown when an event in the timeline is hovered.
    */
-  highlightedEntryInfo(event: Trace.Types.Events.Event, level: number): HighlightedEntryInfo {
+  popoverInfo(event: Trace.Types.Events.Event, level: number): PopoverInfo {
     const track = this.#trackForLevel.get(level);
     if (!track) {
       throw new Error('Track not found for level');
     }
 
-    // Add any warnings information to the tooltip. Done here to avoid duplicating this call in every appender.
-    // By doing this here, we ensure that any warnings that are
-    // added to the WarningsHandler are automatically used and added
-    // to the tooltip.
-    const warningElements: HTMLSpanElement[] =
-        TimelineComponents.DetailsView.buildWarningElementsForEvent(event, this.#parsedTrace);
-
-    let title = this.titleForEvent(event, level);
-    let formattedTime = getFormattedTime(event.dur);
-    let additionalElement;
-
-    // If the track defines a custom highlight, call it and use its values.
-    if (track.highlightedEntryInfo) {
-      const {
-        title: customTitle,
-        formattedTime: customFormattedTime,
-        warningElements: extraWarningElements,
-        additionalElement: element,
-      } = track.highlightedEntryInfo(event);
-      if (customTitle) {
-        title = customTitle;
-      }
-      if (customFormattedTime) {
-        formattedTime = customFormattedTime;
-      }
-      if (extraWarningElements) {
-        warningElements.push(...extraWarningElements);
-      }
-      additionalElement = element;
-    }
-    return {
-      title,
-      formattedTime,
-      warningElements,
-      additionalElement,
+    // Defaults here, though tracks may chose to redefine title/formattedTime
+    const info: PopoverInfo = {
+      title: this.titleForEvent(event, level),
+      formattedTime: getFormattedTime(event.dur),
+      warningElements: TimelineComponents.DetailsView.buildWarningElementsForEvent(event, this.#parsedTrace),
+      additionalElements: [],
+      url: null,
     };
+
+    // If the track defines its own popoverInfo(), it'll update values within
+    if (track.setPopoverInfo) {
+      track.setPopoverInfo(event, info);
+    }
+
+    // If there's a url associated, add into additionalElements
+    const url = URL.parse(
+        info.url ?? TimelineUtils.SourceMapsResolver.SourceMapsResolver.resolvedURLForEntry(this.#parsedTrace, event) ??
+        '');
+    if (url) {
+      const MAX_PATH_LENGTH = 45;
+      const MAX_ORIGIN_LENGTH = 30;
+      const path = Platform.StringUtilities.trimMiddle(url.href.replace(url.origin, ''), MAX_PATH_LENGTH);
+      const origin =
+          Platform.StringUtilities.trimEndWithMaxLength(url.origin.replace('https://', ''), MAX_ORIGIN_LENGTH);
+      const urlElems = document.createElement('div');
+      urlElems.createChild('span', 'popoverinfo-url-path').textContent = path;
+      urlElems.createChild('span', 'popoverinfo-url-origin').textContent = `(${origin})`;
+      info.additionalElements.push(urlElems);
+    }
+
+    return info;
   }
 }

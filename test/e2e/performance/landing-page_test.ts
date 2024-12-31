@@ -17,7 +17,8 @@ import {
   waitForNone,
   waitForVisible,
 } from '../../shared/helper.js';
-import {reloadDevTools} from '../helpers/cross-tool-helper.js';
+import {getCurrentConsoleMessages} from '../helpers/console-helpers.js';
+import {reloadDevTools, tabExistsInDrawer} from '../helpers/cross-tool-helper.js';
 
 const READY_LOCAL_METRIC_SELECTOR = '#local-value .metric-value:not(.waiting)';
 const READY_FIELD_METRIC_SELECTOR = '#field-value .metric-value:not(.waiting)';
@@ -58,7 +59,7 @@ async function setCruxRawResponse(path: string) {
 
 describe('The Performance panel landing page', () => {
   beforeEach(async () => {
-    await reloadDevTools({selectedPanel: {name: 'timeline'}, enableExperiments: ['timeline-observations']});
+    await reloadDevTools({selectedPanel: {name: 'timeline'}});
   });
 
   it('displays live metrics', async () => {
@@ -183,7 +184,6 @@ describe('The Performance panel landing page', () => {
       const waitForLCP2 = await installLCPListener(targetSession);
       await goTo('chrome://terms');
       await waitForLCP2();
-      await target.click('body');
       await target.evaluate(() => new Promise(r => requestAnimationFrame(r)));
       await target.evaluate(() => new Promise(r => requestAnimationFrame(r)));
 
@@ -191,7 +191,7 @@ describe('The Performance panel landing page', () => {
 
       await waitForMany(READY_LOCAL_METRIC_SELECTOR, 3);
       const interactions2 = await $$<HTMLElement>(INTERACTION_SELECTOR);
-      assert.isAtLeast(interactions2.length, 1);
+      assert.lengthOf(interactions2, 0);
 
       const layoutShifts2 = await $$<HTMLElement>(LAYOUT_SHIFT_SELECTOR);
       assert.lengthOf(layoutShifts2, 0);
@@ -289,11 +289,11 @@ describe('The Performance panel landing page', () => {
 
     {
       const [lcpHistogram, clsHistogram, inpHistogram] = await waitForMany(HISTOGRAM_SELECTOR, 3);
-      assert.deepStrictEqual(
+      assert.deepEqual(
           await lcpHistogram.$$eval('.histogram-percent', els => els.map(el => el.textContent)), ['-', '-', '-']);
-      assert.deepStrictEqual(
+      assert.deepEqual(
           await clsHistogram.$$eval('.histogram-percent', els => els.map(el => el.textContent)), ['-', '-', '-']);
-      assert.deepStrictEqual(
+      assert.deepEqual(
           await inpHistogram.$$eval('.histogram-percent', els => els.map(el => el.textContent)), ['-', '-', '-']);
     }
 
@@ -308,11 +308,11 @@ describe('The Performance panel landing page', () => {
 
     {
       const [lcpHistogram, clsHistogram, inpHistogram] = await waitForMany(HISTOGRAM_SELECTOR, 3);
-      assert.deepStrictEqual(
+      assert.deepEqual(
           await lcpHistogram.$$eval('.histogram-percent', els => els.map(el => el.textContent)), ['96%', '3%', '1%']);
-      assert.deepStrictEqual(
+      assert.deepEqual(
           await clsHistogram.$$eval('.histogram-percent', els => els.map(el => el.textContent)), ['100%', '0%', '0%']);
-      assert.deepStrictEqual(
+      assert.deepEqual(
           await inpHistogram.$$eval('.histogram-percent', els => els.map(el => el.textContent)), ['98%', '2%', '1%']);
     }
 
@@ -322,11 +322,11 @@ describe('The Performance panel landing page', () => {
 
     {
       const [lcpHistogram, clsHistogram, inpHistogram] = await waitForMany(HISTOGRAM_SELECTOR, 3);
-      assert.deepStrictEqual(
+      assert.deepEqual(
           await lcpHistogram.$$eval('.histogram-percent', els => els.map(el => el.textContent)), ['-', '-', '-']);
-      assert.deepStrictEqual(
+      assert.deepEqual(
           await clsHistogram.$$eval('.histogram-percent', els => els.map(el => el.textContent)), ['-', '-', '-']);
-      assert.deepStrictEqual(
+      assert.deepEqual(
           await inpHistogram.$$eval('.histogram-percent', els => els.map(el => el.textContent)), ['-', '-', '-']);
     }
   });
@@ -385,49 +385,69 @@ describe('The Performance panel landing page', () => {
       await goToResource('performance/interaction-tester.html');
 
       // Delay ensures pointerdown and pointerup are in separate frames
-      await target.click('#long-click', {delay: 50});
+      await target.click('#long-click', {delay: 200});
 
-      await target.evaluate(() => new Promise(r => requestAnimationFrame(r)));
-      await target.evaluate(() => new Promise(r => requestAnimationFrame(r)));
-
-      await frontend.bringToFront();
-
-      {
-        const interactions = await waitForMany(INTERACTION_SELECTOR, 2);
-        const interactionTypes = await Promise.all(
-            interactions.map(el => el.$eval('.interaction-type', el => (el as HTMLElement).innerText)));
-        assert.deepStrictEqual(interactionTypes, [
-          'pointer',
-          'pointer INP',
-        ]);
-      }
-
-      await target.bringToFront();
+      // No delay ensures pointerdown and pointerup are in the same frame
+      await target.click('#long-click');
 
       // Delay ensures keydown and keyup are in separate frames
-      await target.type('#long-type', 'Hello', {delay: 50});
+      await target.type('#long-type', 'hi', {delay: 200});
+
+      await target.evaluate(() => new Promise(r => requestAnimationFrame(r)));
+      await target.evaluate(() => new Promise(r => requestAnimationFrame(r)));
 
       await frontend.bringToFront();
 
       {
-        const interactions = await waitForMany(INTERACTION_SELECTOR, 12);
+        const interactions = await waitForMany(INTERACTION_SELECTOR, 7);
         const interactionTypes = await Promise.all(
             interactions.map(el => el.$eval('.interaction-type', el => (el as HTMLElement).innerText)));
-        assert.deepStrictEqual(interactionTypes, [
+        assert.deepEqual(interactionTypes, [
           'pointer',
           'pointer INP',
-          'keyboard',
-          'keyboard',
-          'keyboard',
-          'keyboard',
-          'keyboard',
-          'keyboard',
+          'pointer',
           'keyboard',
           'keyboard',
           'keyboard',
           'keyboard',
         ]);
       }
+    } finally {
+      await targetSession.detach();
+    }
+  });
+
+  it('logs extra interaction details to console', async () => {
+    const {target, frontend} = await getBrowserAndPages();
+
+    await target.bringToFront();
+
+    const targetSession = await target.createCDPSession();
+    try {
+      await goToResource('performance/interaction-tester.html');
+
+      await target.click('#long-click');
+
+      await target.evaluate(() => new Promise(r => requestAnimationFrame(r)));
+      await target.evaluate(() => new Promise(r => requestAnimationFrame(r)));
+
+      await frontend.bringToFront();
+
+      const interaction = await waitFor(INTERACTION_SELECTOR);
+      const interactionSummary = await interaction.$('summary');
+      await interactionSummary!.click();
+
+      const logToConsole = await interaction.$('.log-extra-details-button');
+      await logToConsole!.click();
+
+      await tabExistsInDrawer('#tab-console-view');
+      const messages = await getCurrentConsoleMessages();
+      assert.deepEqual(messages, [
+        '[DevTools] Long animation frames for 504ms pointer interaction',
+        'Scripts:',
+        'Array(3)',
+        'Intersecting long animation frame events: [{…}]',
+      ]);
     } finally {
       await targetSession.detach();
     }

@@ -1044,6 +1044,11 @@ export class DOMNode {
 
     return this.domModel().nodeForId(response.nodeId);
   }
+
+  classNames(): string[] {
+    const classes = this.getAttribute('class');
+    return classes ? classes.split(/\s+/) : [];
+  }
 }
 
 export namespace DOMNode {
@@ -1623,9 +1628,9 @@ export class DOMModel extends SDKModel<EventTypes> {
 
   async getContainerForNode(
       nodeId: Protocol.DOM.NodeId, containerName?: string, physicalAxes?: Protocol.DOM.PhysicalAxes,
-      logicalAxes?: Protocol.DOM.LogicalAxes): Promise<DOMNode|null> {
-    const {nodeId: containerNodeId} =
-        await this.agent.invoke_getContainerForNode({nodeId, containerName, physicalAxes, logicalAxes});
+      logicalAxes?: Protocol.DOM.LogicalAxes, queriesScrollState?: boolean): Promise<DOMNode|null> {
+    const {nodeId: containerNodeId} = await this.agent.invoke_getContainerForNode(
+        {nodeId, containerName, physicalAxes, logicalAxes, queriesScrollState});
     if (!containerNodeId) {
       return null;
     }

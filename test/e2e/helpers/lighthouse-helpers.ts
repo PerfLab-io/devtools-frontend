@@ -83,7 +83,7 @@ type CheckboxLabel = Element&{checkboxElement: HTMLInputElement};
  */
 export async function selectCategories(selectedCategoryIds: string[]) {
   const startViewHandle = await waitFor('.lighthouse-start-view');
-  const checkboxHandles = await startViewHandle.$$('[is=dt-checkbox]');
+  const checkboxHandles = await startViewHandle.$$('dt-checkbox');
   for (const checkboxHandle of checkboxHandles) {
     await checkboxHandle.evaluate((dtCheckboxElem, selectedCategoryIds: string[]) => {
       const elem = dtCheckboxElem as CheckboxLabel;
@@ -242,7 +242,7 @@ export async function interceptNextFileSave(): Promise<() => Promise<string>> {
         resolve(content);
       };
     });
-    nextFilePromise.finally(() => {
+    void nextFilePromise.finally(() => {
       // @ts-expect-error
       InspectorFrontendHost.save = original;
     });

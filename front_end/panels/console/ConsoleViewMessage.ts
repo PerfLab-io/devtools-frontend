@@ -50,7 +50,7 @@ import * as IssueCounter from '../../ui/components/issue_counter/issue_counter.j
 import * as RequestLinkIcon from '../../ui/components/request_link_icon/request_link_icon.js';
 import * as DataGrid from '../../ui/legacy/components/data_grid/data_grid.js';
 import * as ObjectUI from '../../ui/legacy/components/object_ui/object_ui.js';
-// eslint-disable-next-line rulesdir/es_modules_import
+// eslint-disable-next-line rulesdir/es-modules-import
 import objectValueStyles from '../../ui/legacy/components/object_ui/objectValue.css.js';
 import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
@@ -219,6 +219,24 @@ const elementToMessage = new WeakMap<Element, ConsoleViewMessage>();
 
 export const getMessageForElement = (element: Element): ConsoleViewMessage|undefined => {
   return elementToMessage.get(element);
+};
+
+/**
+ * Combines the error description (essentially the `Error#stack` property value)
+ * with the `issueSummary`.
+ *
+ * @param description the `description` property of the `Error` remote object.
+ * @param issueSummary the optional `issueSummary` of the `exceptionMetaData`.
+ * @returns the enriched description.
+ * @see https://goo.gle/devtools-reduce-network-noise-design
+ */
+export const concatErrorDescriptionAndIssueSummary = (description: string, issueSummary: string): string => {
+  // Insert the issue summary right after the error message.
+  const pos = description.indexOf('\n');
+  const prefix = pos === -1 ? description : description.substring(0, pos);
+  const suffix = pos === -1 ? '' : description.substring(pos);
+  description = `${prefix}. ${issueSummary}${suffix}`;
+  return description;
 };
 
 // This value reflects the 18px min-height of .console-message, plus the
@@ -1309,7 +1327,7 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
       this.elementInternal.classList.add('console-from-api');
     }
     if (this.inSimilarGroup) {
-      this.similarGroupMarker = (this.consoleRowWrapper.createChild('div', 'nesting-level-marker') as HTMLElement);
+      this.similarGroupMarker = this.consoleRowWrapper.createChild('div', 'nesting-level-marker');
       this.similarGroupMarker.classList.toggle('group-closed', this.lastInSimilarGroup);
     }
 
@@ -1528,8 +1546,7 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
     }
 
     if (!this.repeatCountElement) {
-      this.repeatCountElement =
-          (document.createElement('span', {is: 'dt-small-bubble'}) as UI.UIUtils.DevToolsSmallBubble);
+      this.repeatCountElement = document.createElement('dt-small-bubble');
       this.repeatCountElement.classList.add('console-message-repeat-count');
       switch (this.message.level) {
         case Protocol.Log.LogEntryLevel.Warning:
@@ -1702,6 +1719,11 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
     const runtimeModel = this.message.runtimeModel();
     if (!runtimeModel) {
       return null;
+    }
+
+    const issueSummary = exceptionDetails?.exceptionMetaData?.issueSummary;
+    if (typeof issueSummary === 'string') {
+      string = concatErrorDescriptionAndIssueSummary(string, issueSummary);
     }
 
     const linkInfos = parseSourcePositionsFromErrorStack(runtimeModel, string);

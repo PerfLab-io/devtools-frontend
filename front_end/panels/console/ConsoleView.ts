@@ -44,7 +44,7 @@ import * as Logs from '../../models/logs/logs.js';
 import * as TextUtils from '../../models/text_utils/text_utils.js';
 import * as CodeHighlighter from '../../ui/components/code_highlighter/code_highlighter.js';
 import * as IssueCounter from '../../ui/components/issue_counter/issue_counter.js';
-// eslint-disable-next-line rulesdir/es_modules_import
+// eslint-disable-next-line rulesdir/es-modules-import
 import objectValueStyles from '../../ui/legacy/components/object_ui/objectValue.css.js';
 import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
@@ -512,7 +512,7 @@ export class ConsoleView extends UI.Widget.VBox implements
     // FIXME: This is a workaround for the selection machinery bug. See crbug.com/410899
     const selectAllFixer = this.messagesElement.createChild('div', 'console-view-fix-select-all');
     selectAllFixer.textContent = '.';
-    UI.ARIAUtils.markAsHidden(selectAllFixer);
+    UI.ARIAUtils.setHidden(selectAllFixer, true);
 
     this.registerShortcuts();
 
@@ -584,8 +584,9 @@ export class ConsoleView extends UI.Widget.VBox implements
   }
 
   static appendSettingsCheckboxToToolbar(
-      toolbar: UI.Toolbar.Toolbar, settingOrSetingName: Common.Settings.Setting<boolean>|string, title: string,
-      alternateTitle?: string): UI.Toolbar.ToolbarSettingCheckbox {
+      toolbar: UI.Toolbar.Toolbar, settingOrSetingName: Common.Settings.Setting<boolean>|string,
+      title: Common.UIString.LocalizedString,
+      alternateTitle?: Common.UIString.LocalizedString): UI.Toolbar.ToolbarSettingCheckbox {
     let setting: Common.Settings.Setting<boolean>;
     if (typeof settingOrSetingName === 'string') {
       setting = Common.Settings.Settings.instance().moduleSetting(settingOrSetingName);
@@ -1363,7 +1364,7 @@ export class ConsoleView extends UI.Widget.VBox implements
 
   private registerShortcuts(): void {
     this.shortcuts.set(
-        UI.KeyboardShortcut.KeyboardShortcut.makeKey('u', UI.KeyboardShortcut.Modifiers.Ctrl),
+        UI.KeyboardShortcut.KeyboardShortcut.makeKey('u', UI.KeyboardShortcut.Modifiers.Ctrl.value),
         this.clearPromptBackwards.bind(this));
   }
 

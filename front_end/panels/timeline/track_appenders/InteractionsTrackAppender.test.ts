@@ -11,7 +11,7 @@ import * as Timeline from '../timeline.js';
 function initTrackAppender(
     flameChartData: PerfUI.FlameChart.FlameChartTimelineData,
     parsedTrace: Trace.Handlers.Types.ParsedTrace,
-    entryData: Timeline.TimelineFlameChartDataProvider.TimelineFlameChartEntry[],
+    entryData: Trace.Types.Events.Event[],
     entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[],
     ): Timeline.InteractionsTrackAppender.InteractionsTrackAppender {
   const compatibilityTracksAppender = new Timeline.CompatibilityTracksAppender.CompatibilityTracksAppender(
@@ -24,11 +24,11 @@ describeWithEnvironment('InteractionsTrackAppender', function() {
     entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[],
     flameChartData: PerfUI.FlameChart.FlameChartTimelineData,
     interactionsTrackAppender: Timeline.InteractionsTrackAppender.InteractionsTrackAppender,
-    entryData: Timeline.TimelineFlameChartDataProvider.TimelineFlameChartEntry[],
+    entryData: Trace.Types.Events.Event[],
     parsedTrace: Readonly<Trace.Handlers.Types.ParsedTrace>,
   }> {
     const entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[] = [];
-    const entryData: Timeline.TimelineFlameChartDataProvider.TimelineFlameChartEntry[] = [];
+    const entryData: Trace.Types.Events.Event[] = [];
     const flameChartData = PerfUI.FlameChart.FlameChartTimelineData.createEmpty();
     const {parsedTrace} = await TraceLoader.traceEngine(context, trace);
     const interactionsTrackAppender = initTrackAppender(flameChartData, parsedTrace, entryData, entryTypeByLevel);
@@ -47,7 +47,7 @@ describeWithEnvironment('InteractionsTrackAppender', function() {
     it('marks all levels used by the track with the `TrackAppender` type', async function() {
       const {entryTypeByLevel} = await renderTrackAppender(this, 'slow-interaction-button-click.json.gz');
       // All events fit on the top level
-      assert.strictEqual(entryTypeByLevel.length, 1);
+      assert.lengthOf(entryTypeByLevel, 1);
       assert.deepEqual(entryTypeByLevel, [
         Timeline.TimelineFlameChartDataProvider.EntryType.TRACK_APPENDER,
       ]);
@@ -56,7 +56,7 @@ describeWithEnvironment('InteractionsTrackAppender', function() {
     it('takes over no levels if there are no interactions', async function() {
       // animation trace has no interactions in it.
       const {entryTypeByLevel} = await renderTrackAppender(this, 'animation.json.gz');
-      assert.strictEqual(entryTypeByLevel.length, 0);
+      assert.lengthOf(entryTypeByLevel, 0);
     });
 
     it('only shows the top level interactions', async function() {
@@ -66,7 +66,7 @@ describeWithEnvironment('InteractionsTrackAppender', function() {
 
     it('creates a flamechart group', async function() {
       const {flameChartData} = await renderTrackAppender(this, 'slow-interaction-button-click.json.gz');
-      assert.strictEqual(flameChartData.groups.length, 1);
+      assert.lengthOf(flameChartData.groups, 1);
       assert.strictEqual(flameChartData.groups[0].name, 'Interactions');
     });
 

@@ -52,6 +52,8 @@ export const enum Phase {
   CLOCK_SYNC = 'c',
 }
 
+export type NonEmptyString = string&{_tag: 'NonEmptyString'};
+
 export function isNestableAsyncPhase(phase: Phase): boolean {
   return phase === Phase.ASYNC_NESTABLE_START || phase === Phase.ASYNC_NESTABLE_END ||
       phase === Phase.ASYNC_NESTABLE_INSTANT;
@@ -266,28 +268,38 @@ export interface End extends Event {
  */
 export type SyntheticComplete = Complete;
 
-export interface EventTiming extends Event {
-  ph: Phase.ASYNC_NESTABLE_START|Phase.ASYNC_NESTABLE_END;
+// TODO(paulirish): Migrate to the new (Sept 2024) EventTiming trace events.
+// See https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/timing/window_performance.cc;l=900-901;drc=b503c262e425eae59ced4a80d59d176ed07152c7
+export type EventTimingBeginOrEnd = EventTimingBegin|EventTimingEnd;
+
+export interface EventTimingBegin extends Event {
+  ph: Phase.ASYNC_NESTABLE_START;
   name: Name.EVENT_TIMING;
   id: string;
   args: Args&{
-    frame: string,
-    data?: ArgsData&{
+    // https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/timing/performance_event_timing.cc;l=297;drc=4f00803ca25c0d0480ed14844d6406933c21e80e
+    data: ArgsData & {
       cancelable: boolean,
       duration: MilliSeconds,
-      processingEnd: MilliSeconds,
-      processingStart: MilliSeconds,
-      timeStamp: MilliSeconds,
-      interactionId?: number, type: string,
+      type: string,
+      interactionId: number,
+      interactionOffset: number,
+      nodeId: Protocol.DOM.BackendNodeId,
+      frame?: string,  // From May 2022 onwards, this is where frame is located. https://chromium-review.googlesource.com/c/chromium/src/+/3632661
+      processingEnd?: MilliSeconds,
+      processingStart?: MilliSeconds,
+      timeStamp?: MilliSeconds,
+      enqueuedToMainThreadTime?: MilliSeconds,
+      commitFinishTime?: MilliSeconds,
     },
+    frame?: string,  // Prior to May 2022, `frame` was here in args.
   };
 }
-
-export interface EventTimingBegin extends EventTiming {
-  ph: Phase.ASYNC_NESTABLE_START;
-}
-export interface EventTimingEnd extends EventTiming {
+export interface EventTimingEnd extends Event {
   ph: Phase.ASYNC_NESTABLE_END;
+  name: Name.EVENT_TIMING;
+  id: string;
+  args: Args;
 }
 
 export interface GPUTask extends Complete {
@@ -633,11 +645,13 @@ export interface Mark extends Event {
   ph: Phase.MARK;
 }
 
-export interface NavigationStart extends Mark {
+// An unreliable and non-legit navigationStart. See NavigationStartWithUrl
+export interface NavigationStartUnreliable extends Mark {
   name: 'navigationStart';
   args: Args&{
     data?: ArgsData & {
-      documentLoaderURL: string,
+      /** An empty documentLoaderURL means this navigationStart is unreliable noise and can be ignored. */
+      documentLoaderURL: never,
       isLoadingMainFrame: boolean,
       // isOutermostMainFrame was introduced in crrev.com/c/3625434 and exists
       // because of Fenced Frames
@@ -659,6 +673,16 @@ export interface NavigationStart extends Mark {
       url?: string,
     },
         frame: string,
+  };
+}
+
+// NavigationStart but definitely has a populated documentLoaderURL
+export interface NavigationStart extends NavigationStartUnreliable {
+  args: NavigationStartUnreliable['args']&{
+    data: NavigationStartUnreliable['args']['data'] & {
+      /** This navigationStart is valid, as the documentLoaderURL isn't empty. */
+      documentLoaderURL: NonEmptyString,
+    },
   };
 }
 
@@ -702,7 +726,10 @@ export interface MarkerEvent extends Event {
 }
 
 export function isMarkerEvent(event: Event): event is MarkerEvent {
-  return markerTypeGuards.some(fn => fn(event));
+  if (event.ph === Phase.INSTANT || event.ph === Phase.MARK) {
+    return markerTypeGuards.some(fn => fn(event));
+  }
+  return false;
 }
 
 const pageLoadEventTypeGuards = [
@@ -711,7 +738,10 @@ const pageLoadEventTypeGuards = [
 ];
 
 export function eventIsPageLoadEvent(event: Event): event is PageLoadEvent {
-  return pageLoadEventTypeGuards.some(fn => fn(event));
+  if (event.ph === Phase.INSTANT || event.ph === Phase.MARK) {
+    return pageLoadEventTypeGuards.some(fn => fn(event));
+  }
+  return false;
 }
 
 export interface LargestContentfulPaintCandidate extends Mark {
@@ -1000,8 +1030,10 @@ export interface ResourceSendRequest extends Instant {
       requestId: string,
       url: string,
       priority: Protocol.Network.ResourcePriority,
-      resourceType: Protocol.Network.ResourceType,
-      fetchPriorityHint: FetchPriorityHint,
+      /** Added Feb 2024. https://crrev.com/c/5277583 */
+      resourceType?: Protocol.Network.ResourceType,
+      /** Added Feb 2024. https://crrev.com/c/5297615 */
+      fetchPriorityHint?: FetchPriorityHint,
       // TODO(crbug.com/1457985): change requestMethod to enum when confirm in the backend code.
       requestMethod?: string,
       renderBlocking?: RenderBlocking,
@@ -1021,8 +1053,9 @@ export interface ResourceChangePriority extends Instant {
   };
 }
 
+/** Only sent for navigations. https://source.chromium.org/chromium/chromium/src/+/main:content/browser/devtools/devtools_instrumentation.cc;l=1612-1647;drc=ec7daf93d0479b758610c75f4e146fd4d2d6ed2b */
 export interface ResourceWillSendRequest extends Instant {
-  name: 'ResourceWillSendRequest';
+  name: Name.RESOURCE_WILL_SEND_REQUEST;
   args: Args&{
     data: ArgsData & {
       requestId: string,
@@ -1054,6 +1087,7 @@ export interface ResourceReceivedData extends Instant {
   };
 }
 
+/** See https://mdn.github.io/shared-assets/images/diagrams/api/performance/timestamp-diagram.svg  */
 interface ResourceReceiveResponseTimingData {
   connectEnd: MilliSeconds;
   connectStart: MilliSeconds;
@@ -1065,6 +1099,7 @@ interface ResourceReceiveResponseTimingData {
   pushStart: MilliSeconds;
   receiveHeadersEnd: MilliSeconds;
   receiveHeadersStart: MilliSeconds;
+  /** When the network service is about to handle a request, ie. just before going to the HTTP cache or going to the network for DNS/connection setup. */
   requestTime: Seconds;
   sendEnd: MilliSeconds;
   sendStart: MilliSeconds;
@@ -1240,8 +1275,23 @@ export interface RenderFrameImplCreateChildFrame extends Event {
     frame_token: string,
   };
 }
+
 export function isRenderFrameImplCreateChildFrame(event: Event): event is RenderFrameImplCreateChildFrame {
   return event.name === Name.RENDER_FRAME_IMPL_CREATE_CHILD_FRAME;
+}
+
+export interface LayoutImageUnsized extends Event {
+  name: Name.LAYOUT_IMAGE_UNSIZED;
+  args: Args&{
+    data: {
+      nodeId: Protocol.DOM.BackendNodeId,
+      frameId: string,
+    },
+  };
+}
+
+export function isLayoutImageUnsized(event: Event): event is LayoutImageUnsized {
+  return event.name === Name.LAYOUT_IMAGE_UNSIZED;
 }
 
 export interface PrePaint extends Complete {
@@ -1266,6 +1316,44 @@ export interface PairableAsyncInstant extends PairableAsync {
 
 export interface PairableAsyncEnd extends PairableAsync {
   ph: Phase.ASYNC_NESTABLE_END;
+}
+
+export interface AnimationFrame extends PairableAsync {
+  name: Name.ANIMATION_FRAME;
+  args?: AnimationFrameArgs;
+}
+export type AnimationFrameArgs = Args&{
+  animation_frame_timing_info: {
+    blocking_duration_ms: number,
+    duration_ms: number,
+    num_scripts: number,
+  },
+  id: string,
+};
+
+export interface AnimationFrameAsyncStart extends AnimationFrame {
+  ph: Phase.ASYNC_NESTABLE_START;
+}
+export interface AnimationFrameAsyncEnd extends AnimationFrame {
+  ph: Phase.ASYNC_NESTABLE_END;
+}
+
+export function isAnimationFrameAsyncStart(data: Event): data is AnimationFrameAsyncStart {
+  return data.name === Name.ANIMATION_FRAME && data.ph === Phase.ASYNC_NESTABLE_START;
+}
+export function isAnimationFrameAsyncEnd(data: Event): data is AnimationFrameAsyncEnd {
+  return data.name === Name.ANIMATION_FRAME && data.ph === Phase.ASYNC_NESTABLE_END;
+}
+
+export interface AnimationFramePresentation extends Event {
+  name: Name.ANIMATION_FRAME_PRESENTATION;
+  ph: Phase.ASYNC_NESTABLE_INSTANT;
+  args?: Args&{
+    id: string,
+  };
+}
+export function isAnimationFramePresentation(data: Event): data is AnimationFramePresentation {
+  return data.name === Name.ANIMATION_FRAME_PRESENTATION;
 }
 
 export interface UserTiming extends Event {
@@ -1299,6 +1387,7 @@ export interface PerformanceMeasureBegin extends PairableUserTiming {
   args: Args&{
     detail?: string,
     stackTrace?: CallFrame[],
+    callTime?: MicroSeconds,
   };
   ph: Phase.ASYNC_NESTABLE_START;
 }
@@ -1311,6 +1400,7 @@ export interface PerformanceMark extends UserTiming {
     data?: ArgsData & {
       detail?: string,
       stackTrace?: CallFrame[],
+      callTime?: MicroSeconds,
     },
   };
   ph: Phase.INSTANT|Phase.MARK|Phase.ASYNC_NESTABLE_INSTANT;
@@ -1443,9 +1533,9 @@ export function isPipelineReporter(event: Event): event is PipelineReporter {
 // because synthetic events need to be registered in order to resolve
 // serialized event keys into event objects, so we ensure events are
 // registered at the time they are created by the SyntheticEventsManager.
-export interface SyntheticBased<Ph extends Phase = Phase> extends Event {
+export interface SyntheticBased<Ph extends Phase = Phase, T extends Event = Event> extends Event {
   ph: Ph;
-  rawSourceEvent: Event;
+  rawSourceEvent: T;
   _tag: 'SyntheticEntryTag';
 }
 
@@ -1456,8 +1546,8 @@ export function isSyntheticBased(event: Event): event is SyntheticBased {
 // Nestable async events with a duration are made up of two distinct
 // events: the begin, and the end. We need both of them to be able to
 // display the right information, so we create these synthetic events.
-export interface SyntheticEventPair<T extends PairableAsync = PairableAsync> extends SyntheticBased {
-  rawSourceEvent: Event;
+export interface SyntheticEventPair<T extends PairableAsync = PairableAsync> extends SyntheticBased<Phase, T> {
+  rawSourceEvent: T;
   name: T['name'];
   cat: T['cat'];
   id?: string;
@@ -1474,6 +1564,7 @@ export interface SyntheticEventPair<T extends PairableAsync = PairableAsync> ext
 }
 
 export type SyntheticPipelineReporterPair = SyntheticEventPair<PipelineReporter>;
+export type SyntheticAnimationFramePair = SyntheticEventPair<AnimationFrame>;
 
 export type SyntheticUserTimingPair = SyntheticEventPair<PerformanceMeasure>;
 
@@ -1481,14 +1572,14 @@ export type SyntheticConsoleTimingPair = SyntheticEventPair<ConsoleTime>;
 
 export type SyntheticAnimationPair = SyntheticEventPair<Animation>;
 
-export type SyntheticAnimationFramePair = SyntheticEventPair<TraceEventAnimationFrameGroupingEvent> & {
+export type SyntheticExtendedAnimationFramePair = SyntheticEventPair<TraceEventAnimationFrameGroupingEvent> & {
   phases: Array<
   TraceEventAnimationFramePaintGroupingEvent |
   TraceEventAnimationFrameScriptGroupingEvent |
   TraceEventAnimationFrameInstantEvent>,
 };
 
-export interface SyntheticInteractionPair extends SyntheticEventPair<EventTiming> {
+export interface SyntheticInteractionPair extends SyntheticEventPair<EventTimingBeginOrEnd> {
   // InteractionID and type are available within the beginEvent's data, but we
   // put them on the top level for ease of access.
   interactionId: number;
@@ -1838,6 +1929,25 @@ export function isInvalidateLayout(event: Event): event is InvalidateLayout {
   return event.name === Name.INVALIDATE_LAYOUT;
 }
 
+export interface DebuggerAsyncTaskScheduled extends Event {
+  name: Name.DEBUGGER_ASYNC_TASK_SCHEDULED;
+  args: Args&{
+    taskName: string,
+  };
+}
+
+export function isDebuggerAsyncTaskScheduled(event: Event): event is DebuggerAsyncTaskScheduled {
+  return event.name === Name.DEBUGGER_ASYNC_TASK_SCHEDULED;
+}
+
+export interface DebuggerAsyncTaskRun extends Event {
+  name: Name.DEBUGGER_ASYNC_TASK_RUN;
+}
+
+export function isDebuggerAsyncTaskRun(event: Event): event is DebuggerAsyncTaskRun {
+  return event.name === Name.DEBUGGER_ASYNC_TASK_RUN;
+}
+
 class ProfileIdTag {
   readonly #profileIdTag: (symbol|undefined);
 }
@@ -1962,9 +2072,10 @@ export function isCommitLoad(
   return event.name === 'CommitLoad';
 }
 
-export function isNavigationStart(
+/** @deprecated You probably want `isNavigationStart` instead. */
+export function isNavigationStartUnreliable(
     event: Event,
-    ): event is NavigationStart {
+    ): event is NavigationStartUnreliable {
   return event.name === 'navigationStart';
 }
 
@@ -2044,7 +2155,7 @@ export function isInteractiveTime(event: Event): event is InteractiveTime {
   return event.name === 'InteractiveTime';
 }
 
-export function isEventTiming(event: Event): event is EventTiming {
+export function isEventTiming(event: Event): event is EventTimingBeginOrEnd {
   return event.name === Name.EVENT_TIMING;
 }
 
@@ -2135,8 +2246,9 @@ export function isPrePaint(
   return event.name === 'PrePaint';
 }
 
-export function isNavigationStartWithURL(event: Event): event is NavigationStart {
-  return Boolean(isNavigationStart(event) && event.args.data && event.args.data.documentLoaderURL !== '');
+/** A VALID navigation start (as it has a populated documentLoaderURL) */
+export function isNavigationStart(event: Event): event is NavigationStart {
+  return Boolean(isNavigationStartUnreliable(event) && event.args.data && event.args.data.documentLoaderURL !== '');
 }
 
 export function isMainFrameViewport(
@@ -2181,6 +2293,10 @@ export function isBeginRemoteFontLoad(event: Event): event is BeginRemoteFontLoa
 
 export function isPerformanceMeasure(event: Event): event is PerformanceMeasure {
   return isUserTiming(event) && isPhaseAsync(event.ph);
+}
+
+export function isPerformanceMeasureBegin(event: Event): event is PerformanceMeasureBegin {
+  return isPerformanceMeasure(event) && event.ph === Phase.ASYNC_NESTABLE_START;
 }
 
 export function isPerformanceMark(event: Event): event is PerformanceMark {
@@ -2589,13 +2705,8 @@ export function isV8Compile(event: Event): event is V8Compile {
 export interface FunctionCall extends Complete {
   name: Name.FUNCTION_CALL;
   args: Args&{
-    data?: {
+    data?: Partial<CallFrame>& {
       frame?: string,
-      columnNumber?: number,
-      lineNumber?: number,
-      functionName?: string,
-      scriptId?: number,
-      url?: string,
     },
   };
 }
@@ -2607,26 +2718,95 @@ export function isSyntheticServerTiming(event: Event): event is SyntheticServerT
   return event.cat === 'devtools.server-timing';
 }
 
+export interface SchedulePostTaskCallback extends Instant {
+  name: Name.SCHEDULE_POST_TASK_CALLBACK;
+  args: Args&{
+    data: {
+      taskId: number,
+      priority: 'user-blocking'|'user-visible'|'background',
+      delay: MilliSeconds,
+      frame?: string,
+      stackTrace?: CallFrame,
+    },
+  };
+}
+export function isSchedulePostTaskCallback(event: Event): event is SchedulePostTaskCallback {
+  return event.name === Name.SCHEDULE_POST_TASK_CALLBACK;
+}
+
+export interface RunPostTaskCallback extends Complete {
+  name: Name.RUN_POST_TASK_CALLBACK;
+  args: Args&{
+    data: {
+      taskId: number,
+      priority: 'user-blocking'|'user-visible'|'background',
+      delay: MilliSeconds,
+      frame?: string,
+    },
+  };
+}
+export function isRunPostTaskCallback(event: Event): event is RunPostTaskCallback {
+  return event.name === Name.RUN_POST_TASK_CALLBACK;
+}
+
+export interface AbortPostTaskCallback extends Complete {
+  name: Name.ABORT_POST_TASK_CALLBACK;
+  args: Args&{
+    data: {
+      taskId: number,
+      frame?: string,
+      stackTrace?: CallFrame,
+    },
+  };
+}
+export function isAbortPostTaskCallback(event: Event): event is RunPostTaskCallback {
+  return event.name === Name.ABORT_POST_TASK_CALLBACK;
+}
+
 /**
  * Generally, before JS is executed, a trace event is dispatched that
  * parents the JS calls. These we call "invocation" events. This
- * function determines if an event is one of such.
+ * function determines if an event is one of such. Note: these are also
+ * commonly referred to as "JS entry points".
  */
 export function isJSInvocationEvent(event: Event): boolean {
   switch (event.name) {
     case Name.RUN_MICROTASKS:
     case Name.FUNCTION_CALL:
+    // TODO(paulirish): Define types for these Evaluate* events
     case Name.EVALUATE_SCRIPT:
     case Name.EVALUATE_MODULE:
     case Name.EVENT_DISPATCH:
     case Name.V8_EXECUTE:
+    case Name.V8_CONSOLE_RUN_TASK:
       return true;
   }
   // Also consider any new v8 trace events. (eg 'V8.RunMicrotasks' and 'v8.run')
   if (event.name.startsWith('v8') || event.name.startsWith('V8')) {
     return true;
   }
+  if (isConsoleRunTask(event)) {
+    return true;
+  }
   return false;
+}
+export interface ConsoleRunTask extends Event {
+  name: Name.V8_CONSOLE_RUN_TASK;
+}
+
+export function isConsoleRunTask(event: Event): event is ConsoleRunTask {
+  return event.name === Name.V8_CONSOLE_RUN_TASK;
+}
+
+export interface FlowEvent extends Event {
+  // Contains a flow id created by perfetto for the flow this phase
+  // event belongs to.
+  id: number;
+  ph: Phase.FLOW_START|Phase.FLOW_END|Phase.FLOW_STEP;
+}
+
+export function isFlowPhaseEvent(event: Event): event is FlowEvent {
+  return event.ph === Phase.FLOW_START || event.ph === Phase.FLOW_STEP || event.ph === Phase.FLOW_END;
 }
 
 /**
@@ -2700,6 +2880,12 @@ export const enum Name {
   CRYPTO_DO_VERIFY = 'DoVerify',
   CRYPTO_DO_VERIFY_REPLY = 'DoVerifyReply',
   V8_EXECUTE = 'V8.Execute',
+  V8_CONSOLE_RUN_TASK = 'V8Console::runTask',
+  SCHEDULE_POST_TASK_CALLBACK = 'SchedulePostTaskCallback',
+  RUN_POST_TASK_CALLBACK = 'RunPostTaskCallback',
+  ABORT_POST_TASK_CALLBACK = 'AbortPostTaskCallback',
+  DEBUGGER_ASYNC_TASK_RUN = 'v8::Debugger::AsyncTaskRun',
+  DEBUGGER_ASYNC_TASK_SCHEDULED = 'v8::Debugger::AsyncTaskScheduled',
 
   /* Gc */
   GC = 'GCEvent',
@@ -2837,9 +3023,13 @@ export const enum Name {
   HANDLE_POST_MESSAGE = 'HandlePostMessage',
 
   RENDER_FRAME_IMPL_CREATE_CHILD_FRAME = 'RenderFrameImpl::createChildFrame',
+  LAYOUT_IMAGE_UNSIZED = 'LayoutImageUnsized',
 
   DOM_LOADING = 'domLoading',
   BEGIN_REMOTE_FONT_LOAD = 'BeginRemoteFontLoad',
+
+  ANIMATION_FRAME = 'AnimationFrame',
+  ANIMATION_FRAME_PRESENTATION = 'AnimationFrame::Presentation',
 }
 
 // NOT AN EXHAUSTIVE LIST: just some categories we use and refer

@@ -53,7 +53,7 @@ import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
 import * as ElementsComponents from './components/components.js';
-import {type ComputedStyleChangedEvent, ComputedStyleModel} from './ComputedStyleModel.js';
+import type {ComputedStyleModel, CSSModelChangedEvent} from './ComputedStyleModel.js';
 import {ElementsPanel} from './ElementsPanel.js';
 import {ElementsSidebarPane} from './ElementsSidebarPane.js';
 import {ImagePreviewPopover} from './ImagePreviewPopover.js';
@@ -185,8 +185,6 @@ const HIGHLIGHTABLE_PROPERTIES = [
   {mode: 'flexibility', properties: ['flex', 'flex-basis', 'flex-grow', 'flex-shrink']},
 ];
 
-let stylesSidebarPaneInstance: StylesSidebarPane;
-
 export class StylesSidebarPane extends Common.ObjectWrapper.eventMixin<EventTypes, typeof ElementsSidebarPane>(
     ElementsSidebarPane) {
   private currentToolbarPane: UI.Widget.Widget|null;
@@ -230,15 +228,8 @@ export class StylesSidebarPane extends Common.ObjectWrapper.eventMixin<EventType
   #updateAbortController?: AbortController;
   #updateComputedStylesAbortController?: AbortController;
 
-  static instance(opts?: {forceNew: boolean}): StylesSidebarPane {
-    if (!stylesSidebarPaneInstance || opts?.forceNew) {
-      stylesSidebarPaneInstance = new StylesSidebarPane();
-    }
-    return stylesSidebarPaneInstance;
-  }
-
-  constructor() {
-    super(true /* delegatesFocus */);
+  constructor(computedStyleModel: ComputedStyleModel) {
+    super(computedStyleModel, true /* delegatesFocus */);
     this.setMinimumSize(96, 26);
     this.registerCSSFiles([stylesSidebarPaneStyles]);
     Common.Settings.Settings.instance().moduleSetting('text-editor-indent').addChangeListener(this.update.bind(this));
@@ -251,7 +242,6 @@ export class StylesSidebarPane extends Common.ObjectWrapper.eventMixin<EventType
     this.lastFilterChange = null;
     this.visibleSections = null;
     this.toolbarPaneElement = this.createStylesSidebarToolbar();
-    this.computedStyleModelInternal = new ComputedStyleModel();
 
     this.noMatchesElement = this.contentElement.createChild('div', 'gray-info-message hidden');
     this.noMatchesElement.textContent = i18nString(UIStrings.noMatchingSelectorOrStyle);
@@ -281,7 +271,6 @@ export class StylesSidebarPane extends Common.ObjectWrapper.eventMixin<EventType
     this.sectionBlocks = [];
     this.idleCallbackManager = null;
     this.needsForceUpdate = false;
-    stylesSidebarPaneInstance = this;
     UI.Context.Context.instance().addFlavorChangeListener(SDK.DOMModel.DOMNode, this.forceUpdate, this);
     this.contentElement.addEventListener('copy', this.clipboardCopy.bind(this));
     this.resizeThrottler = new Common.Throttler.Throttler(100);
@@ -859,7 +848,7 @@ export class StylesSidebarPane extends Common.ObjectWrapper.eventMixin<EventType
     }
   }
 
-  override onCSSModelChanged(event: Common.EventTarget.EventTargetEvent<ComputedStyleChangedEvent>): void {
+  override onCSSModelChanged(event: Common.EventTarget.EventTargetEvent<CSSModelChangedEvent>): void {
     const edit = event?.data && 'edit' in event.data ? event.data.edit : null;
     if (edit) {
       for (const section of this.allSections()) {
@@ -1461,7 +1450,7 @@ export class StylesSidebarPane extends Common.ObjectWrapper.eventMixin<EventType
     this.toolbar = toolbar;
 
     const toolbarPaneContainer = container.createChild('div', 'styles-sidebar-toolbar-pane-container');
-    const toolbarPaneContent = (toolbarPaneContainer.createChild('div', 'styles-sidebar-toolbar-pane') as HTMLElement);
+    const toolbarPaneContent = toolbarPaneContainer.createChild('div', 'styles-sidebar-toolbar-pane');
 
     return toolbarPaneContent;
   }
@@ -1749,7 +1738,7 @@ export class SectionBlock {
       UI.UIUtils.createTextChild(separatorElement.createChild('div'), name);
       return new SectionBlock(separatorElement);
     }
-    const layerLink = separatorElement.createChild('button') as HTMLButtonElement;
+    const layerLink = separatorElement.createChild('button');
     layerLink.className = 'link';
     layerLink.title = i18nString(UIStrings.clickToRevealLayer);
     const name = layers.map(layer => SDK.CSSModel.CSSModel.readableLayerName(layer.text)).join('.');
@@ -2199,7 +2188,7 @@ export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
     switch (actionId) {
       case 'elements.new-style-rule': {
         Host.userMetrics.actionTaken(Host.UserMetrics.Action.NewStyleRuleAdded);
-        void StylesSidebarPane.instance().createNewRuleInViaInspectorStyleSheet();
+        void ElementsPanel.instance().stylesWidget.createNewRuleInViaInspectorStyleSheet();
         return true;
       }
     }
@@ -2208,7 +2197,6 @@ export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
 }
 
 let buttonProviderInstance: ButtonProvider;
-
 export class ButtonProvider implements UI.Toolbar.Provider {
   private readonly button: UI.Toolbar.ToolbarButton;
   private constructor() {
@@ -2238,7 +2226,7 @@ export class ButtonProvider implements UI.Toolbar.Provider {
   }
 
   private longClicked(event: Event): void {
-    StylesSidebarPane.instance().onAddButtonLongClick(event);
+    ElementsPanel.instance().stylesWidget.onAddButtonLongClick(event);
   }
 
   item(): UI.Toolbar.ToolbarItem {

@@ -9,7 +9,7 @@ import * as SDK from '../../core/sdk/sdk.js';
 import * as CodeMirror from '../../third_party/codemirror.next/codemirror.next.js';
 import * as TextEditor from '../../ui/components/text_editor/text_editor.js';
 import * as ObjectUI from '../../ui/legacy/components/object_ui/object_ui.js';
-// eslint-disable-next-line rulesdir/es_modules_import
+// eslint-disable-next-line rulesdir/es-modules-import
 import objectValueStyles from '../../ui/legacy/components/object_ui/objectValue.css.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
@@ -182,7 +182,7 @@ export class ConsolePin {
   private deletePinIcon: UI.UIUtils.DevToolsCloseButton;
 
   constructor(expression: string, private readonly pinPane: ConsolePinPane, private readonly focusOut: () => void) {
-    this.deletePinIcon = document.createElement('div', {is: 'dt-close-button'}) as UI.UIUtils.DevToolsCloseButton;
+    this.deletePinIcon = document.createElement('dt-close-button');
     this.deletePinIcon.classList.add('close-button');
     this.deletePinIcon.setTabbable(true);
     if (expression.length) {
@@ -371,8 +371,7 @@ export class ConsolePin {
     if (!previewText || previewText !== this.pinPreview.deepTextContent()) {
       this.pinPreview.removeChildren();
       if (result && SDK.RuntimeModel.RuntimeModel.isSideEffectFailure(result)) {
-        const sideEffectLabel =
-            (this.pinPreview.createChild('span', 'object-value-calculate-value-button') as HTMLElement);
+        const sideEffectLabel = this.pinPreview.createChild('span', 'object-value-calculate-value-button');
         sideEffectLabel.textContent = '(…)';
         UI.Tooltip.Tooltip.install(sideEffectLabel, i18nString(UIStrings.evaluateAllowingSideEffects));
       } else if (previewText) {

@@ -1295,8 +1295,14 @@ export class MultitargetNetworkManager extends Common.ObjectWrapper.ObjectWrappe
     this.#updatingInterceptionPatternsPromise = null;
 
     // TODO(allada) Remove these and merge it with request interception.
+    const blockedPatternChanged: () => void = () => {
+      this.updateBlockedPatterns();
+      this.dispatchEventToListeners(MultitargetNetworkManager.Events.BLOCKED_PATTERNS_CHANGED);
+    };
     this.#blockingEnabledSetting = Common.Settings.Settings.instance().moduleSetting('request-blocking-enabled');
+    this.#blockingEnabledSetting.addChangeListener(blockedPatternChanged);
     this.#blockedPatternsSetting = Common.Settings.Settings.instance().createSetting('network-blocked-patterns', []);
+    this.#blockedPatternsSetting.addChangeListener(blockedPatternChanged);
     this.#effectiveBlockedURLs = [];
     this.updateBlockedPatterns();
 
@@ -1537,8 +1543,6 @@ export class MultitargetNetworkManager extends Common.ObjectWrapper.ObjectWrappe
 
   setBlockedPatterns(patterns: BlockedPattern[]): void {
     this.#blockedPatternsSetting.set(patterns);
-    this.updateBlockedPatterns();
-    this.dispatchEventToListeners(MultitargetNetworkManager.Events.BLOCKED_PATTERNS_CHANGED);
   }
 
   setBlockingEnabled(enabled: boolean): void {
@@ -1546,8 +1550,6 @@ export class MultitargetNetworkManager extends Common.ObjectWrapper.ObjectWrappe
       return;
     }
     this.#blockingEnabledSetting.set(enabled);
-    this.updateBlockedPatterns();
-    this.dispatchEventToListeners(MultitargetNetworkManager.Events.BLOCKED_PATTERNS_CHANGED);
   }
 
   private updateBlockedPatterns(): void {
@@ -1970,7 +1972,7 @@ export class ConditionsSerializer implements Serializer<Conditions, Conditions> 
     const parsed = JSON.parse(serialized);
     return {
       ...parsed,
-      // eslint-disable-next-line rulesdir/l10n_i18nString_call_only_with_uistrings
+      // eslint-disable-next-line rulesdir/l10n-i18nString-call-only-with-uistrings
       title: parsed.i18nTitleKey ? i18nLazyString(parsed.i18nTitleKey) : parsed.title,
     };
   }

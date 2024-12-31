@@ -394,28 +394,8 @@ export class MainImpl {
     );
 
     Root.Runtime.experiments.register(
-        Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS,
-        'Performance panel: enable annotations',
-    );
-
-    Root.Runtime.experiments.register(
-        Root.Runtime.ExperimentName.TIMELINE_INSIGHTS,
-        'Performance panel: enable performance insights',
-    );
-
-    Root.Runtime.experiments.register(
-        Root.Runtime.ExperimentName.TIMELINE_OBSERVATIONS,
-        'Performance panel: enable live metrics landing page',
-    );
-
-    Root.Runtime.experiments.register(
         Root.Runtime.ExperimentName.TIMELINE_SERVER_TIMINGS,
         'Performance panel: enable server timings in the timeline',
-    );
-
-    Root.Runtime.experiments.register(
-        Root.Runtime.ExperimentName.EXTENSION_STORAGE_VIEWER,
-        'Extension storage in Application panel',
     );
 
     Root.Runtime.experiments.register(
@@ -427,14 +407,27 @@ export class MainImpl {
         'Performance panel: enable experimental performance insights',
     );
 
+    Root.Runtime.experiments.register(
+        Root.Runtime.ExperimentName.TIMELINE_DIM_UNRELATED_EVENTS,
+        'Performance panel: enable dimming unrelated events in performance insights and search results',
+    );
+
+    Root.Runtime.experiments.register(
+        Root.Runtime.ExperimentName.TIMELINE_ALTERNATIVE_NAVIGATION,
+        'Performance panel: enable a switch to an alternative timeline navigation option',
+    );
+
+    Root.Runtime.experiments.register(
+        Root.Runtime.ExperimentName.TIMELINE_THIRD_PARTY_DEPENDENCIES,
+        'Performance panel: enable third party depenedency features',
+    );
+
     Root.Runtime.experiments.enableExperimentsByDefault([
       'css-type-component-length-deprecate',
       Root.Runtime.ExperimentName.AUTOFILL_VIEW,
-      Root.Runtime.ExperimentName.TIMELINE_INSIGHTS,
-      Root.Runtime.ExperimentName.TIMELINE_OBSERVATIONS,
-      Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS,
       Root.Runtime.ExperimentName.NETWORK_PANEL_FILTER_BAR_REDESIGN,
       Root.Runtime.ExperimentName.FLOATING_ENTRY_POINTS_FOR_AI_ASSISTANCE,
+      Root.Runtime.ExperimentName.TIMELINE_ALTERNATIVE_NAVIGATION,
       ...(Root.Runtime.Runtime.queryParam('isChromeForTesting') ? ['protocol-monitor'] : []),
     ]);
 
@@ -562,10 +555,8 @@ export class MainImpl {
 
     AutofillManager.AutofillManager.AutofillManager.instance();
 
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_OBSERVATIONS)) {
-      LiveMetrics.LiveMetrics.instance({forceNew: true});
-      CrUXManager.CrUXManager.instance({forceNew: true});
-    }
+    LiveMetrics.LiveMetrics.instance();
+    CrUXManager.CrUXManager.instance();
 
     new PauseListener();
 
@@ -638,7 +629,38 @@ export class MainImpl {
     this.#resolveReadyForTestPromise();
     // Asynchronously run the extensions.
     window.setTimeout(this.#lateInitialization.bind(this), 100);
+    await this.#maybeInstallVeInspectionBinding(); // TODO: Check this out and see what this new init does
+
     // MainImpl.timeEnd('Main._initializeTarget');
+  }
+
+  async #maybeInstallVeInspectionBinding(): Promise<void> {
+    const primaryPageTarget = SDK.TargetManager.TargetManager.instance().primaryPageTarget();
+    const url = primaryPageTarget?.targetInfo()?.url;
+    const origin = url ? Common.ParsedURL.ParsedURL.extractOrigin(url as Platform.DevToolsPath.UrlString) : undefined;
+
+    const binding = '__devtools_ve_inspection_binding__';
+    if (primaryPageTarget && await VisualLogging.isUnderInspection(origin)) {
+      const runtimeModel = primaryPageTarget.model(SDK.RuntimeModel.RuntimeModel);
+      await runtimeModel?.addBinding({name: binding});
+      runtimeModel?.addEventListener(SDK.RuntimeModel.Events.BindingCalled, event => {
+        if (event.data.name === binding) {
+          VisualLogging.setVeDebuggingEnabled(event.data.payload === 'true', (query: string) => {
+            VisualLogging.setVeDebuggingEnabled(false);
+            void runtimeModel?.defaultExecutionContext()?.evaluate(
+                {
+                  expression: `window.inspect(${JSON.stringify(query)})`,
+                  includeCommandLineAPI: false,
+                  silent: true,
+                  returnByValue: false,
+                  generatePreview: false,
+                },
+                /* userGesture */ false,
+                /* awaitPromise */ false);
+          });
+        }
+      });
+    }
   }
 
   // TODO(crbug.com/350668580) Move this to AISettingsTab once the setting is only available
@@ -1084,6 +1106,7 @@ export class ReloadActionDelegate implements UI.ActionRegistration.ActionDelegat
     switch (actionId) {
       case 'main.debug-reload':
         Components.Reload.reload();
+
         return true;
     }
     return false;

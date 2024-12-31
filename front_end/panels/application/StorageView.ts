@@ -221,15 +221,13 @@ export class StorageView extends UI.ThrottledWidget.ThrottledWidget {
     this.previousOverrideFieldValue = '';
     const quotaOverrideCheckboxRow = quota.appendRow();
     quotaOverrideCheckboxRow.classList.add('quota-override-row');
-    this.quotaOverrideCheckbox =
-        UI.UIUtils.CheckboxLabel.create(i18nString(UIStrings.simulateCustomStorage), false, '');
+    this.quotaOverrideCheckbox = UI.UIUtils.CheckboxLabel.create(i18nString(UIStrings.simulateCustomStorage), false);
     this.quotaOverrideCheckbox.setAttribute(
         'jslog', `${VisualLogging.toggle('simulate-custom-quota').track({change: true})}`);
     quotaOverrideCheckboxRow.appendChild(this.quotaOverrideCheckbox);
     this.quotaOverrideCheckbox.checkboxElement.addEventListener('click', this.onClickCheckbox.bind(this), false);
     this.quotaOverrideControlRow = quota.appendRow();
-    this.quotaOverrideEditor =
-        this.quotaOverrideControlRow.createChild('input', 'quota-override-notification-editor') as HTMLInputElement;
+    this.quotaOverrideEditor = this.quotaOverrideControlRow.createChild('input', 'quota-override-notification-editor');
     this.quotaOverrideEditor.setAttribute(
         'jslog', `${VisualLogging.textField('quota-override').track({change: true})}`);
     this.quotaOverrideControlRow.appendChild(UI.UIUtils.createLabel(i18nString(UIStrings.mb)));
@@ -277,7 +275,9 @@ export class StorageView extends UI.ThrottledWidget.ThrottledWidget {
     SDK.TargetManager.TargetManager.instance().observeTargets(this);
   }
 
-  private appendItem(section: UI.ReportView.Section, title: string, settingName: Protocol.Storage.StorageType): void {
+  private appendItem(
+      section: UI.ReportView.Section, title: Platform.UIString.LocalizedString,
+      settingName: Protocol.Storage.StorageType): void {
     const row = section.appendRow();
     const setting = this.settings.get(settingName);
     if (setting) {
@@ -507,8 +507,8 @@ export class StorageView extends UI.ThrottledWidget.ThrottledWidget {
       return;
     }
     const quotaOverridden = response.overrideActive;
-    const quotaAsString = Platform.NumberUtilities.bytesToString(response.quota);
-    const usageAsString = Platform.NumberUtilities.bytesToString(response.usage);
+    const quotaAsString = i18n.ByteUtilities.bytesToString(response.quota);
+    const usageAsString = i18n.ByteUtilities.bytesToString(response.usage);
     const formattedQuotaAsString = i18nString(UIStrings.storageWithCustomMarker, {PH1: quotaAsString});
     const quota =
         quotaOverridden ? UI.Fragment.Fragment.build`<b>${formattedQuotaAsString}</b>`.element() : quotaAsString;
@@ -550,7 +550,7 @@ export class StorageView extends UI.ThrottledWidget.ThrottledWidget {
     this.pieChart.data = {
       chartName: i18nString(UIStrings.storageUsage),
       size: 110,
-      formatter: Platform.NumberUtilities.bytesToString,
+      formatter: i18n.ByteUtilities.bytesToString,
       showLegend: true,
       total,
       slices,

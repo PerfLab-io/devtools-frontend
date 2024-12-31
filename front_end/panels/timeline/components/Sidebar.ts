@@ -3,20 +3,16 @@
 // found in the LICENSE file.
 
 import * as Common from '../../../core/common/common.js';
-// eslint-disable-next-line
-// import * as Root from '../../../core/root/root.js';
 import type * as Trace from '../../../models/trace/trace.js';
 import * as Adorners from '../../../ui/components/adorners/adorners.js';
 import * as UI from '../../../ui/legacy/legacy.js';
-import type * as Overlays from '../overlays/overlays.js';
 
 import {SidebarAnnotationsTab} from './SidebarAnnotationsTab.js';
 import {SidebarInsightsTab} from './SidebarInsightsTab.js';
 
 export interface ActiveInsight {
-  name: string;
+  model: Trace.Insights.Types.InsightModel<{}>;
   insightSetKey: string;
-  overlays: Overlays.Overlays.TimelineOverlay[];
 }
 
 export class RemoveAnnotation extends Event {
@@ -75,18 +71,12 @@ export class SidebarWidget extends UI.Widget.VBox {
   constructor() {
     super();
     this.setMinimumSize(MIN_SIDEBAR_WIDTH_PX, 0);
-    if (true) {
-    // if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_INSIGHTS)) {
-      this.#tabbedPane.appendTab(
-          SidebarTabs.INSIGHTS, 'Insights', this.#insightsView, undefined, undefined, false, false, 0,
-          'timeline.insights-tab');
-    }
-    if (true) {
-    // if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ANNOTATIONS)) {
-      this.#tabbedPane.appendTab(
-          SidebarTabs.ANNOTATIONS, 'Annotations', this.#annotationsView, undefined, undefined, false, false, 1,
-          'timeline.annotations-tab');
-    }
+    this.#tabbedPane.appendTab(
+        SidebarTabs.INSIGHTS, 'Insights', this.#insightsView, undefined, undefined, false, false, 0,
+        'timeline.insights-tab');
+    this.#tabbedPane.appendTab(
+        SidebarTabs.ANNOTATIONS, 'Annotations', this.#annotationsView, undefined, undefined, false, false, 1,
+        'timeline.annotations-tab');
 
     // Default the selected tab to Insights. In wasShown() we will change this
     // if this is a trace that has no insights.

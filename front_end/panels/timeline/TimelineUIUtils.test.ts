@@ -22,9 +22,11 @@ import {
   setupPageResourceLoaderForSourceMap,
 } from '../../testing/SourceMapHelpers.js';
 import {
+  getBaseTraceParseModelData,
   getEventOfType,
   getMainThread,
   makeCompleteEvent,
+  makeMockRendererHandlerData,
   makeMockSamplesHandlerData,
   makeProfileCall,
 } from '../../testing/TraceHelpers.js';
@@ -32,8 +34,8 @@ import {TraceLoader} from '../../testing/TraceLoader.js';
 import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as ThemeSupport from '../../ui/legacy/theme_support/theme_support.js';
 
-import * as TimelineComponents from './components/components.js';
 import * as Timeline from './timeline.js';
+import * as Utils from './utils/utils.js';
 
 describeWithMockConnection('TimelineUIUtils', function() {
   let target: SDK.Target.Target;
@@ -247,22 +249,79 @@ describeWithMockConnection('TimelineUIUtils', function() {
         workerIdByThread: new Map(),
         workerURLById: new Map(),
       };
-      // This only includes data used in the SourceMapsResolver
-      const parsedTrace = {
+      // This only includes data used in the SourceMapsResolver and
+      // TimelineUIUtils
+      const parsedTrace = getBaseTraceParseModelData({
         Samples: makeMockSamplesHandlerData([profileCall]),
         Workers: workersData,
-      } as Trace.Handlers.Types.ParsedTrace;
+        Renderer: makeMockRendererHandlerData([profileCall]),
+      });
 
       const resolver = new Timeline.Utils.SourceMapsResolver.SourceMapsResolver(parsedTrace);
       await resolver.install();
 
-      const linkifier = new Components.Linkifier.Linkifier();
-      const node = await Timeline.TimelineUIUtils.TimelineUIUtils.buildDetailsNodeForTraceEvent(
-          profileCall, target, linkifier, true, parsedTrace);
-      if (!node) {
-        throw new Error('Node was unexpectedly null');
-      }
-      assert.isTrue(node.textContent?.startsWith('someFunction @'));
+      const details = await Timeline.TimelineUIUtils.TimelineUIUtils.buildTraceEventDetails(
+          parsedTrace,
+          profileCall,
+          new Components.Linkifier.Linkifier(),
+          false,
+      );
+      const stackTraceData = getStackTraceForDetailsElement(details);
+      assert.exists(stackTraceData);
+      assert.isTrue(stackTraceData[0].startsWith('someFunction @'));
+    });
+    it('maps to the authored name and script of a function call', async function() {
+      const {script} = await loadBasicSourceMapExample(target);
+      const [lineNumber, columnNumber, ts, dur, pid, tid] =
+          [0, 51, 10, 100, Trace.Types.Events.ProcessID(1), Trace.Types.Events.ThreadID(1)];
+      const profileCall = makeProfileCall('function', ts, dur, pid, tid);
+
+      profileCall.callFrame = {
+        columnNumber,
+        functionName: 'minified',
+        lineNumber: 0,
+        scriptId: script.scriptId,
+        url: 'file://gen.js',
+      };
+
+      const functionCall = makeCompleteEvent(Trace.Types.Events.Name.FUNCTION_CALL, ts, dur, '', pid, tid) as
+          Trace.Types.Events.FunctionCall;
+      functionCall.args = {
+        data: {
+          // line and column number of function calls have an offset
+          // from CPU profile values.
+          columnNumber: columnNumber + 1,
+          lineNumber: lineNumber + 1,
+          functionName: 'minified',
+          scriptId: script.scriptId,
+          url: 'file://gen.js',
+        },
+      };
+      const workersData: Trace.Handlers.ModelHandlers.Workers.WorkersData = {
+        workerSessionIdEvents: [],
+        workerIdByThread: new Map(),
+        workerURLById: new Map(),
+      };
+      // This only includes data used in the SourceMapsResolver and
+      // TimelineUIUtils
+      const parsedTrace = getBaseTraceParseModelData({
+        Samples: makeMockSamplesHandlerData([profileCall]),
+        Workers: workersData,
+        Renderer: makeMockRendererHandlerData([functionCall]),
+      });
+
+      const resolver = new Timeline.Utils.SourceMapsResolver.SourceMapsResolver(parsedTrace);
+      await resolver.install();
+
+      const details = await Timeline.TimelineUIUtils.TimelineUIUtils.buildTraceEventDetails(
+          parsedTrace,
+          functionCall,
+          new Components.Linkifier.Linkifier(),
+          false,
+      );
+      const detailsData = getRowDataForDetailsElement(details).at(0);
+      assert.exists(detailsData);
+      assert.deepEqual(detailsData, {title: 'Function', value: 'someFunction @ gen.js:1:52'});
     });
   });
   describe('adjusting timestamps for events and navigations', function() {
@@ -411,12 +470,12 @@ describeWithMockConnection('TimelineUIUtils', function() {
     });
 
     it('should return the correct rgb value for a corresponding CSS variable', function() {
-      const parsedColor = TimelineComponents.EntryStyles.getCategoryStyles().scripting.getComputedColorValue();
+      const parsedColor = Utils.EntryStyles.getCategoryStyles().scripting.getComputedColorValue();
       assert.strictEqual('rgb(2 2 2)', parsedColor);
     });
 
     it('should return the color as a CSS variable', function() {
-      const cssVariable = TimelineComponents.EntryStyles.getCategoryStyles().scripting.getCSSValue();
+      const cssVariable = Utils.EntryStyles.getCategoryStyles().scripting.getCSSValue();
       assert.strictEqual('var(--app-color-scripting)', cssVariable);
     });
 
@@ -631,7 +690,7 @@ describeWithMockConnection('TimelineUIUtils', function() {
       assert.deepEqual(rowData, [
         {
           title: 'Timestamp',
-          value: '1058.3\xA0ms',
+          value: '1,058.3\xA0ms',
         },
         {title: 'Details', value: '{   "hello": "world"\n}'},
       ]);
@@ -653,7 +712,7 @@ describeWithMockConnection('TimelineUIUtils', function() {
       assert.deepEqual(rowData, [
         {
           title: 'Timestamp',
-          value: '1005.5\xA0ms',
+          value: '1,005.5\xA0ms',
         },
         {
           title: 'Details',
@@ -773,7 +832,7 @@ describeWithMockConnection('TimelineUIUtils', function() {
           new Components.Linkifier.Linkifier(),
           false,
       );
-      const rowData = getRowDataForDetailsElement(details);
+      const rowData = getRowDataForDetailsElement(details).slice(0, 2);
       assert.deepEqual(
           rowData,
           [
@@ -782,7 +841,6 @@ describeWithMockConnection('TimelineUIUtils', function() {
               value: 'This is a child task',
             },
             {title: 'Tip', value: 'Do something about it'},
-            {title: undefined, value: 'appendACorgi @ localhost:3000/static/js/bundle.js:274:19'},
           ],
       );
     });
@@ -801,16 +859,13 @@ describeWithMockConnection('TimelineUIUtils', function() {
           new Components.Linkifier.Linkifier(),
           false,
       );
-      const rowData = getRowDataForDetailsElement(details);
+      const rowData = getRowDataForDetailsElement(details)[0];
       assert.deepEqual(
           rowData,
-          [
             {
               title: 'Description',
               value: 'This marks the start of a task',
             },
-            {title: undefined, value: 'mockChangeDetection @ localhost:3000/static/js/bundle.js:295:17'},
-          ],
       );
     });
 
@@ -839,16 +894,9 @@ describeWithMockConnection('TimelineUIUtils', function() {
           new Components.Linkifier.Linkifier(),
           false,
       );
-      const rowData = getRowDataForDetailsElement(details);
-      assert.deepEqual(
-          rowData,
-          [
-            {
-              title: 'Function',
-              value: '(anonymous) @ www.google.com:21:17',
-            },
-          ],
-      );
+      const stackTraceData = getStackTraceForDetailsElement(details);
+      assert.exists(stackTraceData);
+      assert.strictEqual(stackTraceData[0], '(anonymous) @ www.google.com:21:17');
     });
     it('renders the stack trace of a ScheduleStyleRecalculation properly', async function() {
       Common.Linkifier.registerLinkifier({
@@ -939,9 +987,15 @@ describeWithMockConnection('TimelineUIUtils', function() {
           false,
       );
       const markerStackTraceData = getStackTraceForDetailsElement(markerDetails);
+      assert.exists(markerStackTraceData);
+      assert.lengthOf(markerStackTraceData, 15);
       assert.deepEqual(
-          markerStackTraceData,
-          ['mockChangeDetection @ localhost:3000/static/js/bundle.js:295:17'],
+          markerStackTraceData.slice(0, 3),
+          [
+            'mockChangeDetection @ localhost:3000/static/js/bundle.js:282:31',
+            'appendACorgi @ localhost:3000/static/js/bundle.js:216:24',
+            'invokeGuardedCallbackDev @ localhost:3000/static/js/bundle.js:11204:70',
+          ],
       );
 
       const trackEntryDetails = await Timeline.TimelineUIUtils.TimelineUIUtils.buildTraceEventDetails(
@@ -951,9 +1005,15 @@ describeWithMockConnection('TimelineUIUtils', function() {
           false,
       );
       const trackEntryStackTraceData = getStackTraceForDetailsElement(trackEntryDetails);
+      assert.exists(trackEntryStackTraceData);
+      assert.lengthOf(trackEntryStackTraceData, 14);
       assert.deepEqual(
-          trackEntryStackTraceData,
-          ['appendACorgi @ localhost:3000/static/js/bundle.js:274:19'],
+          trackEntryStackTraceData.slice(0, 3),
+          [
+            'appendACorgi @ localhost:3000/static/js/bundle.js:216:24',
+            'invokeGuardedCallbackDev @ localhost:3000/static/js/bundle.js:11204:70',
+            'invokeGuardedCallback @ localhost:3000/static/js/bundle.js:11347:35',
+          ],
       );
     });
     it('renders the stack trace of user timings properly', async function() {
@@ -1128,6 +1188,92 @@ describeWithMockConnection('TimelineUIUtils', function() {
         },
       ]);
     });
+
+    it('renders details for SchedulePostTaskCallback events', async function() {
+      const {parsedTrace} = await TraceLoader.traceEngine(this, 'scheduler-post-task.json.gz');
+
+      const scheduleEvent = parsedTrace.Renderer.allTraceEntries.find(Trace.Types.Events.isSchedulePostTaskCallback);
+      assert(scheduleEvent, 'Could not find SchedulePostTaskCallback event');
+      const scheduleDetails = await Timeline.TimelineUIUtils.TimelineUIUtils.buildTraceEventDetails(
+          parsedTrace,
+          scheduleEvent,
+          new Components.Linkifier.Linkifier(),
+          false,
+      );
+      const rowData = getRowDataForDetailsElement(scheduleDetails);
+      assert.deepEqual(rowData, [
+        {title: 'Delay', value: '200\xA0ms'},
+        {title: 'Priority', value: 'user-visible'},
+        {
+          title: undefined,
+          value: '(anonymous) @ localhost:8787/scheduler/app.js:49:18',
+        },
+        {title: 'Initiator for', value: 'Fire postTask'},
+      ]);
+    });
+
+    it('renders details for RunPostTaskCallback events', async function() {
+      const {parsedTrace} = await TraceLoader.traceEngine(this, 'scheduler-post-task.json.gz');
+
+      const runEvent = parsedTrace.Renderer.allTraceEntries.find(Trace.Types.Events.isRunPostTaskCallback);
+      assert(runEvent, 'Could not find RunPostTaskCallback event');
+      const runDetails = await Timeline.TimelineUIUtils.TimelineUIUtils.buildTraceEventDetails(
+          parsedTrace,
+          runEvent,
+          new Components.Linkifier.Linkifier(),
+          false,
+      );
+      const rowData = getRowDataForDetailsElement(runDetails);
+      assert.deepEqual(rowData, [
+        {title: 'Delay', value: '200\xA0ms'},
+        {title: 'Priority', value: 'user-visible'},
+        {
+          title: undefined,
+          value: '(anonymous) @ localhost:8787/scheduler/app.js:49:18',
+        },
+        {title: 'Initiated by', value: 'Schedule postTask'},
+        {title: 'Pending for', value: '200.1\xA0ms'},
+      ]);
+    });
+    it('renders the stack trace of a profile call event', async function() {
+      // uses source maps
+      const {parsedTrace} = await TraceLoader.traceEngine(this, 'async-js-calls.json.gz');
+      const jsCall = parsedTrace.Renderer.allTraceEntries.find(
+          e => Trace.Types.Events.isProfileCall(e) && e.callFrame.functionName === 'baz');
+      assert.exists(jsCall);
+      const details = await Timeline.TimelineUIUtils.TimelineUIUtils.buildTraceEventDetails(
+          parsedTrace,
+          jsCall,
+          new Components.Linkifier.Linkifier(),
+          false,
+      );
+      const container = document.createElement('div');
+      renderElementIntoDOM(container);
+      container.appendChild(details);
+      const stackTraceContainer = container.querySelector('.stack-preview-container');
+      const stackTracesElements =
+          stackTraceContainer?.shadowRoot?.querySelector('.stack-preview-container')?.querySelectorAll('tbody');
+      assert.exists(stackTracesElements);
+      const testData = [...stackTracesElements].map(stackTraceElement => {
+        const description = stackTraceElement.querySelector<HTMLTableRowElement>('.stack-preview-async-row');
+        const stackFrameElements =
+            stackTraceElement.querySelectorAll<HTMLTableRowElement>('tr:not(.stack-preview-async-row)');
+        const stackFrames = [...stackFrameElements].map(frame => frame.innerText);
+        return {description: description?.innerText || '', stackFrames};
+      });
+      assert.deepEqual(
+          testData,
+          [
+            {description: '', stackFrames: ['\tbaz\t@\tunknown']},
+            {description: '\trequestIdleCallback\t\t', stackFrames: ['\tbar\t@\tunknown']},
+            {description: '\tsetTimeout\t\t', stackFrames: ['\tfoo\t@\tunknown']},
+            {
+              description: '\trequestAnimationFrame\t\t',
+              stackFrames: ['\tstartExample\t@\tunknown', '\t(anonymous)\t@\tunknown'],
+            },
+          ],
+      );
+    });
   });
 
   it('can generate details for a frame', async function() {
@@ -1178,9 +1324,8 @@ describeWithMockConnection('TimelineUIUtils', function() {
       }
 
       // Fake that we resolved the entry's name from a sourcemap.
-      Timeline.Utils.SourceMapsResolver.SourceMapsResolver.storeResolvedNodeDataForEntry(
-          profileEntry.pid, profileEntry.tid, profileEntry.callFrame,
-          {name: 'resolved-function-test', devtoolsLocation: null, script: null});
+      Timeline.Utils.SourceMapsResolver.SourceMapsResolver.storeResolvedCodeDataForCallFrame(
+          profileEntry.callFrame, {name: 'resolved-function-test', devtoolsLocation: null, script: null});
 
       const title = Timeline.TimelineUIUtils.TimelineUIUtils.eventTitle(profileEntry);
       assert.strictEqual(title, 'resolved-function-test');

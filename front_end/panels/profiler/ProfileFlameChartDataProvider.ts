@@ -93,7 +93,7 @@ export class ProfileFlameChartDataProvider implements PerfUI.FlameChart.FlameCha
     throw 'Not implemented.';
   }
 
-  prepareHighlightedEntryInfo(_entryIndex: number): Element|null {
+  preparePopoverElement(_entryIndex: number): Element|null {
     throw 'Not implemented.';
   }
 
@@ -208,7 +208,7 @@ export class ProfileFlameChart extends
     this.dispatchEventToListeners(PerfUI.FlameChart.Events.ENTRY_INVOKED, event.data);
   }
 
-  update(): void {
+  override update(): void {
     this.overviewPane.update();
     this.mainPane.update();
   }
@@ -325,8 +325,7 @@ export class OverviewPane extends Common.ObjectWrapper.eventMixin<OverviewPaneEv
     this.overviewCalculator = new OverviewCalculator(dataProvider.formatValue);
     this.overviewGrid = new PerfUI.OverviewGrid.OverviewGrid('cpu-profile-flame-chart', this.overviewCalculator);
     this.overviewGrid.element.classList.add('fill');
-    this.overviewCanvas =
-        (this.overviewContainer.createChild('canvas', 'cpu-profile-flame-chart-overview-canvas') as HTMLCanvasElement);
+    this.overviewCanvas = this.overviewContainer.createChild('canvas', 'cpu-profile-flame-chart-overview-canvas');
     this.overviewContainer.appendChild(this.overviewGrid.element);
     this.dataProvider = dataProvider;
     this.overviewGrid.addEventListener(
@@ -346,7 +345,7 @@ export class OverviewPane extends Common.ObjectWrapper.eventMixin<OverviewPaneEv
   selectRange(timeLeft: number, timeRight: number): void {
     const startTime = this.dataProvider.minimumBoundary();
     const totalTime = this.dataProvider.totalTime();
-    this.overviewGrid.setWindow((timeLeft - startTime) / totalTime, (timeRight - startTime) / totalTime);
+    this.overviewGrid.setWindowRatio((timeLeft - startTime) / totalTime, (timeRight - startTime) / totalTime);
   }
 
   onWindowChanged(event: Common.EventTarget.EventTargetEvent<PerfUI.OverviewGrid.WindowChangedWithPositionEvent>):
@@ -373,7 +372,7 @@ export class OverviewPane extends Common.ObjectWrapper.eventMixin<OverviewPaneEv
     this.updateTimerId = this.element.window().requestAnimationFrame(this.update.bind(this));
   }
 
-  update(): void {
+  override update(): void {
     this.updateTimerId = 0;
     const timelineData = this.timelineData();
     if (!timelineData) {

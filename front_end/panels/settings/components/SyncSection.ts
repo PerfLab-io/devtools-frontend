@@ -5,12 +5,11 @@
 import '../../../ui/components/chrome_link/chrome_link.js';
 import '../../../ui/components/settings/settings.js';
 
-import * as Common from '../../../core/common/common.js';
+import type * as Common from '../../../core/common/common.js';
 import type * as Host from '../../../core/host/host.js';
 import * as i18n from '../../../core/i18n/i18n.js';
 import type * as Platform from '../../../core/platform/platform.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
-import type * as Settings from '../../../ui/components/settings/settings.js';
 import * as LitHtml from '../../../ui/lit-html/lit-html.js';
 
 import syncSectionStyles from './syncSection.css.js';
@@ -78,10 +77,9 @@ export class SyncSection extends HTMLElement {
     // clang-format off
     LitHtml.render(html`
       <fieldset>
-        <legend>${Common.Settings.getLocalizedSettingsCategory(Common.Settings.SettingCategory.SYNC)}</legend>
         ${renderAccountInfoOrWarning(this.#syncInfo)}
         <setting-checkbox .data=${
-            {setting: this.#syncSetting} as Settings.SettingCheckbox.SettingCheckboxData}>
+            {setting: this.#syncSetting}}>
         </setting-checkbox>
       </fieldset>
     `, this.#shadow, {host: this});
@@ -90,7 +88,7 @@ export class SyncSection extends HTMLElement {
 }
 
 /* x-link doesn't work with custom click/keydown handlers */
-/* eslint-disable rulesdir/ban_a_tags_in_lit_html */
+/* eslint-disable rulesdir/no-a-tags-in-lit-html */
 
 function renderAccountInfoOrWarning(syncInfo: Host.InspectorFrontendHostAPI.SyncInformation): LitHtml.TemplateResult {
   if (!syncInfo.isSyncActive) {

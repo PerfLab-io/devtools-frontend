@@ -11,8 +11,8 @@ import * as Trace from '../../../models/trace/trace.js';
 import * as LegacyComponents from '../../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../../ui/legacy/legacy.js';
 import * as LitHtml from '../../../ui/lit-html/lit-html.js';
+import * as Utils from '../utils/utils.js';
 
-import * as EntryName from './EntryName.js';
 import * as Insights from './insights/insights.js';
 import layoutShiftDetailsStyles from './layoutShiftDetails.css.js';
 
@@ -71,6 +71,10 @@ const UIStrings = {
    * @description Text referring to the total cumulative score of a layout shift cluster.
    */
   total: 'Total',
+  /**
+   * @description Text for a culprit type of Unsized image.
+   */
+  unsizedImage: 'Unsized image',
 };
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/LayoutShiftDetails.ts', UIStrings);
@@ -107,7 +111,7 @@ export class LayoutShiftDetails extends HTMLElement {
 
   #renderTitle(event: Trace.Types.Events.SyntheticLayoutShift|
                Trace.Types.Events.SyntheticLayoutShiftCluster): LitHtml.TemplateResult {
-    const title = EntryName.nameForEntry(event);
+    const title = Utils.EntryName.nameForEntry(event);
     return html`
       <div class="layout-shift-details-title">
         <div class="layout-shift-event-title"></div>
@@ -122,10 +126,7 @@ export class LayoutShiftDetails extends HTMLElement {
       ${elementsShifted?.map(el => {
         if (el.node_id !== undefined) {
           return html`
-            <devtools-performance-node-link
-              .data=${{
-                backendNodeId: el.node_id,
-              } as Insights.NodeLink.NodeLinkData}>
+            <devtools-performance-node-link .data=${{backendNodeId: el.node_id}}>
             </devtools-performance-node-link>`;
         }
           return LitHtml.nothing;
@@ -172,8 +173,8 @@ export class LayoutShiftDetails extends HTMLElement {
     this.dispatchEvent(new Insights.EventRef.EventReferenceClick(event));
   }
 
-  #renderAnimation(failure: Trace.Insights.InsightRunners.CumulativeLayoutShift.NoncompositedAnimationFailure):
-      LitHtml.TemplateResult|null {
+  #renderAnimation(failure: Trace.Insights.Models.CLSCulprits.NoncompositedAnimationFailure): LitHtml.TemplateResult
+      |null {
     const event = failure.animation;
     if (!event) {
       return null;
@@ -187,12 +188,26 @@ export class LayoutShiftDetails extends HTMLElement {
     // clang-format on
   }
 
-  #renderRootCauseValues(rootCauses: Trace.Insights.InsightRunners.CumulativeLayoutShift.LayoutShiftRootCausesData|
+  #renderUnsizedImage(node: Protocol.DOM.BackendNodeId): LitHtml.TemplateResult|null {
+    // clang-format off
+    const el = html`
+      <devtools-performance-node-link
+        .data=${{
+          backendNodeId: node,
+        } as Insights.NodeLink.NodeLinkData}>
+      </devtools-performance-node-link>`;
+    return html`
+    <span class="culprit"><span class="culprit-type">${i18nString(UIStrings.unsizedImage)}: </span><span class="culprit-value">${el}</span></span>`;
+    // clang-format on
+  }
+
+  #renderRootCauseValues(rootCauses: Trace.Insights.Models.CLSCulprits.LayoutShiftRootCausesData|
                          undefined): LitHtml.TemplateResult|null {
     return html`
       ${rootCauses?.fontRequests.map(fontReq => this.#renderFontRequest(fontReq))}
       ${rootCauses?.iframeIds.map(iframe => this.#renderIframe(iframe))}
       ${rootCauses?.nonCompositedAnimations.map(failure => this.#renderAnimation(failure))}
+      ${rootCauses?.unsizedImages.map(image => this.#renderUnsizedImage(image))}
     `;
   }
 
@@ -212,15 +227,15 @@ export class LayoutShiftDetails extends HTMLElement {
   #renderShiftRow(
       shift: Trace.Types.Events.SyntheticLayoutShift, parsedTrace: Trace.Handlers.Types.ParsedTrace,
       elementsShifted: Trace.Types.Events.TraceImpactedNode[],
-      rootCauses: Trace.Insights.InsightRunners.CumulativeLayoutShift.LayoutShiftRootCausesData|
-      undefined): LitHtml.TemplateResult|null {
+      rootCauses: Trace.Insights.Models.CLSCulprits.LayoutShiftRootCausesData|undefined): LitHtml.TemplateResult|null {
     const score = shift.args.data?.weighted_score_delta;
     if (!score) {
       return null;
     }
     const hasCulprits = Boolean(
         rootCauses &&
-        (rootCauses.fontRequests.length || rootCauses.iframeIds.length || rootCauses.nonCompositedAnimations.length));
+        (rootCauses.fontRequests.length || rootCauses.iframeIds.length || rootCauses.nonCompositedAnimations.length ||
+         rootCauses.unsizedImages.length));
 
     // clang-format off
     return html`
@@ -275,7 +290,7 @@ export class LayoutShiftDetails extends HTMLElement {
       return null;
     }
     const insightsId = layoutShift.args.data?.navigationId ?? Trace.Types.Events.NO_NAVIGATION;
-    const clsInsight = traceInsightsSets.get(insightsId)?.data.CumulativeLayoutShift;
+    const clsInsight = traceInsightsSets.get(insightsId)?.model.CLSCulprits;
     if (!clsInsight || clsInsight instanceof Error) {
       return null;
     }
@@ -283,7 +298,8 @@ export class LayoutShiftDetails extends HTMLElement {
     const rootCauses = clsInsight.shifts.get(layoutShift);
     const elementsShifted = layoutShift.args.data?.impacted_nodes ?? [];
     const hasCulprits = rootCauses &&
-        (rootCauses.fontRequests.length || rootCauses.iframeIds.length || rootCauses.nonCompositedAnimations.length);
+        (rootCauses.fontRequests.length || rootCauses.iframeIds.length || rootCauses.nonCompositedAnimations.length ||
+         rootCauses.unsizedImages.length);
     const hasShiftedElements = elementsShifted?.length;
 
     const parentCluster = clsInsight.clusters.find(cluster => {
@@ -320,7 +336,7 @@ export class LayoutShiftDetails extends HTMLElement {
       return null;
     }
     const insightsId = cluster.navigationId ?? Trace.Types.Events.NO_NAVIGATION;
-    const clsInsight = traceInsightsSets.get(insightsId)?.data.CumulativeLayoutShift;
+    const clsInsight = traceInsightsSets.get(insightsId)?.model.CLSCulprits;
     if (!clsInsight || clsInsight instanceof Error) {
       return null;
     }

@@ -93,7 +93,7 @@ export async function doubleClickSourceTreeItem(selector: string) {
 
 export async function waitForSourcesPanel(): Promise<void> {
   // Wait for the navigation panel to show up
-  await Promise.any([waitFor('.navigator-file-tree-item'), waitFor('.empty-view')]);
+  await waitFor('.navigator-file-tree-item, .empty-view');
 }
 
 export async function openSourcesPanel() {
@@ -317,7 +317,7 @@ export async function checkBreakpointDidNotActivate() {
     const breakpointIndicator = await Promise.all(pauseIndicators.map(elements => {
       return elements.evaluate(el => el.className);
     }));
-    assert.deepEqual(breakpointIndicator.length, 0, 'script had been paused');
+    assert.lengthOf(breakpointIndicator, 0, 'script had been paused');
   });
 }
 
@@ -636,7 +636,9 @@ export async function openNestedWorkerFile(selectors: NestedFileSelector) {
 
 export async function inspectMemory(variableName: string) {
   await openSoftContextMenuAndClickOnItem(
-      `[data-object-property-name-for-test="${variableName}"]`, 'Reveal in Memory inspector panel');
+      `[data-object-property-name-for-test="${variableName}"]`,
+      'Open in Memory inspector panel',
+  );
 }
 
 export async function typeIntoSourcesAndSave(text: string) {

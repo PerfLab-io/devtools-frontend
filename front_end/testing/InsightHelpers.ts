@@ -4,6 +4,17 @@
 
 import * as Trace from '../models/trace/trace.js';
 
+import {TraceLoader} from './TraceLoader.js';
+
+export async function processTrace(testContext: Mocha.Suite|Mocha.Context|null, traceFile: string) {
+  const {parsedTrace, insights, metadata} = await TraceLoader.traceEngine(testContext, traceFile);
+  if (!insights) {
+    throw new Error('No insights');
+  }
+
+  return {data: parsedTrace, insights, metadata};
+}
+
 export function createContextForNavigation(
     parsedTrace: Trace.Handlers.Types.ParsedTrace, navigation: Trace.Types.Events.NavigationStart,
     frameId: string): Trace.Insights.Types.InsightSetContextWithNavigation {
@@ -30,9 +41,9 @@ export function createContextForNavigation(
   };
 }
 
-export function getInsightOrError<InsightName extends keyof Trace.Insights.Types.InsightResults>(
+export function getInsightOrError<InsightName extends keyof Trace.Insights.Types.InsightModels>(
     insightName: InsightName, insights: Trace.Insights.Types.TraceInsightSets,
-    navigation?: Trace.Types.Events.NavigationStart): Trace.Insights.Types.InsightResults[InsightName] {
+    navigation?: Trace.Types.Events.NavigationStart): Trace.Insights.Types.InsightModels[InsightName] {
   let key;
   if (navigation) {
     if (!navigation.args.data?.navigationId) {
@@ -48,13 +59,13 @@ export function getInsightOrError<InsightName extends keyof Trace.Insights.Types
     throw new Error('missing navInsights');
   }
 
-  const insight = insightSets.data[insightName];
+  const insight = insightSets.model[insightName];
   if (insight instanceof Error) {
     throw insight;
   }
 
   // For some reason typescript won't narrow the type by removing Error, so do it manually.
-  return insight as Trace.Insights.Types.InsightResults[InsightName];
+  return insight as Trace.Insights.Types.InsightModels[InsightName];
 }
 
 export function getFirstOrError<T>(iterator: IterableIterator<T>): T {

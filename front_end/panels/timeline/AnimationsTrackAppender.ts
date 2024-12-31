@@ -7,10 +7,9 @@ import * as Trace from '../../models/trace/trace.js';
 import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as ThemeSupport from '../../ui/legacy/theme_support/theme_support.js';
 
-import {addDecorationToEvent, buildGroupStyle, buildTrackHeader, getFormattedTime} from './AppenderUtils.js';
+import {addDecorationToEvent, buildGroupStyle, buildTrackHeader} from './AppenderUtils.js';
 import {
   type CompatibilityTracksAppender,
-  type HighlightedEntryInfo,
   type TrackAppender,
   type TrackAppenderName,
   VisualLoggingTrackName,
@@ -58,8 +57,7 @@ export class AnimationsTrackAppender implements TrackAppender {
 
   #eventAppendedCallbackFunction(event: Trace.Types.Events.Event, index: number): void {
     if (event && Trace.Types.Events.isSyntheticAnimation(event)) {
-      const CLSInsight = Trace.Insights.InsightRunners.CumulativeLayoutShift;
-      const failures = CLSInsight.getNonCompositedFailure(event);
+      const failures = Trace.Insights.Models.CLSCulprits.getNonCompositedFailure(event);
       if (failures.length) {
         addDecorationToEvent(this.#compatibilityBuilder.getFlameChartTimelineData(), index, {
           type: PerfUI.FlameChart.FlameChartDecorationType.WARNING_TRIANGLE,
@@ -75,10 +73,5 @@ export class AnimationsTrackAppender implements TrackAppender {
   titleForEvent(event: Trace.Types.Events.SyntheticAnimationPair): string {
     const {displayName} = event.args.data.beginEvent.args.data;
     return displayName || event.name;
-  }
-
-  highlightedEntryInfo(event: Trace.Types.Events.SyntheticAnimationPair): HighlightedEntryInfo {
-    const title = this.titleForEvent(event);
-    return {title, formattedTime: getFormattedTime(event.dur)};
   }
 }
