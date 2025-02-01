@@ -17,7 +17,11 @@ describeWithEnvironment('Common', function() {
         throw new Error('missing metadata');
       }
 
-      const insightSetKey = getFirstOrError(data.Meta.navigationsByNavigationId.values()).args.data.navigationId;
+      const firstNav = getFirstOrError(data.Meta.navigationsByNavigationId.values());
+      if (!firstNav.args.data?.navigationId) {
+        throw new Error('expected navigationId');
+      }
+      const insightSetKey = firstNav.args.data.navigationId;
       const insightSet = insights.get(insightSetKey);
       if (!insightSet) {
         throw new Error('missing insight set');
@@ -46,7 +50,7 @@ describeWithEnvironment('Common', function() {
       const {insightSet, metadata} = await process(this, 'image-delivery.json.gz');
 
       const weights = calculateMetricWeightsForSorting(insightSet, metadata);
-      assert.deepEqual(weights, {lcp: 0.07778127820223579, inp: 0.5504200439526509, cls: 0.37179867784511333});
+      assert.deepEqual(weights, {lcp: 0.48649783990559314, inp: 0.48649783990559314, cls: 0.027004320188813675});
     });
   });
 });

@@ -8,7 +8,7 @@ import * as Buttons from '../../ui/components/buttons/buttons.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
 import * as ARIAUtils from './ARIAUtils.js';
-import infobarStyles from './infobar.css.legacy.js';
+import infobarStyles from './infobar.css.js';
 import {Keys} from './KeyboardShortcut.js';
 import {createShadowRootWithCoreStyles, createTextButton, type DevToolsCloseButton} from './UIUtils.js';
 import type {Widget} from './Widget.js';
@@ -42,9 +42,7 @@ export class Infobar {
   private readonly infoMessage: HTMLElement;
   private infoText: HTMLElement;
   private readonly actionContainer: HTMLElement;
-  // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private readonly disableSetting: Common.Settings.Setting<any>|null;
+  private readonly disableSetting: Common.Settings.Setting<boolean>|null;
   private readonly closeContainer: HTMLElement;
   private readonly toggleElement: Buttons.Button.Button;
   private readonly closeButton: DevToolsCloseButton;
@@ -53,10 +51,7 @@ export class Infobar {
   private parentView?: Widget;
 
   constructor(
-      // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      type: Type, text: string, actions?: InfobarAction[], disableSetting?: Common.Settings.Setting<any>,
-      /* TODO(crbug.com/1354548) Remove with JS Profiler deprecation */ isCloseable: boolean = true,
+      type: Type, text: string, actions?: InfobarAction[], disableSetting?: Common.Settings.Setting<boolean>,
       jslogContext?: string) {
     this.element = document.createElement('div');
     if (jslogContext) {
@@ -124,7 +119,6 @@ export class Infobar {
     this.toggleElement.setAttribute('role', 'link');
     this.closeContainer.appendChild(this.toggleElement);
     this.closeButton = this.closeContainer.createChild('dt-close-button', 'close-button');
-    this.closeButton.hidden = !isCloseable;
     this.closeButton.setTabbable(true);
     ARIAUtils.setDescription(this.closeButton, i18nString(UIStrings.close));
     self.onInvokeElement(this.closeButton, this.dispose.bind(this));
@@ -155,14 +149,12 @@ export class Infobar {
   }
 
   static create(
-      // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      type: Type, text: string, actions?: InfobarAction[], disableSetting?: Common.Settings.Setting<any>,
+      type: Type, text: string, actions?: InfobarAction[], disableSetting?: Common.Settings.Setting<boolean>,
       jslogContext?: string): Infobar|null {
     if (disableSetting && disableSetting.get()) {
       return null;
     }
-    return new Infobar(type, text, actions, disableSetting, undefined, jslogContext);
+    return new Infobar(type, text, actions, disableSetting, jslogContext);
   }
 
   dispose(): void {

@@ -49,6 +49,7 @@ export class WorkspaceSettingsTab extends UI.Widget.VBox {
 
   constructor() {
     super();
+    this.registerRequiredCSS(workspaceSettingsTabStyles);
 
     this.element.setAttribute('jslog', `${VisualLogging.pane('workspace')}`);
 
@@ -90,11 +91,6 @@ export class WorkspaceSettingsTab extends UI.Widget.VBox {
     this.#addButtonContainer.appendChild(addButton);
   }
 
-  override wasShown(): void {
-    super.wasShown();
-    this.registerCSSFiles([workspaceSettingsTabStyles]);
-  }
-
   private createFolderExcludePatternInput(): HTMLElement {
     const excludePatternElement = document.createElement('div');
     excludePatternElement.classList.add('folder-exclude-pattern');
@@ -114,7 +110,7 @@ export class WorkspaceSettingsTab extends UI.Widget.VBox {
       let regex;
       try {
         regex = new RegExp(value);
-      } catch (e) {
+      } catch {
       }
       const valid = Boolean(regex);
       return {valid, errorMessage: undefined};

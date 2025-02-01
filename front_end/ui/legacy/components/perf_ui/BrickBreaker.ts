@@ -22,11 +22,11 @@ const UIStrings = {
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/perf_ui/BrickBreaker.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
-type Brick = {
-  x: number,
-  y: number,
-  width: number,
-};
+interface Brick {
+  x: number;
+  y: number;
+  width: number;
+}
 
 const MAX_DELTA = 16;
 const MIN_DELTA = 10;
@@ -108,7 +108,7 @@ const colorPallettes: ColorPalette[] = [
   },
 ];
 
-/* rulesdir/no-underscored-properties, rulesdir/no-style-tags-in-lit-html, rulesdir/no-a-tags-in-lit-html, rulesdir/lit-html-host-this */
+/* rulesdir/no-underscored-properties, rulesdir/no-a-tags-in-lit, rulesdir/lit-host-this */
 export class BrickBreaker extends HTMLElement {
   #canvas: HTMLCanvasElement;
   #ctx: CanvasRenderingContext2D;

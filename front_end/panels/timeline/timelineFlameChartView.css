@@ -6,10 +6,7 @@
 
 .timeline-overlays-container {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   /* Ensure it appears on top of everything */
   z-index: 200;
   pointer-events: none;
@@ -148,14 +145,14 @@
 
 .overlay-type-TIMINGS_MARKER {
   bottom: 0;
-  width: 1px;
+  width: 0.5px;
   pointer-events: auto;
 }
 
 .marker-title {
   display: flex;
   justify-content: center;
-  width: var(--sys-size-13);
+  padding: 0 var(--sys-size-3);
   font-size: var(--sys-typescale-body4-size);
   color: var(--sys-color-base);
 
@@ -169,7 +166,6 @@
   position: fixed;
   display: flex;
   bottom: 0;
-  width: 100%;
 }
 
 .overlay-popover span {

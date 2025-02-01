@@ -11,13 +11,17 @@ import type * as SDK from '../../../core/sdk/sdk.js';
 import type * as Protocol from '../../../generated/protocol.js';
 import type * as Logs from '../../../models/logs/logs.js';
 import * as NetworkForward from '../../../panels/network/forward/forward.js';
-import * as Coordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
-import * as LitHtml from '../../../ui/lit-html/lit-html.js';
+import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
+import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
-import requestLinkIconStyles from './requestLinkIcon.css.js';
+import requestLinkIconStylesRaw from './requestLinkIcon.css.js';
 
-const {html} = LitHtml;
+// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+const requestLinkIconStyles = new CSSStyleSheet();
+requestLinkIconStyles.replaceSync(requestLinkIconStylesRaw.cssContent);
+
+const {html} = Lit;
 
 const UIStrings = {
   /**
@@ -36,8 +40,6 @@ const UIStrings = {
 };
 const str_ = i18n.i18n.registerUIStrings('ui/components/request_link_icon/RequestLinkIcon.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
-
-const coordinator = Coordinator.RenderCoordinator.RenderCoordinator.instance();
 
 export interface RequestLinkIconData {
   linkToPreflight?: boolean;
@@ -163,10 +165,10 @@ export class RequestLinkIcon extends HTMLElement {
     return this.#affectedRequest?.url;
   }
 
-  #maybeRenderURL(): LitHtml.LitTemplate {
+  #maybeRenderURL(): Lit.LitTemplate {
     const url = this.#getUrlForDisplaying();
     if (!url) {
-      return LitHtml.nothing;
+      return Lit.nothing;
     }
 
     if (this.#urlToDisplay) {
@@ -178,7 +180,7 @@ export class RequestLinkIcon extends HTMLElement {
   }
 
   async #render(): Promise<void> {
-    return coordinator.write(() => {
+    return RenderCoordinator.write(() => {
       // By default we render just the URL for the request link. If we also know
       // the concrete network request, or at least its request ID, we surround
       // the URL with a button, that opens the request in the Network panel.
@@ -186,7 +188,7 @@ export class RequestLinkIcon extends HTMLElement {
       if (this.#request || this.#affectedRequest?.requestId !== undefined) {
         // clang-format off
         template = html`
-          <button class=${LitHtml.Directives.classMap({link: Boolean(this.#request)})}
+          <button class=${Lit.Directives.classMap({link: Boolean(this.#request)})}
                   title=${this.#getTooltip()}
                   jslog=${VisualLogging.link('request').track({click: true})}
                   @click=${this.handleClick}>
@@ -195,7 +197,7 @@ export class RequestLinkIcon extends HTMLElement {
           </button>`;
         // clang-format on
       }
-      LitHtml.render(template, this.#shadow, {host: this});
+      Lit.render(template, this.#shadow, {host: this});
     });
   }
 }

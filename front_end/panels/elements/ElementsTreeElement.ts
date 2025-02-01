@@ -221,19 +221,19 @@ const enum TagType {
   CLOSING = 'CLOSING_TAG',
 }
 
-type OpeningTagContext = {
-    tagType: TagType.OPENING,
-    readonly adornerContainer: HTMLElement,
-    adorners: Adorners.Adorner.Adorner[],
-    styleAdorners: Adorners.Adorner.Adorner[],
-    readonly adornersThrottler: Common.Throttler.Throttler,
-    canAddAttributes: boolean,
-    slot?: Adorners.Adorner.Adorner,
-};
+interface OpeningTagContext {
+  tagType: TagType.OPENING;
+  readonly adornerContainer: HTMLElement;
+  adorners: Adorners.Adorner.Adorner[];
+  styleAdorners: Adorners.Adorner.Adorner[];
+  readonly adornersThrottler: Common.Throttler.Throttler;
+  canAddAttributes: boolean;
+  slot?: Adorners.Adorner.Adorner;
+}
 
-type ClosingTagContext = {
-  tagType: TagType.CLOSING,
-};
+interface ClosingTagContext {
+  tagType: TagType.CLOSING;
+}
 
 export type TagTypeContext = OpeningTagContext|ClosingTagContext;
 
@@ -1768,7 +1768,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
 
   private buildPseudoElementDOM(parentElement: DocumentFragment, pseudoElementName: string): void {
     const pseudoElement = parentElement.createChild('span', 'webkit-html-pseudo-element');
-    pseudoElement.textContent = '::' + pseudoElementName;
+    pseudoElement.textContent = pseudoElementName;
     UI.UIUtils.createTextChild(parentElement, '\u200B');
   }
 
@@ -1850,8 +1850,8 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
         break;
 
       case Node.ELEMENT_NODE: {
-        let pseudoElementName = node.pseudoType();
-        if (pseudoElementName) {
+        if (node.pseudoType()) {
+          let pseudoElementName = node.nodeName();
           const pseudoIdentifier = node.pseudoIdentifier();
           if (pseudoIdentifier) {
             pseudoElementName += `(${pseudoIdentifier})`;
@@ -2159,8 +2159,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   }
 
   adornSlot({name}: {name: string}, context: OpeningTagContext): Adorners.Adorner.Adorner {
-    const linkIcon = new IconButton.Icon.Icon();
-    linkIcon.name = 'select-element';
+    const linkIcon = IconButton.Icon.create('select-element');
     const slotText = document.createElement('span');
     slotText.textContent = name;
     const adornerContent = document.createElement('span');
@@ -2185,8 +2184,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     adornerContent.textContent = name;
     adornerContent.classList.add('adorner-with-icon');
 
-    const linkIcon = new IconButton.Icon.Icon();
-    linkIcon.name = 'select-element';
+    const linkIcon = IconButton.Icon.create('select-element');
     adornerContent.append(linkIcon);
 
     const adorner = new Adorners.Adorner.Adorner();

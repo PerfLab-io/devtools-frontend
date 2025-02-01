@@ -3,11 +3,14 @@
 // found in the LICENSE file.
 'use strict';
 
+/**
+ * @type {import('eslint').Rule.RuleModule}
+ */
 module.exports = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Enforce that no methods that are used as LitHtml events are bound.',
+      description: 'Enforce that no methods that are used as Lit events are bound.',
       category: 'Possible Errors',
     },
     fixable: 'code',

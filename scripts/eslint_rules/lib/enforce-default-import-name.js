@@ -10,6 +10,9 @@ function isStarAsImportSpecifier(specifiers) {
   return specifiers.length === 1 && specifiers[0].type === 'ImportNamespaceSpecifier';
 }
 
+/**
+ * @type {import('eslint').Rule.RuleModule}
+ */
 module.exports = {
   meta: {
     type: 'problem',
@@ -35,7 +38,8 @@ module.exports = {
     }
   },
   create: function(context) {
-    const importingFileName = path.resolve(context.getFilename());
+    const filename = context.filename ?? context.getFilename();
+    const importingFileName = path.resolve(filename);
     const importingDir = path.dirname(importingFileName);
 
     return {

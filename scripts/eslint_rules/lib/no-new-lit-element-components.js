@@ -5,9 +5,11 @@
 
 const allowedPaths = [
   'front_end/panels/recorder/',
-  'front_end/panels/protocol_monitor/components/',
   'front_end/ui/components/suggestion_input/',
 ];
+/**
+ * @type {import('eslint').Rule.RuleModule}
+ */
 module.exports = {
   meta: {
     type: 'problem',
@@ -18,9 +20,9 @@ module.exports = {
     schema: []  // no options
   },
   create: function(context) {
+    const filename = context.filename ?? context.getFilename();
     return {
       ClassDeclaration(node) {
-        const filename = context.getFilename();
         // Use `extends LitElement` as a signal.
         if (node.superClass?.name !== 'LitElement') {
           return;

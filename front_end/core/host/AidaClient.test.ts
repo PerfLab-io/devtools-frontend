@@ -300,7 +300,7 @@ describeWithEnvironment('AidaClient', () => {
               metadata: {
                 rpcGlobalId: 123,
                 attributionMetadata:
-                    {attributionAction: 'CITE', citations: [{startIndex: 0, endIndex: 1, url: 'https://example.com'}]},
+                    {attributionAction: 'CITE', citations: [{startIndex: 0, endIndex: 1, uri: 'https://example.com'}]},
               },
             },
           ]);
@@ -321,7 +321,7 @@ describeWithEnvironment('AidaClient', () => {
           rpcGlobalId: 123,
           attributionMetadata: {
             attributionAction: Host.AidaClient.RecitationAction.CITE,
-            citations: [{startIndex: 0, endIndex: 1, url: 'https://example.com'}],
+            citations: [{startIndex: 0, endIndex: 1, uri: 'https://example.com'}],
           },
         },
         completed: false,
@@ -333,7 +333,7 @@ describeWithEnvironment('AidaClient', () => {
           rpcGlobalId: 123,
           attributionMetadata: {
             attributionAction: Host.AidaClient.RecitationAction.CITE,
-            citations: [{startIndex: 0, endIndex: 1, url: 'https://example.com'}],
+            citations: [{startIndex: 0, endIndex: 1, uri: 'https://example.com'}],
           },
         },
         functionCalls: undefined,
@@ -409,6 +409,19 @@ describeWithEnvironment('AidaClient', () => {
       expect.fail('provider.fetch did not throw');
     } catch (err) {
       expect(err.message).equals('Server responded: permission denied');
+    }
+  });
+
+  it('throws a timeout error on timeout', async () => {
+    sinon.stub(Host.InspectorFrontendHost.InspectorFrontendHostInstance, 'doAidaConversation').callsArgWith(2, {
+      netErrorName: 'net::ERR_TIMED_OUT'
+    });
+    const provider = new Host.AidaClient.AidaClient();
+    try {
+      await getAllResults(provider);
+      expect.fail('provider.fetch did not throw');
+    } catch (err) {
+      expect(err.message).equals('doAidaConversation timed out');
     }
   });
 

@@ -3,10 +3,15 @@
 // found in the LICENSE file.
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/no-commented-out-import.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 ruleTester.run('no-commented-out-import', rule, {
@@ -45,5 +50,5 @@ ruleTester.run('no-commented-out-import', rule, {
       filename: 'front_end/components/test.ts',
       errors: [{messageId: 'foundImport'}],
     },
-  ]
+  ],
 });

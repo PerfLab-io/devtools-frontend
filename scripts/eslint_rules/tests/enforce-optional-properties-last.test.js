@@ -1,13 +1,17 @@
-
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/enforce-optional-properties-last.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 ruleTester.run('optional-properties-last', rule, {
@@ -69,7 +73,7 @@ export interface LCPPhases {
       errors: [
         {
           message: 'Optional property \'name\' should be defined after required properties.',
-          type: 'TSPropertySignature'
+          type: 'TSPropertySignature',
         },
       ],
       output: `
@@ -90,7 +94,7 @@ export interface LCPPhases {
       errors: [
         {
           message: 'Optional property \'isCool\' should be defined after required properties.',
-          type: 'TSPropertySignature'
+          type: 'TSPropertySignature',
         },
       ],
       output: `

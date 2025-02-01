@@ -17,6 +17,9 @@ function isI18nStringCall(callExpression) {
   return callExpression.callee.type === 'Identifier' && callExpression.callee.name === 'i18nString';
 }
 
+/**
+ * @type {import('eslint').Rule.RuleModule}
+ */
 module.exports = {
   meta: {
     type: 'problem',
@@ -28,13 +31,14 @@ module.exports = {
     schema: []  // no options
   },
   create: function(context) {
+    const sourceCode = context.sourceCode ?? context.getSourceCode();
     return {
       CallExpression(callExpression) {
         if (!isI18nStringCall(callExpression)) {
           return;
         }
 
-        const ancestors = (context.getAncestors() || []).map(node => node.type);
+        const ancestors = ((sourceCode.getAncestors ? sourceCode.getAncestors(callExpression) : context.getAncestors()) || []).map(node => node.type);
         const hasRequiredAncestor = ancestors.some(ancestor => REQUIRED_ANCESTOR.has(ancestor));
         if (!hasRequiredAncestor) {
           context.report({

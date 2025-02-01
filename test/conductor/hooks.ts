@@ -9,28 +9,27 @@
 import puppeteer = require('puppeteer-core');
 
 import {
+  dumpCollectedErrors,
+  installPageErrorHandlers,
+  setupBrowserProcessIO,
+} from './events.js';
+import {
+  DevToolsFrontendTab,
+  loadEmptyPageAndWaitForContent,
+  type DevToolsFrontendReloadOptions,
+} from './frontend_tab.js';
+import {
   clearPuppeteerState,
   getBrowserAndPages,
   registerHandlers,
   setBrowserAndPages,
   setTestServerPort,
 } from './puppeteer-state.js';
-import {
-  loadEmptyPageAndWaitForContent,
-  DevToolsFrontendTab,
-  type DevToolsFrontendReloadOptions,
-} from './frontend_tab.js';
-import {
-  dumpCollectedErrors,
-  installPageErrorHandlers,
-  setupBrowserProcessIO,
-} from './events.js';
 import {TargetTab} from './target_tab.js';
 import {TestConfig} from './test_config.js';
 
 // Workaround for mismatching versions of puppeteer types and puppeteer library.
 declare module 'puppeteer-core' {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ConsoleMessage {
     stackTrace(): ConsoleMessageLocation[];
   }
@@ -97,7 +96,7 @@ function launchChrome() {
     `--disable-features=${disabledFeatures.join(',')}`,
   ];
   const executablePath = TestConfig.chromeBinary;
-  const opts: puppeteer.LaunchOptions&puppeteer.BrowserLaunchArgumentOptions&puppeteer.BrowserConnectOptions = {
+  const opts: puppeteer.LaunchOptions = {
     headless,
     executablePath,
     dumpio: !headless || Boolean(process.env['LUCI_CONTEXT']),

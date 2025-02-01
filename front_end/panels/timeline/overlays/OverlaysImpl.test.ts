@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import * as Trace from '../../../models/trace/trace.js';
+import {dispatchClickEvent} from '../../../testing/DOMHelpers.js';
 import {describeWithEnvironment} from '../../../testing/EnvironmentHelpers.js';
 import {
   makeInstantEvent,
@@ -17,8 +18,6 @@ import * as Timeline from '../timeline.js';
 
 import * as Components from './components/components.js';
 import * as Overlays from './overlays.js';
-
-const coordinator = RenderCoordinator.RenderCoordinator.RenderCoordinator.instance();
 
 const FAKE_OVERLAY_ENTRY_QUERIES: Overlays.Overlays.OverlayEntryQueries = {
   isEntryCollapsedByUser() {
@@ -103,8 +102,8 @@ describeWithEnvironment('Overlays', () => {
       allGroupsCollapsed: false,
     });
 
-    const windowMin = Trace.Types.Timing.MicroSeconds(0);
-    const windowMax = Trace.Types.Timing.MicroSeconds(100);
+    const windowMin = Trace.Types.Timing.Micro(0);
+    const windowMax = Trace.Types.Timing.Micro(100);
     // Set the visible window to be 0-100 microseconds
     overlays.updateVisibleWindow(Trace.Helpers.Timing.traceWindowFromMicroSeconds(windowMin, windowMax));
 
@@ -396,6 +395,60 @@ describeWithEnvironment('Overlays', () => {
       // Ensure that the overlay was created.
       const overlayDOM = container.querySelector<HTMLElement>('.overlay-type-ENTRY_LABEL');
       assert.isOk(overlayDOM);
+    });
+
+    it('dispatches an event when the entry label overlay is clicked', async function() {
+      const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev.json.gz');
+      const {overlays, container, charts} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
+      const event = charts.mainProvider.eventByIndex?.(50);
+      assert.isOk(event);
+
+      overlays.add({
+        type: 'ENTRY_LABEL',
+        entry: event,
+        label: 'entry label',
+      });
+      await overlays.update();
+
+      // Ensure that the overlay was created.
+      const overlayDOM = container.querySelector<HTMLElement>('.overlay-type-ENTRY_LABEL');
+      assert.isOk(overlayDOM);
+
+      const overlayClick = new Promise<Overlays.Overlays.EntryLabel>(resolve => {
+        overlays.addEventListener(Overlays.Overlays.EntryLabelMouseClick.eventName, e => {
+          const event = e as Overlays.Overlays.EntryLabelMouseClick;
+          resolve(event.overlay);
+        }, {once: true});
+      });
+
+      dispatchClickEvent(overlayDOM);
+      const overlayFromEvent = await overlayClick;
+      // Check that the event was dispatched on the right overlay.
+      assert.deepEqual(overlayFromEvent, {
+        type: 'ENTRY_LABEL',
+        entry: event,
+        label: 'entry label',
+      });
+    });
+
+    it('toggles overlays container display', async function() {
+      const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev.json.gz');
+      const {overlays, container} = setupChartWithDimensionsAndAnnotationOverlayListeners(parsedTrace);
+
+      overlays.toggleAllOverlaysDisplayed(true);
+      await overlays.update();
+
+      assert.strictEqual(container.style.display, 'block');
+
+      overlays.toggleAllOverlaysDisplayed(false);
+      await overlays.update();
+
+      assert.strictEqual(container.style.display, 'none');
+
+      overlays.toggleAllOverlaysDisplayed(true);
+      await overlays.update();
+
+      assert.strictEqual(container.style.display, 'block');
     });
 
     it('only renders one TIMESTAMP_MARKER as it is a singleton', async function() {
@@ -699,7 +752,7 @@ describeWithEnvironment('Overlays', () => {
 
       // change the bounds so the new min is +1second of time.
       const newBounds = Trace.Helpers.Timing.traceWindowFromMicroSeconds(
-          Trace.Types.Timing.MicroSeconds(rangeOverlay.bounds.min + (1_000 * 1_000)),
+          Trace.Types.Timing.Micro(rangeOverlay.bounds.min + (1_000 * 1_000)),
           rangeOverlay.bounds.max,
       );
       overlays.updateExisting(rangeOverlay, {bounds: newBounds});
@@ -720,8 +773,8 @@ describeWithEnvironment('Overlays', () => {
         type: 'ENTRY_SELECTED',
         entry: layoutShiftEvent,
       });
-      const boundsRange = Trace.Types.Timing.MicroSeconds(20_000);
-      const boundsMax = Trace.Types.Timing.MicroSeconds(layoutShiftEvent.ts + boundsRange);
+      const boundsRange = Trace.Types.Timing.Micro(20_000);
+      const boundsMax = Trace.Types.Timing.Micro(layoutShiftEvent.ts + boundsRange);
       overlays.updateVisibleWindow({min: layoutShiftEvent.ts, max: boundsMax, range: boundsRange});
       await overlays.update();
       const overlayDOM = container.querySelector<HTMLElement>('.overlay-type-ENTRY_SELECTED');
@@ -740,7 +793,7 @@ describeWithEnvironment('Overlays', () => {
         bounds: parsedTrace.Meta.traceBounds,
       });
       await overlays.update();
-      await coordinator.done();
+      await RenderCoordinator.done();
       const overlayDOM = container.querySelector<HTMLElement>('.overlay-type-TIME_RANGE');
       const component = overlayDOM?.querySelector('devtools-time-range-overlay');
       assert.isOk(component?.shadowRoot);
@@ -990,7 +1043,7 @@ describeWithEnvironment('Overlays', () => {
     it('defines a log for cursor timestamp marker', () => {
       const overlay: Overlays.Overlays.TimestampMarker = {
         type: 'TIMESTAMP_MARKER',
-        timestamp: 1_000 as Trace.Types.Timing.MicroSeconds,
+        timestamp: 1_000 as Trace.Types.Timing.Micro,
       };
       const context = Overlays.Overlays.jsLogContext(overlay);
       assert.strictEqual(context, 'timeline.overlays.cursor-timestamp-marker');

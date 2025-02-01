@@ -98,6 +98,7 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin<EventType
 
   constructor(showImageCallback: (arg0?: string|undefined) => void) {
     super(true);
+    this.registerRequiredCSS(paintProfilerStyles);
 
     this.contentElement.classList.add('paint-profiler-overview');
     this.canvasContainer = this.contentElement.createChild('div', 'paint-profiler-canvas-container');
@@ -242,7 +243,7 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin<EventType
     }
   }
 
-  override update(): void {
+  update(): void {
     this.canvas.width = this.canvasContainer.clientWidth * window.devicePixelRatio;
     this.canvas.height = this.canvasContainer.clientHeight * window.devicePixelRatio;
     this.samplesPerBar = 0;
@@ -411,19 +412,15 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin<EventType
     this.selectionWindowInternal.reset();
     this.selectionWindowInternal.setResizeEnabled(false);
   }
-  override wasShown(): void {
-    super.wasShown();
-    this.registerCSSFiles([paintProfilerStyles]);
-  }
 }
 
 export const enum Events {
   WINDOW_CHANGED = 'WindowChanged',
 }
 
-export type EventTypes = {
-  [Events.WINDOW_CHANGED]: void,
-};
+export interface EventTypes {
+  [Events.WINDOW_CHANGED]: void;
+}
 
 export class PaintProfilerCommandLogView extends UI.ThrottledWidget.ThrottledWidget {
   private readonly treeOutline: UI.TreeOutline.TreeOutlineInShadow;

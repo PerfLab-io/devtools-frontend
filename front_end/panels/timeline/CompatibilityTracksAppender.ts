@@ -26,13 +26,13 @@ import {TimelinePanel} from './TimelinePanel.js';
 import {TimingsTrackAppender} from './TimingsTrackAppender.js';
 import * as TimelineUtils from './utils/utils.js';
 
-export type PopoverInfo = {
-  title: string,
-  formattedTime: string,
-  url: string|null,
-  warningElements: HTMLSpanElement[],
-  additionalElements: HTMLElement[],
-};
+export interface PopoverInfo {
+  title: string;
+  formattedTime: string;
+  url: string|null;
+  warningElements: HTMLSpanElement[];
+  additionalElements: HTMLElement[];
+}
 
 let showPostMessageEvents: boolean|undefined;
 function isShowPostMessageEventsEnabled(): boolean {
@@ -305,12 +305,12 @@ export class CompatibilityTracksAppender {
         }
         case Trace.Handlers.Threads.ThreadType.WORKER:
           return 3;
+        case Trace.Handlers.Threads.ThreadType.AUCTION_WORKLET:
+          return 3;
         case Trace.Handlers.Threads.ThreadType.RASTERIZER:
           return 4;
         case Trace.Handlers.Threads.ThreadType.THREAD_POOL:
           return 5;
-        case Trace.Handlers.Threads.ThreadType.AUCTION_WORKLET:
-          return 6;
         case Trace.Handlers.Threads.ThreadType.OTHER:
           return 7;
         default:
@@ -318,16 +318,14 @@ export class CompatibilityTracksAppender {
       }
     };
     const threads = Trace.Handlers.Threads.threadsInTrace(this.#parsedTrace);
-    const processedAuctionWorkletsIds = new Set<Trace.Types.Events.ProcessID>();
     const showAllEvents = Root.Runtime.experiments.isEnabled('timeline-show-all-events');
 
-    for (const {pid, tid, name, type} of threads) {
+    for (const {pid, tid, name, type, entries, tree} of threads) {
       if (this.#parsedTrace.Meta.traceIsGeneric) {
-        // If the trace is generic, we just push all of the threads with no
-        // effort to differentiate them, hence overriding the thread type to be
-        // OTHER for all threads.
-        this.#threadAppenders.push(
-            new ThreadAppender(this, this.#parsedTrace, pid, tid, name, Trace.Handlers.Threads.ThreadType.OTHER));
+        // If the trace is generic, we just push all of the threads with no effort to differentiate them, hence
+        // overriding the thread type to be OTHER for all threads.
+        this.#threadAppenders.push(new ThreadAppender(
+            this, this.#parsedTrace, pid, tid, name, Trace.Handlers.Threads.ThreadType.OTHER, entries, tree));
         continue;
       }
       // These threads have no useful information. Omit them
@@ -335,28 +333,22 @@ export class CompatibilityTracksAppender {
         continue;
       }
 
-      const maybeWorklet = this.#parsedTrace.AuctionWorklets.worklets.get(pid);
-      if (processedAuctionWorkletsIds.has(pid)) {
-        // Keep track of this process to ensure we only add the following
-        // tracks once per process and not once per thread.
-        continue;
-      }
-      if (maybeWorklet) {
-        processedAuctionWorkletsIds.add(pid);
-        // Each AuctionWorklet event represents two threads:
+      const matchingWorklet = this.#parsedTrace.AuctionWorklets.worklets.get(pid);
+      if (matchingWorklet) {
+        // Each AuctionWorklet has two key threads:
         // 1. the Utility Thread
-        // 2. the V8 Helper Thread
-        // Note that the names passed here are not used visually. TODO: remove this name?
-        this.#threadAppenders.push(new ThreadAppender(
-            this, this.#parsedTrace, pid, maybeWorklet.args.data.utilityThread.tid, 'auction-worket-utility',
-            Trace.Handlers.Threads.ThreadType.AUCTION_WORKLET));
-        this.#threadAppenders.push(new ThreadAppender(
-            this, this.#parsedTrace, pid, maybeWorklet.args.data.v8HelperThread.tid, 'auction-worklet-v8helper',
-            Trace.Handlers.Threads.ThreadType.AUCTION_WORKLET));
+        // 2. the V8 Helper Thread - either a bidder or seller. see buildNameForAuctionWorklet()
+        // There are other threads in a worklet process, but we don't render them.
+        const tids = [matchingWorklet.args.data.utilityThread.tid, matchingWorklet.args.data.v8HelperThread.tid];
+        if (tids.includes(tid)) {
+          this.#threadAppenders.push(new ThreadAppender(
+              this, this.#parsedTrace, pid, tid, '', Trace.Handlers.Threads.ThreadType.AUCTION_WORKLET, entries, tree));
+        }
         continue;
       }
 
-      this.#threadAppenders.push(new ThreadAppender(this, this.#parsedTrace, pid, tid, name, type));
+      // The Common case… Add the main thread, or iframe, or thread pool, etc.
+      this.#threadAppenders.push(new ThreadAppender(this, this.#parsedTrace, pid, tid, name, type, entries, tree));
     }
     // Sort first by track order, then break ties by placing busier tracks first.
     this.#threadAppenders.sort(
@@ -533,9 +525,9 @@ export class CompatibilityTracksAppender {
     this.#entryData.push(event);
     this.#legacyEntryTypeByLevel[level] = EntryType.TRACK_APPENDER;
     this.#flameChartData.entryLevels[index] = level;
-    this.#flameChartData.entryStartTimes[index] = Trace.Helpers.Timing.microSecondsToMilliseconds(event.ts);
-    const dur = event.dur || Trace.Helpers.Timing.millisecondsToMicroseconds(InstantEventVisibleDurationMs);
-    this.#flameChartData.entryTotalTimes[index] = Trace.Helpers.Timing.microSecondsToMilliseconds(dur);
+    this.#flameChartData.entryStartTimes[index] = Trace.Helpers.Timing.microToMilli(event.ts);
+    const dur = event.dur || Trace.Helpers.Timing.milliToMicro(InstantEventVisibleDurationMs);
+    this.#flameChartData.entryTotalTimes[index] = Trace.Helpers.Timing.microToMilli(dur);
     return index;
   }
 
@@ -637,11 +629,14 @@ export class CompatibilityTracksAppender {
       throw new Error('Track not found for level');
     }
 
-    // Historically all tracks would have a titleForEvent() method.
-    // However, we are working on migrating all event title logic into one place (components/EntryName)
-    // TODO(crbug.com/365047728):
-    // Once this migration is complete, no tracks will have a custom
-    // titleForEvent method and we can remove titleForEvent entirely.
+    // Historically all tracks would have a titleForEvent() method. However a
+    // lot of these were duplicated so we worked on removing them in favour of
+    // the EntryName.nameForEntry method called below (see crbug.com/365047728).
+    // However, sometimes an appender needs to customise the titles slightly;
+    // for example the LayoutShiftsTrackAppender does not show any titles as we
+    // use diamonds to represent layout shifts.
+    // So whilst we expect most appenders to not define this method, we do
+    // allow appenders to override it.
     if (track.titleForEvent) {
       return track.titleForEvent(event);
     }

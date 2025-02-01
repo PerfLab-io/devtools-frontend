@@ -3,10 +3,15 @@
 // found in the LICENSE file.
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/no-underscored-properties.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 ruleTester.run('no-underscored-properties', rule, {
@@ -55,21 +60,27 @@ ruleTester.run('no-underscored-properties', rule, {
       code: `class X {
         private _foo: string = '';
       }`,
-      errors: [{message: 'Class property _foo should not begin with an underscore.'}]
+      errors: [
+        {message: 'Class property _foo should not begin with an underscore.'},
+      ],
     },
     {
       filename: 'foo.ts',
       code: `class X {
         public _foo: string = '';
       }`,
-      errors: [{message: 'Class property _foo should not begin with an underscore.'}]
+      errors: [
+        {message: 'Class property _foo should not begin with an underscore.'},
+      ],
     },
     {
       filename: 'foo.ts',
       code: `class X {
         _foo: string = '';
       }`,
-      errors: [{message: 'Class property _foo should not begin with an underscore.'}]
+      errors: [
+        {message: 'Class property _foo should not begin with an underscore.'},
+      ],
     },
     {
       filename: 'foo.ts',
@@ -77,7 +88,9 @@ ruleTester.run('no-underscored-properties', rule, {
         _foo() {
         }
       }`,
-      errors: [{message: 'Class method _foo should not begin with an underscore.'}]
+      errors: [
+        {message: 'Class method _foo should not begin with an underscore.'},
+      ],
     },
     {
       filename: 'foo.ts',
@@ -86,7 +99,9 @@ ruleTester.run('no-underscored-properties', rule, {
           console.log('I am private');
         }
       }`,
-      errors: [{message: 'Class method _foo should not begin with an underscore.'}]
-    }
-  ]
+      errors: [
+        {message: 'Class method _foo should not begin with an underscore.'},
+      ],
+    },
+  ],
 });

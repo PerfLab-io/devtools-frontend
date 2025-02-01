@@ -9,7 +9,7 @@ import {AidaRequest} from '../../front_end/core/host/AidaClient.ts'
  * The result of running auto_freestyler against all the provided examples.
  */
 export interface RunResult {
-  allExampleResults: ExecutedExample[];
+  allExampleResults: IndividualPromptRequestResponse[];
   metadata: ExampleMetadata[]
 }
 
@@ -43,6 +43,7 @@ export interface YargsInput {
   label: string;
   parallel: boolean;
   includeFollowUp: boolean;
+  testTarget: 'elements'|'performance';
 }
 
 // Clang cannot handle the Record<> syntax over multiple lines, it seems.

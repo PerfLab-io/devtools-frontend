@@ -36,7 +36,7 @@ import * as VisualLogging from '../../../visual_logging/visual_logging.js';
 import * as UI from '../../legacy.js';
 import * as ThemeSupport from '../../theme_support/theme_support.js';
 
-import overviewGridStyles from './overviewGrid.css.legacy.js';
+import overviewGridStyles from './overviewGrid.css.js';
 import {type Calculator, TimelineGrid} from './TimelineGrid.js';
 
 const UIStrings = {
@@ -237,13 +237,7 @@ export class Window extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
 
   enableCreateBreadcrumbsButton(): HTMLElement {
     this.curtainsRange = this.createBreadcrumbButton.createChild('div');
-    this.breadcrumbZoomIcon = new IconButton.Icon.Icon();
-    this.breadcrumbZoomIcon.data = {
-      iconName: 'zoom-in',
-      color: 'var(--icon-default)',
-      width: '20px',
-      height: '20px',
-    };
+    this.breadcrumbZoomIcon = IconButton.Icon.create('zoom-in');
     this.createBreadcrumbButton.appendChild(this.breadcrumbZoomIcon);
     this.createBreadcrumbButton.addEventListener('click', () => {
       this.#createBreadcrumb();
@@ -708,11 +702,11 @@ export interface WindowChangedWithPositionEvent {
   rawEndValue: number;
 }
 
-export type EventTypes = {
-  [Events.WINDOW_CHANGED]: void,
-  [Events.BREADCRUMB_ADDED]: WindowChangedWithPositionEvent,
-  [Events.WINDOW_CHANGED_WITH_POSITION]: WindowChangedWithPositionEvent,
-};
+export interface EventTypes {
+  [Events.WINDOW_CHANGED]: void;
+  [Events.BREADCRUMB_ADDED]: WindowChangedWithPositionEvent;
+  [Events.WINDOW_CHANGED_WITH_POSITION]: WindowChangedWithPositionEvent;
+}
 
 export class WindowSelector {
   private startPosition: number;

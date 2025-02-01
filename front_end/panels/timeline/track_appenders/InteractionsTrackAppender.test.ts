@@ -77,8 +77,7 @@ describeWithEnvironment('InteractionsTrackAppender', function() {
       for (const event of events) {
         const markerIndex = entryData.indexOf(event);
         assert.exists(markerIndex);
-        assert.strictEqual(
-            flameChartData.entryStartTimes[markerIndex], Trace.Helpers.Timing.microSecondsToMilliseconds(event.ts));
+        assert.strictEqual(flameChartData.entryStartTimes[markerIndex], Trace.Helpers.Timing.microToMilli(event.ts));
       }
     });
 
@@ -90,7 +89,7 @@ describeWithEnvironment('InteractionsTrackAppender', function() {
         const markerIndex = entryData.indexOf(event);
         assert.exists(markerIndex);
         const expectedTotalTimeForEvent =
-            Trace.Helpers.Timing.microSecondsToMilliseconds((event.dur || 0) as Trace.Types.Timing.MicroSeconds);
+            Trace.Helpers.Timing.microToMilli((event.dur || 0) as Trace.Types.Timing.Micro);
         assert.strictEqual(flameChartData.entryTotalTimes[markerIndex], expectedTotalTimeForEvent);
       }
     });
@@ -107,7 +106,7 @@ describeWithEnvironment('InteractionsTrackAppender', function() {
     assert.deepEqual(decorationsForEntry, [
       {
         type: PerfUI.FlameChart.FlameChartDecorationType.CANDY,
-        startAtTime: Trace.Types.Timing.MicroSeconds(200_000),
+        startAtTime: Trace.Types.Timing.Micro(200_000),
         endAtTime: longInteraction.processingEnd,
       },
       {

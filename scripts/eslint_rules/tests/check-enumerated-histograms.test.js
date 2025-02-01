@@ -3,10 +3,15 @@
 // found in the LICENSE file.
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/check-enumerated-histograms.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 ruleTester.run('check-enumerated-histograms', rule, {
@@ -18,15 +23,19 @@ ruleTester.run('check-enumerated-histograms', rule, {
     {
       code:
           'InspectorFrontendHostInstance.recordEnumeratedHistogram(EnumeratedHistogram.IssueCreated, issueCreated, IssueCreated.MAX_VALUE);',
-      filename: 'front_end/components/test.ts'
-    }
+      filename: 'front_end/components/test.ts',
+    },
   ],
-  invalid: [{
-    code: 'InspectorFrontendHostInstance.recordEnumeratedHistogram(\'someparam\', 1, 5);',
-    filename: 'front_end/components/test.ts',
-    errors: [{
-      message:
-          'When calling \'recordEnumeratedHistogram\' the third argument should be of the form \'SomeEnum.MAX_VALUE\'.'
-    }],
-  }]
+  invalid: [
+    {
+      code: 'InspectorFrontendHostInstance.recordEnumeratedHistogram(\'someparam\', 1, 5);',
+      filename: 'front_end/components/test.ts',
+      errors: [
+        {
+          message:
+              'When calling \'recordEnumeratedHistogram\' the third argument should be of the form \'SomeEnum.MAX_VALUE\'.',
+        },
+      ],
+    },
+  ],
 });

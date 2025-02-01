@@ -205,6 +205,7 @@ export class SensorsView extends UI.Widget.VBox {
 
   constructor() {
     super(true);
+    this.registerRequiredCSS(sensorsStyles);
     this.element.setAttribute('jslog', `${VisualLogging.panel('sensors').track({resize: true})}`);
     this.contentElement.classList.add('sensors-view');
 
@@ -242,11 +243,6 @@ export class SensorsView extends UI.Widget.VBox {
     this.createPanelSeparator();
   }
 
-  override wasShown(): void {
-    super.wasShown();
-    this.registerCSSFiles([sensorsStyles]);
-  }
-
   private createPanelSeparator(): void {
     this.contentElement.createChild('div').classList.add('panel-section-separator');
   }
@@ -260,7 +256,7 @@ export class SensorsView extends UI.Widget.VBox {
     let selectedIndex = 0;
 
     const noOverrideOption = {title: i18nString(UIStrings.noOverride), location: NonPresetOptions.NoOverride};
-    this.locationSelectElement = fields.createChild('select', 'chrome-select');
+    this.locationSelectElement = fields.createChild('select');
     this.locationSelectElement.setAttribute('jslog', `${VisualLogging.dropDown().track({change: true})}`);
     UI.ARIAUtils.bindLabelToControl(geogroupTitle, this.locationSelectElement);
 
@@ -475,7 +471,7 @@ export class SensorsView extends UI.Widget.VBox {
         {title: i18nString(UIStrings.displayDown), orientation: '[0, -180, 0]', jslogContext: 'displayUp-down'},
       ],
     }];
-    this.orientationSelectElement = this.contentElement.createChild('select', 'chrome-select');
+    this.orientationSelectElement = this.contentElement.createChild('select');
     this.orientationSelectElement.setAttribute('jslog', `${VisualLogging.dropDown().track({change: true})}`);
     UI.ARIAUtils.bindLabelToControl(orientationTitle, this.orientationSelectElement);
     this.orientationSelectElement.appendChild(UI.UIUtils.createOption(

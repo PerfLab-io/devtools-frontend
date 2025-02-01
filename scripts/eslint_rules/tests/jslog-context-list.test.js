@@ -4,10 +4,15 @@
 'use strict';
 process.env.ESLINT_FAIL_ON_UNKNOWN_JSLOG_CONTEXT_VALUE = 1;
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/jslog-context-list.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 ruleTester.run('jslog-context-list', rule, {
@@ -16,15 +21,17 @@ ruleTester.run('jslog-context-list', rule, {
       code: `
         menuItemElement.setAttribute('jslog', \`\${VisualLogging.action('uNkNown').track({click: true})}\`);
       `,
-      errors: [{
-        message:
-            'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts'
-      }],
+      errors: [
+        {
+          message:
+              'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts',
+        },
+      ],
       filename: 'front_end/components/test.ts',
     },
     {
       code: `
-        LitHtml.render(LitHtml.html\`
+        Lit.render(Lit.html\`
           <dialog @click=\${this.#handlePointerEvent} @pointermove=\${this.#handlePointerEvent} @cancel=\${this.#onCancel}
                   jslog=\${VisualLogging.dialog('uNkNown').track({resize: true, keydown: 'Escape'}).parent('mapped')}>
             <div id="content-wrap">
@@ -35,10 +42,12 @@ ruleTester.run('jslog-context-list', rule, {
           </dialog>
         \`, this.#shadow, { host: this });
             `,
-      errors: [{
-        message:
-            'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts'
-      }],
+      errors: [
+        {
+          message:
+              'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts',
+        },
+      ],
       filename: 'front_end/components/test.ts',
     },
     {
@@ -53,10 +62,12 @@ ruleTester.run('jslog-context-list', rule, {
           },
         });
             `,
-      errors: [{
-        message:
-            'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts'
-      }],
+      errors: [
+        {
+          message:
+              'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts',
+        },
+      ],
       filename: 'front_end/components/test.ts',
     },
     {
@@ -73,10 +84,12 @@ ruleTester.run('jslog-context-list', rule, {
           },
         });
             `,
-      errors: [{
-        message:
-            'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts'
-      }],
+      errors: [
+        {
+          message:
+              'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts',
+        },
+      ],
       filename: 'front_end/components/test.ts',
     },
     {
@@ -88,10 +101,12 @@ ruleTester.run('jslog-context-list', rule, {
           defaultValue: '/node_modules/|/bower_components/',
         });
             `,
-      errors: [{
-        message:
-            'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts'
-      }],
+      errors: [
+        {
+          message:
+              'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts',
+        },
+      ],
       filename: 'front_end/components/test.ts',
     },
     {
@@ -99,10 +114,12 @@ ruleTester.run('jslog-context-list', rule, {
     this.disableCaptureJSProfileSetting =
         Common.Settings.Settings.instance().createSetting('uNkNown', false);
             `,
-      errors: [{
-        message:
-            'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts'
-      }],
+      errors: [
+        {
+          message:
+              'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts',
+        },
+      ],
       filename: 'front_end/components/test.ts',
     },
     {
@@ -110,10 +127,12 @@ ruleTester.run('jslog-context-list', rule, {
         contextMenu.defaultSection().appendItem(
             i18nString(UIStrings.refresh), this.refreshCallback.bind(this), {jslogContext: 'uNkNown'});
             `,
-      errors: [{
-        message:
-            'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts'
-      }],
+      errors: [
+        {
+          message:
+              'Found jslog context value \'uNkNown\' that is not listed in front_end/ui/visual_logging/KnownContextValues.ts',
+        },
+      ],
       filename: 'front_end/components/test.ts',
     },
   ],
@@ -138,7 +157,7 @@ ruleTester.run('jslog-context-list', rule, {
     },
     {
       code: `
-        LitHtml.render(LitHtml.html\`
+        Lit.render(Lit.html\`
           <dialog @click=\${this.#handlePointerEvent} @pointermove=\${this.#handlePointerEvent} @cancel=\${this.#onCancel}
                   jslog=\${VisualLogging.dialog(this.#props.jslogContext).track({resize: true, keydown: 'Escape'}).parent('mapped')}>
             <div id="content-wrap">

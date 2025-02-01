@@ -57,6 +57,14 @@ describe('AI Assistance', function() {
       waitUntil: 'networkidle0',
     });
 
+    await resetMockMessages(messages);
+  }
+
+  async function resetMockMessages(
+      messages: string[],
+  ) {
+    const {frontend} = getBrowserAndPages();
+    await frontend.bringToFront();
     await frontend.evaluate(messages => {
       let call = 0;
       // @ts-ignore devtools context.
@@ -136,7 +144,7 @@ describe('AI Assistance', function() {
     };
   }
 
-  async function submitAndWaitTillDone(): Promise<Array<Log>> {
+  async function submitAndWaitTillDone(waitForSideEffect?: boolean): Promise<Array<Log>> {
     const {frontend} = getBrowserAndPages();
     const done = frontend.evaluate(() => {
       return new Promise(resolve => {
@@ -146,12 +154,21 @@ describe('AI Assistance', function() {
       });
     });
     await frontend.keyboard.press('Enter');
+
+    if (waitForSideEffect) {
+      await frontend.waitForSelector('aria/Continue');
+      return JSON.parse(await frontend.evaluate((): string => {
+        return localStorage.getItem('freestylerStructuredLog') as string;
+      })) as Array<Log>;
+    }
+
     const abort = new AbortController();
     async function autoAcceptEvals(signal: AbortSignal) {
       while (!signal.aborted) {
         await frontend.locator('aria/Continue').click({signal});
       }
     }
+    // Click continue once without sending abort signal.
     autoAcceptEvals(abort.signal).catch(() => {});
     await done;
     abort.abort();
@@ -166,8 +183,16 @@ describe('AI Assistance', function() {
     resource?: string,
     node?: string,
     iframeId?: string,
+    waitForSideEffect?: boolean,
   }) {
-    const {messages, query, resource = '../resources/recorder/recorder.html', node = 'div', iframeId} = options;
+    const {
+      messages,
+      query,
+      resource = '../resources/recorder/recorder.html',
+      node = 'div',
+      iframeId,
+      waitForSideEffect
+    } = options;
 
     await setupMocks(
         {
@@ -177,14 +202,34 @@ describe('AI Assistance', function() {
           },
         },
         messages);
-    await goToResource(resource);
-
-    await inspectNode(node, iframeId);
+    await goToResource(resource, {
+      waitUntil: 'networkidle0',
+    });
     await openFreestyler();
     await turnOnAiAssistance();
     await enableDebugModeForFreestyler();
+    return await sendAiAssistanceMessage({
+      node,
+      iframeId,
+      query,
+      messages,
+      waitForSideEffect,
+    });
+  }
+
+  async function sendAiAssistanceMessage(options: {
+    query: string,
+    messages: string[],
+    node?: string,
+    iframeId?: string,
+    waitForSideEffect?: boolean,
+  }) {
+    const {messages, query, node = 'div', iframeId, waitForSideEffect} = options;
+
+    await resetMockMessages(messages);
+    await inspectNode(node, iframeId);
     await typeQuery(query);
-    return await submitAndWaitTillDone();
+    return await submitAndWaitTillDone(waitForSideEffect);
   }
 
   it('gets data about elements', async () => {
@@ -205,7 +250,7 @@ STOP`,
         result.at(-1)!.request.current_message, {role: 1, parts: [{text: 'OBSERVATION: {"color":"rgb(0, 0, 0)"}'}]});
   });
 
-  it('gets handles trailing ;', async () => {
+  it('handles trailing ;', async () => {
     const result = await runAiAssistance(
         {
           query: 'Change the background color for this element to blue',
@@ -232,7 +277,7 @@ STOP`,
         result.at(-1)!.request.current_message, {role: 1, parts: [{text: 'OBSERVATION: {"aspectRatio":"auto"}'}]});
   });
 
-  it('gets handles comments', async () => {
+  it('handles comments', async () => {
     const result = await runAiAssistance({
       query: 'Change the background color for this element to blue',
       messages: [
@@ -281,6 +326,47 @@ STOP`,
     });
   });
 
+  it('modifies multiple styles', async () => {
+    await runAiAssistance({
+      query: 'Change the background color for this element to blue',
+      messages: [
+        `THOUGHT: I can change the background color of an element by setting the background-color CSS property.
+TITLE: changing the property
+ACTION
+await setElementStyles($0, { 'background-color': 'blue' });
+STOP`,
+        'ANSWER: changed styles',
+      ],
+      node: 'div',
+    });
+
+    const {target} = getBrowserAndPages();
+    await target.bringToFront();
+    await target.waitForFunction(() => {
+      // @ts-ignore page context.
+      return window.getComputedStyle(document.querySelector('div')).backgroundColor === 'rgb(0, 0, 255)';
+    });
+
+    await sendAiAssistanceMessage({
+      query: 'Change the background color for this element to green',
+      messages: [
+        `THOUGHT: I can change the background color of an element by setting the background-color CSS property.
+TITLE: changing the property
+ACTION
+await setElementStyles($0, { 'background-color': 'green' });
+STOP`,
+        'ANSWER: changed styles',
+      ],
+      node: 'button',
+    });
+
+    await target.bringToFront();
+    await target.waitForFunction(() => {
+      // @ts-ignore page context.
+      return window.getComputedStyle(document.querySelector('button')).backgroundColor === 'rgb(0, 128, 0)';
+    });
+  });
+
   it('executes in the correct realm', async () => {
     const result = await runAiAssistance({
       query: 'What is the document title',
@@ -307,6 +393,58 @@ STOP`,
 
     assert.deepEqual(result.at(-1)!.request.current_message.parts[0], {
       text: 'OBSERVATION: {"title":"I have a title"}',
+    });
+  });
+
+  it('aborts ongoing conversation if new input is submitted by pressing enter', async () => {
+    await runAiAssistance({
+      query: 'Change the background color for this element to blue',
+      messages: [
+        `THOUGHT: I can change the background color of an element by setting the background-color CSS property.
+TITLE: changing the property
+ACTION
+await setElementStyles($0, { 'background-color': 'blue' });
+STOP`,
+      ],
+      node: 'div',
+      waitForSideEffect: true,
+    });
+
+    const {target} = getBrowserAndPages();
+    await target.bringToFront();
+    await target.waitForFunction(() => {
+      // @ts-ignore page context.
+      return window.getComputedStyle(document.querySelector('div')).backgroundColor === 'rgba(0, 0, 0, 0)';
+    });
+
+    const messages = [
+      `THOUGHT: I can change the background color of an element by setting the background-color CSS property.
+TITLE: changing the property
+ACTION
+await setElementStyles($0, { 'background-color': 'green' });
+STOP`,
+      'ANSWER: changed styles',
+    ];
+    await resetMockMessages(messages);
+    await inspectNode('div');
+    await typeQuery('Change the background color for this element to green');
+    const {frontend} = getBrowserAndPages();
+    const done = frontend.evaluate(() => {
+      return new Promise(resolve => {
+        window.addEventListener('freestylerdone', resolve, {
+          once: true,
+        });
+      });
+    });
+    await frontend.keyboard.press('Enter');
+    await await frontend.locator('aria/Continue').click();
+    await done;
+
+    await target.bringToFront();
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    await target.waitForFunction(() => {
+      // @ts-ignore page context.
+      return window.getComputedStyle(document.querySelector('div')).backgroundColor === 'rgb(0, 128, 0)';
     });
   });
 });

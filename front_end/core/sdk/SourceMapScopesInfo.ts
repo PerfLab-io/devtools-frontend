@@ -5,21 +5,13 @@
 import * as Protocol from '../../generated/protocol.js';
 
 import type {CallFrame, ScopeChainEntry} from './DebuggerModel.js';
-import type {SourceMap, SourceMapV3Object} from './SourceMap.js';
+import type {SourceMap} from './SourceMap.js';
 import {SourceMapScopeChainEntry} from './SourceMapScopeChainEntry.js';
-import {
-  decodeGeneratedRanges,
-  decodeOriginalScopes,
-  type GeneratedRange,
-  type OriginalPosition,
-  type OriginalScope,
-  type Position,
-} from './SourceMapScopes.js';
+import type {GeneratedRange, OriginalPosition, OriginalScope, Position,} from './SourceMapScopes.js';
 
 export class SourceMapScopesInfo {
-  /* eslint-disable-next-line no-unused-private-class-members */
   readonly #sourceMap: SourceMap;
-  readonly #originalScopes: OriginalScope[];
+  readonly #originalScopes: (OriginalScope|undefined)[];
   readonly #generatedRanges: GeneratedRange[];
 
   #cachedVariablesAndBindingsPresent: boolean|null = null;
@@ -30,16 +22,16 @@ export class SourceMapScopesInfo {
     this.#generatedRanges = generatedRanges;
   }
 
-  static parseFromMap(
-      sourceMap: SourceMap,
-      sourceMapJson: Pick<SourceMapV3Object, 'names'|'originalScopes'|'generatedRanges'>): SourceMapScopesInfo {
-    if (!sourceMapJson.originalScopes || sourceMapJson.generatedRanges === undefined) {
-      throw new Error('Cant create SourceMapScopesInfo without encoded scopes');
+  addOriginalScopes(scopes: (OriginalScope|undefined)[]): void {
+    for (const scope of scopes) {
+      this.#originalScopes.push(scope);
     }
-    const scopeTrees = decodeOriginalScopes(sourceMapJson.originalScopes, sourceMapJson.names ?? []);
-    const originalScopes = scopeTrees.map(tree => tree.root);
-    const generatedRanges = decodeGeneratedRanges(sourceMapJson.generatedRanges, scopeTrees, sourceMapJson.names ?? []);
-    return new SourceMapScopesInfo(sourceMap, originalScopes, generatedRanges);
+  }
+
+  addGeneratedRanges(ranges: GeneratedRange[]): void {
+    for (const range of ranges) {
+      this.#generatedRanges.push(range);
+    }
   }
 
   /**
@@ -138,8 +130,12 @@ export class SourceMapScopesInfo {
     // We check whether any original scope has a non-empty list of variables, and
     // generated ranges with a non-empty binding list.
 
-    function walkTree(nodes: OriginalScope[]|GeneratedRange[]): boolean {
+    function walkTree(nodes: (OriginalScope|undefined)[]|GeneratedRange[]): boolean {
       for (const node of nodes) {
+        if (!node) {
+          continue;
+        }
+
         if ('variables' in node && node.variables.length > 0) {
           return true;
         }
@@ -282,8 +278,12 @@ export class SourceMapScopesInfo {
    * to inner.
    */
   #findOriginalScopeChain({sourceIndex, line, column}: OriginalPosition): OriginalScope[] {
-    const result: OriginalScope[] = [];
+    const scope = this.#originalScopes[sourceIndex];
+    if (!scope) {
+      return [];
+    }
 
+    const result: OriginalScope[] = [];
     (function walkScopes(scopes: OriginalScope[]) {
       for (const scope of scopes) {
         if (!contains(scope, line, column)) {
@@ -292,7 +292,7 @@ export class SourceMapScopesInfo {
         result.push(scope);
         walkScopes(scope.children);
       }
-    })([this.#originalScopes[sourceIndex]]);
+    })([scope]);
 
     return result;
   }

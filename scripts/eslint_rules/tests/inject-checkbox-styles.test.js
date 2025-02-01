@@ -3,10 +3,15 @@
 // found in the LICENSE file.
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/inject-checkbox-styles.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 ruleTester.run('inject-checkbox-styles', rule, {
@@ -21,19 +26,23 @@ ruleTester.run('inject-checkbox-styles', rule, {
         }
 
         render() {
-          LitHtml.render(LitHtml.html\`<input type="checkbox" />\`, this.#shadow, {host:this});
+          Lit.render(Lit.html\`<input type="checkbox" />\`, this.#shadow, {host:this});
         }
       }`,
       filename: 'front_end/ui/components/datagrid/datagrid.ts',
     },
     {
       code: `import * as ComponentHelpers from '../../components/helpers/helpers.js';
-import * as LitHtml from '../../lit-html/lit-html.js';
+import * as Lit from '../../lit/lit.js';
 import * as Input from '../input/input.js';
-import settingCheckboxStyles from './settingCheckbox.css.js';
+import settingCheckboxStylesRaw from './settingCheckbox.css.js';
+
+// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+const settingCheckboxStyles = new CSSStyleSheet();
+settingCheckboxStyles.replaceSync(settingCheckboxStylesRaw.cssContent);
 
 export class SettingCheckbox extends HTMLElement {
-  static readonly litTagName = LitHtml.literal\`setting-checkbox\`;
+  static readonly litTagName = Lit.literal\`setting-checkbox\`;
   readonly #shadow = this.attachShadow({mode: 'open'});
 
   connectedCallback(): void {
@@ -41,8 +50,8 @@ export class SettingCheckbox extends HTMLElement {
   }
 
   #render(): void {
-    LitHtml.render(
-        LitHtml.html\`<p>
+    Lit.render(
+        Lit.html\`<p>
         <label>
           <input type="checkbox" />
         </label>
@@ -61,7 +70,7 @@ export class SettingCheckbox extends HTMLElement {
         }
 
         render() {
-          LitHtml.render(LitHtml.html\`<input type="checkbox" />\`, this.shadow, {host:this});
+          Lit.render(Lit.html\`<input type="checkbox" />\`, this.shadow, {host:this});
         }
       }`,
       filename: 'front_end/ui/components/datagrid/datagrid.ts',
@@ -79,7 +88,7 @@ export class SettingCheckbox extends HTMLElement {
         }
 
         render() {
-          LitHtml.render(LitHtml.html\`<input type="text" />\`, this.shadow, {host:this});
+          Lit.render(Lit.html\`<input type="text" />\`, this.shadow, {host:this});
         }
       }`,
       filename: 'front_end/ui/components/datagrid/datagrid.ts',
@@ -92,24 +101,27 @@ export class SettingCheckbox extends HTMLElement {
         private readonly shadow = this.attachShadow({mode: 'open'});
 
         render() {
-          LitHtml.render(LitHtml.html\`<input type="checkbox" />\`, this.shadow, {host:this});
+          Lit.render(Lit.html\`<input type="checkbox" />\`, this.shadow, {host:this});
         }
       }`,
       filename: 'front_end/components/datagrid.ts',
       errors: [{messageId: 'missingCheckboxStylesImport'}],
     },
 
-    // Ensure we get one error per checkbox found in the LitHtml call.
+    // Ensure we get one error per checkbox found in the Lit call.
     {
       code: `export class Test extends HTMLElement {
         private readonly shadow = this.attachShadow({mode: 'open'});
 
         render() {
-          LitHtml.render(LitHtml.html\`<div><input type="checkbox" /><input value=\${this.foo} type="checkbox" /></div>\`, this.shadow, {host:this});
+          Lit.render(Lit.html\`<div><input type="checkbox" /><input value=\${this.foo} type="checkbox" /></div>\`, this.shadow, {host:this});
         }
       }`,
       filename: 'front_end/components/datagrid.ts',
-      errors: [{messageId: 'missingCheckboxStylesImport'}, {messageId: 'missingCheckboxStylesImport'}],
+      errors: [
+        {messageId: 'missingCheckboxStylesImport'},
+        {messageId: 'missingCheckboxStylesImport'},
+      ],
     },
 
     // Importing not the right styles.
@@ -123,7 +135,7 @@ export class SettingCheckbox extends HTMLElement {
         }
 
         render() {
-          LitHtml.render(LitHtml.html\`<input type="checkbox" />\`, this.shadow, {host:this});
+          Lit.render(Lit.html\`<input type="checkbox" />\`, this.shadow, {host:this});
         }
       }`,
       filename: 'front_end/ui/components/datagrid/datagrid.ts',
@@ -137,7 +149,7 @@ export class SettingCheckbox extends HTMLElement {
         private readonly shadow = this.attachShadow({mode: 'open'});
 
         render() {
-          LitHtml.render(LitHtml.html\`<input type="checkbox" />\`, this.shadow, {host:this});
+          Lit.render(Lit.html\`<input type="checkbox" />\`, this.shadow, {host:this});
         }
       }`,
       filename: 'front_end/ui/components/datagrid/datagrid.ts',
@@ -157,11 +169,11 @@ export class SettingCheckbox extends HTMLElement {
         }
 
         render() {
-          LitHtml.render(LitHtml.html\`<input type="checkbox" />\`, this.shadow, {host:this});
+          Lit.render(Lit.html\`<input type="checkbox" />\`, this.shadow, {host:this});
         }
       }`,
       filename: 'front_end/ui/components/datagrid/datagrid.ts',
       errors: [{messageId: 'missingCheckboxStylesAdoption'}],
     },
-  ]
+  ],
 });

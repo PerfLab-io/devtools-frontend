@@ -5,28 +5,28 @@
 import {renderElementIntoDOM} from '../../../testing/DOMHelpers.js';
 import {describeWithEnvironment} from '../../../testing/EnvironmentHelpers.js';
 import * as Marked from '../../../third_party/marked/marked.js';
-import * as LitHtml from '../../lit-html/lit-html.js';
+import * as Lit from '../../lit/lit.js';
 
 import * as MarkdownView from './markdown_view.js';
 
-const {html} = LitHtml;
+const {html} = Lit;
 
-type TestToken = {
-  type: string,
-  tokens?: Marked.Marked.Token[],
-  text?: string,
-  href?: string,
-  items?: Object[],
-  depth?: number,
-};
+interface TestToken {
+  type: string;
+  tokens?: Marked.Marked.Token[];
+  text?: string;
+  href?: string;
+  items?: Object[];
+  depth?: number;
+}
 
 function getFakeToken(token: TestToken): Marked.Marked.Token {
   return token as unknown as Marked.Marked.Token;
 }
 
-function renderTemplateResult(templateResult: LitHtml.TemplateResult): HTMLElement {
+function renderTemplateResult(templateResult: Lit.TemplateResult): HTMLElement {
   const container = document.createElement('container');
-  LitHtml.render(templateResult, container);  // eslint-disable-line rulesdir/lit-html-host-this
+  Lit.render(templateResult, container);  // eslint-disable-line rulesdir/lit-host-this
   return container;
 }
 
@@ -176,7 +176,7 @@ describeWithEnvironment('MarkdownView', () => {
       assert.isTrue(renderResult.includes('<em'));
     });
     it('sets custom classes on the token types', () => {
-      renderer.setCustomClasses({em: 'custom-class'});
+      renderer.addCustomClasses({em: 'custom-class'});
 
       const renderResult = renderer.renderToken(getFakeToken({type: 'em', text: 'em text'}));
       const container = renderTemplateResult(renderResult);
@@ -211,9 +211,11 @@ describeWithEnvironment('MarkdownView', () => {
           renderer.renderToken({type: 'image', text: 'learn more', href: 'https://example.com'} as Marked.Marked.Token);
       assert((result.values[0] as HTMLElement).tagName === 'X-LINK');
     });
-    it('renders headers as a strong element', () => {
-      const result = renderer.renderToken({type: 'heading', text: 'learn more'} as Marked.Marked.Token);
-      assert(result.strings.join('').includes('<strong>'));
+    it('renders headings as headings with the `insight` class', () => {
+      const renderResult = renderer.renderToken(getFakeToken({type: 'heading', text: 'a heading text', depth: 3}));
+      const container = renderTemplateResult(renderResult);
+      assert.isTrue(
+          container.querySelector('h3')?.classList.contains('insight'), 'Expected `insight`-class to be applied');
     });
     it('renders unsupported tokens', () => {
       const result = renderer.renderToken({type: 'html', raw: '<!DOCTYPE html>'} as Marked.Marked.Token);
@@ -318,7 +320,7 @@ console.log('test')
     it('renders using a custom renderer', () => {
       const codeBlock =
           renderString('`console.log()`', 'code', new class extends MarkdownView.MarkdownView.MarkdownLitRenderer {
-            override templateForToken(token: Marked.Marked.Token): LitHtml.TemplateResult|null {
+            override templateForToken(token: Marked.Marked.Token): Lit.TemplateResult|null {
               if (token.type === 'codespan') {
                 return html`<code>overriden</code>`;
               }

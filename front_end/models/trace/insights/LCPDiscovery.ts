@@ -41,7 +41,7 @@ export type LCPDiscoveryInsightModel = InsightModel<{
   shouldPreloadImage?: boolean,
   /** The network request for the LCP image, if there was one. */
   lcpRequest?: Types.Events.SyntheticNetworkRequest,
-  earliestDiscoveryTimeTs?: Types.Timing.MicroSeconds,
+  earliestDiscoveryTimeTs?: Types.Timing.Micro,
 }>;
 
 function finalize(partialModel: Omit<LCPDiscoveryInsightModel, 'title'|'description'|'category'|'shouldShow'>):
@@ -107,8 +107,8 @@ export function generateInsight(
   const imageFetchPriorityHint = lcpRequest?.args.data.fetchPriorityHint;
   // This is the earliest discovery time an LCP request could have - it's TTFB.
   const earliestDiscoveryTime = docRequest && docRequest.args.data.timing ?
-      Helpers.Timing.secondsToMicroseconds(docRequest.args.data.timing.requestTime) +
-          Helpers.Timing.millisecondsToMicroseconds(docRequest.args.data.timing.receiveHeadersStart) :
+      Helpers.Timing.secondsToMicro(docRequest.args.data.timing.requestTime) +
+          Helpers.Timing.milliToMicro(docRequest.args.data.timing.receiveHeadersStart) :
       undefined;
 
   return finalize({
@@ -117,6 +117,6 @@ export function generateInsight(
     shouldIncreasePriorityHint: imageFetchPriorityHint !== 'high',
     shouldPreloadImage: !imgPreloadedOrFoundInHTML,
     lcpRequest,
-    earliestDiscoveryTimeTs: earliestDiscoveryTime ? Types.Timing.MicroSeconds(earliestDiscoveryTime) : undefined,
+    earliestDiscoveryTimeTs: earliestDiscoveryTime ? Types.Timing.Micro(earliestDiscoveryTime) : undefined,
   });
 }

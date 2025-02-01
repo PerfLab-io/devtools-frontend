@@ -1,8 +1,8 @@
-// Copyright 2024 The Chromium Authors. All rights reserved.
+// Copyright 2025 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-/* eslint-disable quotes, quote-props */
+/* eslint-disable @stylistic/quotes, @stylistic/quote-props */
 export const generatedProperties = [
  {
   "inherited": true,
@@ -334,6 +334,12 @@ export const generatedProperties = [
    "animation-range-start",
    "animation-timeline",
    "animation-timing-function",
+   "animation-trigger-exit-range-end",
+   "animation-trigger-exit-range-start",
+   "animation-trigger-range-end",
+   "animation-trigger-range-start",
+   "animation-trigger-timeline",
+   "animation-trigger-type",
    "app-region",
    "appearance",
    "ascent-override",
@@ -503,6 +509,8 @@ export const generatedProperties = [
    "inset-inline-end",
    "inset-inline-start",
    "interactivity",
+   "interest-target-hide-delay",
+   "interest-target-show-delay",
    "interpolate-size",
    "isolation",
    "justify-content",
@@ -537,6 +545,7 @@ export const generatedProperties = [
    "mask-repeat",
    "mask-size",
    "mask-type",
+   "masonry-auto-tracks",
    "masonry-direction",
    "masonry-fill",
    "masonry-slack",
@@ -601,8 +610,6 @@ export const generatedProperties = [
    "perspective",
    "perspective-origin",
    "pointer-events",
-   "popover-hide-delay",
-   "popover-show-delay",
    "position",
    "position-anchor",
    "position-area",
@@ -615,6 +622,7 @@ export const generatedProperties = [
    "range",
    "reading-flow",
    "resize",
+   "result",
    "right",
    "rotate",
    "row-gap",
@@ -861,6 +869,48 @@ export const generatedProperties = [
    "step-end"
   ],
   "name": "animation-timing-function"
+ },
+ {
+  "longhands": [
+   "animation-trigger-exit-range-start",
+   "animation-trigger-exit-range-end"
+  ],
+  "name": "animation-trigger-exit-range"
+ },
+ {
+  "name": "animation-trigger-exit-range-end"
+ },
+ {
+  "name": "animation-trigger-exit-range-start"
+ },
+ {
+  "longhands": [
+   "animation-trigger-range-start",
+   "animation-trigger-range-end"
+  ],
+  "name": "animation-trigger-range"
+ },
+ {
+  "name": "animation-trigger-range-end"
+ },
+ {
+  "name": "animation-trigger-range-start"
+ },
+ {
+  "keywords": [
+   "none",
+   "auto"
+  ],
+  "name": "animation-trigger-timeline"
+ },
+ {
+  "keywords": [
+   "once",
+   "repeat",
+   "alternate",
+   "state"
+  ],
+  "name": "animation-trigger-type"
  },
  {
   "keywords": [
@@ -2506,6 +2556,19 @@ export const generatedProperties = [
   "name": "interactivity"
  },
  {
+  "longhands": [
+   "interest-target-show-delay",
+   "interest-target-hide-delay"
+  ],
+  "name": "interest-target-delay"
+ },
+ {
+  "name": "interest-target-hide-delay"
+ },
+ {
+  "name": "interest-target-show-delay"
+ },
+ {
   "inherited": true,
   "keywords": [
    "numeric-only",
@@ -2765,6 +2828,14 @@ export const generatedProperties = [
  },
  {
   "keywords": [
+   "auto",
+   "min-content",
+   "max-content"
+  ],
+  "name": "masonry-auto-tracks"
+ },
+ {
+  "keywords": [
    "row",
    "row-reverse",
    "column",
@@ -2778,6 +2849,13 @@ export const generatedProperties = [
    "reverse"
   ],
   "name": "masonry-fill"
+ },
+ {
+  "longhands": [
+   "masonry-direction",
+   "masonry-fill"
+  ],
+  "name": "masonry-flow"
  },
  {
   "keywords": [
@@ -3241,12 +3319,6 @@ export const generatedProperties = [
   "name": "pointer-events"
  },
  {
-  "name": "popover-hide-delay"
- },
- {
-  "name": "popover-show-delay"
- },
- {
   "keywords": [
    "static",
    "relative",
@@ -3354,6 +3426,9 @@ export const generatedProperties = [
    "inline"
   ],
   "name": "resize"
+ },
+ {
+  "name": "result"
  },
  {
   "keywords": [
@@ -4480,6 +4555,20 @@ export const generatedPropertyValues = {
    "step-end"
   ]
  },
+ "animation-trigger-timeline": {
+  "values": [
+   "none",
+   "auto"
+  ]
+ },
+ "animation-trigger-type": {
+  "values": [
+   "once",
+   "repeat",
+   "alternate",
+   "state"
+  ]
+ },
  "app-region": {
   "values": [
    "none",
@@ -5547,6 +5636,13 @@ export const generatedPropertyValues = {
   "values": [
    "luminance",
    "alpha"
+  ]
+ },
+ "masonry-auto-tracks": {
+  "values": [
+   "auto",
+   "min-content",
+   "max-content"
   ]
  },
  "masonry-direction": {

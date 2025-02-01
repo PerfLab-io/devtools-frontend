@@ -137,6 +137,7 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
 
   constructor(layerViewHost: LayerViewHost) {
     super(true);
+    this.registerRequiredCSS(layers3DViewStyles);
     this.element.setAttribute('jslog', `${VisualLogging.pane('layers-3d-view')}`);
 
     this.contentElement.classList.add('layers-3d-view');
@@ -211,7 +212,6 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
 
   override wasShown(): void {
     this.textureManager.resume();
-    this.registerCSSFiles([layers3DViewStyles]);
     if (!this.needsUpdate) {
       return;
     }
@@ -738,7 +738,7 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
     }
   }
 
-  override update(): void {
+  update(): void {
     if (!this.isShowing()) {
       this.needsUpdate = true;
       return;
@@ -832,7 +832,7 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
 
   private initToolbar(): void {
     this.panelToolbar = this.transformController.toolbar();
-    this.contentElement.appendChild(this.panelToolbar.element);
+    this.contentElement.appendChild(this.panelToolbar);
     this.showPaintsSetting = this.createVisibilitySetting(
         i18nString(UIStrings.paints), 'frame-viewer-show-paints', false, this.panelToolbar);
     this.showSlowScrollRectsSetting = this.createVisibilitySetting(
@@ -921,10 +921,10 @@ export const enum Events {
   SCALE_CHANGED = 'ScaleChanged',
 }
 
-export type EventTypes = {
-  [Events.PAINT_PROFILER_REQUESTED]: Selection,
-  [Events.SCALE_CHANGED]: number,
-};
+export interface EventTypes {
+  [Events.PAINT_PROFILER_REQUESTED]: Selection;
+  [Events.SCALE_CHANGED]: number;
+}
 
 export const enum ChromeTexture {
   LEFT = 0,

@@ -4,6 +4,7 @@
 
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
+import * as SDK from '../../core/sdk/sdk.js';
 import * as Trace from '../../models/trace/trace.js';
 import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as UI from '../../ui/legacy/legacy.js';
@@ -122,7 +123,7 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
     return this.#timeSpan;
   }
 
-  setWindowTimes(startTime: Trace.Types.Timing.MilliSeconds, endTime: Trace.Types.Timing.MilliSeconds): void {
+  setWindowTimes(startTime: Trace.Types.Timing.Milli, endTime: Trace.Types.Timing.Milli): void {
     this.#updateTimelineData(startTime, endTime);
   }
 
@@ -141,7 +142,7 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
     if (!networkRequest || !Trace.Types.Events.isSyntheticNetworkRequest(networkRequest)) {
       return;
     }
-    const timelineNetworkRequest = TimelineUtils.NetworkRequest.createTimelineNetworkRequest(networkRequest);
+    const timelineNetworkRequest = SDK.TraceObject.RevealableNetworkRequest.create(networkRequest);
     const contextMenu = new UI.ContextMenu.ContextMenu(event);
     contextMenu.appendApplicableItems(timelineNetworkRequest);
     return contextMenu;
@@ -246,18 +247,16 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
   getDecorationPixels(
       event: Trace.Types.Events.SyntheticNetworkRequest, unclippedBarX: number,
       timeToPixelRatio: number): {sendStart: number, headersEnd: number, finish: number, start: number, end: number} {
-    const beginTime = Trace.Helpers.Timing.microSecondsToMilliseconds(event.ts);
+    const beginTime = Trace.Helpers.Timing.microToMilli(event.ts);
     const timeToPixel = (time: number): number => unclippedBarX + (time - beginTime) * timeToPixelRatio;
-    const startTime = Trace.Helpers.Timing.microSecondsToMilliseconds(event.ts);
-    const endTime =
-        Trace.Helpers.Timing.microSecondsToMilliseconds((event.ts + event.dur) as Trace.Types.Timing.MicroSeconds);
-    const sendStartTime = Trace.Helpers.Timing.microSecondsToMilliseconds(event.args.data.syntheticData.sendStartTime);
-    const headersEndTime = Trace.Helpers.Timing.microSecondsToMilliseconds(event.args.data.syntheticData.downloadStart);
+    const startTime = Trace.Helpers.Timing.microToMilli(event.ts);
+    const endTime = Trace.Helpers.Timing.microToMilli((event.ts + event.dur) as Trace.Types.Timing.Micro);
+    const sendStartTime = Trace.Helpers.Timing.microToMilli(event.args.data.syntheticData.sendStartTime);
+    const headersEndTime = Trace.Helpers.Timing.microToMilli(event.args.data.syntheticData.downloadStart);
     const sendStart = Math.max(timeToPixel(sendStartTime), unclippedBarX);
     const headersEnd = Math.max(timeToPixel(headersEndTime), sendStart);
-    const finish = Math.max(
-        timeToPixel(Trace.Helpers.Timing.microSecondsToMilliseconds(event.args.data.syntheticData.finishTime)),
-        headersEnd);
+    const finish =
+        Math.max(timeToPixel(Trace.Helpers.Timing.microToMilli(event.args.data.syntheticData.finishTime)), headersEnd);
     const start = timeToPixel(startTime);
     const end = Math.max(timeToPixel(endTime), finish);
 
@@ -373,10 +372,9 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
       timeToPixelRatio: number): boolean {
     context.save();
     const event = this.#events[index] as Trace.Types.Events.SyntheticWebSocketConnection;
-    const beginTime = Trace.Helpers.Timing.microSecondsToMilliseconds(event.ts);
+    const beginTime = Trace.Helpers.Timing.microToMilli(event.ts);
     const timeToPixel = (time: number): number => Math.floor(unclippedBarX + (time - beginTime) * timeToPixelRatio);
-    const endTime =
-        Trace.Helpers.Timing.microSecondsToMilliseconds((event.ts + event.dur) as Trace.Types.Timing.MicroSeconds);
+    const endTime = Trace.Helpers.Timing.microToMilli((event.ts + event.dur) as Trace.Types.Timing.Micro);
     const start = timeToPixel(beginTime) + 0.5;
     const end = timeToPixel(endTime) - 0.5;
     context.strokeStyle = ThemeSupport.ThemeSupport.instance().getComputedValue('--app-color-rendering');
@@ -413,7 +411,7 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
     const event = this.#events[index];
     if (Trace.Types.Events.isSyntheticNetworkRequest(event)) {
       const element = document.createElement('div');
-      const root = UI.UIUtils.createShadowRootWithCoreStyles(element, {cssFile: [timelineFlamechartPopoverStyles]});
+      const root = UI.UIUtils.createShadowRootWithCoreStyles(element, {cssFile: timelineFlamechartPopoverStyles});
 
       const contents = root.createChild('div', 'timeline-flamechart-popover');
       const infoElement = new TimelineComponents.NetworkRequestTooltip.NetworkRequestTooltip();
@@ -430,8 +428,8 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
    */
   #setTimingBoundsData(newParsedTrace: Trace.Handlers.Types.ParsedTrace): void {
     const {traceBounds} = newParsedTrace.Meta;
-    const minTime = Trace.Helpers.Timing.microSecondsToMilliseconds(traceBounds.min);
-    const maxTime = Trace.Helpers.Timing.microSecondsToMilliseconds(traceBounds.max);
+    const minTime = Trace.Helpers.Timing.microToMilli(traceBounds.min);
+    const maxTime = Trace.Helpers.Timing.microToMilli(traceBounds.max);
     this.#minimumBoundary = minTime;
     this.#timeSpan = minTime === maxTime ? 1000 : maxTime - this.#minimumBoundary;
   }
@@ -443,7 +441,7 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
    * PerfUI.FlameChart.FlameChartTimelineData instance to force the flamechart
    * to re-render.
    */
-  #updateTimelineData(startTime: Trace.Types.Timing.MilliSeconds, endTime: Trace.Types.Timing.MilliSeconds): void {
+  #updateTimelineData(startTime: Trace.Types.Timing.Milli, endTime: Trace.Types.Timing.Milli): void {
     if (!this.#networkTrackAppender || !this.#timelineDataInternal) {
       return;
     }
@@ -491,7 +489,7 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
    * indexes
    */
   search(
-      visibleWindow: Trace.Types.Timing.TraceWindowMicroSeconds,
+      visibleWindow: Trace.Types.Timing.TraceWindowMicro,
       filter?: Trace.Extras.TraceFilter.TraceFilter,
       ): PerfUI.FlameChart.DataProviderSearchResult[] {
     const results: PerfUI.FlameChart.DataProviderSearchResult[] = [];
@@ -506,7 +504,7 @@ export class TimelineFlameChartNetworkDataProvider implements PerfUI.FlameChart.
       }
 
       if (!filter || filter.accept(entry, this.#parsedTrace ?? undefined)) {
-        const startTimeMilli = Trace.Helpers.Timing.microSecondsToMilliseconds(entry.ts);
+        const startTimeMilli = Trace.Helpers.Timing.microToMilli(entry.ts);
         results.push({startTimeMilli, index: i, provider: 'network'});
       }
     }

@@ -2,18 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/**
+ * @type {import('eslint').Rule.RuleModule}
+ */
 module.exports = {
   meta: {
     type: 'problem',
 
     docs: {
-      description: 'Usage of LitHtml.html',
+      description: 'Usage of Lit.html',
       category: 'Possible Errors',
     },
     fixable: 'code',
     schema: []  // no options
   },
   create: function(context) {
+    const sourceCode = context.sourceCode ?? context.getSourceCode();
     let lastImport = null;
     let shortandDefined = false;
     return {
@@ -21,7 +25,7 @@ module.exports = {
         lastImport = node;
       },
       VariableDeclarator(node) {
-        if (context.getScope().type !== 'module') {
+        if ((sourceCode.getScope ? sourceCode.getScope(node) : context.getScope()).type !== 'module') {
           return;
         }
         if (node.id.name === 'html') {
@@ -35,14 +39,14 @@ module.exports = {
       },
       TaggedTemplateExpression(node) {
         const tag = node.tag;
-        if (tag.type === 'MemberExpression' && tag.object.name === 'LitHtml' && tag.property.name === 'html') {
+        if (tag.type === 'MemberExpression' && tag.object.name === 'Lit' && tag.property.name === 'html') {
           context.report({
             node,
             message: 'Use unqualified html tagged template for compatibility with lit-analyzer',
             fix(fixer) {
               const result = [fixer.removeRange([tag.object.range[0], tag.property.range[0]])];
               if (lastImport && !shortandDefined) {
-                result.push(fixer.insertTextAfter(lastImport, '\n\nconst {html} = LitHtml;'));
+                result.push(fixer.insertTextAfter(lastImport, '\n\nconst {html} = Lit;'));
                 shortandDefined = true;
               }
               return result;

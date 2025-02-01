@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/**
+ * @type {import('eslint').Rule.RuleModule}
+ */
 module.exports = {
   meta: {
     type: 'problem',
@@ -15,6 +18,7 @@ module.exports = {
     schema: []  // no options
   },
   create: function(context) {
+    const sourceCode = context.sourceCode ?? context.getSourceCode();
     function checkForOnlyInTestCases(testCaseObjects) {
       for (const testCase of testCaseObjects) {
         if (!testCase || !testCase.properties) {
@@ -29,7 +33,6 @@ module.exports = {
             node: onlyKeyProp,
             messageId: 'noOnlyInESLintTest',
             fix(fixer) {
-              const sourceCode = context.getSourceCode();
               let nextNode = sourceCode.getTokenAfter(onlyKeyProp);
 
               // To delete the property, the trailing comma, and then the

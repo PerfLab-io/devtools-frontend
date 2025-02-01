@@ -51,6 +51,10 @@ const UIStrings = {
    */
   selectALayerToSeeItsDetails: 'Select a layer to see its details',
   /**
+   *@description Text in Layer Details View of the Layers panel if no layer is selected for viewing its content
+   */
+  noLayerSelected: 'No layer selected',
+  /**
    *@description Element text content in Layer Details View of the Layers panel
    *@example {Touch event handler} PH1
    *@example {10} PH2
@@ -178,11 +182,14 @@ export class LayerDetailsView extends Common.ObjectWrapper.eventMixin<EventTypes
 
   constructor(layerViewHost: LayerViewHost) {
     super(true);
+    this.registerRequiredCSS(layerDetailsViewStyles);
     this.element.setAttribute('jslog', `${VisualLogging.pane('layers-details')}`);
+    this.contentElement.classList.add('layer-details-container');
 
     this.layerViewHost = layerViewHost;
     this.layerViewHost.registerView(this);
-    this.emptyWidget = new UI.EmptyWidget.EmptyWidget(i18nString(UIStrings.selectALayerToSeeItsDetails));
+    this.emptyWidget = new UI.EmptyWidget.EmptyWidget(
+        i18nString(UIStrings.noLayerSelected), i18nString(UIStrings.selectALayerToSeeItsDetails));
     this.layerSnapshotMap = this.layerViewHost.getLayerSnapshotMap();
 
     this.buildContent();
@@ -204,7 +211,6 @@ export class LayerDetailsView extends Common.ObjectWrapper.eventMixin<EventTypes
 
   override wasShown(): void {
     super.wasShown();
-    this.registerCSSFiles([layerDetailsViewStyles]);
     this.update();
   }
 
@@ -297,7 +303,7 @@ export class LayerDetailsView extends Common.ObjectWrapper.eventMixin<EventTypes
         i18nString(UIStrings.nearestLayerShiftingContaining), constraint.nearestLayerShiftingContainingBlock());
   }
 
-  override update(): void {
+  update(): void {
     const layer = this.selection && this.selection.layer();
     if (!layer) {
       this.tableElement.remove();
@@ -373,9 +379,9 @@ export const enum Events {
   PAINT_PROFILER_REQUESTED = 'PaintProfilerRequested',
 }
 
-export type EventTypes = {
-  [Events.PAINT_PROFILER_REQUESTED]: Selection,
-};
+export interface EventTypes {
+  [Events.PAINT_PROFILER_REQUESTED]: Selection;
+}
 
 export const slowScrollRectNames = new Map([
   [SDK.LayerTreeBase.Layer.ScrollRectType.NON_FAST_SCROLLABLE, i18nLazyString(UIStrings.nonFastScrollable)],

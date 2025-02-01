@@ -91,7 +91,7 @@ export function stubNoopSettings() {
       type: () => Common.Settings.SettingType.BOOLEAN,
       getAsArray: () => [],
     }),
-    getHostConfig: () => {},
+    getHostConfig: () => ({} as Root.Runtime.HostConfig),
   } as unknown as Common.Settings.Settings);
 }
 
@@ -115,7 +115,6 @@ const REGISTERED_EXPERIMENTS = [
   'timeline-v8-runtime-call-stats',
   'timeline-invalidation-tracking',
   Root.Runtime.ExperimentName.INSTRUMENTATION_BREAKPOINTS,
-  'css-type-component-length-deprecate',
   Root.Runtime.ExperimentName.STYLES_PANE_CSS_CHANGES,
   Root.Runtime.ExperimentName.HEADER_OVERRIDES,
   Root.Runtime.ExperimentName.HIGHLIGHT_ERRORS_ELEMENTS_PANEL,
@@ -157,8 +156,8 @@ export async function initializeGlobalVars({reset = true} = {}) {
     createSettingValue(Common.Settings.SettingCategory.DEBUGGER, 'skip-anonymous-scripts', false),
     createSettingValue(Common.Settings.SettingCategory.DEBUGGER, 'enable-ignore-listing', true),
     createSettingValue(
-        Common.Settings.SettingCategory.DEBUGGER, 'skip-stack-frames-pattern', '/node_modules/|/bower_components/',
-        Common.Settings.SettingType.REGEX),
+        Common.Settings.SettingCategory.DEBUGGER, 'skip-stack-frames-pattern',
+        '/node_modules/|^node:', Common.Settings.SettingType.REGEX),
     createSettingValue(Common.Settings.SettingCategory.DEBUGGER, 'navigator-group-by-folder', true),
     createSettingValue(Common.Settings.SettingCategory.ELEMENTS, 'show-detailed-inspect-tooltip', true),
     createSettingValue(Common.Settings.SettingCategory.ELEMENTS, 'show-html-comments', true),
@@ -236,6 +235,8 @@ export async function initializeGlobalVars({reset = true} = {}) {
     createSettingValue(Common.Settings.SettingCategory.CONSOLE, 'monitoring-xhr-enabled', false),
     createSettingValue(
         Common.Settings.SettingCategory.NONE, 'custom-network-conditions', [], Common.Settings.SettingType.ARRAY),
+    createSettingValue(
+        Common.Settings.SettingCategory.NONE, 'calibrated-cpu-throttling', [], Common.Settings.SettingType.BOOLEAN),
     createSettingValue(
         Common.Settings.SettingCategory.APPEARANCE, 'ui-theme', 'systemPreferred', Common.Settings.SettingType.ENUM),
     createSettingValue(
@@ -404,7 +405,6 @@ export async function initializeGlobalLocaleVars() {
   try {
     await i18n.i18n.fetchAndRegisterLocaleData('en-US');
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.warn('EnvironmentHelper: Loading en-US locale failed', error.message);
   }
 }
@@ -538,6 +538,9 @@ export function getGetHostConfigStub(config: Root.Runtime.HostConfig): sinon.Sin
       enabled: false,
       ...config.devToolsAiAssistancePerformanceAgent,
     } as Root.Runtime.HostConfigAiAssistancePerformanceAgent,
+    devToolsImprovedWorkspaces: {
+      enabled: false,
+    },
     devToolsVeLogging: {
       enabled: true,
       testing: false,

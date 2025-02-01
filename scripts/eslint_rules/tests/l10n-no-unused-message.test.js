@@ -4,10 +4,15 @@
 
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/l10n-no-unused-message.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 const exampleWithJSDoc = `
@@ -105,7 +110,10 @@ ruleTester.run('l10n-no-unused-message', rule, {
     {
       code: exampleWithSiblings,
       filename: 'front_end/module/test.ts',
-      errors: [{message: 'UIStrings message is not used.'}, {message: 'UIStrings message is not used.'}],
+      errors: [
+        {message: 'UIStrings message is not used.'},
+        {message: 'UIStrings message is not used.'},
+      ],
       output: outputWithSiblings,
     },
     {
@@ -114,5 +122,5 @@ ruleTester.run('l10n-no-unused-message', rule, {
       errors: [{message: 'UIStrings message is not used.'}],
       output: outputWithSiblings2,
     },
-  ]
+  ],
 });

@@ -4,10 +4,15 @@
 
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/single-screenshot-assertion-per-test.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 ruleTester.run('single-screenshot-assertion-per-test', rule, {
@@ -98,5 +103,5 @@ ruleTester.run('single-screenshot-assertion-per-test', rule, {
       filename: 'front_end/components/test.ts',
       errors: [{messageId: 'moreThanOneScreenshotAssertionFound'}],
     },
-  ]
+  ],
 });

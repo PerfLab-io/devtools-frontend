@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 // Converts a JSON results file into two TSV files: queries and responses.
 // Usage: node to_tsv.mjs path/to/file.json
 
-import fs from 'fs/promises';
 import assert from 'assert';
+import fs from 'fs/promises';
 
 const file = process.argv[2];
 
@@ -22,7 +21,7 @@ function formatRequest(request) {
   const lines = [
     ...(request.chat_history || []).map(item => item.text),
     request.input,
-  ]
+  ];
   return lines.join('\n\n===\n\n');
 }
 
