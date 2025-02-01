@@ -4297,7 +4297,7 @@ export const enum Events {
   LATEST_DRAW_DIMENSIONS = 'LatestDrawDimensions',
 
   MOUSE_MOVE = 'MouseMove',
-  TimeRangeChanged = 'timerangechanged',
+  TIME_RANGE_CHANGED = 'TimeRangeChanged',
 }
 
 interface ChartDimentionchangedEventData {
@@ -4329,6 +4329,17 @@ export interface EventTypes {
     mouseEvent: MouseEvent,
     timeInMicroSeconds: Trace.Types.Timing.Micro,
   };
+  [Events.TIME_RANGE_CHANGED]: ChartDimentionchangedEventData & {
+    timelineData: FlameChartTimelineData,
+  };
+}
+
+export class TimeRangeChanged extends CustomEvent<EventTypes[Events.TIME_RANGE_CHANGED]> {
+  static readonly eventName = Events.TIME_RANGE_CHANGED;
+
+  constructor(options: EventTypes[Events.TIME_RANGE_CHANGED]) {
+    super(TimeRangeChanged.eventName, { detail: options });
+  }
 }
 
 export interface Group {

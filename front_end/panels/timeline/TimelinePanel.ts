@@ -599,13 +599,13 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
           }
 
           const overlays: Overlays.Overlays.TimelineOverlay[] = [];
-          for (const [entity, requests] of insight.requestsByEntity) {
+          for (const [entity, events] of insight.eventsByEntity) {
             if (entity === insight.firstPartyEntity || (filterByThirdParty && entity.name !== filterByThirdParty)) {
               continue;
             }
 
-            for (const request of requests) {
-              if (filterByTimestamp && request.ts > filterByTimestamp) {
+            for (const event of events) {
+              if (filterByTimestamp && event.ts > filterByTimestamp) {
                 continue;
               }
 
@@ -614,7 +614,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
               // from outside the component.
               overlays.push({
                 type: 'ENTRY_OUTLINE',
-                entry: request,
+                entry: event,
                 outlineReason: 'INFO',
               });
             }
@@ -681,7 +681,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
                 {
                   label: 'LCP image request',
                   bounds: Trace.Helpers.Timing.traceWindowFromMicroSeconds(entry.entry.ts, (
-                    entry.entry.ts + (entry.entry.dur || 0) as Trace.Types.Timing.MicroSeconds
+                    entry.entry.ts + (entry.entry.dur || 0) as Trace.Types.Timing.Micro
                   )),
                   showDuration: true,
                 },
@@ -2840,8 +2840,8 @@ export type EventTypes = {
     navigationId: string,
     entry: {
       entry: Trace.Types.Events.Event,
-      start: Trace.Types.Timing.MicroSeconds,
-      end: Trace.Types.Timing.MicroSeconds,
+      start: Trace.Types.Timing.Micro,
+      end: Trace.Types.Timing.Micro,
     },
   },
   [Events.HighlightEntries]: {

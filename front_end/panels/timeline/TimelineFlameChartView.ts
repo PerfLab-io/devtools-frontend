@@ -44,21 +44,21 @@ import type {TimelineMarkerStyle} from './TimelineUIUtils.js';
 import * as Utils from './utils/utils.js';
 
 export const enum Events {
-  TraceDataChange = 'tracedatachange',
-  TraceInsightsChange = 'traceinsightschange',
-  HightlightEventAsOvelay = 'highlighteventasoverlay',
+  TRACE_DATA_CHANGE = 'tracedatachange',
+  TRACE_INSIGHTS_CHANGE = 'traceinsightschange',
+  HIGHLIGHT_EVENT_AS_OVERLAY = 'highlighteventasoverlay',
 }
 
 export interface EventTypes {
-  [Events.TraceDataChange]: {
+  [Events.TRACE_DATA_CHANGE]: {
     traceEngineData: Trace.Handlers.Types.ParsedTrace | null,
     isCpuProfile: boolean,
   };
-  [Events.TraceInsightsChange]: {
+  [Events.TRACE_INSIGHTS_CHANGE]: {
     insights: Trace.Insights.Types.TraceInsightSets | null,
     eventToRelatedInsightsMap: TimelineComponents.RelatedInsightChips.EventToRelatedInsightsMap | null,
   };
-  [Events.HightlightEventAsOvelay]: {
+  [Events.HIGHLIGHT_EVENT_AS_OVERLAY]: {
     eventName: string,
     navigationId: string,
     phases: {
@@ -70,26 +70,26 @@ export interface EventTypes {
   };
 }
 
-export class TraceDataChange extends CustomEvent<EventTypes[Events.TraceDataChange]>{
-  static readonly eventName = Events.TraceDataChange;
+export class TraceDataChange extends CustomEvent<EventTypes[Events.TRACE_DATA_CHANGE]>{
+  static readonly eventName = Events.TRACE_DATA_CHANGE;
 
-  constructor(options: EventTypes[Events.TraceDataChange]) {
+  constructor(options: EventTypes[Events.TRACE_DATA_CHANGE]) {
     super(TraceDataChange.eventName, { detail: options });
   }
 }
 
-export class TraceInsightsChange extends CustomEvent<EventTypes[Events.TraceInsightsChange]>{
-  static readonly eventName = Events.TraceInsightsChange;
+export class TraceInsightsChange extends CustomEvent<EventTypes[Events.TRACE_INSIGHTS_CHANGE]>{
+  static readonly eventName = Events.TRACE_INSIGHTS_CHANGE;
 
-  constructor(options: EventTypes[Events.TraceInsightsChange]) {
+  constructor(options: EventTypes[Events.TRACE_INSIGHTS_CHANGE]) {
     super(TraceInsightsChange.eventName, { detail: options });
   }
 }
 
-export class HightlightEventAsOvelay extends CustomEvent<EventTypes[Events.HightlightEventAsOvelay]>{
-  static readonly eventName = Events.HightlightEventAsOvelay;
+export class HightlightEventAsOvelay extends CustomEvent<EventTypes[Events.HIGHLIGHT_EVENT_AS_OVERLAY]>{
+  static readonly eventName = Events.HIGHLIGHT_EVENT_AS_OVERLAY;
 
-  constructor(options: EventTypes[Events.HightlightEventAsOvelay]) {
+  constructor(options: EventTypes[Events.HIGHLIGHT_EVENT_AS_OVERLAY]) {
     super(HightlightEventAsOvelay.eventName, { detail: options });
   }
 }
@@ -1212,6 +1212,8 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
       dimmer.networkChartIndices = [];
     }
     this.rebuildDataForTrace();
+
+    document.getElementById('-blink-dev-tools')?.dispatchEvent(new TraceDataChange({ traceEngineData: newParsedTrace, isCpuProfile: true }));
   }
 
   /**
@@ -1238,8 +1240,6 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
     this.#updateFlameCharts();
     this.resizeToPreferredHeights();
     this.setMarkers(this.#parsedTrace);
-
-    document.getElementById('-blink-dev-tools')?.dispatchEvent(new TraceDataChange({ traceEngineData: newParsedTrace, isCpuProfile }));
   }
 
   setInsights(
@@ -1782,10 +1782,10 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
 
     this.searchableView.updateSearchMatchesCount(this.searchResults.length);
 
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_DIM_UNRELATED_EVENTS)) {
+    // if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_DIM_UNRELATED_EVENTS)) {
       this.#updateFlameChartDimmerWithIndices(
           this.#searchDimmer, mainMatches.map(m => m.index), networkMatches.map(m => m.index));
-    }
+    // }
 
     if (!shouldJump || !this.searchResults.length) {
       return;
