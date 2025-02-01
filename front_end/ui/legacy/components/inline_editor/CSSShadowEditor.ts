@@ -111,6 +111,7 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin<EventTypes,
   private changedElement?: HTMLInputElement|null;
   constructor() {
     super(true);
+    this.registerRequiredCSS(cssShadowEditorStyles);
     this.contentElement.tabIndex = 0;
     this.contentElement.setAttribute(
         'jslog', `${VisualLogging.dialog('cssShadowEditor').parent('mapped').track({keydown: 'Enter|Escape'})}`);
@@ -179,7 +180,7 @@ export class CSSShadowEditor extends Common.ObjectWrapper.eventMixin<EventTypes,
   }
 
   override wasShown(): void {
-    this.registerCSSFiles([cssShadowEditorStyles]);
+    super.wasShown();
     this.updateUI();
   }
 
@@ -491,6 +492,6 @@ export const enum Events {
   SHADOW_CHANGED = 'ShadowChanged',
 }
 
-export type EventTypes = {
-  [Events.SHADOW_CHANGED]: CSSShadowModel,
-};
+export interface EventTypes {
+  [Events.SHADOW_CHANGED]: CSSShadowModel;
+}

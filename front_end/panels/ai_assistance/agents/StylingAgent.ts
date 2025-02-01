@@ -9,7 +9,7 @@ import * as Platform from '../../../core/platform/platform.js';
 import * as Root from '../../../core/root/root.js';
 import * as SDK from '../../../core/sdk/sdk.js';
 import * as UI from '../../../ui/legacy/legacy.js';
-import * as LitHtml from '../../../ui/lit-html/lit-html.js';
+import * as Lit from '../../../ui/lit/lit.js';
 import {linkifyNodeReference} from '../../elements/DOMLinkifier.js';
 import {AI_ASSISTANCE_CSS_CLASS_NAME, ChangeManager} from '../ChangeManager.js';
 import {EvaluateAction, formatError, SideEffectError} from '../EvaluateAction.js';
@@ -54,6 +54,7 @@ The user selected a DOM element in the browser's DevTools and sends a query abou
 # Considerations
 * After applying a fix, please ask the user to confirm if the fix worked or not.
 * Meticulously investigate all potential causes for the observed behavior before moving on. Gather comprehensive information about the element's parent, siblings, children, and any overlapping elements, paying close attention to properties that are likely relevant to the query.
+* Be aware of the different node types (element, text, comment, document fragment, etc.) and their properties. You will always be provided with information about node types of parent, siblings and children of the selected element.
 * Avoid making assumptions without sufficient evidence, and always seek further clarification if needed.
 * Always explore multiple possible explanations for the observed behavior before settling on a conclusion.
 * When presenting solutions, clearly distinguish between the primary cause and contributing factors.
@@ -61,7 +62,7 @@ The user selected a DOM element in the browser's DevTools and sends a query abou
 * When answering, always consider MULTIPLE possible solutions.
 * You're also capable of executing the fix for the issue user mentioned. Reflect this in your suggestions.
 * Use \`window.getComputedStyle\` to gather **rendered** styles and make sure that you take the distinction between authored styles and computed styles into account.
-* **CRITICAL** Use \`window.getComputedStyle\` ALWAYS with property access, like \`window.getComputedStyle($0.parentElement)['color']\`.
+* **CRITICAL** Call \`window.getComputedStyle\` only once per element and store results into a local variable. Never try to return all the styles of the element in \`data\`. Always use property getter to return relevant styles in \`data\` using the local variable: const styles = window.getComputedStyle($0); const data = { elementColor: styles['color']}.
 * **CRITICAL** Never assume a selector for the elements unless you verified your knowledge.
 * **CRITICAL** Consider that \`data\` variable from the previous ACTION blocks are not available in a different ACTION block.
 * **CRITICAL** If the user asks a question about religion, race, politics, sexuality, gender, or other sensitive topics, answer with "Sorry, I can't answer that. I'm best at questions about debugging web pages."
@@ -84,7 +85,7 @@ When answering, remember to consider CSS concepts such as the CSS cascade, expli
 When answering, always consider MULTIPLE possible solutions.
 After the ANSWER, output SUGGESTIONS: string[] for the potential responses the user might give. Make sure that the array and the \`SUGGESTIONS: \` text is in the same line.
 
-If you need to set styles on an HTML element, always call the \`async setElementStyles(el: Element, styles: object)\` function. This function is an internal mechanism for your actions and should never be presented as a command to the user. Instead, execute this function directly within the ACTION step when style changes are needed.
+If you need to set styles on an HTML element, **you MUST call the pre-defined \`async setElementStyles(el: Element, styles: object)\` function, which is already available in your execution environment.  Do NOT attempt to define this function yourself.** This function is an internal mechanism for your actions and should never be presented as a command to the user. Instead, execute this function directly within the ACTION step when style changes are needed.
 
 ## Example session
 
@@ -226,10 +227,10 @@ export class NodeContext extends ConversationContext<SDK.DOMModel.DOMNode> {
     return document.createElement('span');
   }
 
-  override getTitle(): string|ReturnType<typeof LitHtml.Directives.until> {
+  override getTitle(): string|ReturnType<typeof Lit.Directives.until> {
     const hiddenClassList =
         this.#node.classNames().filter(className => className.startsWith(AI_ASSISTANCE_CSS_CLASS_NAME));
-    return LitHtml.Directives.until(
+    return Lit.Directives.until(
         linkifyNodeReference(this.#node, {hiddenClassList}),
     );
   }
@@ -422,7 +423,7 @@ export class StylingAgent extends AiAgent<SDK.DOMModel.DOMNode> {
     this.#changes = opts.changeManager || new ChangeManager();
     this.#execJs = opts.execJs ?? executeJsCode;
     this.#createExtensionScope = opts.createExtensionScope ?? ((changes: ChangeManager) => {
-                                   return new ExtensionScope(changes);
+                                   return new ExtensionScope(changes, this.id);
                                  });
     this.#confirmSideEffect = opts.confirmSideEffectForTest ?? (() => Promise.withResolvers());
     SDK.TargetManager.TargetManager.instance().addModelListener(
@@ -545,10 +546,19 @@ export class StylingAgent extends AiAgent<SDK.DOMModel.DOMNode> {
       output += `\n* It has a previous sibling and it is ${elementOrNodeElementNodeText} node`;
     }
 
+    if (element.isInShadowTree()) {
+      output += '\n* It is in a shadow DOM tree.';
+    }
+
     const parentNode = element.parentNode;
     if (parentNode) {
       const parentChildrenNodes = await parentNode.getChildNodesPromise();
       output += `\n* Its parent's selector is \`${parentNode.simpleSelector()}\``;
+      const elementOrNodeElementNodeText = parentNode.nodeType() === Node.ELEMENT_NODE ? 'an element' : 'a non element';
+      output += `\n* Its parent is ${elementOrNodeElementNodeText} node`;
+      if (parentNode.isShadowRoot()) {
+        output += '\n* Its parent is a shadow root.';
+      }
       if (parentChildrenNodes) {
         const childElementNodes =
             parentChildrenNodes.filter(siblingNode => siblingNode.nodeType() === Node.ELEMENT_NODE);

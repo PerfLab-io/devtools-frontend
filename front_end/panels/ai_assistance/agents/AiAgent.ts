@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import * as Host from '../../../core/host/host.js';
-import type * as LitHtml from '../../../ui/lit-html/lit-html.js';
+import type * as Lit from '../../../ui/lit/lit.js';
 import {AiHistoryStorage} from '../AiHistoryStorage.js';
 
 export const enum ResponseType {
@@ -134,7 +134,7 @@ export abstract class ConversationContext<T> {
   abstract getOrigin(): string;
   abstract getItem(): T;
   abstract getIcon(): HTMLElement;
-  abstract getTitle(): string|ReturnType<typeof LitHtml.Directives.until>;
+  abstract getTitle(): string|ReturnType<typeof Lit.Directives.until>;
 
   isOriginAllowed(agentOrigin: string|undefined): boolean {
     if (!agentOrigin) {
@@ -149,18 +149,18 @@ export abstract class ConversationContext<T> {
 
   /**
    * This method is called at the start of `AiAgent.run`.
-   * It will be overriden in subclasses to fetch data related to the context item.
+   * It will be overridden in subclasses to fetch data related to the context item.
    */
   async refresh(): Promise<void> {
     return;
   }
 }
 
-export type FunctionDeclaration<Args, ReturnType> = {
-  description: string,
-  parameters: Host.AidaClient.FunctionObjectParam,
-  handler: (args: Args) => Promise<ReturnType>,
-};
+export interface FunctionDeclaration<Args, ReturnType> {
+  description: string;
+  parameters: Host.AidaClient.FunctionObjectParam;
+  handler: (args: Args) => Promise<ReturnType>;
+}
 
 export abstract class AiAgent<T> {
   static validTemperature(temperature: number|undefined): number|undefined {
@@ -205,6 +205,17 @@ export abstract class AiAgent<T> {
     return this.buildChatHistoryForAida();
   }
 
+  /**
+   * Declare a function that the AI model can call.
+   * @param name - The name of the function
+   * @param declaration - the function declaration. Currently functions must:
+   * 1. Return an object of serializable key/value pairs. You cannot return
+   *    anything other than a plain JavaScript object that can be serialized.
+   * 2. Take one parameter which is an object that can have
+   *    multiple keys and values. For example, rather than a function being called
+   *    with two args, `foo` and `bar`, you should instead have the function be
+   *    called with one object with `foo` and `bar` keys.
+   */
   declareFunction<Args, ReturnType>(name: string, declaration: FunctionDeclaration<Args, ReturnType>): void {
     if (this.#functionDeclarations.has(name)) {
       throw new Error(`Duplicate function declaration ${name}`);
@@ -321,16 +332,16 @@ export abstract class AiAgent<T> {
     const declarations = this.#buildFunctionDeclarationsForAida();
     const request: Host.AidaClient.AidaRequest = {
       client: Host.AidaClient.CLIENT_NAME,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
+
       current_message: currentMessage,
       preamble: this.preamble,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
+
       historical_contexts: history.length ? history : undefined,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
+
       ...(declarations.length ? {function_declarations: declarations} : {}),
       options: {
         temperature: AiAgent.validTemperature(this.options.temperature),
-        // eslint-disable-next-line @typescript-eslint/naming-convention
+
         model_id: this.options.modelId,
       },
       metadata: {
@@ -338,10 +349,10 @@ export abstract class AiAgent<T> {
         string_session_id: this.#sessionId,
         user_tier: Host.AidaClient.convertToUserTierEnum(this.userTier),
       },
-      // eslint-disable-next-line @typescript-eslint/naming-convention
+
       functionality_type: declarations.length ? Host.AidaClient.FunctionalityType.AGENTIC_CHAT :
                                                 Host.AidaClient.FunctionalityType.CHAT,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
+
       client_feature: this.clientFeature,
     };
     return request;

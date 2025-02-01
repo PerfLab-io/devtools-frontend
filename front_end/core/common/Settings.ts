@@ -459,7 +459,7 @@ export class Setting<V> {
     if (this.storage.has(this.name)) {
       try {
         this.#value = this.#serializer.parse(this.storage.get(this.name));
-      } catch (e) {
+      } catch {
         this.storage.remove(this.name);
       }
     }
@@ -484,7 +484,7 @@ export class Setting<V> {
     if (value) {
       try {
         this.#value = this.#serializer.parse(value);
-      } catch (e) {
+      } catch {
         this.storage.remove(this.name);
       }
     }
@@ -648,7 +648,7 @@ export class RegExpSetting extends Setting<any> {
       if (pattern) {
         this.#regex = new RegExp(pattern, this.#regexFlags || '');
       }
-    } catch (e) {
+    } catch {
     }
     return this.#regex;
   }
@@ -1396,14 +1396,14 @@ export function settingForTest(settingName: string): Setting<unknown> {
 export {
   getLocalizedSettingsCategory,
   maybeRemoveSettingExtension,
-  registerSettingExtension,
   RegExpSettingItem,
+  registerSettingExtension,
+  registerSettingsForTest,
+  resetSettings,
   SettingCategory,
   SettingExtensionOption,
   SettingRegistration,
   SettingType,
-  registerSettingsForTest,
-  resetSettings,
 };
 
 export interface Serializer<I, O> {

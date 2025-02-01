@@ -7,11 +7,13 @@ import '../icon_button/icon_button.js';
 import * as Common from '../../../core/common/common.js';
 import type * as Host from '../../../core/host/host.js';
 import * as i18n from '../../../core/i18n/i18n.js';
-import * as LitHtml from '../../lit-html/lit-html.js';
+import {html, render} from '../../lit/lit.js';
 
-import surveyLinkStyles from './surveyLink.css.js';
+import surveyLinkStylesRaw from './surveyLink.css.js';
 
-const {html} = LitHtml;
+// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+const surveyLinkStyles = new CSSStyleSheet();
+surveyLinkStyles.replaceSync(surveyLinkStylesRaw.cssContent);
 
 const UIStrings = {
   /**
@@ -123,7 +125,7 @@ export class SurveyLink extends HTMLElement {
     const ariaDisabled = this.#state !== State.SHOW_LINK;
 
     // clang-format off
-    // eslint-disable-next-line rulesdir/no-style-tags-in-lit-html
+
     const output = html`
       <button class="link ${linkState}" tabindex=${ariaDisabled ? '-1' : '0'} .disabled=${ariaDisabled} aria-disabled=${ariaDisabled} @click=${this.#sendSurvey}>
         <devtools-icon class="link-icon" .data=${{iconName: 'review', color: 'var(--sys-color-primary)', width: 'var(--issue-link-icon-size, 16px)', height: 'var(--issue-link-icon-size, 16px)'}}></devtools-icon><!--
@@ -131,7 +133,7 @@ export class SurveyLink extends HTMLElement {
       </button>
     `;
     // clang-format on
-    LitHtml.render(output, this.#shadow, {host: this});
+    render(output, this.#shadow, {host: this});
   }
 }
 

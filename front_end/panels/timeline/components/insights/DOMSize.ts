@@ -3,28 +3,51 @@
 // found in the LICENSE file.
 
 import '../../../../ui/components/icon_button/icon_button.js';
+import './Table.js';
 
 import * as i18n from '../../../../core/i18n/i18n.js';
 import type {DOMSizeInsightModel} from '../../../../models/trace/insights/DOMSize.js';
-import * as LitHtml from '../../../../ui/lit-html/lit-html.js';
+import type * as Trace from '../../../../models/trace/trace.js';
+import * as Lit from '../../../../ui/lit/lit.js';
 import type * as Overlays from '../../overlays/overlays.js';
 
 import {BaseInsightComponent} from './BaseInsightComponent.js';
+import type {TableData} from './Table.js';
 
 const UIStrings = {
   /**
-   * @description Text status indicating that browser operations to re-render the page were not impacted by the size of the DOM. "DOM" is an acronym and should not be translated.
+   * @description Header for a column containing the names of statistics as opposed to the actual statistic values.
    */
-  noLargeRenderTasks: 'No rendering tasks impacted by DOM size',
+  statistic: 'Statistic',
+  /**
+   * @description Header for a column containing the value of a statistic.
+   */
+  value: 'Value',
+  /**
+   * @description Header for a column containing the page element related to a statistc.
+   */
+  element: 'Element',
+  /**
+   * @description Label for a value representing the total number of elements on the page.
+   */
+  totalElements: 'Total elements',
+  /**
+   * @description Label for a value representing the maximum depth of the Document Object Model (DOM). "DOM" is a acronym and should not be translated.
+   */
+  maxDOMDepth: 'DOM depth',
+  /**
+   * @description Label for a value representing the maximum number of child elements of any parent element on the page.
+   */
+  maxChildren: 'Most children',
 };
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/insights/DOMSize.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
-const {html} = LitHtml;
+const {html} = Lit;
 
 export class DOMSize extends BaseInsightComponent<DOMSizeInsightModel> {
-  static override readonly litTagName = LitHtml.literal`devtools-performance-dom-size`;
+  static override readonly litTagName = Lit.StaticHtml.literal`devtools-performance-dom-size`;
   override internalName: string = 'dom-size';
 
   override createOverlays(): Overlays.Overlays.TimelineOverlay[] {
@@ -40,16 +63,63 @@ export class DOMSize extends BaseInsightComponent<DOMSizeInsightModel> {
                        }));
   }
 
-  override renderContent(): LitHtml.LitTemplate {
+  #renderNodeTable(domStatsData: Trace.Types.Events.DOMStats['args']['data']): Lit.LitTemplate {
+    const rows: TableData['rows'] = [];
+
+    if (domStatsData.maxDepth) {
+      const {nodeId, nodeName} = domStatsData.maxDepth;
+      rows.push({values: [i18nString(UIStrings.maxDOMDepth), this.renderNode(nodeId, nodeName)]});
+    }
+
+    if (domStatsData.maxChildren) {
+      const {nodeId, nodeName} = domStatsData.maxChildren;
+      rows.push({values: [i18nString(UIStrings.maxChildren), this.renderNode(nodeId, nodeName)]});
+    }
+
+    if (!rows.length) {
+      return Lit.nothing;
+    }
+
+    // clang-format off
+    return html`<div class="insight-section">
+      <devtools-performance-table
+        .data=${{
+          insight: this,
+          headers: [i18nString(UIStrings.statistic), i18nString(UIStrings.element)],
+          rows,
+        } as TableData}>
+      </devtools-performance-table>
+    </div>`;
+    // clang-format on
+  }
+
+  override renderContent(): Lit.LitTemplate {
     if (!this.model) {
-      return LitHtml.nothing;
+      return Lit.nothing;
     }
 
-    if (!this.model.largeStyleRecalcs.length && !this.model.largeLayoutUpdates.length) {
-      return html`<div class="insight-section">${i18nString(UIStrings.noLargeRenderTasks)}</div>`;
+    const domStatsData = this.model.maxDOMStats?.args.data;
+    if (!domStatsData) {
+      return Lit.nothing;
     }
 
-    return LitHtml.nothing;
+    // clang-format off
+    return html`<div class="insight-section">
+      <devtools-performance-table
+        .data=${{
+          insight: this,
+          headers: [i18nString(UIStrings.statistic), i18nString(UIStrings.value)],
+          rows: [
+            {values: [i18nString(UIStrings.totalElements), domStatsData.totalElements]},
+            {values: [i18nString(UIStrings.maxDOMDepth), domStatsData.maxDepth?.depth ?? 0]},
+            {values: [i18nString(UIStrings.maxChildren), domStatsData.maxChildren?.numChildren ?? 0]},
+          ],
+        } as TableData}>
+      </devtools-performance-table>
+    </div>
+    ${this.#renderNodeTable(domStatsData)}
+    `;
+    // clang-format on
   }
 }
 

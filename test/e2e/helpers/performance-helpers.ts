@@ -289,13 +289,13 @@ export async function navigateToSelectorStatsTab() {
         veImpression(
             'Pane', 'selector-stats',
             [
-              veImpression('TableHeader', 'elapsed(us)'),
-              veImpression('TableHeader', 'match_attempts'),
-              veImpression('TableHeader', 'match_count'),
-              veImpression('TableHeader', 'reject_percentage'),
+              veImpression('TableHeader', 'elapsed-us'),
+              veImpression('TableHeader', 'match-attempts'),
+              veImpression('TableHeader', 'match-count'),
+              veImpression('TableHeader', 'reject-percentage'),
               veImpression('TableHeader', 'selector'),
-              veImpression('TableHeader', 'style_sheet_id'),
-              veImpression('TableRow', undefined, [veImpression('TableCell')]),
+              veImpression('TableHeader', 'style-sheet-id'),
+              veImpression('TableRow', undefined, [veImpression('TableCell', 'elapsed-us')]),
             ]),
       ],
       'Panel: timeline > Section: timeline.flame-chart-view');
@@ -382,7 +382,5 @@ export function veImpressionForPerformancePanel() {
 }
 
 function veImpressionForStatusDialog() {
-  return veImpression(
-      'Dialog', 'timeline-status',
-      [veImpression('Action', 'timeline.download-after-error'), veImpression('Action', 'timeline.stop-recording')]);
+  return veImpression('Dialog', 'timeline-status');
 }

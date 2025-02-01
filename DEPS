@@ -12,19 +12,19 @@ vars = {
   'build_with_chromium': False,
 
   'build_url': 'https://chromium.googlesource.com/chromium/src/build.git',
-  'build_revision': '44bcc9d7b830ddf5d56e96bf8bc7fea9023bad6f',
+  'build_revision': 'a9640b2af4c541cbe6b716f447315d487351ae46',
 
   'buildtools_url': 'https://chromium.googlesource.com/chromium/src/buildtools.git',
-  'buildtools_revision': '2823e220cbd03e103d40b388974758ce46614ae2',
+  'buildtools_revision': '6b4eaa1ed0f3a604f354b4098e4f676f7815f1da',
 
   'depot_tools_url': 'https://chromium.googlesource.com/chromium/tools/depot_tools.git',
-  'depot_tools_revision': '58625e82c685426d441be5b422c9ad88e4867d20',
+  'depot_tools_revision': '6e2031a2ddde16d317c670c9f59ca19de11d7ed2',
 
   'inspector_protocol_url': 'https://chromium.googlesource.com/deps/inspector_protocol',
   'inspector_protocol_revision': '69d69ddf3aa698b171886551a4a672c5af1ad902',
 
   # Keeping track of the last time we rollerd the browser protocol files.
-  'chromium_browser_protocol_revision' : 'b53d566f0eff2aa1de7f7c33e3aa2deaa7774c37',
+  'chromium_browser_protocol_revision' : 'f0291784c51fa7a64cf7711bc60f52b0d505be8d',
 
   'clang_format_url': 'https://chromium.googlesource.com/external/github.com/llvm/llvm-project/clang/tools/clang-format.git',
   'clang_format_revision': '37f6e68a107df43b7d7e044fd36a13cbae3413f2',
@@ -32,7 +32,7 @@ vars = {
   'emscripten_tag': 'ade9d780ff17c88d81aa13860361743e3c1e1396',
 
   # GN CIPD package version.
-  'gn_version': 'git_revision:c97a86a72105f3328a540f5a5ab17d11989ab7dd',
+  'gn_version': 'git_revision:ed1abc107815210dc66ec439542bee2f6cbabc00',
 
   'cmake_version': 'version:2@3.21.3',
 
@@ -49,7 +49,7 @@ vars = {
   # Chrome version used for tests. It should be regularly updated to
   # match the Canary version listed here:
   # https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json
-  'chrome': '133.0.6928.0',
+  'chrome': '134.0.6992.0',
 
   # 'magic' text to tell depot_tools that git submodules should be accepted but
   # but parity with DEPS file is expected.
@@ -309,7 +309,14 @@ hooks = [
     'name': 'VS Code settings',
     'pattern': '.',
     'condition': 'build_with_chromium == False',
-    'action': ['vpython3', 'third_party/node/node.py', '--output', 'scripts/deps/sync-vscode-settings.js']
+    'action': [
+      'vpython3',
+      'third_party/node/node.py',
+      '--output',
+      # Silence the "Importing JSON modules" warning
+      '--no-warnings=ExperimentalWarning',
+      'scripts/deps/sync-vscode-settings.mjs'
+    ]
   },
 ]
 

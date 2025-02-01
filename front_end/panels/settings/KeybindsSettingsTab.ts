@@ -107,6 +107,7 @@ export class KeybindsSettingsTab extends UI.Widget.VBox implements UI.ListContro
 
   constructor() {
     super(true);
+    this.registerRequiredCSS(keybindsSettingsTabStyles, settingsScreenStyles);
 
     this.element.setAttribute('jslog', `${VisualLogging.pane('keybinds')}`);
 
@@ -302,7 +303,7 @@ export class KeybindsSettingsTab extends UI.Widget.VBox implements UI.ListContro
     }
   }
 
-  override update(): void {
+  update(): void {
     if (this.editingItem) {
       this.stopEditing(this.editingItem);
     }
@@ -313,13 +314,10 @@ export class KeybindsSettingsTab extends UI.Widget.VBox implements UI.ListContro
   }
 
   override willHide(): void {
+    super.willHide();
     if (this.editingItem) {
       this.stopEditing(this.editingItem);
     }
-  }
-  override wasShown(): void {
-    super.wasShown();
-    this.registerCSSFiles([keybindsSettingsTabStyles, settingsScreenStyles]);
   }
 }
 

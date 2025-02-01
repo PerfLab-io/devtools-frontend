@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import '../../ui/legacy/legacy.js';
+
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -154,10 +156,10 @@ const enum Events {
   REMOVE_CREDENTIAL = 'RemoveCredential',
 }
 
-type EventTypes = {
-  [Events.EXPORT_CREDENTIAL]: Protocol.WebAuthn.Credential,
-  [Events.REMOVE_CREDENTIAL]: Protocol.WebAuthn.Credential,
-};
+interface EventTypes {
+  [Events.EXPORT_CREDENTIAL]: Protocol.WebAuthn.Credential;
+  [Events.REMOVE_CREDENTIAL]: Protocol.WebAuthn.Credential;
+}
 
 class DataGridNode extends DataGrid.DataGrid.DataGridNode<DataGridNode> {
   constructor(private readonly credential: Protocol.WebAuthn.Credential) {
@@ -263,6 +265,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
 
   constructor() {
     super(true);
+    this.registerRequiredCSS(webauthnPaneStyles);
 
     this.element.setAttribute('jslog', `${VisualLogging.panel('webauthn').track({resize: true})}`);
 
@@ -326,7 +329,9 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
   #createToolbar(): void {
     this.#topToolbarContainer = this.contentElement.createChild('div', 'webauthn-toolbar-container');
     this.#topToolbarContainer.setAttribute('jslog', `${VisualLogging.toolbar()}`);
-    this.#topToolbar = new UI.Toolbar.Toolbar('webauthn-toolbar', this.#topToolbarContainer);
+    this.#topToolbarContainer.role = 'toolbar';
+    this.#topToolbar = this.#topToolbarContainer.createChild('devtools-toolbar', 'webauthn-toolbar');
+    this.#topToolbar.role = 'presentation';
     const enableCheckboxTitle = i18nString(UIStrings.enableVirtualAuthenticator);
     this.#enableCheckbox =
         new UI.Toolbar.ToolbarCheckbox(enableCheckboxTitle, enableCheckboxTitle, this.#handleCheckboxToggle.bind(this));
@@ -583,7 +588,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
 
     const protocolSelectTitle = UI.UIUtils.createLabel(i18nString(UIStrings.protocol), 'authenticator-option-label');
     protocolGroup.appendChild(protocolSelectTitle);
-    this.#protocolSelect = protocolGroup.createChild('select', 'chrome-select');
+    this.#protocolSelect = protocolGroup.createChild('select');
     this.#protocolSelect.setAttribute('jslog', `${VisualLogging.dropDown('protocol').track({change: true})}`);
     UI.ARIAUtils.bindLabelToControl(protocolSelectTitle, (this.#protocolSelect as Element));
     Object.values(PROTOCOL_AUTHENTICATOR_VALUES).sort().forEach((option: Protocol.WebAuthn.AuthenticatorProtocol) => {
@@ -598,7 +603,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
 
     const transportSelectTitle = UI.UIUtils.createLabel(i18nString(UIStrings.transport), 'authenticator-option-label');
     transportGroup.appendChild(transportSelectTitle);
-    this.transportSelect = transportGroup.createChild('select', 'chrome-select');
+    this.transportSelect = transportGroup.createChild('select');
     this.transportSelect.setAttribute('jslog', `${VisualLogging.dropDown('transport').track({change: true})}`);
     UI.ARIAUtils.bindLabelToControl(transportSelectTitle, (this.transportSelect as Element));
     // transportSelect will be populated in updateNewAuthenticatorSectionOptions.
@@ -691,7 +696,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
     removeButton.addEventListener('click', this.removeAuthenticator.bind(this, authenticatorId));
     removeButton.setAttribute('jslog', `${VisualLogging.action('webauthn.remove-authenticator').track({click: true})}`);
 
-    const toolbar = new UI.Toolbar.Toolbar('edit-name-toolbar', titleElement);
+    const toolbar = titleElement.createChild('devtools-toolbar', 'edit-name-toolbar');
     const editName = new UI.Toolbar.ToolbarButton(i18nString(UIStrings.editName), 'edit', undefined, 'edit-name');
     const saveName = new UI.Toolbar.ToolbarButton(i18nString(UIStrings.saveName), 'checkmark', undefined, 'save-name');
     saveName.setVisible(false);
@@ -933,9 +938,5 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
     }
     this.#activeAuthId = null;
     this.#updateActiveButtons();
-  }
-  override wasShown(): void {
-    super.wasShown();
-    this.registerCSSFiles([webauthnPaneStyles]);
   }
 }

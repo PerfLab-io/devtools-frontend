@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import '../../legacy.js';
+
 import * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as Platform from '../../../../core/platform/platform.js';
@@ -126,6 +128,7 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin<EventTypes, type
 
   constructor(propertyMap: Map<string, string>) {
     super(true);
+    this.registerRequiredCSS(fontEditorStyles);
     this.selectedNode = UI.Context.Context.instance().flavor(SDK.DOMModel.DOMNode);
 
     this.propertyMap = propertyMap;
@@ -176,10 +179,6 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin<EventTypes, type
         'letter-spacing', i18nString(UIStrings.spacing), cssPropertySection, letterSpacingPropertyInfo,
         FontEditorUtils.LetterSpacingStaticParams, this.updatePropertyValue.bind(this), this.resizePopout.bind(this),
         /** hasUnits= */ true);
-  }
-
-  override wasShown(): void {
-    this.registerCSSFiles([fontEditorStyles]);
   }
 
   private async createFontSelectorSection(propertyValue?: string): Promise<void> {
@@ -350,7 +349,7 @@ export class FontEditor extends Common.ObjectWrapper.eventMixin<EventTypes, type
     field.appendChild(selectLabel);
     field.appendChild(selectInput);
 
-    const deleteToolbar = new UI.Toolbar.Toolbar('', field);
+    const deleteToolbar = field.createChild('devtools-toolbar');
     const deleteButton =
         new UI.Toolbar.ToolbarButton(i18nString(UIStrings.deleteS, {PH1: label}), 'bin', undefined, 'delete');
     deleteToolbar.appendToolbarItem(deleteButton);
@@ -443,10 +442,10 @@ export interface FontChangedEvent {
   value: string;
 }
 
-export type EventTypes = {
-  [Events.FONT_CHANGED]: FontChangedEvent,
-  [Events.FONT_EDITOR_RESIZED]: void,
-};
+export interface EventTypes {
+  [Events.FONT_CHANGED]: FontChangedEvent;
+  [Events.FONT_EDITOR_RESIZED]: void;
+}
 
 class FontPropertyInputs {
   private showSliderMode: boolean;

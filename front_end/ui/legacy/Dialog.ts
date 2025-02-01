@@ -32,7 +32,7 @@ import * as Common from '../../core/common/common.js';
 import * as VisualLogging from '../visual_logging/visual_logging.js';
 
 import * as ARIAUtils from './ARIAUtils.js';
-import dialogStyles from './dialog.css.legacy.js';
+import dialogStyles from './dialog.css.js';
 import {GlassPane, PointerEventsBehavior} from './GlassPane.js';
 import {InspectorView} from './InspectorView.js';
 import {KeyboardShortcut, Keys} from './KeyboardShortcut.js';
@@ -216,9 +216,9 @@ export const enum Events {
   HIDDEN = 'hidden',
 }
 
-export type EventTypes = {
-  [Events.HIDDEN]: void,
-};
+export interface EventTypes {
+  [Events.HIDDEN]: void;
+}
 
 export const enum OutsideTabIndexBehavior {
   DISABLE_ALL_OUTSIDE_TAB_INDEX = 'DisableAllTabIndex',

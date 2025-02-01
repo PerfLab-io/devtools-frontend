@@ -214,7 +214,7 @@ export class HeapTimelineOverview extends Common.ObjectWrapper.eventMixin<EventT
     this.windowWidthRatio = this.windowRightRatio - this.windowLeftRatio;
   }
 
-  override update(): void {
+  update(): void {
     this.updateTimerId = null;
     if (!this.isShowing()) {
       return;
@@ -263,9 +263,9 @@ export interface IdsRangeChangedEvent {
   size: number;
 }
 
-export type EventTypes = {
-  [Events.IDS_RANGE_CHANGED]: IdsRangeChangedEvent,
-};
+export interface EventTypes {
+  [Events.IDS_RANGE_CHANGED]: IdsRangeChangedEvent;
+}
 
 export class SmoothScale {
   lastUpdate: number;

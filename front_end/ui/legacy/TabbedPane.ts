@@ -28,6 +28,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import './Toolbar.js';
+
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
@@ -38,8 +40,8 @@ import * as IconButton from '../components/icon_button/icon_button.js';
 import * as ARIAUtils from './ARIAUtils.js';
 import {ContextMenu} from './ContextMenu.js';
 import {Constraints, Size} from './Geometry.js';
-import tabbedPaneStyles from './tabbedPane.css.legacy.js';
-import {Toolbar} from './Toolbar.js';
+import tabbedPaneStyles from './tabbedPane.css.js';
+import type {Toolbar} from './Toolbar.js';
 import {Tooltip} from './Tooltip.js';
 import {installDragHandle, invokeOnceAfterBatchUpdate} from './UIUtils.js';
 import {VBox, type Widget} from './Widget.js';
@@ -427,6 +429,14 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.updateTabElements();
   }
 
+  setTrailingTabIcon(id: string, icon: IconButton.Icon.Icon|null): void {
+    const tab = this.tabsById.get(id);
+    if (!tab) {
+      return;
+    }
+    tab.setSuffixElement(icon);
+  }
+
   setSuffixElement(id: string, suffixElement: HTMLElement|null): void {
     const tab = this.tabsById.get(id);
     if (!tab) {
@@ -434,6 +444,13 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
     }
     tab.setSuffixElement(suffixElement);
     this.updateTabElements();
+  }
+
+  setBadge(id: string, content: string|null, className?: string): void {
+    const badge = document.createElement('span');
+    badge.textContent = content;
+    badge.classList.add('badge', className ?? '');
+    this.setSuffixElement(id, content ? badge : null);
   }
 
   setTabEnabled(id: string, enabled: boolean): void {
@@ -606,8 +623,8 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
     if (!this.rightToolbarInternal || !this.measuredDropDownButtonWidth) {
       return;
     }
-    const leftToolbarWidth = this.leftToolbarInternal?.element.getBoundingClientRect().width ?? 0;
-    const rightToolbarWidth = this.rightToolbarInternal.element.getBoundingClientRect().width;
+    const leftToolbarWidth = this.leftToolbarInternal?.getBoundingClientRect().width ?? 0;
+    const rightToolbarWidth = this.rightToolbarInternal.getBoundingClientRect().width;
     const totalWidth = this.headerElementInternal.getBoundingClientRect().width;
     if (!this.rightToolbarInternal.hasCompactLayout() &&
         totalWidth - rightToolbarWidth - leftToolbarWidth < this.measuredDropDownButtonWidth + 10) {
@@ -944,16 +961,18 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
 
   leftToolbar(): Toolbar {
     if (!this.leftToolbarInternal) {
-      this.leftToolbarInternal = new Toolbar('tabbed-pane-left-toolbar');
-      this.headerElementInternal.insertBefore(this.leftToolbarInternal.element, this.headerElementInternal.firstChild);
+      this.leftToolbarInternal = document.createElement('devtools-toolbar');
+      this.leftToolbarInternal.classList.add('tabbed-pane-left-toolbar');
+      this.headerElementInternal.insertBefore(this.leftToolbarInternal, this.headerElementInternal.firstChild);
     }
     return this.leftToolbarInternal;
   }
 
   rightToolbar(): Toolbar {
     if (!this.rightToolbarInternal) {
-      this.rightToolbarInternal = new Toolbar('tabbed-pane-right-toolbar');
-      this.headerElementInternal.appendChild(this.rightToolbarInternal.element);
+      this.rightToolbarInternal = document.createElement('devtools-toolbar');
+      this.rightToolbarInternal.classList.add('tabbed-pane-right-toolbar');
+      this.headerElementInternal.appendChild(this.rightToolbarInternal);
     }
     return this.rightToolbarInternal;
   }
@@ -1022,12 +1041,12 @@ export enum Events {
   /* eslint-enable @typescript-eslint/naming-convention */
 }
 
-export type EventTypes = {
-  [Events.TabInvoked]: EventData,
-  [Events.TabSelected]: EventData,
-  [Events.TabClosed]: EventData,
-  [Events.TabOrderChanged]: EventData,
-};
+export interface EventTypes {
+  [Events.TabInvoked]: EventData;
+  [Events.TabSelected]: EventData;
+  [Events.TabClosed]: EventData;
+  [Events.TabOrderChanged]: EventData;
+}
 
 export class TabbedPaneTab {
   closeable: boolean;
@@ -1256,7 +1275,7 @@ export class TabbedPaneTab {
     const closeButton = new Buttons.Button.Button();
     closeButton.data = {
       variant: Buttons.Button.Variant.ICON,
-      size: Buttons.Button.Size.SMALL,
+      size: Buttons.Button.Size.MICRO,
       iconName: 'cross',
       title: i18nString(UIStrings.closeS, {PH1: this.title}),
     };
@@ -1274,7 +1293,8 @@ export class TabbedPaneTab {
     closeIcon.data = {
       iconName: 'experiment',
       color: 'var(--override-tabbed-pane-preview-icon-color)',
-      width: '16px',
+      height: '14px',
+      width: '14px',
     };
     previewIcon.appendChild(closeIcon);
     previewIcon.setAttribute('title', i18nString(UIStrings.previewFeature));

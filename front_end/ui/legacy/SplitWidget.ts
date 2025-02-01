@@ -35,7 +35,7 @@ import * as VisualLogging from '../visual_logging/visual_logging.js';
 import * as ARIAUtils from './ARIAUtils.js';
 import {Constraints} from './Geometry.js';
 import {Events as ResizerWidgetEvents, type ResizeUpdatePositionEvent, SimpleResizerWidget} from './ResizerWidget.js';
-import splitWidgetStyles from './splitWidget.css.legacy.js';
+import splitWidgetStyles from './splitWidget.css.js';
 import {ToolbarButton} from './Toolbar.js';
 import {Widget, WidgetElement} from './Widget.js';
 import {Events as ZoomManagerEvents, ZoomManager} from './ZoomManager.js';
@@ -957,10 +957,10 @@ export const enum Events {
   SHOW_MODE_CHANGED = 'ShowModeChanged',
 }
 
-export type EventTypes = {
-  [Events.SIDEBAR_SIZE_CHANGED]: number,
-  [Events.SHOW_MODE_CHANGED]: string,
-};
+export interface EventTypes {
+  [Events.SIDEBAR_SIZE_CHANGED]: number;
+  [Events.SHOW_MODE_CHANGED]: string;
+}
 
 const MinPadding = 20;
 export interface SettingForOrientation {

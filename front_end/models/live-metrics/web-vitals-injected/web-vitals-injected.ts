@@ -135,7 +135,7 @@ function initialize(): void {
   });
 
   onLCP(metric => {
-    const event: Spec.LCPChangeEvent = {
+    const event: Spec.LcpChangeEvent = {
       name: 'LCP',
       value: metric.value,
       phases: {
@@ -154,7 +154,7 @@ function initialize(): void {
   }, {reportAllChanges: true});
 
   onCLS(metric => {
-    const event: Spec.CLSChangeEvent = {
+    const event: Spec.ClsChangeEvent = {
       name: 'CLS',
       value: metric.value,
       clusterShiftIds: metric.entries.map(Spec.getUniqueLayoutShiftId),
@@ -163,7 +163,14 @@ function initialize(): void {
   }, {reportAllChanges: true});
 
   onINP(metric => {
-    const event: Spec.INPChangeEvent = {
+    // TODO(b/376777343): Remove this line when `interactionTargetElement` is removed from web-vitals.js
+    // The `metric` emitted in this callback is stored within web-vitals.js closures.
+    // This can lead to `interactionTargetElement` persisting in memory after it has been removed.
+    // We don't use `interactionTargetElement` here, and `onEachInteraction` will interaction
+    // elements separately so it is safe to remove here and prevent memory leaks.
+    metric.attribution.interactionTargetElement = undefined;
+
+    const event: Spec.InpChangeEvent = {
       name: 'INP',
       value: metric.value,
       phases: {

@@ -3,8 +3,9 @@
 // found in the LICENSE file.
 'use strict';
 
-const {isLitHtmlTemplateCall} = require('./utils.js');
 const path = require('path');
+
+const {isLitHtmlTemplateCall} = require('./utils.js');
 
 const FRONT_END_DIRECTORY = path.join(__dirname, '..', '..', '..', 'front_end');
 
@@ -12,6 +13,9 @@ const FRONT_END_DIRECTORY = path.join(__dirname, '..', '..', '..', 'front_end');
 // input.js as that's what the import statement would reference.
 const COMMON_INPUT_STYLES = path.join(FRONT_END_DIRECTORY, 'ui', 'components', 'input', 'input.js');
 
+/**
+ * @type {import('eslint').Rule.RuleModule}
+ */
 module.exports = {
   meta: {
     type: 'problem',
@@ -30,6 +34,7 @@ module.exports = {
     schema: []  // no options
   },
   create: function(context) {
+    const filename = context.filename ?? context.getFilename();
     let foundInputStylesImport = false;
     let inputStylesImportedName = null;
     let adoptedStyleSheetsCallNode = null;
@@ -56,7 +61,7 @@ module.exports = {
 
         // Get the absolute path of the current file's directory, so we can
         // compare it to COMMON_INPUT_STYLES and see if the file does import the common styles.
-        const absoluteDirectory = path.dirname(path.resolve(context.getFilename()));
+        const absoluteDirectory = path.dirname(path.resolve(filename));
         const fullImportPath = path.resolve(absoluteDirectory, node.source.value);
         foundInputStylesImport = fullImportPath === COMMON_INPUT_STYLES;
         if (foundInputStylesImport) {

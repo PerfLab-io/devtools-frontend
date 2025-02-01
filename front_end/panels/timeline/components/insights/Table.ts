@@ -4,14 +4,19 @@
 
 import type * as Trace from '../../../../models/trace/trace.js';
 import * as ComponentHelpers from '../../../../ui/components/helpers/helpers.js';
-import * as LitHtml from '../../../../ui/lit-html/lit-html.js';
+import * as UI from '../../../../ui/legacy/legacy.js';
+import * as Lit from '../../../../ui/lit/lit.js';
 import type * as Overlays from '../../overlays/overlays.js';
 
 import type * as BaseInsightComponent from './BaseInsightComponent.js';
 import {EventReferenceClick} from './EventRef.js';
-import tableStyles from './table.css.js';
+import tableStylesRaw from './table.css.js';
 
-const {html} = LitHtml;
+// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+const tableStyles = new CSSStyleSheet();
+tableStyles.replaceSync(tableStylesRaw.cssContent);
+
+const {html} = Lit;
 
 type BaseInsightComponent = BaseInsightComponent.BaseInsightComponent<Trace.Insights.Types.InsightModel<{}>>;
 
@@ -31,10 +36,10 @@ type BaseInsightComponent = BaseInsightComponent.BaseInsightComponent<Trace.Insi
  *           the current trace bounds to fit the bounds of the row's overlays.
  */
 
-export type TableState = {
-  selectedRowEl: HTMLElement|null,
-  selectionIsSticky: boolean,
-};
+export interface TableState {
+  selectedRowEl: HTMLElement|null;
+  selectionIsSticky: boolean;
+}
 
 export interface TableData {
   insight: BaseInsightComponent;
@@ -42,10 +47,10 @@ export interface TableData {
   rows: TableDataRow[];
 }
 
-export type TableDataRow = {
-  values: Array<string|LitHtml.LitTemplate>,
-  overlays?: Overlays.Overlays.TimelineOverlay[],
-};
+export interface TableDataRow {
+  values: Array<number|string|Lit.LitTemplate>;
+  overlays?: Overlays.Overlays.TimelineOverlay[];
+}
 
 export class Table extends HTMLElement {
 
@@ -70,6 +75,8 @@ export class Table extends HTMLElement {
 
   connectedCallback(): void {
     this.#shadow.adoptedStyleSheets.push(tableStyles);
+    UI.UIUtils.injectCoreStyles(this.#shadow);
+
     void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
   }
 
@@ -164,9 +171,9 @@ export class Table extends HTMLElement {
       return;
     }
 
-    LitHtml.render(
+    Lit.render(
         html`<table
-          class=${LitHtml.Directives.classMap({
+          class=${Lit.Directives.classMap({
           interactive: this.#interactive,
         })}
           @mouseleave=${this.#interactive ? this.#onMouseLeave : null}>

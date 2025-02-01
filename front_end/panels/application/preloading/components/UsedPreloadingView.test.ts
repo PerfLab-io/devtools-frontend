@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type * as Platform from '../../../../core/platform/platform.js';
+import * as Platform from '../../../../core/platform/platform.js';
 import * as SDK from '../../../../core/sdk/sdk.js';
 import * as Protocol from '../../../../generated/protocol.js';
 import {assertGridContents} from '../../../../testing/DataGridHelpers.js';
@@ -12,12 +12,12 @@ import {
   renderElementIntoDOM,
 } from '../../../../testing/DOMHelpers.js';
 import {describeWithEnvironment} from '../../../../testing/EnvironmentHelpers.js';
-import * as Coordinator from '../../../../ui/components/render_coordinator/render_coordinator.js';
+import * as RenderCoordinator from '../../../../ui/components/render_coordinator/render_coordinator.js';
 import * as ReportView from '../../../../ui/components/report_view/report_view.js';
 
 import * as PreloadingComponents from './components.js';
 
-const coordinator = Coordinator.RenderCoordinator.RenderCoordinator.instance();
+const {urlString} = Platform.DevToolsPath;
 
 async function renderUsedPreloadingView(data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData):
     Promise<HTMLElement> {
@@ -25,7 +25,7 @@ async function renderUsedPreloadingView(data: PreloadingComponents.UsedPreloadin
   component.data = data;
   renderElementIntoDOM(component);
   assert.isNotNull(component.shadowRoot);
-  await coordinator.done();
+  await RenderCoordinator.done();
 
   return component;
 }
@@ -33,14 +33,14 @@ async function renderUsedPreloadingView(data: PreloadingComponents.UsedPreloadin
 describeWithEnvironment('UsedPreloadingView', () => {
   it('renderes prefetch used', async () => {
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/prefetched.html`,
       previousAttempts: [
         {
           action: Protocol.Preload.SpeculationAction.Prefetch,
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetched.html`,
           },
           pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.SUCCESS,
@@ -54,7 +54,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prerender,
-            url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prerendered.html`,
           },
           pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
@@ -92,14 +92,14 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
   it('renderes prerender used', async () => {
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/prerendered.html`,
       previousAttempts: [
         {
           action: Protocol.Preload.SpeculationAction.Prefetch,
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetched.html`,
           },
           pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
@@ -113,7 +113,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prerender,
-            url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prerendered.html`,
           },
           pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.SUCCESS,
@@ -151,14 +151,14 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
   it('renderes prefetch failed', async () => {
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/prefetched.html`,
       previousAttempts: [
         {
           action: Protocol.Preload.SpeculationAction.Prefetch,
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetched.html`,
           },
           pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
@@ -172,7 +172,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prerender,
-            url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prerendered.html`,
           },
           pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
@@ -215,14 +215,14 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
   it('renderes prerender failed', async () => {
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/prerendered.html`,
       previousAttempts: [
         {
           action: Protocol.Preload.SpeculationAction.Prefetch,
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetched.html`,
           },
           pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
@@ -236,7 +236,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prerender,
-            url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prerendered.html`,
           },
           pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
@@ -280,14 +280,14 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
   it('renderes prerender failed due to header mismatch', async () => {
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/prerendered.html`,
       previousAttempts: [
         {
           action: Protocol.Preload.SpeculationAction.Prefetch,
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetched.html`,
           },
           pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
@@ -301,7 +301,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prerender,
-            url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prerendered.html`,
           },
           pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
@@ -369,14 +369,14 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
   it('renderes prerender -> prefetch downgraded and used', async () => {
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/downgraded.html' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/downgraded.html`,
       previousAttempts: [
         {
           action: Protocol.Preload.SpeculationAction.Prefetch,
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/downgraded.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/downgraded.html`,
           },
           pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.SUCCESS,
@@ -390,7 +390,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prerender,
-            url: 'https://example.com/downgraded.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/downgraded.html`,
           },
           pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
@@ -434,7 +434,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
   it('renders no preloading attempts used', async () => {
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/no-preloads.html' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/no-preloads.html`,
       previousAttempts: [],
       currentAttempts: [],
     };
@@ -464,14 +464,14 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
   it('ignores hash part of URL for prefetch', async () => {
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/prefetched.html#alpha' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/prefetched.html#alpha`,
       previousAttempts: [
         {
           action: Protocol.Preload.SpeculationAction.Prefetch,
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetched.html#beta' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetched.html#beta`,
           },
           pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.SUCCESS,
@@ -509,14 +509,14 @@ describeWithEnvironment('UsedPreloadingView', () => {
   it('doesn\'t ignore hash part of URL for prerender', async () => {
     // Prerender uses more strict URL matcher and distinguish URLs by fragments.
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/prerendered.html#alpha' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/prerendered.html#alpha`,
       previousAttempts: [
         {
           action: Protocol.Preload.SpeculationAction.Prerender,
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prerender,
-            url: 'https://example.com/prerendered.html#beta' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prerendered.html#beta`,
           },
           pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
@@ -567,14 +567,14 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
   it('renders no preloading attempts used with mismatch', async () => {
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/no-preloads.html' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/no-preloads.html`,
       previousAttempts: [
         {
           action: Protocol.Preload.SpeculationAction.Prefetch,
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetched.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetched.html`,
           },
           pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
@@ -588,7 +588,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prerender,
-            url: 'https://example.com/prerendered.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prerendered.html`,
           },
           pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
@@ -631,7 +631,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
 
   it('renders preloads initialized by this page', async () => {
     const data: PreloadingComponents.UsedPreloadingView.UsedPreloadingViewData = {
-      pageURL: 'https://example.com/no-preloads.html' as Platform.DevToolsPath.UrlString,
+      pageURL: urlString`https://example.com/no-preloads.html`,
       previousAttempts: [],
       currentAttempts: [
         {
@@ -639,7 +639,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetch-not-triggered.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetch-not-triggered.html`,
           },
           pipelineId: null,
           status: SDK.PreloadingModel.PreloadingStatus.NOT_TRIGGERED,
@@ -653,7 +653,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetch-running.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetch-running.html`,
           },
           pipelineId: 'pipelineId:2' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.RUNNING,
@@ -667,7 +667,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetch-ready.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetch-ready.html`,
           },
           pipelineId: 'pipelineId:3' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,
@@ -681,7 +681,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prefetch,
-            url: 'https://example.com/prefetch-failure.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prefetch-failure.html`,
           },
           pipelineId: 'pipelineId:4' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.FAILURE,
@@ -695,7 +695,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prerender,
-            url: 'https://example.com/prerender-pending.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prerender-pending.html`,
           },
           pipelineId: 'pipelineId:5' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.PENDING,
@@ -710,7 +710,7 @@ describeWithEnvironment('UsedPreloadingView', () => {
           key: {
             loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
             action: Protocol.Preload.SpeculationAction.Prerender,
-            url: 'https://example.com/prerender-ready.html' as Platform.DevToolsPath.UrlString,
+            url: urlString`https://example.com/prerender-ready.html`,
           },
           pipelineId: 'pipelineId:6' as Protocol.Preload.PreloadPipelineId,
           status: SDK.PreloadingModel.PreloadingStatus.READY,

@@ -2,19 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type * as Common from '../../core/common/common.js';
+import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Protocol from '../../generated/protocol.js';
 import * as IssuesManager from '../../models/issues_manager/issues_manager.js';
 import * as DataGrid from '../../ui/legacy/components/data_grid/data_grid.js';
 import * as UI from '../../ui/legacy/legacy.js';
-import * as LitHtml from '../../ui/lit-html/lit-html.js';
+import * as Lit from '../../ui/lit/lit.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
+import * as NetworkForward from '../network/forward/forward.js';
 
 import cookieReportViewStyles from './cookieReportView.css.js';
 
-const {render, html, Directives: {ref}} = LitHtml;
+const {render, html, Directives: {ref}} = Lit;
 
 const UIStrings = {
   /**
@@ -24,8 +25,7 @@ const UIStrings = {
   /**
    *@description Explaination in the header about the cookies listed in the report
    */
-  body:
-      'Third-party cookies that might be restricted by users, depending on their settings. If a user chooses to restrict cookies, then this site might not work for them.',
+  body: 'This site might not work if third-party cookies and other cookies are limited in Chrome.',
   /**
    *@description A link the user can follow to learn more about third party cookie usage
    */
@@ -61,7 +61,7 @@ const UIStrings = {
   /**
    *@description Status string in the cookie report for a third-party cookie that is allowed due to a grace period or heuristic exception. Otherwise, this would have been blocked. This is also used as filter chip text to allow the user to filter the table based on cookie status
    */
-  allowedByException: 'Allowed By Exception',
+  allowedByException: 'Allowed by exception',
   /**
    *@description Status string in the cookie report for a third-party cookie that was blocked. This is also used as filter chip text to allow the user to filter the table based on cookie status
    */
@@ -86,7 +86,7 @@ const UIStrings = {
    *@description String in Cookie Report table. This is used when a cookie's domain has an entry in the third-party cookie migration readiness list GitHub.
    *@example {guidance} PH1
    */
-  gitHubResource: 'Review {PH1} from third-party site.',
+  gitHubResource: 'Review {PH1} from third-party site',
   /**
    *@description Label for a link to an entry in the third-party cookie migration readiness list GitHub.
    */
@@ -103,7 +103,7 @@ const UIStrings = {
   /**
    *@description String in Cookie Report table. This is used when a cookie has a heuristics exception.
    */
-  heuristics: 'Action needed later. Heuristics based exception is active',
+  heuristics: 'Action needed later. Heuristics based exception is active.',
   /**
    *@description String in Cookie Report table. This is used when a cookie's domain does not have an entry in the third-party cookie migration readiness list Github nor a grace period nor heuristics exception.
    */
@@ -176,14 +176,21 @@ const UIStrings = {
    *@description String representing the Other cookie type. Used to format 'other' category from the Third Party Web dataset.
    */
   otherCookieTypeString: 'Other',
+  /**
+   *@description String that shows up in the context menu when right clicking one of the entries in the cookie report.
+   */
+  showRequestsWithThisCookie: 'Show requests with this cookie',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/security/CookieReportView.ts', UIStrings);
 export const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export interface ViewInput {
   gridData: DataGrid.DataGrid.DataGridNode<CookieReportNodeData>[];
+  filterItems: UI.FilterBar.Item[];
   onFilterChanged: () => void;
   onSortingChanged: () => void;
+  populateContextMenu:
+      (arg0: UI.ContextMenu.ContextMenu, arg1: DataGrid.DataGrid.DataGridNode<CookieReportNodeData>) => void;
 }
 export interface ViewOutput {
   namedBitSetFilterUI?: UI.FilterBar.NamedBitSetFilterUI;
@@ -201,27 +208,6 @@ export interface CookieReportNodeData {
 
 export type View = (input: ViewInput, output: ViewOutput, target: HTMLElement) => void;
 
-const filterItems: UI.FilterBar.Item[] = [
-  {
-    name: UIStrings.blocked,
-    label: () => i18nString(UIStrings.blocked),
-    title: UIStrings.blocked,
-    jslogContext: UIStrings.blocked,
-  },
-  {
-    name: UIStrings.allowed,
-    label: () => i18nString(UIStrings.allowed),
-    title: UIStrings.allowed,
-    jslogContext: UIStrings.allowed,
-  },
-  {
-    name: UIStrings.allowedByException,
-    label: () => i18nString(UIStrings.allowedByException),
-    title: UIStrings.allowedByException,
-    jslogContext: UIStrings.allowedByException,
-  },
-];
-
 export class CookieReportView extends UI.Widget.VBox {
   #issuesManager?: IssuesManager.IssuesManager.IssuesManager;
   namedBitSetFilterUI?: UI.FilterBar.NamedBitSetFilterUI;
@@ -229,6 +215,7 @@ export class CookieReportView extends UI.Widget.VBox {
   #view: View;
   dataGrid?: DataGrid.DataGrid.DataGridImpl<CookieReportNodeData>;
   gridData: DataGrid.DataGrid.DataGridNode<CookieReportNodeData>[] = [];
+  filterItems: UI.FilterBar.Item[] = [];
 
   constructor(element?: HTMLElement, view: View = (input, output, target) => {
     const dataGridOptions: DataGrid.DataGrid.DataGridWidgetOptions<CookieReportNodeData> = {
@@ -243,21 +230,23 @@ export class CookieReportView extends UI.Widget.VBox {
         {id: 'recommendation', title: i18nString(UIStrings.recommendation), weight: 1, sortable: true},
       ],
       striped: true,
+      rowContextMenuCallback: input.populateContextMenu.bind(input),
     };
 
     // clang-format off
     render(html `
         <div class="report overflow-auto">
             <div class="header">
-              <div class="title">${i18nString(UIStrings.title)}</div>
-              <div class="body">${i18nString(UIStrings.body)} <x-link class="x-link" href="https://developers.google.com/privacy-sandbox/cookies/prepare/audit-cookies" jslog=${VisualLogging.link('learn-more').track({click: true})}>${i18nString(UIStrings.learnMoreLink)}</x-link></div>
+              <h1>${i18nString(UIStrings.title)}</h1>
+              <div class="body">${i18nString(UIStrings.body)} <x-link class="devtools-link" href="https://developers.google.com/privacy-sandbox/cookies/prepare/audit-cookies" jslog=${VisualLogging.link('learn-more').track({click: true})}>${i18nString(UIStrings.learnMoreLink)}</x-link></div>
             </div>
             ${input.gridData.length > 0 ?
               html`
                 <devtools-named-bit-set-filter
                   class="filter"
+                  aria-label="Third-party cookie status filters"
                   @filterChanged=${input.onFilterChanged}
-                  .options=${{items: filterItems}}
+                  .options=${{items: input.filterItems}}
                   ${ref((el?: Element) => {
                     if(el instanceof UI.FilterBar.NamedBitSetFilterUIElement){
                       output.namedBitSetFilterUI = el.getOrCreateNamedBitSetFilterUI();
@@ -295,6 +284,7 @@ export class CookieReportView extends UI.Widget.VBox {
   }) {
     super(true, undefined, element);
     this.#view = view;
+    this.registerRequiredCSS(cookieReportViewStyles);
 
     SDK.TargetManager.TargetManager.instance().addModelListener(
         SDK.ResourceTreeModel.ResourceTreeModel, SDK.ResourceTreeModel.Events.PrimaryPageChanged,
@@ -309,25 +299,27 @@ export class CookieReportView extends UI.Widget.VBox {
       }
     }
 
-    this.update();
+    this.requestUpdate();
   }
 
-  override async doUpdate(): Promise<void> {
+  override performUpdate(): void {
     this.gridData = this.#buildNodes();
+    this.filterItems = this.#buildFilterItems();
     this.#view(this, this, this.contentElement);
   }
 
   onFilterChanged(): void {
-    this.update();
+    this.requestUpdate();
   }
 
   onSortingChanged(): void {
-    this.update();
+    this.requestUpdate();
   }
 
   #onPrimaryPageChanged(): void {
     this.#cookieRows.clear();
-    this.update();
+    this.namedBitSetFilterUI = undefined;
+    this.requestUpdate();
   }
 
   #onIssueEventReceived(event: Common.EventTarget.EventTargetEvent<IssuesManager.IssuesManager.IssueAddedEvent>): void {
@@ -336,7 +328,7 @@ export class CookieReportView extends UI.Widget.VBox {
         return;
       }
       this.#onIssueAdded(event.data.issue);
-      this.update();
+      this.requestUpdate();
     }
   }
 
@@ -345,6 +337,39 @@ export class CookieReportView extends UI.Widget.VBox {
     if (info) {
       this.#cookieRows.set(issue.cookieId(), info);
     }
+  }
+
+  #buildFilterItems(): UI.FilterBar.Item[] {
+    const filterItems: UI.FilterBar.Item[] = [];
+
+    if (this.#cookieRows.values().some(n => n.status === IssuesManager.CookieIssue.CookieStatus.BLOCKED)) {
+      filterItems.push({
+        name: UIStrings.blocked,
+        label: () => i18nString(UIStrings.blocked),
+        title: UIStrings.blocked,
+        jslogContext: UIStrings.blocked,
+      });
+    }
+    if (this.#cookieRows.values().some(n => n.status === IssuesManager.CookieIssue.CookieStatus.ALLOWED)) {
+      filterItems.push({
+        name: UIStrings.allowed,
+        label: () => i18nString(UIStrings.allowed),
+        title: UIStrings.allowed,
+        jslogContext: UIStrings.allowed,
+      });
+    }
+    if (this.#cookieRows.values().some(
+            n => n.status === IssuesManager.CookieIssue.CookieStatus.ALLOWED_BY_GRACE_PERIOD ||
+                n.status === IssuesManager.CookieIssue.CookieStatus.ALLOWED_BY_HEURISTICS)) {
+      filterItems.push({
+        name: UIStrings.allowedByException,
+        label: () => i18nString(UIStrings.allowedByException),
+        title: UIStrings.allowedByException,
+        jslogContext: UIStrings.allowedByException,
+      });
+    }
+
+    return filterItems;
   }
 
   #buildNodes(): DataGrid.DataGrid.DataGridNode<CookieReportNodeData>[] {
@@ -392,9 +417,26 @@ export class CookieReportView extends UI.Widget.VBox {
                 ));
   }
 
-  override wasShown(): void {
-    super.wasShown();
-    this.registerCSSFiles([cookieReportViewStyles]);
+  populateContextMenu(
+      contextMenu: UI.ContextMenu.ContextMenu, gridNode: DataGrid.DataGrid.DataGridNode<CookieReportNodeData>): void {
+    const cookie = gridNode as DataGrid.DataGrid.DataGridNode<CookieReportNodeData>;
+    if (!cookie) {
+      return;
+    }
+
+    contextMenu.revealSection().appendItem(i18nString(UIStrings.showRequestsWithThisCookie), () => {
+      const requestFilter = NetworkForward.UIFilter.UIRequestFilter.filters([
+        {
+          filterType: NetworkForward.UIFilter.FilterType.CookieDomain,
+          filterValue: cookie.data['domain'],
+        },
+        {
+          filterType: NetworkForward.UIFilter.FilterType.CookieName,
+          filterValue: cookie.data['name'],
+        },
+      ]);
+      void Common.Revealer.reveal(requestFilter);
+    }, {jslogContext: 'show-requests-with-this-cookie'});
   }
 
   static getStatusString(status: IssuesManager.CookieIssue.CookieStatus): string {
@@ -433,7 +475,7 @@ export class CookieReportView extends UI.Widget.VBox {
     return recElem;
   }
 
-  static getRecommendationText(domain: string, insight?: Protocol.Audits.CookieIssueInsight): LitHtml.TemplateResult {
+  static getRecommendationText(domain: string, insight?: Protocol.Audits.CookieIssueInsight): Lit.TemplateResult {
     if (!insight) {
       return html`${i18nString(UIStrings.other)}`;
     }
@@ -451,8 +493,11 @@ export class CookieReportView extends UI.Widget.VBox {
         })}`;
       }
       case Protocol.Audits.InsightType.GracePeriod: {
+        const url = SDK.TargetManager.TargetManager.instance().primaryPageTarget()?.inspectedURL();
         const gracePeriodLink = UI.XLink.XLink.create(
             'https://developers.google.com/privacy-sandbox/cookies/dashboard?url=' +
+                // The order of the URLs matters - needs to be 1P + 3P.
+                (url ? Common.ParsedURL.ParsedURL.fromString(url)?.host + '+' : '') +
                 (domain.charAt(0) === '.' ? domain.substring(1) : domain),
             i18nString(UIStrings.reportedIssues), undefined, undefined, 'compatibility-lookup-link');
 

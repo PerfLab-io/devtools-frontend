@@ -4,14 +4,21 @@
 
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/l10n-no-i18nString-calls-module-instantiation.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 const expectedErrors = [
-  {message: 'Calls to i18nString in are disallowed at module instantiation time. Use i18nLazyString instead.'},
+  {
+    message: 'Calls to i18nString in are disallowed at module instantiation time. Use i18nLazyString instead.',
+  },
 ];
 
 ruleTester.run('l10n-no-i18nString-calls-module-instantiation', rule, {
@@ -41,6 +48,9 @@ ruleTester.run('l10n-no-i18nString-calls-module-instantiation', rule, {
     {code: 'callSomeMethod({title: i18nString()});', errors: expectedErrors},
     {code: 'const someObj = { foo: i18nString() };', errors: expectedErrors},
     {code: 'const someArray = [i18nString()];', errors: expectedErrors},
-    {code: 'const someMap = new Map([["foo", i18nString()]]);', errors: expectedErrors},
-  ]
+    {
+      code: 'const someMap = new Map([["foo", i18nString()]]);',
+      errors: expectedErrors,
+    },
+  ],
 });

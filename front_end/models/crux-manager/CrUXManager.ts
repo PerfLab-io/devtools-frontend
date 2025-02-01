@@ -29,6 +29,10 @@ export type FormFactor = 'DESKTOP'|'PHONE'|'TABLET';
 export type DeviceScope = FormFactor|'ALL';
 export type DeviceOption = DeviceScope|'AUTO';
 export type PageScope = 'url'|'origin';
+export interface Scope {
+  pageScope: PageScope;
+  deviceScope: DeviceScope;
+}
 export type ConnectionType = 'offline'|'slow-2G'|'2G'|'3G'|'4G';
 
 export interface CrUXRequest {
@@ -103,6 +107,7 @@ export const DEVICE_SCOPE_LIST: DeviceScope[] = ['ALL', 'DESKTOP', 'PHONE'];
 
 const pageScopeList: PageScope[] = ['origin', 'url'];
 const metrics: MetricNames[] = [
+  'first_contentful_paint',
   'largest_contentful_paint',
   'cumulative_layout_shift',
   'interaction_to_next_paint',
@@ -201,7 +206,6 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
       }
 
       await Promise.all(promises);
-      this.#pageResult = pageResult;
     } catch (err) {
       console.error(err);
     } finally {
@@ -227,6 +231,10 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
     }
   }
 
+  async getFieldDataForCurrentPageForTesting(): Promise<PageResult> {
+    return this.#getFieldDataForCurrentPage();
+  }
+
   /**
    * In general, this function should use the main document URL
    * (i.e. the URL after all redirects but before SPA navigations)
@@ -236,13 +244,12 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
    * back to the currently inspected URL (i.e. what is displayed in the omnibox) if
    * the main document URL cannot be found.
    */
-  async getFieldDataForCurrentPage(): Promise<PageResult> {
+  async #getFieldDataForCurrentPage(): Promise<PageResult> {
     const currentUrl = this.#mainDocumentUrl || await this.#getInspectedURL();
     const urlForCrux = this.#configSetting.get().overrideEnabled ? this.#configSetting.get().override || '' :
                                                                    this.#getMappedUrl(currentUrl);
 
     const result = await this.getFieldDataForPage(urlForCrux);
-    this.#pageResult = result;
     if (currentUrl !== urlForCrux) {
       result.warnings.push(i18nString(UIStrings.fieldOverrideWarning));
     }
@@ -288,7 +295,7 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
       return;
     }
 
-    this.#pageResult = await this.getFieldDataForCurrentPage();
+    this.#pageResult = await this.#getFieldDataForCurrentPage();
     this.dispatchEventToListeners(Events.FIELD_DATA_CHANGED, this.#pageResult);
   }
 
@@ -381,6 +388,10 @@ export class CrUXManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> 
     return this.fieldDeviceOption === 'AUTO' ? this.#getAutoDeviceScope() : this.fieldDeviceOption;
   }
 
+  getSelectedScope(): Scope {
+    return {pageScope: this.fieldPageScope, deviceScope: this.getSelectedDeviceScope()};
+  }
+
   getSelectedFieldResponse(): CrUXResponse|null|undefined {
     const pageScope = this.fieldPageScope;
     const deviceScope = this.getSelectedDeviceScope();
@@ -404,6 +415,6 @@ export const enum Events {
   FIELD_DATA_CHANGED = 'field-data-changed',
 }
 
-type EventTypes = {
-  [Events.FIELD_DATA_CHANGED]: PageResult|undefined,
-};
+interface EventTypes {
+  [Events.FIELD_DATA_CHANGED]: PageResult|undefined;
+}

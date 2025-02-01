@@ -3,10 +3,15 @@
 // found in the LICENSE file.
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/check-license-header.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -109,8 +114,8 @@ import * as Common from '../common/common.js';
 
 function main() {}
 main()
-`
-    }
+`,
+    },
   ],
 
   invalid: [
@@ -156,7 +161,7 @@ import * as Action from './Action.js';
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
-(async function() {})();`
+(async function() {})();`,
     },
     {
       code: `
@@ -266,7 +271,7 @@ main()
 
 function main() {}
 main()
-`
+`,
     },
     {
       filename: 'scripts/test_runner.js',
@@ -290,7 +295,7 @@ main()
 // found in the LICENSE file.
 function main() {}
 main()
-`
-    }
-  ]
+`,
+    },
+  ],
 });

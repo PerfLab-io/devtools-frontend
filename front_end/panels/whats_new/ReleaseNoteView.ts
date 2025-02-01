@@ -9,12 +9,10 @@ import * as Marked from '../../third_party/marked/marked.js';
 import * as Buttons from '../../ui/components/buttons/buttons.js';
 import type * as MarkdownView from '../../ui/components/markdown_view/markdown_view.js';
 import * as UI from '../../ui/legacy/legacy.js';
-import * as LitHtml from '../../ui/lit-html/lit-html.js';
+import {html, render} from '../../ui/lit/lit.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
 import {getReleaseNote, type ReleaseNote, VideoType} from './ReleaseNoteText.js';
-
-const {render, html} = LitHtml;
 import releaseNoteViewStyles from './releaseNoteView.css.js';
 
 const UIStrings = {
@@ -66,48 +64,52 @@ export class ReleaseNoteView extends UI.Widget.VBox {
   #view: View;
 
   constructor(element?: HTMLElement, view: View = (input, _output, target) => {
+    this.registerRequiredCSS(releaseNoteViewStyles);
     const releaseNote = input.getReleaseNote();
     const markdownContent = input.markdownContent;
     // clang-format off
     render(html`
       <div class="whatsnew" jslog=${VisualLogging.section().context('release-notes')}>
-        <div class="header">
-          ${releaseNote.header}
-        </div>
-        <div>
-          <devtools-button
-                .variant=${Buttons.Button.Variant.PRIMARY}
-                .jslogContext=${'learn-more'}
-                @click=${() => input.openNewTab(releaseNote.link)}
-            >${i18nString(UIStrings.seeFeatures)}</devtools-button>
-        </div>
+        <div class="whatsnew-content">
+          <div class="header">
+            ${releaseNote.header}
+          </div>
+          <div>
+            <devtools-button
+                  .variant=${Buttons.Button.Variant.PRIMARY}
+                  .jslogContext=${'learn-more'}
+                  @click=${() => input.openNewTab(releaseNote.link)}
+              >${i18nString(UIStrings.seeFeatures)}</devtools-button>
+          </div>
 
-        <div class="feature-container">
-          <div class="video-container">
-            ${releaseNote.videoLinks.map((value: {description: string, link: Platform.DevToolsPath.UrlString, type?: VideoType}) => {
-              return html`
-                <x-link
-                href=${value.link}
-                jslog=${VisualLogging.link().track({click: true}).context('learn-more')}>
-                  <div class="video">
-                    <img class="thumbnail" src=${input.getThumbnailPath(value.type ?? VideoType.WHATS_NEW)}>
-                    <div class="thumbnail-description"><span>${value.description}</span></div>
-                  </div>
-              </x-link>
-              `;
+          <div class="feature-container">
+            <div class="video-container">
+              ${releaseNote.videoLinks.map((value: {description: string, link: Platform.DevToolsPath.UrlString, type?: VideoType}) => {
+                return html`
+                  <x-link
+                  href=${value.link}
+                  jslog=${VisualLogging.link().track({click: true}).context('learn-more')}>
+                    <div class="video">
+                      <img class="thumbnail" src=${input.getThumbnailPath(value.type ?? VideoType.WHATS_NEW)}>
+                      <div class="thumbnail-description"><span>${value.description}</span></div>
+                    </div>
+                </x-link>
+                `;
+              })}
+            </div>
+            ${markdownContent.map((markdown: Marked.Marked.Token[]) => {
+              return html`<div class="feature"><devtools-markdown-view slot="content" .data=${{tokens: markdown} as MarkdownView.MarkdownView.MarkdownViewData}></devtools-markdown-view></div>`;
             })}
           </div>
-          ${markdownContent.map((markdown: Marked.Marked.Token[]) => {
-            return html`<div class="feature"><devtools-markdown-view slot="content" .data=${{tokens: markdown} as MarkdownView.MarkdownView.MarkdownViewData}></devtools-markdown-view></div>`;
-          })}
         </div>
       </div>
     `, target, {host: this});
     // clang-format on
   }) {
     super(true, undefined, element);
+    this.element.setAttribute('jslog', `${VisualLogging.panel().context('whats-new')}`);
     this.#view = view;
-    this.update();
+    this.requestUpdate();
   }
 
   static async getFileContent(): Promise<string> {
@@ -115,13 +117,13 @@ export class ReleaseNoteView extends UI.Widget.VBox {
     try {
       const response = await fetch(url.toString());
       return response.text();
-    } catch (error) {
+    } catch {
       throw new Error(`Markdown file ${
           url.toString()} not found. Make sure it is correctly listed in the relevant BUILD.gn files.`);
     }
   }
 
-  override async doUpdate(): Promise<void> {
+  override async performUpdate(): Promise<void> {
     const markdownContent = await getMarkdownContent();
     this.#view(
         {
@@ -151,10 +153,5 @@ export class ReleaseNoteView extends UI.Widget.VBox {
 
   #openNewTab(link: string): void {
     Host.InspectorFrontendHost.InspectorFrontendHostInstance.openInNewTab(link as Platform.DevToolsPath.UrlString);
-  }
-
-  override wasShown(): void {
-    super.wasShown();
-    this.registerCSSFiles([releaseNoteViewStyles]);
   }
 }

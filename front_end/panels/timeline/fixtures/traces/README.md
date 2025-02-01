@@ -222,7 +222,7 @@ Generate from a page load [this HTML file](https://gist.github.com/adamraine/397
 ### dom-size
 
 Generate from a recording of [this HTML file](https://gist.github.com/adamraine/bfdb3cecca2322bf74f1e725d9a4699d) with the following steps:
-1. Set CPU throttling to 4x
+1. Set CPU throttling to 20x
 2. Start recording without reloading the page
 3. Click the button once
 4. Reload the page
@@ -242,3 +242,15 @@ Contains a page load that has two frames (main frame + iframe). There are two im
 - the main frame loads placeholder.co/100.jpg and placeholder.co/1000.jpg
 
 This trace is used to verify the fix for a bug [crbug.com/384000716] where we incorrectly associated image requests to the wrong navigation when calculating the LCP image.
+
+### lcp-lates-paint-event
+
+This is a trace where a `LargestImagePaint` event occurs after the last `largestContentfulPaint::Candidate` event.
+
+### web-dev-screenshot-source-ids
+
+A trace generated from crrev.com/c/6197645 (January 2025), which changed the format of screenshots from the legacy OBJECT_SNAPSHOT format to be instant events with more information attached to them.
+
+### dom-size-overlap
+
+Trace containing a cross-origin navigation where DOM size events from the pre-navigation page are emitted *after* the navigation event.

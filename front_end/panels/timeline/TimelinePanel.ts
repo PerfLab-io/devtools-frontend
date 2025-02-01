@@ -33,6 +33,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import '../../ui/legacy/legacy.js';
+
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -61,14 +63,13 @@ import * as TimelineComponents from './components/components.js';
 import * as TimelineInsights from './components/insights/insights.js';
 import {SHOULD_SHOW_EASTER_EGG} from './EasterEgg.js';
 import {Tracker} from './FreshRecording.js';
-import historyToolbarButtonStyles from './historyToolbarButton.css.js';
 import {IsolateSelector} from './IsolateSelector.js';
 import {AnnotationModifiedEvent, ModificationsManager} from './ModificationsManager.js';
 import * as Overlays from './overlays/overlays.js';
 import {cpuprofileJsonGenerator, traceJsonGenerator} from './SaveFileFormatter.js';
 import {type Client, TimelineController} from './TimelineController.js';
 import type {TimelineFlameChartDataProvider} from './TimelineFlameChartDataProvider.js';
-import {TimelineFlameChartView} from './TimelineFlameChartView.js';
+import {Events as TimelineFlameChartViewEvents, TimelineFlameChartView} from './TimelineFlameChartView.js';
 import {TimelineHistoryManager} from './TimelineHistoryManager.js';
 import {TimelineLoader} from './TimelineLoader.js';
 import {TimelineMiniMap} from './TimelineMiniMap.js';
@@ -213,9 +214,9 @@ const UIStrings = {
    */
   close: 'Close',
   /**
-   *@description Text to download the raw trace files after an error
+   *@description Text to download the trace file after an error
    */
-  downloadAfterError: 'Download raw trace events',
+  downloadAfterError: 'Download trace',
   /**
    *@description Status text to indicate the recording has failed in the Performance panel
    */
@@ -314,30 +315,34 @@ const UIStrings = {
    */
   backToLiveMetrics: 'Go back to the live metrics page',
   /**
+   * @description Description of the Timeline up/down scroll action that appears in the Performance panel shortcuts dialog.
+   */
+  timelineScrollUpDown: 'Move up/down',
+  /**
+   * @description Description of the Timeline left/right panning action that appears in the Performance panel shortcuts dialog.
+   */
+  timelinePanLeftRight: 'Move left/right',
+  /**
    * @description Description of the Timeline in/out zoom action that appears in the Performance panel shortcuts dialog.
    */
-  timelineZoomInOut: 'Timeline zoom in/out',
+  timelineZoomInOut: 'Zoom in/out',
   /**
    * @description Description of the Timeline fast in/out zoom action that appears in the Performance panel shortcuts dialog.
    */
-  timelineFastZoomInOut: 'Timeline fast zoom in/out',
-  /**
-   * @description Description of the Timeline up/down scroll action that appears in the Performance panel shortcuts dialog.
-   */
-  timelineScrollUpDown: 'Timeline up/down',
-  /**
-   * @description Description of the Timeline right/left panning action that appears in the Performance panel shortcuts dialog.
-   */
-  timelinePanLeftRight: 'Timeline right/left',
+  timelineFastZoomInOut: 'Fast zoom in/out',
   /**
    * @description Title for the Dim 3rd Parties checkbox.
    */
-  dimThirdParties: 'Dim 3rd Parties',
+  dimThirdParties: 'Dim 3rd parties',
+  /**
+   * @description Description for the Dim 3rd Parties checkbox tooltip describing how 3rd parties are classified.
+   */
+  thirdPartiesByThirdPartyWeb: '3rd parties classified by third-party-web',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/TimelinePanel.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
-let timelinePanelInstance: TimelinePanel;
+let timelinePanelInstance: TimelinePanel|undefined;
 let isNode: boolean;
 
 /**
@@ -379,6 +384,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   readonly #minimapComponent = new TimelineMiniMap();
   #viewMode: ViewMode = {mode: 'LANDING_PAGE'};
   readonly #dimThirdPartiesSetting: Common.Settings.Setting<boolean>|null = null;
+  #thirdPartyCheckbox: UI.Toolbar.ToolbarSettingCheckbox|null = null;
 
   /**
    * We get given any filters for a new trace when it is recorded/imported.
@@ -402,7 +408,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   private readonly searchableViewInternal: UI.SearchableView.SearchableView;
   private showSettingsPaneButton!: UI.Toolbar.ToolbarSettingToggle;
   private showSettingsPaneSetting!: Common.Settings.Setting<boolean>;
-  private settingsPane!: UI.Widget.Widget;
+  private settingsPane?: HTMLElement;
   private controller!: TimelineController|null;
   private cpuProfiler!: SDK.CPUProfilerModel.CPUProfilerModel|null;
   private clearButton!: UI.Toolbar.ToolbarButton;
@@ -420,7 +426,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   private cpuThrottlingSelect?: MobileThrottling.ThrottlingManager.CPUThrottlingSelectorWrapper;
   private fileSelectorElement?: HTMLInputElement;
   private selection: TimelineSelection|null = null;
-  private traceLoadStart!: Trace.Types.Timing.MilliSeconds|null;
+  private traceLoadStart!: Trace.Types.Timing.Milli|null;
   private primaryPageTargetPromiseCallback = (_target: SDK.Target.Target): void => {};
   // Note: this is technically unused, but we need it to define the promiseCallback function above.
   private primaryPageTargetPromise = new Promise<SDK.Target.Target>(res => {
@@ -483,8 +489,9 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
   #onMainEntryHovered: (event: Common.EventTarget.EventTargetEvent<number>) => void;
 
-  constructor() {
+  constructor(traceModel?: Trace.TraceModel.Model) {
     super('timeline');
+    this.registerRequiredCSS(timelinePanelStyles);
     const adornerContent = document.createElement('span');
     adornerContent.innerHTML = `<div style="
       font-size: 12px;
@@ -503,7 +510,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.brickBreakerToolbarButton.addEventListener(
         UI.Toolbar.ToolbarButton.Events.CLICK, () => this.#onBrickBreakerEasterEggClick());
 
-    this.#traceEngineModel = this.#instantiateNewModel();
+    this.#traceEngineModel = traceModel || this.#instantiateNewModel();
     this.#listenForProcessingProgress();
 
     this.element.addEventListener('contextmenu', this.contextMenu.bind(this), false);
@@ -554,9 +561,12 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
     const timelineToolbarContainer = this.element.createChild('div', 'timeline-toolbar-container');
     timelineToolbarContainer.setAttribute('jslog', `${VisualLogging.toolbar()}`);
-    this.panelToolbar = new UI.Toolbar.Toolbar('timeline-main-toolbar', timelineToolbarContainer);
-    this.panelToolbar.makeWrappable(true);
-    this.panelRightToolbar = new UI.Toolbar.Toolbar('', timelineToolbarContainer);
+    timelineToolbarContainer.role = 'toolbar';
+    this.panelToolbar = timelineToolbarContainer.createChild('devtools-toolbar', 'timeline-main-toolbar');
+    this.panelToolbar.role = 'presentation';
+    this.panelToolbar.wrappable = true;
+    this.panelRightToolbar = timelineToolbarContainer.createChild('devtools-toolbar');
+    this.panelRightToolbar.role = 'presentation';
     if (!isNode) {
       this.createSettingsPane();
       this.updateShowSettingsToolbarButton();
@@ -591,6 +601,11 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.#onMainEntryHovered = this.#onEntryHovered.bind(this, this.flameChart.getMainDataProvider());
     this.flameChart.getMainFlameChart().addEventListener(
         PerfUI.FlameChart.Events.ENTRY_HOVERED, this.#onMainEntryHovered);
+
+    this.flameChart.addEventListener(TimelineFlameChartViewEvents.ENTRY_LABEL_ANNOTATION_CLICKED, event => {
+      const selection = selectionFromEvent(event.data.entry);
+      this.select(selection);
+    });
 
     this.searchableViewInternal = new UI.SearchableView.SearchableView(this.flameChart, null);
     this.searchableViewInternal.setMinimumSize(0, 100);
@@ -711,6 +726,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   #setActiveInsight(insight: TimelineComponents.Sidebar.ActiveInsight|null): void {
+    // When an insight is selected, ensure that the 3P checkbox is disabled
+    // to avoid dimming interference.
     if (insight) {
       this.#splitWidget.showBoth();
     }
@@ -718,18 +735,42 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.flameChart.setActiveInsight(insight);
   }
 
+  /**
+   * This "disables" the 3P checkbox in the toolbar.
+   * Disabling here does a couple of things:
+   * 1) makes the checkbox dimmed and unclickable
+   * 2) gives the checkbox UI an indeterminate state
+   */
+  set3PCheckboxDisabled(disabled: boolean): void {
+    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_DIM_UNRELATED_EVENTS)) {
+      this.#thirdPartyCheckbox?.applyEnabledState(!disabled);
+      this.#thirdPartyCheckbox?.setIndeterminate(disabled);
+    }
+  }
+
   static instance(opts: {
     forceNew: boolean|null,
     isNode: boolean,
+    traceModel?: Trace.TraceModel.Model,
   }|undefined = {forceNew: null, isNode: false}): TimelinePanel {
     const {forceNew, isNode: isNodeMode} = opts;
     isNode = isNodeMode;
 
     if (!timelinePanelInstance || forceNew) {
-      timelinePanelInstance = new TimelinePanel();
+      timelinePanelInstance = new TimelinePanel(opts.traceModel);
     }
 
     return timelinePanelInstance;
+  }
+  static removeInstance(): void {
+    // TODO(crbug.com/358583420): Simplify attached data management
+    // so that we don't have to maintain all of these singletons.
+    Utils.SourceMapsResolver.SourceMapsResolver.clearResolvedNodeNames();
+    Trace.Helpers.SyntheticEvents.SyntheticEventsManager.reset();
+    TraceBounds.TraceBounds.BoundsManager.removeInstance();
+    ModificationsManager.reset();
+    ActiveFilters.removeInstance();
+    timelinePanelInstance = undefined;
   }
 
   #instantiateNewModel(): Trace.TraceModel.Model {
@@ -753,7 +794,6 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   override wasShown(): void {
     super.wasShown();
     UI.Context.Context.instance().setFlavor(TimelinePanel, this);
-    this.registerCSSFiles([timelinePanelStyles]);
     // Record the performance tool load time.
     Host.userMetrics.panelLoaded('timeline', 'DevTools.Launch.Timeline');
 
@@ -772,7 +812,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
   #onFieldDataChanged(): void {
     const recs = Utils.Helpers.getThrottlingRecommendations();
-    this.cpuThrottlingSelect?.updateRecommendedRate(recs.cpuRate);
+    this.cpuThrottlingSelect?.updateRecommendedOption(recs.cpuOption);
     this.networkThrottlingSelect?.updateRecommendedConditions(recs.networkConditions);
   }
 
@@ -1002,7 +1042,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   private createSettingCheckbox(setting: Common.Settings.Setting<boolean>, tooltip: Platform.UIString.LocalizedString):
-      UI.Toolbar.ToolbarItem {
+      UI.Toolbar.ToolbarSettingCheckbox {
     const checkboxItem = new UI.Toolbar.ToolbarSettingCheckbox(setting, tooltip);
     this.recordingOptionUIControls.push(checkboxItem);
     return checkboxItem;
@@ -1099,7 +1139,6 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     }
 
     this.panelToolbar.appendToolbarItem(this.#historyManager.button());
-    this.panelToolbar.registerCSSFiles([historyToolbarButtonStyles]);
     this.panelToolbar.appendSeparator();
 
     // View
@@ -1115,7 +1154,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.panelToolbar.appendToolbarItem(this.showMemoryToolbarCheckbox);
 
     // GC
-    this.panelToolbar.appendToolbarItem(UI.Toolbar.Toolbar.createActionButtonForId('components.collect-garbage'));
+    this.panelToolbar.appendToolbarItem(UI.Toolbar.Toolbar.createActionButton('components.collect-garbage'));
 
     // Ignore list setting
     this.panelToolbar.appendSeparator();
@@ -1125,7 +1164,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_THIRD_PARTY_DEPENDENCIES) &&
         this.#dimThirdPartiesSetting) {
       const dimThirdPartiesCheckbox =
-          this.createSettingCheckbox(this.#dimThirdPartiesSetting, i18nString(UIStrings.dimThirdParties));
+          this.createSettingCheckbox(this.#dimThirdPartiesSetting, i18nString(UIStrings.thirdPartiesByThirdPartyWeb));
+      this.#thirdPartyCheckbox = dimThirdPartiesCheckbox;
       this.panelToolbar.appendToolbarItem(dimThirdPartiesCheckbox);
     }
 
@@ -1141,18 +1181,6 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
       this.panelRightToolbar.appendSeparator();
       this.panelRightToolbar.appendToolbarItem(this.showSettingsPaneButton);
     }
-
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ALTERNATIVE_NAVIGATION)) {
-      this.#setupNavigationSetting();
-      this.#shortcutsDialog.prependElement(this.#navigationRadioButtons);
-      const dialogToolbarItem = new UI.Toolbar.ToolbarItem(this.#shortcutsDialog);
-      dialogToolbarItem.element.setAttribute(
-          'jslog', `${VisualLogging.action().track({click: true}).context('timeline.shortcuts-dialog-toggle')}`);
-      this.panelRightToolbar.appendToolbarItem(dialogToolbarItem);
-      // The setting could have been changed from the Devtools Settings. Therefore, we
-      // need to update the radio buttons selection when the dialog is open.
-      this.#shortcutsDialog.addEventListener('click', this.#updateNavigationSettingSelection.bind(this));
-    }
   }
 
   #setupNavigationSetting(): HTMLElement {
@@ -1160,6 +1188,17 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     const hideTheDialogForTests: string|null = localStorage.getItem('hide-shortcuts-dialog-for-test');
     const userHadShortcutsDialogOpenedOnce = this.#userHadShortcutsDialogOpenedOnce.get();
 
+    this.#shortcutsDialog.prependElement(this.#navigationRadioButtons);
+    // Add the shortcuts dialog button to the toolbar.
+    const dialogToolbarItem = new UI.Toolbar.ToolbarItem(this.#shortcutsDialog);
+    dialogToolbarItem.element.setAttribute(
+        'jslog', `${VisualLogging.action().track({click: true}).context('timeline.shortcuts-dialog-toggle')}`);
+
+    this.panelRightToolbar.appendToolbarItem(dialogToolbarItem);
+    this.#updateNavigationSettingSelection();
+    // The setting could have been changed from the Devtools Settings. Therefore, we
+    // need to update the radio buttons selection when the dialog is open.
+    this.#shortcutsDialog.addEventListener('click', this.#updateNavigationSettingSelection.bind(this));
     this.#shortcutsDialog.data = {
       shortcuts: this.#getShortcutsInfo(currentNavSetting === 'classic'),
       open: !userHadShortcutsDialogOpenedOnce && hideTheDialogForTests !== 'true' &&
@@ -1201,24 +1240,27 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   #getShortcutsInfo(isNavClassic: boolean): Dialogs.ShortcutDialog.Shortcut[] {
     if (isNavClassic) {
       return [
-        {title: i18nString(UIStrings.timelineScrollUpDown), bindings: [['Shift', 'Scroll'], ['Shift', '↑/↓']]},
-        {title: i18nString(UIStrings.timelineZoomInOut), bindings: [['Scroll'], ['W/S'], ['+/-']]},
+        {title: i18nString(UIStrings.timelineScrollUpDown), bindings: [['Shift', 'Scroll up/down'], ['Shift', '↑/↓']]},
+        {
+          title: i18nString(UIStrings.timelinePanLeftRight),
+          bindings: [['Shift', '←/→'], ['Scroll left/right'], ['A/D']]
+        },
+        {title: i18nString(UIStrings.timelineZoomInOut), bindings: [['Scroll up/down'], ['W/S'], ['+/-']]},
         {title: i18nString(UIStrings.timelineFastZoomInOut), bindings: [['Shift', 'W/S'], ['Shift', '+/-']]},
-        {title: i18nString(UIStrings.timelinePanLeftRight), bindings: [['Shift', '←/→'], ['A/D']]},
       ];
     }
 
     return [
-      {title: i18nString(UIStrings.timelineScrollUpDown), bindings: [['Scroll'], ['Shift', '↑/↓']]},
-      {
-        title: i18nString(UIStrings.timelineZoomInOut),
-        bindings: [[Host.Platform.isMac() ? '⌘' : 'Ctrl', 'Scroll'], ['W/S'], ['+/-']],
-      },
-      {title: i18nString(UIStrings.timelineFastZoomInOut), bindings: [['Shift', 'W/S'], ['Shift', '+/-']]},
+      {title: i18nString(UIStrings.timelineScrollUpDown), bindings: [['Scroll up/down'], ['Shift', '↑/↓']]},
       {
         title: i18nString(UIStrings.timelinePanLeftRight),
-        bindings: [['Shift', 'Scroll'], ['Shift', '←/→'], ['A/D']],
+        bindings: [['Shift', 'Scroll up/down'], ['Scroll left/right'], ['Shift', '←/→'], ['A/D']],
       },
+      {
+        title: i18nString(UIStrings.timelineZoomInOut),
+        bindings: [[Host.Platform.isMac() ? '⌘' : 'Ctrl', 'Scroll up/down'], ['W/S'], ['+/-']],
+      },
+      {title: i18nString(UIStrings.timelineFastZoomInOut), bindings: [['Shift', 'W/S'], ['Shift', '+/-']]},
     ];
   }
 
@@ -1237,47 +1279,41 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.captureLayersAndPicturesSetting.addChangeListener(this.updateShowSettingsToolbarButton, this);
     this.captureSelectorStatsSetting.addChangeListener(this.updateShowSettingsToolbarButton, this);
 
-    this.settingsPane = new UI.Widget.HBox();
-    this.settingsPane.element.classList.add('timeline-settings-pane');
-    this.settingsPane.element.setAttribute(
-        'jslog', `${VisualLogging.pane('timeline-settings-pane').track({resize: true})}`);
-    this.settingsPane.show(this.element);
+    this.settingsPane = this.element.createChild('div', 'timeline-settings-pane');
+    this.settingsPane.setAttribute('jslog', `${VisualLogging.pane('timeline-settings-pane').track({resize: true})}`);
 
-    const captureToolbar = new UI.Toolbar.Toolbar('', this.settingsPane.element);
-    captureToolbar.element.classList.add('flex-auto');
-    captureToolbar.makeVertical();
-    captureToolbar.appendToolbarItem(this.createSettingCheckbox(
-        this.disableCaptureJSProfileSetting, i18nString(UIStrings.disablesJavascriptSampling)));
-    captureToolbar.appendToolbarItem(
-        this.createSettingCheckbox(this.captureLayersAndPicturesSetting, i18nString(UIStrings.capturesAdvancedPaint)));
-    captureToolbar.appendToolbarItem(
-        this.createSettingCheckbox(this.captureSelectorStatsSetting, i18nString(UIStrings.capturesSelectorStats)));
+    this.settingsPane.append(UI.SettingsUI.createSettingCheckbox(
+        this.disableCaptureJSProfileSetting.title(), this.disableCaptureJSProfileSetting,
+        i18nString(UIStrings.disablesJavascriptSampling)));
 
-    const throttlingPane = new UI.Widget.VBox();
-    throttlingPane.element.classList.add('flex-auto');
-    throttlingPane.show(this.settingsPane.element);
-
-    const cpuThrottlingToolbar = new UI.Toolbar.Toolbar('', throttlingPane.element);
-    cpuThrottlingToolbar.appendText(i18nString(UIStrings.cpu));
+    const cpuThrottlingPane = this.settingsPane.createChild('div');
+    cpuThrottlingPane.append(i18nString(UIStrings.cpu));
     this.cpuThrottlingSelect = MobileThrottling.ThrottlingManager.throttlingManager().createCPUThrottlingSelector();
-    this.cpuThrottlingSelect.control.setMinWidth(200);
-    this.cpuThrottlingSelect.control.setMaxWidth(200);
-    cpuThrottlingToolbar.appendToolbarItem(this.cpuThrottlingSelect.control);
+    cpuThrottlingPane.append(this.cpuThrottlingSelect.control.element);
 
-    const networkThrottlingToolbar = new UI.Toolbar.Toolbar('', throttlingPane.element);
-    networkThrottlingToolbar.appendText(i18nString(UIStrings.network));
-    networkThrottlingToolbar.appendToolbarItem(this.createNetworkConditionsSelectToolbarItem());
+    this.settingsPane.append(UI.SettingsUI.createSettingCheckbox(
+        this.captureLayersAndPicturesSetting.title(), this.captureLayersAndPicturesSetting,
+        i18nString(UIStrings.capturesAdvancedPaint)));
 
-    const thirdPartyToolbar = new UI.Toolbar.Toolbar('', throttlingPane.element);
-    thirdPartyToolbar.makeVertical();
+    const networkThrottlingPane = this.settingsPane.createChild('div');
+    networkThrottlingPane.append(i18nString(UIStrings.network));
+    networkThrottlingPane.append(this.createNetworkConditionsSelectToolbarItem().element);
+
+    this.settingsPane.append(UI.SettingsUI.createSettingCheckbox(
+        this.captureSelectorStatsSetting.title(), this.captureSelectorStatsSetting,
+        i18nString(UIStrings.capturesSelectorStats)));
+
     const thirdPartyCheckbox =
         this.createSettingCheckbox(this.#thirdPartyTracksSetting, i18nString(UIStrings.showDataAddedByExtensions));
 
     const localLink = UI.XLink.XLink.create(
         'https://developer.chrome.com/docs/devtools/performance/extension', i18nString(UIStrings.learnMore));
-    localLink.style.paddingLeft = '5px';
+    // Has to be done in JS because the element is inserted into the
+    // checkbox's shadow DOM so any styling into timelinePanel.css would
+    // not apply.
+    localLink.style.marginLeft = '5px';
     thirdPartyCheckbox.element.shadowRoot?.appendChild(localLink);
-    thirdPartyToolbar.appendToolbarItem(thirdPartyCheckbox);
+    this.settingsPane.append(thirdPartyCheckbox.element);
 
     this.showSettingsPaneSetting.addChangeListener(this.updateSettingsPaneVisibility.bind(this));
     this.updateSettingsPaneVisibility();
@@ -1285,11 +1321,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
   private createNetworkConditionsSelectToolbarItem(): UI.Toolbar.ToolbarComboBox {
     const toolbarItem = new UI.Toolbar.ToolbarComboBox(null, i18nString(UIStrings.networkConditions));
-    toolbarItem.setMinWidth(200);
-    toolbarItem.setMaxWidth(200);
     this.networkThrottlingSelect =
-        MobileThrottling.ThrottlingManager.throttlingManager().createNetworkThrottlingSelector(
-            toolbarItem.selectElement());
+        MobileThrottling.ThrottlingManager.throttlingManager().createNetworkThrottlingSelector(toolbarItem.element);
     return toolbarItem;
   }
 
@@ -1521,7 +1554,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
   }
 
   #extensionDataVisibilityChanged(): void {
-    this.flameChart.extensionDataVisibilityChanged();
+    this.flameChart.rebuildDataForTrace();
   }
 
   private updateSettingsPaneVisibility(): void {
@@ -1530,10 +1563,10 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     }
     if (this.showSettingsPaneSetting.get()) {
       this.showSettingsPaneButton.setToggled(true);
-      this.settingsPane.showWidget();
+      this.settingsPane?.classList.remove('hidden');
     } else {
       this.showSettingsPaneButton.setToggled(false);
-      this.settingsPane.hideWidget();
+      this.settingsPane?.classList.add('hidden');
     }
   }
 
@@ -1762,7 +1795,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
         {
           description: error,
           buttonText: i18nString(UIStrings.close),
-          buttonDisabled: false,
+          hideStopButton: true,
           showProgress: undefined,
           showTimer: undefined,
         },
@@ -1915,6 +1948,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     }
     const {traceIndex} = this.#viewMode;
     const parsedTrace = this.#traceEngineModel.parsedTrace(traceIndex);
+    const traceMetadata = this.#traceEngineModel.metadata(traceIndex);
     const syntheticEventsManager = this.#traceEngineModel.syntheticTraceEventsManager(traceIndex);
 
     if (!parsedTrace || !syntheticEventsManager) {
@@ -1948,13 +1982,25 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     }
     this.statusPane?.updateProgressBar(i18nString(UIStrings.processed), 70);
 
-    const isCpuProfile =
-        this.#traceEngineModel.metadata(traceIndex)?.dataOrigin === Trace.Types.File.DataOrigin.CPU_PROFILE;
-    this.flameChart.setModel(parsedTrace, isCpuProfile);
+    let traceInsightsSets = this.#traceEngineModel.traceInsights(traceIndex);
+    if (traceInsightsSets) {
+      // Omit insight sets that don't have anything of interest to show to the user.
+      const filteredTraceInsightsSets = new Map();
+      for (const [key, insightSet] of traceInsightsSets) {
+        if (Object.values(insightSet.model).some(model => model.shouldShow)) {
+          filteredTraceInsightsSets.set(key, insightSet);
+        }
+      }
+
+      traceInsightsSets = filteredTraceInsightsSets.size ? filteredTraceInsightsSets : null;
+    }
+    this.flameChart.setInsights(traceInsightsSets, this.#eventToRelatedInsights);
+
+    this.flameChart.setModel(parsedTrace, traceMetadata);
     this.flameChart.resizeToPreferredHeights();
     // Reset the visual selection as we've just swapped to a new trace.
     this.flameChart.setSelectionAndReveal(null);
-    this.#sideBar.setParsedTrace(parsedTrace);
+    this.#sideBar.setParsedTrace(parsedTrace, traceMetadata);
 
     this.searchableViewInternal.showWidget();
 
@@ -2046,20 +2092,6 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
     this.#setActiveInsight(null);
 
-    let traceInsightsSets = this.#traceEngineModel.traceInsights(traceIndex);
-    if (traceInsightsSets) {
-      // Omit insight sets that don't have anything of interest to show to the user.
-      const filteredTraceInsightsSets = new Map();
-      for (const [key, insightSet] of traceInsightsSets) {
-        if (Object.values(insightSet.model).some(model => model.shouldShow)) {
-          filteredTraceInsightsSets.set(key, insightSet);
-        }
-      }
-
-      traceInsightsSets = filteredTraceInsightsSets.size ? filteredTraceInsightsSets : null;
-    }
-
-    this.flameChart.setInsights(traceInsightsSets, this.#eventToRelatedInsights);
     this.#sideBar.setInsights(traceInsightsSets);
 
     this.#eventToRelatedInsights.clear();
@@ -2090,9 +2122,11 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
     this.#showSidebarIfRequired();
 
-    // When the timeline is loaded for the first time, log what navigation setting is selected.
-    // This will allow us to get an estimate number of people using each option.
-    if (this.#traceEngineModel.size() === 1) {
+    // When the timeline is loaded for the first time, setup the shortcuts dialog and log what navigation setting is selected.
+    // Logging the setting on the first timeline load will allow us to get an estimate number of people using each option.
+    if (this.#traceEngineModel.size() === 1 &&
+        Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.TIMELINE_ALTERNATIVE_NAVIGATION)) {
+      this.#setupNavigationSetting();
       if (Common.Settings.moduleSetting('flamechart-selected-navigation').get() === 'classic') {
         Host.userMetrics.navigationSettingAtFirstTimelineLoad(
             Host.UserMetrics.TimelineNavigationSetting.CLASSIC_AT_SESSION_FIRST_TRACE);
@@ -2122,17 +2156,20 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.#restoreSidebarVisibilityOnTraceLoad = false;
   }
 
+  // Activates or disables dimming when checkbox is clicked.
   #dimThirdPartiesIfRequired(traceIndex: number): void {
     const parsedTrace = this.#traceEngineModel.parsedTrace(traceIndex);
     if (!parsedTrace) {
       return;
     }
+
+    const checkboxState = this.#dimThirdPartiesSetting?.getIfNotDisabled() ?? false;
     const thirdPartyEvents = this.#entityMapper?.thirdPartyEvents() ?? [];
-    if (this.#dimThirdPartiesSetting?.get() && thirdPartyEvents.length) {
-      this.flameChart.dimEvents(thirdPartyEvents);
+
+    if (checkboxState && thirdPartyEvents.length) {
+      this.flameChart.setActiveThirdPartyDimmingSetting(thirdPartyEvents);
     } else {
-      // Ensure dimming stores are cleared, and there is no dimming.
-      this.flameChart.disableAllDimming();
+      this.flameChart.setActiveThirdPartyDimmingSetting(null);
     }
   }
 
@@ -2244,7 +2281,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
     // Hide pane settings in trace view to conserve UI space, but preserve underlying setting.
     this.showSettingsPaneButton?.setToggled(false);
-    this.settingsPane?.hideWidget();
+    this.settingsPane?.classList.add('hidden');
   }
 
   async loadingStarted(): Promise<void> {
@@ -2257,7 +2294,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
         {
           showProgress: true,
           showTimer: undefined,
-          buttonDisabled: undefined,
+          hideStopButton: true,
           buttonText: undefined,
           description: undefined,
         },
@@ -2268,7 +2305,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     if (!this.loader) {
       this.statusPane.finish();
     }
-    this.traceLoadStart = Trace.Types.Timing.MilliSeconds(performance.now());
+    this.traceLoadStart = Trace.Types.Timing.Milli(performance.now());
     await this.loadingProgress(0);
   }
 
@@ -2314,7 +2351,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
    *
    * IMPORTANT: All the code in here should be code that is only required when we have
    * recorded or loaded a brand new trace. If you need the code to run when the
-   * user switches to an existing trace, please {@see setModel} and put your
+   * user switches to an existing trace, please @see #setModelForActiveTrace and put your
    * code in there.
    **/
   async loadingComplete(
@@ -2402,9 +2439,9 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     // for the first paint of the flamechart
     requestAnimationFrame(() => {
       setTimeout(() => {
-        const end = Trace.Types.Timing.MilliSeconds(performance.now());
+        const end = Trace.Types.Timing.Milli(performance.now());
         const measure = performance.measure('TraceLoad', {start, end});
-        const duration = Trace.Types.Timing.MilliSeconds(measure.duration);
+        const duration = Trace.Types.Timing.Milli(measure.duration);
         this.element.dispatchEvent(new TraceLoadEvent(duration));
         Host.userMetrics.performanceTraceLoad(measure);
       }, 0);
@@ -2437,7 +2474,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
         {
           showTimer: true,
           showProgress: true,
-          buttonDisabled: true,
+          hideStopButton: false,
           description: undefined,
           buttonText: undefined,
         },
@@ -2516,8 +2553,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     index = Platform.NumberUtilities.clamp(index + offset, 0, parsedTrace.Frames.frames.length - 1);
     const frame = parsedTrace.Frames.frames[index];
     this.#revealTimeRange(
-        Trace.Helpers.Timing.microSecondsToMilliseconds(frame.startTime),
-        Trace.Helpers.Timing.microSecondsToMilliseconds(frame.endTime));
+        Trace.Helpers.Timing.microToMilli(frame.startTime), Trace.Helpers.Timing.microToMilli(frame.endTime));
     this.select(selectionFromEvent(frame));
     return true;
   }
@@ -2582,7 +2618,7 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     this.flameChart.highlightEvent(event);
   }
 
-  #revealTimeRange(startTime: Trace.Types.Timing.MilliSeconds, endTime: Trace.Types.Timing.MilliSeconds): void {
+  #revealTimeRange(startTime: Trace.Types.Timing.Milli, endTime: Trace.Types.Timing.Milli): void {
     const traceBoundsState = TraceBounds.TraceBounds.BoundsManager.instance().state();
     if (!traceBoundsState) {
       return;
@@ -2597,8 +2633,8 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
     }
     TraceBounds.TraceBounds.BoundsManager.instance().setTimelineVisibleWindow(
         Trace.Helpers.Timing.traceWindowFromMilliSeconds(
-            Trace.Types.Timing.MilliSeconds(traceWindow.min + offset),
-            Trace.Types.Timing.MilliSeconds(traceWindow.max + offset),
+            Trace.Types.Timing.Milli(traceWindow.min + offset),
+            Trace.Types.Timing.Milli(traceWindow.max + offset),
             ),
         {
           shouldAnimate: true,
@@ -2644,6 +2680,7 @@ export const headerHeight = 20;
 export interface TimelineModeViewDelegate {
   select(selection: TimelineSelection|null): void;
   element: Element;
+  set3PCheckboxDisabled(disabled: boolean): void;
   selectEntryAtTime(events: Trace.Types.Events.Event[]|null, time: number): void;
   highlightEvent(event: Trace.Types.Events.Event|null): void;
 }
@@ -2662,11 +2699,11 @@ export class StatusPane extends UI.Widget.VBox {
 
   constructor(
       options: {
+        hideStopButton: boolean,
         showTimer?: boolean,
         showProgress?: boolean,
         description?: string,
         buttonText?: string,
-        buttonDisabled?: boolean,
       },
       buttonCallback: () => (Promise<void>| void)) {
     super(true);
@@ -2705,14 +2742,14 @@ export class StatusPane extends UI.Widget.VBox {
     }, {jslogContext: 'timeline.download-after-error'});
 
     this.downloadTraceButton.disabled = true;
-    this.downloadTraceButton.style.visibility = 'hidden';
+    this.downloadTraceButton.classList.add('hidden');
 
     const buttonText = options.buttonText || i18nString(UIStrings.stop);
     this.button = UI.UIUtils.createTextButton(buttonText, buttonCallback, {
       jslogContext: 'timeline.stop-recording',
     });
     // Profiling can't be stopped during initialization.
-    this.button.disabled = !options.buttonDisabled === false;
+    this.button.classList.toggle('hidden', options.hideStopButton);
 
     buttonContainer.append(this.downloadTraceButton);
     buttonContainer.append(this.button);
@@ -2720,7 +2757,7 @@ export class StatusPane extends UI.Widget.VBox {
 
   finish(): void {
     this.stopTimer();
-    this.button.disabled = true;
+    this.button.classList.add('hidden');
   }
 
   async #downloadRawTraceAfterError(): Promise<void> {
@@ -2739,26 +2776,22 @@ export class StatusPane extends UI.Widget.VBox {
   enableDownloadOfEvents(rawEvents: Trace.Types.Events.Event[]): void {
     this.#rawEvents = rawEvents;
     this.downloadTraceButton.disabled = false;
-    this.downloadTraceButton.style.visibility = 'visible';
+    this.downloadTraceButton.classList.remove('hidden');
   }
 
   remove(): void {
-    if (this.element.parentNode) {
-      (this.element.parentNode as HTMLElement).classList.remove('tinted');
-      this.arrangeDialog((this.element.parentNode as HTMLElement));
-    }
+    (this.element.parentNode as HTMLElement)?.classList.remove('tinted');
     this.stopTimer();
     this.element.remove();
   }
 
   showPane(parent: Element): void {
-    this.arrangeDialog(parent);
     this.show(parent);
     parent.classList.add('tinted');
   }
 
   enableAndFocusButton(): void {
-    this.button.disabled = false;
+    this.button.classList.remove('hidden');
     this.button.focus();
   }
 
@@ -2789,7 +2822,6 @@ export class StatusPane extends UI.Widget.VBox {
   }
 
   private updateTimer(): void {
-    this.arrangeDialog((this.element.parentNode as HTMLElement));
     if (!this.timeUpdateTimer || !this.time) {
       return;
     }
@@ -2798,14 +2830,9 @@ export class StatusPane extends UI.Widget.VBox {
     this.time.textContent = i18n.TimeUtilities.preciseSecondsToString(seconds, 1);
   }
 
-  private arrangeDialog(parent: Element): void {
-    const isSmallDialog = parent.clientWidth < 325;
-    this.element.classList.toggle('small-dialog', isSmallDialog);
-    this.contentElement.classList.toggle('small-dialog', isSmallDialog);
-  }
   override wasShown(): void {
     super.wasShown();
-    this.registerCSSFiles([timelineStatusDialogStyles]);
+    this.registerRequiredCSS(timelineStatusDialogStyles);
   }
 }
 

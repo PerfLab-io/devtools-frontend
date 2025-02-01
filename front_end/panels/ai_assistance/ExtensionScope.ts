@@ -20,17 +20,19 @@ export class ExtensionScope {
                       data: Protocol.Runtime.BindingCalledEvent,
                     }) => Promise<void>> = [];
   #changeManager: ChangeManager;
+  #agentId: string;
   #frameId?: Protocol.Page.FrameId|null;
   #target?: SDK.Target.Target;
 
   readonly #bindingMutex = new Common.Mutex.Mutex();
 
-  constructor(changes: ChangeManager) {
+  constructor(changes: ChangeManager, agentId: string) {
     this.#changeManager = changes;
     const selectedNode = UI.Context.Context.instance().flavor(SDK.DOMModel.DOMNode);
 
     const frameId = selectedNode?.frameId();
     const target = selectedNode?.domModel().target();
+    this.#agentId = agentId;
     this.#target = target;
     this.#frameId = frameId;
   }
@@ -146,6 +148,7 @@ export class ExtensionScope {
         throw new Error('CSSModel is not found');
       }
       await this.#changeManager.addChange(cssModel, this.frameId, {
+        groupId: this.#agentId,
         selector,
         className,
         styles: arg.styles,
@@ -156,31 +159,33 @@ export class ExtensionScope {
   }
 }
 
-const freestylerBinding = `globalThis.freestyler = (args) => {
-  let resolver;
-  let rejecter;
-  const p = new Promise((resolve, reject) => {
-    resolver = resolve;
-    rejecter = reject;
-  });
-  freestyler.callbacks.set(freestyler.id , {
-    args: JSON.stringify(args),
-    callbackId: freestyler.id,
-    resolver,
-    rejecter
-  });
-  ${FREESTYLER_BINDING_NAME}(String(freestyler.id));
-  freestyler.id++;
-  return p;
-}
-freestyler.id = 1;
-freestyler.callbacks = new Map();
-freestyler.getArgs = (callbackId) => {
-  return freestyler.callbacks.get(callbackId).args;
-}
-freestyler.respond = (callbackId) => {
-  freestyler.callbacks.get(callbackId).resolver();
-  freestyler.callbacks.delete(callbackId);
+const freestylerBinding = `if (!globalThis.freestyler) {
+  globalThis.freestyler = (args) => {
+    let resolver;
+    let rejecter;
+    const p = new Promise((resolve, reject) => {
+      resolver = resolve;
+      rejecter = reject;
+    });
+    freestyler.callbacks.set(freestyler.id , {
+      args: JSON.stringify(args),
+      callbackId: freestyler.id,
+      resolver,
+      rejecter
+    });
+    ${FREESTYLER_BINDING_NAME}(String(freestyler.id));
+    freestyler.id++;
+    return p;
+  }
+  freestyler.id = 1;
+  freestyler.callbacks = new Map();
+  freestyler.getArgs = (callbackId) => {
+    return freestyler.callbacks.get(callbackId).args;
+  }
+  freestyler.respond = (callbackId) => {
+    freestyler.callbacks.get(callbackId).resolver();
+    freestyler.callbacks.delete(callbackId);
+  }
 }`;
 
 const functions = `async function setElementStyles(el, styles) {
@@ -208,7 +213,7 @@ const functions = `async function setElementStyles(el, styles) {
 
   // Remove inline styles with the same keys so that the edit applies.
   for (const [key, value] of Object.entries(styles)) {
-    // if it's kebap case.
+    // if it's kebab case.
     el.style.removeProperty(key);
     // If it's camel case.
     el.style[key] = '';

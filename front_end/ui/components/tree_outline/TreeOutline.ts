@@ -3,13 +3,13 @@
 // found in the LICENSE file.
 
 import * as Platform from '../../../core/platform/platform.js';
-import * as LitHtml from '../../lit-html/lit-html.js';
+import * as Lit from '../../lit/lit.js';
 import * as VisualLogging from '../../visual_logging/visual_logging.js';
 import * as CodeHighlighter from '../code_highlighter/code_highlighter.js';
 import * as ComponentHelpers from '../helpers/helpers.js';
-import * as Coordinator from '../render_coordinator/render_coordinator.js';
+import * as RenderCoordinator from '../render_coordinator/render_coordinator.js';
 
-import treeOutlineStyles from './treeOutline.css.js';
+import treeOutlineStylesRaw from './treeOutline.css.js';
 import {
   findNextNodeForTreeOutlineKeyboardNavigation,
   getNodeChildren,
@@ -21,12 +21,16 @@ import {
   type TreeNodeWithChildren,
 } from './TreeOutlineUtils.js';
 
-const {html, Directives: {ifDefined}} = LitHtml;
+// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+const treeOutlineStyles = new CSSStyleSheet();
+treeOutlineStyles.replaceSync(treeOutlineStylesRaw.cssContent);
+const CodeHighlighterStyles = new CSSStyleSheet();
+CodeHighlighterStyles.replaceSync(CodeHighlighter.Style.default.cssContent);
 
-const coordinator = Coordinator.RenderCoordinator.RenderCoordinator.instance();
+const {html, Directives: {ifDefined}} = Lit;
 
 export interface TreeOutlineData<TreeNodeDataType> {
-  defaultRenderer: (node: TreeNode<TreeNodeDataType>, state: {isExpanded: boolean}) => LitHtml.TemplateResult;
+  defaultRenderer: (node: TreeNode<TreeNodeDataType>, state: {isExpanded: boolean}) => Lit.TemplateResult;
   /**
    * Note: it is important that all the TreeNode objects are unique. They are
    * used internally to the TreeOutline as keys to track state (such as if a
@@ -38,7 +42,7 @@ export interface TreeOutlineData<TreeNodeDataType> {
   compact?: boolean;
 }
 
-export function defaultRenderer(node: TreeNode<string>): LitHtml.TemplateResult {
+export function defaultRenderer(node: TreeNode<string>): Lit.TemplateResult {
   return html`${node.treeNodeData}`;
 }
 
@@ -99,13 +103,13 @@ export class TreeOutline<TreeNodeDataType> extends HTMLElement {
   #hasRenderedAtLeastOnce = false;
   /**
    * If we have expanded to a certain node, we want to focus it once we've
-   * rendered. But we render lazily and wrapped in LitHtml.until, so we can't
+   * rendered. But we render lazily and wrapped in Lit.until, so we can't
    * know for sure when that node will be rendered. This variable tracks the
    * node that we want focused but may not yet have been rendered.
    */
   #nodeIdPendingFocus: TreeNodeId|null = null;
   #selectedTreeNode: TreeNode<TreeNodeDataType>|null = null;
-  #defaultRenderer = (node: TreeNode<TreeNodeDataType>, _state: {isExpanded: boolean}): LitHtml.TemplateResult => {
+  #defaultRenderer = (node: TreeNode<TreeNodeDataType>, _state: {isExpanded: boolean}): Lit.TemplateResult => {
     if (typeof node.treeNodeData !== 'string') {
       console.warn(`The default TreeOutline renderer simply stringifies its given value. You passed in ${
           JSON.stringify(
@@ -146,7 +150,7 @@ export class TreeOutline<TreeNodeDataType> extends HTMLElement {
   connectedCallback(): void {
     this.#setTopLevelNodeBorderColorCSSVariable(this.getAttribute('toplevelbordercolor'));
     this.#setNodeKeyNoWrapCSSVariable(this.getAttribute('nowrap'));
-    this.#shadow.adoptedStyleSheets = [treeOutlineStyles, CodeHighlighter.Style.default];
+    this.#shadow.adoptedStyleSheets = [treeOutlineStyles, CodeHighlighterStyles];
   }
 
   get data(): TreeOutlineData<TreeNodeDataType> {
@@ -337,7 +341,7 @@ export class TreeOutline<TreeNodeDataType> extends HTMLElement {
     this.#selectedTreeNode = treeNode;
     await this.#render();
     this.dispatchEvent(new ItemSelectedEvent(treeNode));
-    void coordinator.write('DOMNode focus', () => {
+    void RenderCoordinator.write('DOMNode focus', () => {
       domNode.focus();
     });
   }
@@ -427,11 +431,11 @@ export class TreeOutline<TreeNodeDataType> extends HTMLElement {
     depth: number,
     setSize: number,
     positionInSet: number,
-  }): LitHtml.TemplateResult {
+  }): Lit.TemplateResult {
     let childrenToRender;
     const nodeIsExpanded = this.#nodeIsExpanded(node);
     if (!isExpandableNode(node) || !nodeIsExpanded) {
-      childrenToRender = LitHtml.nothing;
+      childrenToRender = Lit.nothing;
     } else {
       const childNodes = this.#fetchNodeChildren(node).then(children => {
         return children.map((childNode, index) => {
@@ -440,13 +444,13 @@ export class TreeOutline<TreeNodeDataType> extends HTMLElement {
       });
       // Disabled until https://crbug.com/1079231 is fixed.
       // clang-format off
-      childrenToRender = html`<ul role="group">${LitHtml.Directives.until(childNodes)}</ul>`;
+      childrenToRender = html`<ul role="group">${Lit.Directives.until(childNodes)}</ul>`;
       // clang-format on
     }
 
     const nodeIsFocusable = this.#isSelectedNode(node);
     const tabIndex = nodeIsFocusable ? 0 : -1;
-    const listItemClasses = LitHtml.Directives.classMap({
+    const listItemClasses = Lit.Directives.classMap({
       expanded: isExpandableNode(node) && nodeIsExpanded,
       parent: isExpandableNode(node),
       selected: this.#isSelectedNode(node),
@@ -455,7 +459,7 @@ export class TreeOutline<TreeNodeDataType> extends HTMLElement {
     });
     const ariaExpandedAttribute = !isExpandableNode(node) ? undefined : nodeIsExpanded ? 'true' : 'false';
 
-    let renderedNodeKey: LitHtml.TemplateResult;
+    let renderedNodeKey: Lit.TemplateResult;
     if (node.renderer) {
       renderedNodeKey = node.renderer(node, {isExpanded: nodeIsExpanded});
     } else {
@@ -479,7 +483,7 @@ export class TreeOutline<TreeNodeDataType> extends HTMLElement {
          /**
           * Because TreeNodes are lazily rendered, you can call
           * `outline.expandToAndSelect(NodeX)`, but `NodeX` will be rendered at some
-          * later point, once it's been fully resolved, within a LitHtml.until
+          * later point, once it's been fully resolved, within a Lit.until
           * directive. That means we don't have a direct hook into when it's
           * rendered, which we need because we want to focus the element, so we use this directive to receive a callback when the node is rendered.
           */
@@ -520,10 +524,10 @@ export class TreeOutline<TreeNodeDataType> extends HTMLElement {
 
     this.#scheduledRender = true;
 
-    await coordinator.write('TreeOutline render', () => {
+    await RenderCoordinator.write('TreeOutline render', () => {
       // Disabled until https://crbug.com/1079231 is fixed.
       // clang-format off
-      LitHtml.render(html`
+      Lit.render(html`
       <div class="wrapping-container">
         <ul role="tree" @keydown=${this.#onTreeKeyDown}>
           ${this.#treeData.map((topLevelNode, index) => {
