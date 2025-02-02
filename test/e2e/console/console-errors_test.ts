@@ -5,15 +5,12 @@
 import {assert} from 'chai';
 
 import {getTestServerPort, goToResource, waitForFunction} from '../../shared/helper.js';
-
 import {
   getStructuredConsoleMessages,
   navigateToConsoleTab,
   showVerboseMessages,
   waitForConsoleMessagesToBeNonEmpty,
 } from '../helpers/console-helpers.js';
-
-/* eslint-disable no-console */
 
 describe('The Console\'s errors', () => {
   it('picks up custom exception names ending with \'Error\' and symbolizes stack traces according to source maps',

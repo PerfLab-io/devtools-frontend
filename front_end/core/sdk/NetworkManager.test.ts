@@ -7,7 +7,7 @@ import * as Bindings from '../../models/bindings/bindings.js';
 import * as Persistence from '../../models/persistence/persistence.js';
 import * as TextUtils from '../../models/text_utils/text_utils.js';
 import * as Workspace from '../../models/workspace/workspace.js';
-import {createTarget, describeWithEnvironment} from '../../testing/EnvironmentHelpers.js';
+import {createTarget, describeWithEnvironment, getGetHostConfigStub} from '../../testing/EnvironmentHelpers.js';
 import {describeWithMockConnection} from '../../testing/MockConnection.js';
 import {createWorkspaceProject} from '../../testing/OverridesHelpers.js';
 import * as Common from '../common/common.js';
@@ -15,8 +15,60 @@ import * as Platform from '../platform/platform.js';
 
 import * as SDK from './sdk.js';
 
+const {urlString} = Platform.DevToolsPath;
 const LONG_URL_PART =
     'LoremIpsumDolorSitAmetConsecteturAdipiscingElitPhasellusVitaeOrciInAugueCondimentumTinciduntUtEgetDolorQuisqueEfficiturUltricesTinciduntVivamusVelitPurusCommodoQuisErosSitAmetTemporMalesuadaNislNullamTtempusVulputateAugueEgetScelerisqueLacusVestibulumNon/index.html';
+
+describeWithMockConnection('NetworkManager', () => {
+  it('setCookieControls is not invoked if the browsers enterprise setting blocks third party cookies', () => {
+    getGetHostConfigStub(
+        {thirdPartyCookieControls: {managedBlockThirdPartyCookies: true}, devToolsPrivacyUI: {enabled: true}});
+
+    const enableThirdPartyCookieRestrictionSetting =
+        Common.Settings.Settings.instance().createSetting('cookie-control-override-enabled', false);
+    const disableThirdPartyCookieMetadataSetting =
+        Common.Settings.Settings.instance().createSetting('grace-period-mitigation-disabled', true);
+    const disableThirdPartyCookieHeuristicsSetting =
+        Common.Settings.Settings.instance().createSetting('heuristic-mitigation-disabled', true);
+    assert.isFalse(enableThirdPartyCookieRestrictionSetting.get());
+    assert.isTrue(disableThirdPartyCookieMetadataSetting.get());
+    assert.isTrue(disableThirdPartyCookieHeuristicsSetting.get());
+
+    const target = createTarget();
+    const expectedCall = sinon.spy(target.networkAgent(), 'invoke_setCookieControls');
+
+    new SDK.NetworkManager.NetworkManager(target);
+
+    // function should not be called since there is a enterprise policy blocking third-party cookies
+    assert.isTrue(expectedCall.notCalled);
+  });
+
+  it('setCookieControls gets invoked with expected values when network agent auto attach', () => {
+    getGetHostConfigStub({devToolsPrivacyUI: {enabled: true}});
+
+    const enableThirdPartyCookieRestrictionSetting =
+        Common.Settings.Settings.instance().createSetting('cookie-control-override-enabled', false);
+    const disableThirdPartyCookieMetadataSetting =
+        Common.Settings.Settings.instance().createSetting('grace-period-mitigation-disabled', true);
+    const disableThirdPartyCookieHeuristicsSetting =
+        Common.Settings.Settings.instance().createSetting('heuristic-mitigation-disabled', true);
+    assert.isFalse(enableThirdPartyCookieRestrictionSetting.get());
+    assert.isTrue(disableThirdPartyCookieMetadataSetting.get());
+    assert.isTrue(disableThirdPartyCookieHeuristicsSetting.get());
+
+    const target = createTarget();
+    const expectedCall = sinon.spy(target.networkAgent(), 'invoke_setCookieControls');
+
+    new SDK.NetworkManager.NetworkManager(target);
+
+    // Metadata and heuristics should be disabled when cookie controls is disabled.
+    assert.isTrue(expectedCall.calledOnceWith({
+      enableThirdPartyCookieRestriction: false,
+      disableThirdPartyCookieMetadata: false,
+      disableThirdPartyCookieHeuristics: false
+    }));
+  });
+});
 
 describeWithMockConnection('MultitargetNetworkManager', () => {
   describe('Trust Token done event', () => {
@@ -399,8 +451,8 @@ describeWithMockConnection('InterceptedRequest', () => {
           SDK.NetworkManager.MultitargetNetworkManager.Events.REQUEST_FULFILLED, resolve);
     });
     const networkRequest = SDK.NetworkRequest.NetworkRequest.create(
-        requestId as unknown as Protocol.Network.RequestId, request.url as Platform.DevToolsPath.UrlString,
-        request.url as Platform.DevToolsPath.UrlString, null, null, null);
+        requestId as unknown as Protocol.Network.RequestId, urlString`${request.url}`, urlString`${request.url}`, null,
+        null, null);
 
     networkRequest.originalResponseHeaders = responseHeaders;
 
@@ -448,12 +500,11 @@ describeWithMockConnection('InterceptedRequest', () => {
   beforeEach(async () => {
     SDK.NetworkManager.MultitargetNetworkManager.dispose();
     target = createTarget();
-    const networkPersistenceManager =
-        await createWorkspaceProject('file:///path/to/overrides' as Platform.DevToolsPath.UrlString, [
-          {
-            name: '.headers',
-            path: 'www.example.com/',
-            content: `[
+    const networkPersistenceManager = await createWorkspaceProject(urlString`file:///path/to/overrides`, [
+      {
+        name: '.headers',
+        path: 'www.example.com/',
+        content: `[
             {
               "applyTo": "index.html",
               "headers": [{
@@ -535,11 +586,11 @@ describeWithMockConnection('InterceptedRequest', () => {
               ]
             }
           ]`,
-          },
-          {
-            name: '.headers',
-            path: '',
-            content: `[
+      },
+      {
+        name: '.headers',
+        path: '',
+        content: `[
             {
               "applyTo": "*",
               "headers": [{
@@ -548,14 +599,14 @@ describeWithMockConnection('InterceptedRequest', () => {
               }]
             }
           ]`,
-          },
-          {name: 'helloWorld.html', path: 'www.example.com/', content: 'Hello World!'},
-          {name: 'utf16.html', path: 'www.example.com/', content: 'Overwritten with non-UTF16 (TODO: fix this!)'},
-          {name: 'something.html', path: 'file:/usr/local/foo/content/', content: 'Override for something'},
-          {
-            name: '.headers',
-            path: 'file:/usr/local/example/',
-            content: `[
+      },
+      {name: 'helloWorld.html', path: 'www.example.com/', content: 'Hello World!'},
+      {name: 'utf16.html', path: 'www.example.com/', content: 'Overwritten with non-UTF16 (TODO: fix this!)'},
+      {name: 'something.html', path: 'file:/usr/local/foo/content/', content: 'Override for something'},
+      {
+        name: '.headers',
+        path: 'file:/usr/local/example/',
+        content: `[
             {
               "applyTo": "*",
               "headers": [{
@@ -564,48 +615,47 @@ describeWithMockConnection('InterceptedRequest', () => {
               }]
             }
           ]`,
-          },
-          {name: 'index.html', path: 'file:/usr/local/example/', content: 'Overridden file content'},
-          {
-            name: '.headers',
-            path: 'www.longurl.com/longurls/',
-            content: `[
+      },
+      {name: 'index.html', path: 'file:/usr/local/example/', content: 'Overridden file content'},
+      {
+        name: '.headers',
+        path: 'www.longurl.com/longurls/',
+        content: `[
             {
               "applyTo": "index.html-${
-                Platform.StringUtilities.hashCode('www.longurl.com/' + LONG_URL_PART).toString(16)}.html",
+            Platform.StringUtilities.hashCode('www.longurl.com/' + LONG_URL_PART).toString(16)}.html",
               "headers": [{
                 "name": "long-url-header",
                 "value": "long url header value"
               }]
             }
           ]`,
-          },
-          {
-            name:
-                `index.html-${Platform.StringUtilities.hashCode('www.longurl.com/' + LONG_URL_PART).toString(16)}.html`,
-            path: 'www.longurl.com/longurls/',
-            content: 'Overridden long URL file content',
-          },
-          {
-            name: '.headers',
-            path: 'file:/longurls/',
-            content: `[
+      },
+      {
+        name: `index.html-${Platform.StringUtilities.hashCode('www.longurl.com/' + LONG_URL_PART).toString(16)}.html`,
+        path: 'www.longurl.com/longurls/',
+        content: 'Overridden long URL file content',
+      },
+      {
+        name: '.headers',
+        path: 'file:/longurls/',
+        content: `[
             {
               "applyTo": "index.html-${
-                Platform.StringUtilities
-                    .hashCode(
-                        Persistence.NetworkPersistenceManager.NetworkPersistenceManager
-                            .encodeEncodedPathToLocalPathParts('file:' as Platform.DevToolsPath.EncodedPathString)[0] +
-                        '/' + LONG_URL_PART)
-                    .toString(16)}.html",
+            Platform.StringUtilities
+                .hashCode(
+                    Persistence.NetworkPersistenceManager.NetworkPersistenceManager.encodeEncodedPathToLocalPathParts(
+                        'file:' as Platform.DevToolsPath.EncodedPathString)[0] +
+                    '/' + LONG_URL_PART)
+                .toString(16)}.html",
               "headers": [{
                 "name": "long-file-url-header",
                 "value": "long file url header value"
               }]
             }
           ]`,
-          },
-        ]);
+      },
+    ]);
     sinon.stub(target.fetchAgent(), 'invoke_enable');
     fulfillRequestSpy = sinon.spy(target.fetchAgent(), 'invoke_fulfillRequest');
     await networkPersistenceManager.updateInterceptionPatternsForTests();
@@ -642,8 +692,8 @@ describeWithMockConnection('InterceptedRequest', () => {
     const continueRequestSpy = sinon.spy(fetchAgent, 'invoke_continueRequest');
 
     const networkRequest = SDK.NetworkRequest.NetworkRequest.create(
-        requestId as unknown as Protocol.Network.RequestId, request.url as Platform.DevToolsPath.UrlString,
-        request.url as Platform.DevToolsPath.UrlString, null, null, null);
+        requestId as unknown as Protocol.Network.RequestId, urlString`${request.url}`, urlString`${request.url}`, null,
+        null, null);
 
     const interceptedRequest = new SDK.NetworkManager.InterceptedRequest(
         fetchAgent, request, Protocol.Network.ResourceType.Document, requestId, networkRequest);
@@ -688,8 +738,8 @@ describeWithMockConnection('InterceptedRequest', () => {
       sinon.spy(fetchAgent, 'invoke_continueRequest');
 
       const networkRequest = SDK.NetworkRequest.NetworkRequest.create(
-          requestId as unknown as Protocol.Network.RequestId, request.url as Platform.DevToolsPath.UrlString,
-          request.url as Platform.DevToolsPath.UrlString, null, null, null);
+          requestId as unknown as Protocol.Network.RequestId, urlString`${request.url}`, urlString`${request.url}`,
+          null, null, null);
       networkRequest.originalResponseHeaders = [{name: 'content-type', value: 'text/html; charset-utf-16'}];
 
       // Create a quick'n dirty network UISourceCode for the request manually. We need to establish a binding to the
@@ -699,8 +749,7 @@ describeWithMockConnection('InterceptedRequest', () => {
           'Override network project', false);
       Workspace.Workspace.WorkspaceImpl.instance().addProject(networkProject);
       const uiSourceCode = networkProject.createUISourceCode(
-          'https://www.example.com/utf16.html' as Platform.DevToolsPath.UrlString,
-          Common.ResourceType.resourceTypes.Document);
+          urlString`https://www.example.com/utf16.html`, Common.ResourceType.resourceTypes.Document);
       networkProject.addUISourceCode(uiSourceCode);
 
       const interceptedRequest = new SDK.NetworkManager.InterceptedRequest(

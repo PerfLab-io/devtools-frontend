@@ -194,10 +194,20 @@ export enum RecitationAction {
   EXEMPT_FOUND_IN_PROMPT = 'EXEMPT_FOUND_IN_PROMPT',
 }
 
+export enum CitationSourceType {
+  CITATION_SOURCE_TYPE_UNSPECIFIED = 'CITATION_SOURCE_TYPE_UNSPECIFIED',
+  TRAINING_DATA = 'TRAINING_DATA',
+  WORLD_FACTS = 'WORLD_FACTS',
+  LOCAL_FACTS = 'LOCAL_FACTS',
+  INDIRECT = 'INDERECT',
+}
+
 export interface Citation {
-  startIndex: number;
-  endIndex: number;
-  url: string;
+  startIndex?: number;
+  endIndex?: number;
+  uri?: string;
+  sourceType?: CitationSourceType;
+  repository?: string;
 }
 
 export interface AttributionMetadata {
@@ -327,6 +337,8 @@ export class AidaClient {
         stream.fail(new Error('Server responded: permission denied'));
       } else if (result.error) {
         stream.fail(new Error(`Cannot send request: ${result.error} ${result.detail || ''}`));
+      } else if (result.netErrorName === 'net::ERR_TIMED_OUT') {
+        stream.fail(new Error('doAidaConversation timed out'));
       } else if (result.statusCode !== 200) {
         stream.fail(new Error(`Request failed: ${JSON.stringify(result)}`));
       } else {
@@ -495,6 +507,6 @@ export const enum Events {
   AIDA_AVAILABILITY_CHANGED = 'aidaAvailabilityChanged',
 }
 
-export type EventTypes = {
-  [Events.AIDA_AVAILABILITY_CHANGED]: void,
-};
+export interface EventTypes {
+  [Events.AIDA_AVAILABILITY_CHANGED]: void;
+}

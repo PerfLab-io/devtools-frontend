@@ -8,6 +8,9 @@ const l10nHelper = require('./l10n-helper.js');
 
 const MODULE_UI_STRINGS_FILENAME_REGEX = /ModuleUIStrings\.(js|ts)$/;
 
+/**
+ * @type {import('eslint').Rule.RuleModule}
+ */
 module.exports = {
   meta: {
     type: 'problem',
@@ -19,8 +22,9 @@ module.exports = {
     schema: []  // no options
   },
   create: function(context) {
+    const filename = context.filename ?? context.getFilename();
+    const sourceCode = context.sourceCode ?? context.getSourceCode();
     function removeExportKeywordFromUIStrings(fixer, exportNamedDeclaration) {
-      const sourceCode = context.getSourceCode();
       const exportToken = sourceCode.getFirstToken(exportNamedDeclaration);
       if (exportToken.type === 'Keyword' && exportToken.value === 'export') {
         return fixer.remove(exportToken);
@@ -30,7 +34,7 @@ module.exports = {
 
     return {
       ExportNamedDeclaration(exportNamedDeclaration) {
-        if (MODULE_UI_STRINGS_FILENAME_REGEX.test(context.getFilename())) {
+        if (MODULE_UI_STRINGS_FILENAME_REGEX.test(filename)) {
           return;
         }
 

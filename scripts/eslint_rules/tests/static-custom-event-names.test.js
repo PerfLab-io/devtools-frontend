@@ -3,10 +3,15 @@
 // found in the LICENSE file.
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/static-custom-event-names.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 ruleTester.run('static-custom-event-names', rule, {
@@ -51,7 +56,10 @@ export class ConstructedEvent extends Event {}`,
         }
       }`,
       filename: 'ui/some-component.ts',
-      errors: [{messageId: 'eventNameNotReadonly'}, {messageId: 'eventNameNotStatic'}]
+      errors: [
+        {messageId: 'eventNameNotReadonly'},
+        {messageId: 'eventNameNotStatic'},
+      ],
     },
     {
       // Not static
@@ -65,7 +73,7 @@ export class ConstructedEvent extends Event {}`,
         }
       }`,
       filename: 'ui/some-component.ts',
-      errors: [{messageId: 'eventNameNotStatic'}]
+      errors: [{messageId: 'eventNameNotStatic'}],
     },
     {
       // Controller not using new name
@@ -79,7 +87,7 @@ export class ConstructedEvent extends Event {}`,
         }
       }`,
       filename: 'ui/some-component.ts',
-      errors: [{messageId: 'superEventNameWrong'}]
+      errors: [{messageId: 'superEventNameWrong'}],
     },
     {
       // Missing super() call
@@ -92,7 +100,7 @@ export class ConstructedEvent extends Event {}`,
         }
       }`,
       filename: 'ui/some-component.ts',
-      errors: [{messageId: 'noSuperCallFound'}]
+      errors: [{messageId: 'noSuperCallFound'}],
     },
     {
       // Missing constructor
@@ -101,7 +109,7 @@ export class ConstructedEvent extends Event {}`,
         data: string;
       }`,
       filename: 'ui/some-component.ts',
-      errors: [{messageId: 'noConstructorFound'}]
+      errors: [{messageId: 'noConstructorFound'}],
     },
     {
       // Controller not using new name
@@ -115,7 +123,7 @@ export class ConstructedEvent extends Event {}`,
         }
       }`,
       filename: 'ui/some-component.ts',
-      errors: [{messageId: 'superEventNameWrong'}]
+      errors: [{messageId: 'superEventNameWrong'}],
     },
     {
       // Controller not using new name
@@ -129,7 +137,7 @@ export class ConstructedEvent extends Event {}`,
         }
       }`,
       filename: 'ui/some-component.ts',
-      errors: [{messageId: 'superEventNameWrong'}]
+      errors: [{messageId: 'superEventNameWrong'}],
     },
     {
       // Controller not using new name and missing the property
@@ -175,5 +183,5 @@ export class ConstructedEvent extends Event {}`,
         }
       }`,
     },
-  ]
+  ],
 });

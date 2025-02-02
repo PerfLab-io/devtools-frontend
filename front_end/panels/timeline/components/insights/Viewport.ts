@@ -6,15 +6,15 @@ import './NodeLink.js';
 
 import type {ViewportInsightModel} from '../../../../models/trace/insights/Viewport.js';
 import type * as Trace from '../../../../models/trace/trace.js';
-import * as LitHtml from '../../../../ui/lit-html/lit-html.js';
+import * as Lit from '../../../../ui/lit/lit.js';
 import type * as Overlays from '../../overlays/overlays.js';
 
 import {BaseInsightComponent} from './BaseInsightComponent.js';
 
-const {html} = LitHtml;
+const {html} = Lit;
 
 export class Viewport extends BaseInsightComponent<ViewportInsightModel> {
-  static override readonly litTagName = LitHtml.literal`devtools-performance-viewport`;
+  static override readonly litTagName = Lit.StaticHtml.literal`devtools-performance-viewport`;
   override internalName: string = 'viewport';
 
   override createOverlays(): Overlays.Overlays.TimelineOverlay[] {
@@ -22,26 +22,31 @@ export class Viewport extends BaseInsightComponent<ViewportInsightModel> {
     return [];
   }
 
-  override getEstimatedSavingsTime(): Trace.Types.Timing.MilliSeconds|null {
+  override getEstimatedSavingsTime(): Trace.Types.Timing.Milli|null {
     return this.model?.metricSavings?.INP ?? null;
   }
 
-  override renderContent(): LitHtml.LitTemplate {
-    if (!this.model) {
-      return LitHtml.nothing;
+  renderContent(): Lit.LitTemplate {
+    if (!this.model || !this.model.viewportEvent) {
+      return Lit.nothing;
     }
 
-    const backendNodeId = this.model.viewportEvent?.args.data.node_id;
+    const backendNodeId = this.model.viewportEvent.args.data.node_id;
+    if (backendNodeId === undefined) {
+      return Lit.nothing;
+    }
 
     // clang-format off
     return html`
       <div>
-        ${backendNodeId !== undefined ? html`<devtools-performance-node-link
+        <devtools-performance-node-link
           .data=${{
             backendNodeId,
-            options: {tooltip: this.model.viewportEvent?.args.data.content},
+            frame: this.model.viewportEvent.args.data.frame ?? '',
+            options: {tooltip: this.model.viewportEvent.args.data.content},
+            fallbackHtmlSnippet: `<meta name=viewport content="${this.model.viewportEvent.args.data.content}">`,
           }}>
-        </devtools-performance-node-link>` : LitHtml.nothing}
+        </devtools-performance-node-link>
       </div>`;
     // clang-format on
   }

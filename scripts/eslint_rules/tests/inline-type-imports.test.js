@@ -3,10 +3,15 @@
 // found in the LICENSE file.
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/inline-type-imports.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 ruleTester.run('inline-type-imports', rule, {
@@ -82,5 +87,5 @@ import type {Foo as Bar, Baz} from './foo.js';`,
       filename: 'front_end/components/test.ts',
       errors: [{messageId: 'inlineTypeImport'}],
     },
-  ]
+  ],
 });

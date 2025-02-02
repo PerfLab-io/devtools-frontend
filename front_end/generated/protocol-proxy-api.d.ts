@@ -48,8 +48,6 @@ declare namespace ProtocolProxyApi {
 
     DOMStorage: DOMStorageApi;
 
-    Database: DatabaseApi;
-
     DeviceOrientation: DeviceOrientationApi;
 
     Emulation: EmulationApi;
@@ -156,8 +154,6 @@ declare namespace ProtocolProxyApi {
     DOMSnapshot: DOMSnapshotDispatcher;
 
     DOMStorage: DOMStorageDispatcher;
-
-    Database: DatabaseDispatcher;
 
     DeviceOrientation: DeviceOrientationDispatcher;
 
@@ -674,6 +670,8 @@ declare namespace ProtocolProxyApi {
      * resolved to '3px'.
      */
     invoke_resolveValues(params: Protocol.CSS.ResolveValuesRequest): Promise<Protocol.CSS.ResolveValuesResponse>;
+
+    invoke_getLonghandProperties(params: Protocol.CSS.GetLonghandPropertiesRequest): Promise<Protocol.CSS.GetLonghandPropertiesResponse>;
 
     /**
      * Returns the styles defined inline (explicitly in the "style" attribute and implicitly, using DOM
@@ -1445,27 +1443,6 @@ declare namespace ProtocolProxyApi {
 
   }
 
-  export interface DatabaseApi {
-    /**
-     * Disables database tracking, prevents database events from being sent to the client.
-     */
-    invoke_disable(): Promise<Protocol.ProtocolResponseWithError>;
-
-    /**
-     * Enables database tracking, database events will now be delivered to the client.
-     */
-    invoke_enable(): Promise<Protocol.ProtocolResponseWithError>;
-
-    invoke_executeSQL(params: Protocol.Database.ExecuteSQLRequest): Promise<Protocol.Database.ExecuteSQLResponse>;
-
-    invoke_getDatabaseTableNames(params: Protocol.Database.GetDatabaseTableNamesRequest): Promise<Protocol.Database.GetDatabaseTableNamesResponse>;
-
-  }
-  export interface DatabaseDispatcher {
-    addDatabase(params: Protocol.Database.AddDatabaseEvent): void;
-
-  }
-
   export interface DeviceOrientationApi {
     /**
      * Clears the overridden Device Orientation.
@@ -2230,6 +2207,12 @@ declare namespace ProtocolProxyApi {
      */
     invoke_loadNetworkResource(params: Protocol.Network.LoadNetworkResourceRequest): Promise<Protocol.Network.LoadNetworkResourceResponse>;
 
+    /**
+     * Sets Controls for third-party cookie access
+     * Page reload is required before the new cookie bahavior will be observed
+     */
+    invoke_setCookieControls(params: Protocol.Network.SetCookieControlsRequest): Promise<Protocol.ProtocolResponseWithError>;
+
   }
   export interface NetworkDispatcher {
     /**
@@ -2933,6 +2916,17 @@ declare namespace ProtocolProxyApi {
     frameResized(): void;
 
     /**
+     * Fired when a navigation starts. This event is fired for both
+     * renderer-initiated and browser-initiated navigations. For renderer-initiated
+     * navigations, the event is fired after `frameRequestedNavigation`.
+     * Navigation may still be cancelled after the event is issued. Multiple events
+     * can be fired for a single navigation, for example, when a same-document
+     * navigation becomes a cross-document navigation (such as in the case of a
+     * frameset).
+     */
+    frameStartedNavigating(params: Protocol.Page.FrameStartedNavigatingEvent): void;
+
+    /**
      * Fired when a renderer-initiated navigation is requested.
      * Navigation may still be cancelled after the event is issued.
      */
@@ -3346,6 +3340,13 @@ declare namespace ProtocolProxyApi {
      * session. The effective Related Website Sets will not change during a browser session.
      */
     invoke_getRelatedWebsiteSets(): Promise<Protocol.Storage.GetRelatedWebsiteSetsResponse>;
+
+    /**
+     * Returns the list of URLs from a page and its embedded resources that match
+     * existing grace period URL pattern rules.
+     * https://developers.google.com/privacy-sandbox/cookies/temporary-exceptions/grace-period
+     */
+    invoke_getAffectedUrlsForThirdPartyCookieMetadata(params: Protocol.Storage.GetAffectedUrlsForThirdPartyCookieMetadataRequest): Promise<Protocol.Storage.GetAffectedUrlsForThirdPartyCookieMetadataResponse>;
 
   }
   export interface StorageDispatcher {
@@ -4355,6 +4356,7 @@ declare namespace ProtocolProxyApi {
   export interface DebuggerDispatcher {
     /**
      * Fired when breakpoint is resolved to an actual script and location.
+     * Deprecated in favor of `resolvedBreakpoints` in the `scriptParsed` event.
      */
     breakpointResolved(params: Protocol.Debugger.BreakpointResolvedEvent): void;
 

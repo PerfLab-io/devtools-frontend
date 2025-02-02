@@ -3,10 +3,15 @@
 // found in the LICENSE file.
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/check-was-shown-methods.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 const EXPECTED_ERROR_MESSAGE = 'Please make sure the first call in wasShown is to super.wasShown().';
@@ -54,14 +59,14 @@ ruleTester.run('check-was-shown-methods', rule, {
         }
       }
       `,
-      filename: 'front_end/components/test.ts'
+      filename: 'front_end/components/test.ts',
     },
     {
       code: `
       export class CharacterIdMap<T> {
       }
       `,
-      filename: 'front_end/components/test.ts'
+      filename: 'front_end/components/test.ts',
     },
   ],
   invalid: [
@@ -76,7 +81,7 @@ ruleTester.run('check-was-shown-methods', rule, {
       }
       `,
       filename: 'front_end/components/test.ts',
-      errors: [{message: EXPECTED_ERROR_MESSAGE}]
+      errors: [{message: EXPECTED_ERROR_MESSAGE}],
     },
     {
       code: `
@@ -90,7 +95,7 @@ ruleTester.run('check-was-shown-methods', rule, {
       }
       `,
       filename: 'front_end/components/test.ts',
-      errors: [{message: EXPECTED_ERROR_MESSAGE}]
+      errors: [{message: EXPECTED_ERROR_MESSAGE}],
     },
     {
       code: `
@@ -102,7 +107,7 @@ ruleTester.run('check-was-shown-methods', rule, {
       }
       `,
       filename: 'front_end/components/test.ts',
-      errors: [{message: EXPECTED_ERROR_MESSAGE}]
-    }
-  ]
+      errors: [{message: EXPECTED_ERROR_MESSAGE}],
+    },
+  ],
 });

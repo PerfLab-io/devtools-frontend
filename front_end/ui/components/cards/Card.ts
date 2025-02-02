@@ -4,11 +4,13 @@
 
 import '../../../ui/components/icon_button/icon_button.js';
 
-import * as LitHtml from '../../lit-html/lit-html.js';
+import {html, nothing, render} from '../../lit/lit.js';
 
-import cardStyles from './card.css.js';
+import cardStylesRaw from './card.css.js';
 
-const {html} = LitHtml;
+// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+const cardStyles = new CSSStyleSheet();
+cardStyles.replaceSync(cardStylesRaw.cssContent);
 
 declare global {
   interface HTMLElementTagNameMap {
@@ -57,10 +59,10 @@ export class Card extends HTMLElement {
 
   #render(): void {
     // clang-format off
-    LitHtml.render(html`
+    render(html`
     <div class="card">
       <div class="heading-wrapper">
-        ${this.#headingIconName ? html`<devtools-icon class="heading-icon" name=${this.#headingIconName}></devtools-icon>` : LitHtml.nothing}
+        ${this.#headingIconName ? html`<devtools-icon class="heading-icon" name=${this.#headingIconName}></devtools-icon>` : nothing}
         <div role="heading" aria-level="2" class="heading">${this.#heading}</div>
         <slot name="heading-suffix"></slot>
       </div>

@@ -86,6 +86,7 @@ export class ProfileLauncherView extends Common.ObjectWrapper.eventMixin<EventTy
 
   constructor(profilesPanel: ProfilesPanel) {
     super();
+    this.registerRequiredCSS(profileLauncherViewStyles);
 
     this.panel = profilesPanel;
     this.element.classList.add('profile-launcher-view');
@@ -227,16 +228,12 @@ export class ProfileLauncherView extends Common.ObjectWrapper.eventMixin<EventTy
     this.updateControls();
     this.selectedProfileTypeSetting.set(profileType.id);
   }
-  override wasShown(): void {
-    super.wasShown();
-    this.registerCSSFiles([profileLauncherViewStyles]);
-  }
 }
 
 export const enum Events {
   PROFILE_TYPE_SELECTED = 'ProfileTypeSelected',
 }
 
-export type EventTypes = {
-  [Events.PROFILE_TYPE_SELECTED]: ProfileType,
-};
+export interface EventTypes {
+  [Events.PROFILE_TYPE_SELECTED]: ProfileType;
+}

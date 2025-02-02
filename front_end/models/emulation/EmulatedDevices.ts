@@ -266,7 +266,7 @@ export class EmulatedDevice {
       result.#showInternal = show;
 
       return result;
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -628,10 +628,10 @@ export const enum Events {
   STANDARD_DEVICES_UPDATED = 'StandardDevicesUpdated',
 }
 
-export type EventTypes = {
-  [Events.CUSTOM_DEVICES_UPDATED]: void,
-  [Events.STANDARD_DEVICES_UPDATED]: void,
-};
+export interface EventTypes {
+  [Events.CUSTOM_DEVICES_UPDATED]: void;
+  [Events.STANDARD_DEVICES_UPDATED]: void;
+}
 
 export interface Mode {
   title: string;
@@ -659,7 +659,7 @@ export interface JSONMode {
 }
 
 // These props should quoted for the script to work properly
-/* eslint-disable quote-props */
+/* eslint-disable @stylistic/quote-props */
 const emulatedDevices = [
   // This is used by a python script to keep this list up-to-date with
   // chromedriver native code.
@@ -1935,4 +1935,4 @@ const emulatedDevices = [
   },
   // DEVICE-LIST-END
 ];
-/* eslint-enable quote-props */
+/* eslint-enable @stylistic/quote-props */

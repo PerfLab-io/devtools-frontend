@@ -12,11 +12,15 @@ import * as Buttons from '../../../ui/components/buttons/buttons.js';
 import * as Dialogs from '../../../ui/components/dialogs/dialogs.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
 import * as UI from '../../../ui/legacy/legacy.js';
-import * as LitHtml from '../../../ui/lit-html/lit-html.js';
+import * as Lit from '../../../ui/lit/lit.js';
 
-import ignoreListSettingStyles from './ignoreListSetting.css.js';
+import ignoreListSettingStylesRaw from './ignoreListSetting.css.js';
 
-const {html} = LitHtml;
+// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+const ignoreListSettingStyles = new CSSStyleSheet();
+ignoreListSettingStyles.replaceSync(ignoreListSettingStylesRaw.cssContent);
+
+const {html} = Lit;
 
 const UIStrings = {
   /**
@@ -106,6 +110,12 @@ export class IgnoreListSetting extends HTMLElement {
   connectedCallback(): void {
     this.#shadow.adoptedStyleSheets = [ignoreListSettingStyles];
     this.#scheduleRender();
+
+    // Prevent the event making its way to the TimelinePanel element which will
+    // cause the "Load Profile" context menu to appear.
+    this.addEventListener('contextmenu', e => {
+      e.stopPropagation();
+    });
   }
 
   #scheduleRender(): void {
@@ -118,6 +128,7 @@ export class IgnoreListSetting extends HTMLElement {
   }
 
   #startEditing(): void {
+    // Do not need to trim here because this is a temporary one, we will trim the input when finish editing,
     this.#editingRegexSetting = {pattern: this.#newRegexInput.value, disabled: false, disabledForUrl: undefined};
     // We need to push the temp regex here to update the flame chart.
     // We are using the "skip-stack-frames-pattern" setting to determine which is rendered on flame chart. And the push
@@ -145,6 +156,9 @@ export class IgnoreListSetting extends HTMLElement {
   #resetInput(): void {
     this.#newRegexCheckbox.checkboxElement.checked = false;
     this.#newRegexInput.value = '';
+
+    this.#newRegexIsValid = true;
+    this.#newRegexValidationMessage = undefined;
   }
 
   #addNewRegexToIgnoreList(): void {
@@ -197,7 +211,7 @@ export class IgnoreListSetting extends HTMLElement {
     return this.#regexPatterns;
   }
 
-  #handleInputChange(): void {
+  #validateInput(): void {
     const newRegex = this.#newRegexInput.value.trim();
     const newRegexIsNotEmpty = Boolean(newRegex);
     // Enable the rule if the text input field is not empty.
@@ -208,10 +222,15 @@ export class IgnoreListSetting extends HTMLElement {
     UI.ARIAUtils.setInvalid(this.#newRegexInput, !valid);
     this.#newRegexIsValid = valid;
     this.#newRegexValidationMessage = message;
+  }
+
+  #handleInputChange(): void {
+    this.#validateInput();
 
     if (this.#editingRegexSetting) {
-      this.#editingRegexSetting.pattern = this.#newRegexInput.value.trim();
-      this.#editingRegexSetting.disabled = !newRegexIsNotEmpty;
+      const newRegex = this.#newRegexInput.value.trim();
+      this.#editingRegexSetting.pattern = newRegex;
+      this.#editingRegexSetting.disabled = !Boolean(newRegex);
       this.#getSkipStackFramesPatternSetting().setAsArray(this.#regexPatterns);
     }
   }
@@ -230,8 +249,8 @@ export class IgnoreListSetting extends HTMLElement {
     this.#newRegexInput.addEventListener('focus', this.#startEditing.bind(this), false);
   }
 
-  #renderNewRegexRow(): LitHtml.TemplateResult {
-    const classes = LitHtml.Directives.classMap({
+  #renderNewRegexRow(): Lit.TemplateResult {
+    const classes = Lit.Directives.classMap({
       'input-validation': true,
       'input-validation-error': !this.#newRegexIsValid,
     });
@@ -239,13 +258,13 @@ export class IgnoreListSetting extends HTMLElement {
       <div class='new-regex-row'>${this.#newRegexCheckbox}${this.#newRegexInput}</div>
       ${
         this.#newRegexValidationMessage ? html`<div class=${classes}>${this.#newRegexValidationMessage}</div>` :
-                                          LitHtml.nothing}
+                                          Lit.nothing}
     `;
   }
 
   #onRegexEnableToggled(regex: Common.Settings.RegExpSettingItem, checkbox: UI.UIUtils.CheckboxLabel): void {
     regex.disabled = !checkbox.checkboxElement.checked;
-
+    this.#validateInput();
     // Technically we don't need to call the set function, because the regex is a reference, so it changed the setting
     // value directly.
     // But we need to call the set function to trigger the setting change event. which is needed by view update of flame
@@ -257,10 +276,13 @@ export class IgnoreListSetting extends HTMLElement {
 
   #removeRegexByIndex(index: number): void {
     this.#regexPatterns.splice(index, 1);
+    this.#validateInput();
+    // Call the set function to trigger the setting change event. we listen to this event and will update this component
+    // and the flame chart.
     this.#getSkipStackFramesPatternSetting().setAsArray(this.#regexPatterns);
   }
 
-  #renderItem(regex: Common.Settings.RegExpSettingItem, index: number): LitHtml.TemplateResult {
+  #renderItem(regex: Common.Settings.RegExpSettingItem, index: number): Lit.TemplateResult {
     const checkboxWithLabel = UI.UIUtils.CheckboxLabel.createWithStringLiteral(
         regex.pattern, !regex.disabled, /* subtitle*/ undefined, /* jslogContext*/ 'timeline.ignore-list-pattern');
     const helpText = i18nString(UIStrings.ignoreScriptsWhoseNamesMatchS, {regex: regex.pattern});
@@ -310,7 +332,7 @@ export class IgnoreListSetting extends HTMLElement {
       </devtools-button-dialog>
     `;
     // clang-format on
-    LitHtml.render(output, this.#shadow, {host: this});
+    Lit.render(output, this.#shadow, {host: this});
   }
 }
 
@@ -353,7 +375,7 @@ export function patternValidator(existingRegexes: Common.Settings.RegExpSettingI
   let regex;
   try {
     regex = new RegExp(pattern);
-  } catch (e) {
+  } catch {
   }
   if (!regex) {
     return {valid: false, message: i18nString(UIStrings.patternMustBeAValidRegular)};

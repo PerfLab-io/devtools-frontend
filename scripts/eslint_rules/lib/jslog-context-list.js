@@ -4,8 +4,8 @@
 
 'use strict';
 
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 
 const FILE = 'front_end/ui/visual_logging/KnownContextValues.ts';
 const FRONT_END_PARENT_FOLDER = path.join(__filename, '..', '..', '..', '..');
@@ -16,6 +16,9 @@ const LICENSE_HEADER = `// Copyright 2024 The Chromium Authors. All rights reser
 
 `;
 
+/**
+ * @type {import('eslint').Rule.RuleModule}
+ */
 module.exports = {
   meta: {
     type: 'problem',

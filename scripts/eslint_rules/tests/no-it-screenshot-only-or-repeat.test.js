@@ -4,10 +4,15 @@
 
 'use strict';
 
+const tsParser = require('@typescript-eslint/parser');
+
 const rule = require('../lib/no-it-screenshot-only-or-repeat.js');
 const ruleTester = new (require('eslint').RuleTester)({
-  parserOptions: {ecmaVersion: 9, sourceType: 'module'},
-  parser: require.resolve('@typescript-eslint/parser'),
+  languageOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    parser: tsParser,
+  },
 });
 
 ruleTester.run('no-it-screenshot-only-or-repeat', rule, {
@@ -34,5 +39,5 @@ ruleTester.run('no-it-screenshot-only-or-repeat', rule, {
       filename: 'front_end/components/test.ts',
       errors: [{messageId: 'itScreenshot-repeat', column: 14, endColumn: 20}],
     },
-  ]
+  ],
 });

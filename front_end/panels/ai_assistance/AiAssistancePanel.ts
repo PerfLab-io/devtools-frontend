@@ -1,6 +1,9 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
+import '../../ui/legacy/legacy.js';
+
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -9,7 +12,7 @@ import * as SDK from '../../core/sdk/sdk.js';
 import * as Persistence from '../../models/persistence/persistence.js';
 import * as Workspace from '../../models/workspace/workspace.js';
 import * as UI from '../../ui/legacy/legacy.js';
-import * as LitHtml from '../../ui/lit-html/lit-html.js';
+import * as Lit from '../../ui/lit/lit.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import * as ElementsPanel from '../elements/elements.js';
 import * as NetworkForward from '../network/forward/forward.js';
@@ -38,7 +41,7 @@ import {
 import {PatchAgent, ProjectContext} from './agents/PatchAgent.js';
 import {CallTreeContext, PerformanceAgent} from './agents/PerformanceAgent.js';
 import {NodeContext, StylingAgent} from './agents/StylingAgent.js';
-import styles from './aiAssistancePanel.css.js';
+import aiAssistancePanelStyles from './aiAssistancePanel.css.js';
 import {
   AiHistoryStorage,
 } from './AiHistoryStorage.js';
@@ -52,7 +55,7 @@ import {
   type Step,
 } from './components/ChatView.js';
 
-const {html} = LitHtml;
+const {html} = Lit;
 
 const AI_ASSISTANCE_SEND_FEEDBACK = 'https://crbug.com/364805393' as Platform.DevToolsPath.UrlString;
 const AI_ASSISTANCE_HELP = 'https://goo.gle/devtools-ai-assistance' as Platform.DevToolsPath.UrlString;
@@ -119,9 +122,9 @@ const str_ = i18n.i18n.registerUIStrings('panels/ai_assistance/AiAssistancePanel
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 const lockedString = i18n.i18n.lockedString;
 
-type ViewOutput = {
-  chatView?: ChatView,
-};
+interface ViewOutput {
+  chatView?: ChatView;
+}
 type View = (input: ChatViewProps, output: ViewOutput, target: HTMLElement) => void;
 
 function selectedElementFilter(maybeNode: SDK.DOMModel.DOMNode|null): SDK.DOMModel.DOMNode|null {
@@ -134,15 +137,15 @@ function selectedElementFilter(maybeNode: SDK.DOMModel.DOMNode|null): SDK.DOMMod
 
 function defaultView(input: ChatViewProps, output: ViewOutput, target: HTMLElement): void {
   // clang-format off
-  LitHtml.render(html`
-    <devtools-ai-chat-view .props=${input} ${LitHtml.Directives.ref((el: Element|undefined) => {
+  Lit.render(html`
+    <devtools-ai-chat-view .props=${input} ${Lit.Directives.ref((el: Element|undefined) => {
       if (!el || !(el instanceof ChatView)) {
         return;
       }
 
       output.chatView = el;
     })}></devtools-ai-chat-view>
-  `, target, {host: input}); // eslint-disable-line rulesdir/lit-html-host-this
+  `, target, {host: input}); // eslint-disable-line rulesdir/lit-host-this
   // clang-format on
 }
 
@@ -193,6 +196,7 @@ export class AiAssistancePanel extends UI.Panel.Panel {
   #serverSideLoggingEnabled = isAiAssistanceServerSideLoggingEnabled();
   #aiAssistanceEnabledSetting: Common.Settings.Setting<boolean>|undefined;
   #changeManager = new ChangeManager();
+  #mutex = new Common.Mutex.Mutex();
 
   #newChatButton =
       new UI.Toolbar.ToolbarButton(i18nString(UIStrings.newChat), 'plus', undefined, 'freestyler.new-chat');
@@ -217,6 +221,7 @@ export class AiAssistancePanel extends UI.Panel.Panel {
     syncInfo: Host.InspectorFrontendHostAPI.SyncInformation,
   }) {
     super(AiAssistancePanel.panelName);
+    this.registerRequiredCSS(aiAssistancePanelStyles);
     this.#aiAssistanceEnabledSetting = this.#getAiAssistanceEnabledSetting();
 
     this.#createToolbar();
@@ -259,8 +264,11 @@ export class AiAssistancePanel extends UI.Panel.Panel {
   #createToolbar(): void {
     const toolbarContainer = this.contentElement.createChild('div', 'toolbar-container');
     toolbarContainer.setAttribute('jslog', VisualLogging.toolbar().toString());
-    const leftToolbar = new UI.Toolbar.Toolbar('freestyler-left-toolbar', toolbarContainer);
-    const rightToolbar = new UI.Toolbar.Toolbar('freestyler-right-toolbar', toolbarContainer);
+    toolbarContainer.role = 'toolbar';
+    const leftToolbar = toolbarContainer.createChild('devtools-toolbar', 'freestyler-left-toolbar');
+    leftToolbar.role = 'presentation';
+    const rightToolbar = toolbarContainer.createChild('devtools-toolbar', 'freestyler-right-toolbar');
+    rightToolbar.role = 'presentation';
 
     this.#newChatButton.addEventListener(UI.Toolbar.ToolbarButton.Events.CLICK, this.#handleNewChatRequest.bind(this));
     leftToolbar.appendToolbarItem(this.#newChatButton);
@@ -412,6 +420,7 @@ export class AiAssistancePanel extends UI.Panel.Panel {
       this.#currentAgent = agent;
       this.#viewProps.agentType = this.#currentAgent?.type;
       this.#viewProps.messages = [];
+      this.#viewProps.changeSummary = undefined;
       this.#viewProps.isLoading = false;
       this.#viewProps.isReadOnly = this.#currentAgent?.isHistoryEntry ?? false;
     }
@@ -421,7 +430,7 @@ export class AiAssistancePanel extends UI.Panel.Panel {
   }
 
   override wasShown(): void {
-    this.registerCSSFiles([styles]);
+    super.wasShown();
     this.#viewOutput.chatView?.restoreScrollPosition();
     this.#viewOutput.chatView?.focusTextInput();
     this.#selectDefaultAgentIfNeeded();
@@ -607,7 +616,7 @@ export class AiAssistancePanel extends UI.Panel.Panel {
     void this.doUpdate();
   };
 
-  override async doUpdate(): Promise<void> {
+  async doUpdate(): Promise<void> {
     this.#updateToolbarState();
     this.view(this.#viewProps, this.#viewOutput, this.#contentContainer);
   }
@@ -809,7 +818,6 @@ export class AiAssistancePanel extends UI.Panel.Panel {
     this.#viewProps.selectedContext = currentContext;
     if (!currentContext) {
       this.#viewProps.blockedByCrossOrigin = false;
-      this.#viewProps.requiresNewConversation = false;
       return;
     }
     this.#viewProps.blockedByCrossOrigin = !currentContext.isOriginAllowed(this.#currentAgent.origin);
@@ -819,8 +827,6 @@ export class AiAssistancePanel extends UI.Panel.Panel {
     if (this.#viewProps.blockedByCrossOrigin && this.#previousSameOriginContext) {
       this.#viewProps.onCancelCrossOriginChat = this.#handleCrossOriginChatCancellation.bind(this);
     }
-    this.#viewProps.requiresNewConversation = this.#currentAgent.type === AgentType.PERFORMANCE &&
-        Boolean(this.#currentAgent.context) && this.#currentAgent.context !== currentContext;
     this.#viewProps.stripLinks = this.#viewProps.agentType === AgentType.PERFORMANCE;
   }
 
@@ -853,6 +859,8 @@ export class AiAssistancePanel extends UI.Panel.Panel {
     if (!this.#currentAgent) {
       return;
     }
+    // Cancel any previous in-flight conversation.
+    this.#cancel();
     this.#runAbortController = new AbortController();
     const signal = this.#runAbortController.signal;
     const context = this.#getConversationContext();
@@ -872,124 +880,135 @@ export class AiAssistancePanel extends UI.Panel.Panel {
   }
 
   async #doConversation(generator: AsyncGenerator<ResponseData, void, void>): Promise<void> {
-    let systemMessage: ModelChatMessage = {
-      entity: ChatMessageEntity.MODEL,
-      steps: [],
-    };
-    let step: Step = {isLoading: true};
-    this.#viewProps.isLoading = true;
-    for await (const data of generator) {
-      step.sideEffect = undefined;
-      switch (data.type) {
-        case ResponseType.USER_QUERY: {
-          this.#viewProps.messages.push({
-            entity: ChatMessageEntity.USER,
-            text: data.query,
-          });
-          systemMessage = {
-            entity: ChatMessageEntity.MODEL,
-            steps: [],
-          };
-          this.#viewProps.messages.push(systemMessage);
-          break;
-        }
-        case ResponseType.QUERYING: {
-          step = {isLoading: true};
-          if (!systemMessage.steps.length) {
-            systemMessage.steps.push(step);
-          }
+    const release = await this.#mutex.acquire();
+    try {
+      let systemMessage: ModelChatMessage = {
+        entity: ChatMessageEntity.MODEL,
+        steps: [],
+      };
+      let step: Step = {isLoading: true};
 
-          break;
+      /**
+       * Commits the step to props only if necessary.
+       */
+      function commitStep(): void {
+        if (systemMessage.steps.at(-1) !== step) {
+          systemMessage.steps.push(step);
         }
-        case ResponseType.CONTEXT: {
-          step.title = data.title;
-          step.contextDetails = data.details;
-          step.isLoading = false;
-          if (systemMessage.steps.at(-1) !== step) {
-            systemMessage.steps.push(step);
+      }
+
+      this.#viewProps.isLoading = true;
+      for await (const data of generator) {
+        step.sideEffect = undefined;
+        switch (data.type) {
+          case ResponseType.USER_QUERY: {
+            this.#viewProps.messages.push({
+              entity: ChatMessageEntity.USER,
+              text: data.query,
+            });
+            systemMessage = {
+              entity: ChatMessageEntity.MODEL,
+              steps: [],
+            };
+            this.#viewProps.messages.push(systemMessage);
+            break;
           }
-          break;
-        }
-        case ResponseType.TITLE: {
-          step.title = data.title;
-          if (systemMessage.steps.at(-1) !== step) {
-            systemMessage.steps.push(step);
+          case ResponseType.QUERYING: {
+            step = {isLoading: true};
+            if (!systemMessage.steps.length) {
+              systemMessage.steps.push(step);
+            }
+
+            break;
           }
-          break;
-        }
-        case ResponseType.THOUGHT: {
-          step.isLoading = false;
-          step.thought = data.thought;
-          if (systemMessage.steps.at(-1) !== step) {
-            systemMessage.steps.push(step);
+          case ResponseType.CONTEXT: {
+            step.title = data.title;
+            step.contextDetails = data.details;
+            step.isLoading = false;
+            commitStep();
+            break;
           }
-          break;
-        }
-        case ResponseType.SIDE_EFFECT: {
-          step.isLoading = false;
-          step.code = data.code;
-          step.sideEffect = {
-            onAnswer: data.confirm,
-          };
-          if (systemMessage.steps.at(-1) !== step) {
-            systemMessage.steps.push(step);
+          case ResponseType.TITLE: {
+            step.title = data.title;
+            commitStep();
+            break;
           }
-          break;
-        }
-        case ResponseType.ACTION: {
-          step.isLoading = false;
-          step.code = data.code;
-          step.output = data.output;
-          step.canceled = data.canceled;
-          if (systemMessage.steps.at(-1) !== step) {
-            systemMessage.steps.push(step);
+          case ResponseType.THOUGHT: {
+            step.isLoading = false;
+            step.thought = data.thought;
+            commitStep();
+            break;
           }
-          break;
-        }
-        case ResponseType.ANSWER: {
-          systemMessage.suggestions = data.suggestions;
-          systemMessage.answer = data.text;
-          systemMessage.rpcId = data.rpcId;
-          // When there is an answer without any thinking steps, we don't want to show the thinking step.
-          if (systemMessage.steps.length === 1 && systemMessage.steps[0].isLoading) {
-            systemMessage.steps.pop();
+          case ResponseType.SIDE_EFFECT: {
+            step.isLoading = false;
+            step.code = data.code;
+            step.sideEffect = {
+              onAnswer: data.confirm,
+            };
+            commitStep();
+            break;
           }
-          step.isLoading = false;
-          break;
-        }
-        case ResponseType.ERROR: {
-          systemMessage.error = data.error;
-          systemMessage.rpcId = undefined;
-          const lastStep = systemMessage.steps.at(-1);
-          if (lastStep) {
-            // Mark the last step as cancelled to make the UI feel better.
-            if (data.error === ErrorType.ABORT) {
-              lastStep.canceled = true;
-              // If error happens while the step is still loading remove it.
-            } else if (lastStep.isLoading) {
+          case ResponseType.ACTION: {
+            step.isLoading = false;
+            step.code = data.code;
+            step.output = data.output;
+            step.canceled = data.canceled;
+            if (isAiAssistanceChangeSummariesEnabled() && this.#currentAgent && !this.#currentAgent.isHistoryEntry) {
+              this.#viewProps.changeSummary = this.#changeManager.formatChanges(this.#currentAgent.id);
+            }
+            commitStep();
+            break;
+          }
+          case ResponseType.ANSWER: {
+            systemMessage.suggestions = data.suggestions;
+            systemMessage.answer = data.text;
+            systemMessage.rpcId = data.rpcId;
+            // When there is an answer without any thinking steps, we don't want to show the thinking step.
+            if (systemMessage.steps.length === 1 && systemMessage.steps[0].isLoading) {
               systemMessage.steps.pop();
             }
+            step.isLoading = false;
+            break;
           }
-          if (data.error === ErrorType.BLOCK) {
-            systemMessage.answer = undefined;
+          case ResponseType.ERROR: {
+            systemMessage.error = data.error;
+            systemMessage.rpcId = undefined;
+            const lastStep = systemMessage.steps.at(-1);
+            if (lastStep) {
+              // Mark the last step as cancelled to make the UI feel better.
+              if (data.error === ErrorType.ABORT) {
+                lastStep.canceled = true;
+                // If error happens while the step is still loading remove it.
+              } else if (lastStep.isLoading) {
+                systemMessage.steps.pop();
+              }
+            }
+            if (data.error === ErrorType.BLOCK) {
+              systemMessage.answer = undefined;
+            }
+          }
+        }
+
+        // Commit update intermediated step when not
+        // in read only mode.
+        if (!this.#viewProps.isReadOnly) {
+          void this.doUpdate();
+
+          // This handles scrolling to the bottom for live conversations when:
+          // * User submits the query & the context step is shown.
+          // * There is a side effect dialog  shown.
+          if (data.type === ResponseType.CONTEXT || data.type === ResponseType.SIDE_EFFECT) {
+            this.#viewOutput.chatView?.scrollToBottom();
           }
         }
       }
 
+      this.#viewProps.isLoading = false;
+      this.#viewOutput.chatView?.finishTextAnimations();
       void this.doUpdate();
-
-      // This handles scrolling to the bottom for live conversations when:
-      // * User submits the query & the context step is shown.
-      // * There is a side effect dialog  shown.
-      if (!this.#viewProps.isReadOnly &&
-          (data.type === ResponseType.CONTEXT || data.type === ResponseType.SIDE_EFFECT)) {
-        this.#viewOutput.chatView?.scrollToBottom();
-      }
+    } finally {
+      release();
     }
-
-    this.#viewProps.isLoading = false;
-    this.#viewOutput.chatView?.finishTextAnimations();
-    void this.doUpdate();
   }
 }
 
@@ -1028,6 +1047,18 @@ export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
   }
 }
 
+function setAiAssistanceChangeSummariesEnabled(enabled: true): void {
+  if (enabled) {
+    localStorage.setItem('aiAssistance_changeSummariesEnabled', 'true');
+  } else {
+    localStorage.setItem('aiAssistance_changeSummariesEnabled', 'false');
+  }
+}
+
+function isAiAssistanceChangeSummariesEnabled(): boolean {
+  return localStorage.getItem('aiAssistance_changeSummariesEnabled') === 'true';
+}
+
 function setAiAssistanceServerSideLoggingEnabled(enabled: boolean): void {
   if (enabled) {
     localStorage.setItem('aiAssistance_enableServerSideLogging', 'true');
@@ -1046,3 +1077,5 @@ function isAiAssistanceServerSideLoggingEnabled(): boolean {
 
 // @ts-ignore
 globalThis.setAiAssistanceServerSideLoggingEnabled = setAiAssistanceServerSideLoggingEnabled;
+// @ts-ignore
+globalThis.setAiAssistanceChangeSummariesEnabled = setAiAssistanceChangeSummariesEnabled;

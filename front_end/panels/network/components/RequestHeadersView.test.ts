@@ -4,7 +4,7 @@
 
 import * as Common from '../../../core/common/common.js';
 import * as Host from '../../../core/host/host.js';
-import type * as Platform from '../../../core/platform/platform.js';
+import * as Platform from '../../../core/platform/platform.js';
 import * as SDK from '../../../core/sdk/sdk.js';
 import * as Protocol from '../../../generated/protocol.js';
 import * as Persistence from '../../../models/persistence/persistence.js';
@@ -30,13 +30,12 @@ import {
   recordedMetricsContain,
   resetRecordedMetrics,
 } from '../../../testing/UserMetricsHelpers.js';
-import * as Coordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
+import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
 import * as NetworkForward from '../forward/forward.js';
 
 import * as NetworkComponents from './components.js';
 
-const coordinator = Coordinator.RenderCoordinator.RenderCoordinator.instance();
-
+const {urlString} = Platform.DevToolsPath;
 const defaultRequest = {
   statusCode: 200,
   statusText: 'OK',
@@ -77,7 +76,7 @@ async function renderHeadersComponent(request: SDK.NetworkRequest.NetworkRequest
   const component = new NetworkComponents.RequestHeadersView.RequestHeadersView(request);
   renderElementIntoDOM(component);
   component.wasShown();
-  await coordinator.done({waitForWork: true});
+  await RenderCoordinator.done({waitForWork: true});
   return component;
 }
 
@@ -152,8 +151,7 @@ describeWithMockConnection('RequestHeadersView', () => {
 
   it('status text of a request from cache memory corresponds to the status code', async () => {
     const request = SDK.NetworkRequest.NetworkRequest.create(
-        'requestId' as Protocol.Network.RequestId, 'https://www.example.com' as Platform.DevToolsPath.UrlString,
-        '' as Platform.DevToolsPath.UrlString, null, null, null);
+        'requestId' as Protocol.Network.RequestId, urlString`https://www.example.com`, urlString``, null, null, null);
     request.statusCode = 200;
     request.setFromMemoryCache();
 
@@ -215,7 +213,7 @@ describeWithMockConnection('RequestHeadersView', () => {
 
     // Switch to viewing source view
     responseHeadersCategory.dispatchEvent(new NetworkComponents.RequestHeadersView.ToggleRawHeadersEvent());
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const rawHeadersDiv = responseHeadersCategory.querySelector('.raw-headers');
     assert.instanceOf(rawHeadersDiv, HTMLDivElement);
@@ -226,7 +224,7 @@ describeWithMockConnection('RequestHeadersView', () => {
 
     // Switch to viewing parsed view
     responseHeadersCategory.dispatchEvent(new NetworkComponents.RequestHeadersView.ToggleRawHeadersEvent());
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     assert.deepEqual(
         getRowsTextFromCategory(responseHeadersCategory),
@@ -251,7 +249,7 @@ describeWithMockConnection('RequestHeadersView', () => {
 
     // Switch to viewing source view
     responseHeadersCategory.dispatchEvent(new NetworkComponents.RequestHeadersView.ToggleRawHeadersEvent());
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const rawHeadersDiv = responseHeadersCategory.querySelector('.raw-headers');
     assert.instanceOf(rawHeadersDiv, HTMLDivElement);
@@ -262,7 +260,7 @@ describeWithMockConnection('RequestHeadersView', () => {
     assert.instanceOf(showMoreButton, HTMLElement);
     assert.strictEqual(showMoreButton.textContent, 'Show more');
     showMoreButton.click();
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const noMoreShowMoreButton = responseHeadersCategory.querySelector('devtools-button');
     assert.isNull(noMoreShowMoreButton);
@@ -273,9 +271,8 @@ describeWithMockConnection('RequestHeadersView', () => {
 
   it('re-renders on request headers update', async () => {
     const request = SDK.NetworkRequest.NetworkRequest.create(
-        'requestId' as Protocol.Network.RequestId,
-        'https://www.example.com/foo.html' as Platform.DevToolsPath.UrlString, '' as Platform.DevToolsPath.UrlString,
-        null, null, null);
+        'requestId' as Protocol.Network.RequestId, urlString`https://www.example.com/foo.html`, urlString``, null, null,
+        null);
     request.responseHeaders = [{name: 'originalName', value: 'originalValue'}];
 
     component = await renderHeadersComponent(request);
@@ -289,15 +286,14 @@ describeWithMockConnection('RequestHeadersView', () => {
 
     request.responseHeaders = [{name: 'updatedName', value: 'updatedValue'}];
     assert.isTrue(spy.calledOnce);
-    await coordinator.done();
+    await RenderCoordinator.done();
     assert.deepEqual(getRowsTextFromCategory(responseHeadersCategory), [['updatedname:', 'updatedValue']]);
   });
 
   it('can highlight individual response headers', async () => {
     const request = SDK.NetworkRequest.NetworkRequest.create(
-        'requestId' as Protocol.Network.RequestId,
-        'https://www.example.com/foo.html' as Platform.DevToolsPath.UrlString, '' as Platform.DevToolsPath.UrlString,
-        null, null, null);
+        'requestId' as Protocol.Network.RequestId, urlString`https://www.example.com/foo.html`, urlString``, null, null,
+        null);
     request.responseHeaders = [
       {name: 'foo', value: 'bar'},
       {name: 'highlightMe', value: 'some value'},
@@ -315,15 +311,14 @@ describeWithMockConnection('RequestHeadersView', () => {
 
     assert.deepEqual(getRowHighlightStatus(responseHeadersCategory), [false, false, false]);
     component.revealHeader(NetworkForward.UIRequestLocation.UIHeaderSection.RESPONSE, 'HiGhLiGhTmE');
-    await coordinator.done();
+    await RenderCoordinator.done();
     assert.deepEqual(getRowHighlightStatus(responseHeadersCategory), [false, false, true]);
   });
 
   it('can highlight individual request headers', async () => {
     const request = SDK.NetworkRequest.NetworkRequest.create(
-        'requestId' as Protocol.Network.RequestId,
-        'https://www.example.com/foo.html' as Platform.DevToolsPath.UrlString, '' as Platform.DevToolsPath.UrlString,
-        null, null, null);
+        'requestId' as Protocol.Network.RequestId, urlString`https://www.example.com/foo.html`, urlString``, null, null,
+        null);
     request.setRequestHeaders([
       {name: 'foo', value: 'bar'},
       {name: 'highlightMe', value: 'some value'},
@@ -341,13 +336,13 @@ describeWithMockConnection('RequestHeadersView', () => {
 
     assert.deepEqual(getRowHighlightStatus(requestHeadersCategory), [false, false, false]);
     component.revealHeader(NetworkForward.UIRequestLocation.UIHeaderSection.REQUEST, 'HiGhLiGhTmE');
-    await coordinator.done();
+    await RenderCoordinator.done();
     assert.deepEqual(getRowHighlightStatus(requestHeadersCategory), [false, false, true]);
   });
 
   it('renders a link to \'.headers\'', async () => {
     const {project} = createFileSystemUISourceCode({
-      url: 'file:///path/to/overrides/www.example.com/.headers' as Platform.DevToolsPath.UrlString,
+      url: urlString`file:///path/to/overrides/www.example.com/.headers`,
       mimeType: 'text/plain',
       fileSystemPath: 'file:///path/to/overrides',
     });
@@ -373,7 +368,7 @@ describeWithMockConnection('RequestHeadersView', () => {
 
   it('does not render a link to \'.headers\' if a matching \'.headers\' does not exist', async () => {
     const {project} = createFileSystemUISourceCode({
-      url: 'file:///path/to/overrides/www.mismatch.com/.headers' as Platform.DevToolsPath.UrlString,
+      url: urlString`file:///path/to/overrides/www.mismatch.com/.headers`,
       mimeType: 'text/plain',
       fileSystemPath: 'file:///path/to/overrides',
     });
@@ -395,13 +390,12 @@ describeWithMockConnection('RequestHeadersView', () => {
     Common.Settings.Settings.instance().moduleSetting('persistence-network-overrides-enabled').set(false);
 
     const request = SDK.NetworkRequest.NetworkRequest.create(
-        'requestId' as Protocol.Network.RequestId, 'https://www.example.com/' as Platform.DevToolsPath.UrlString,
-        '' as Platform.DevToolsPath.UrlString, null, null, null);
+        'requestId' as Protocol.Network.RequestId, urlString`https://www.example.com/`, urlString``, null, null, null);
     request.responseHeaders = [
       {name: 'foo', value: 'bar'},
     ];
 
-    await createWorkspaceProject('file:///path/to/overrides' as Platform.DevToolsPath.UrlString, [
+    await createWorkspaceProject(urlString`file:///path/to/overrides`, [
       {
         name: '.headers',
         path: 'www.example.com/',
@@ -439,7 +433,7 @@ describeWithMockConnection('RequestHeadersView', () => {
     const pencilButton = headerRow.shadowRoot.querySelector('.enable-editing');
     assert.instanceOf(pencilButton, HTMLElement);
     pencilButton.click();
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     checkRow(headerRow.shadowRoot, 'foo:', 'bar', true);
     assert.isTrue(recordedMetricsContain(
@@ -452,12 +446,11 @@ describeWithMockConnection('RequestHeadersView', () => {
 
   it('records metrics when a new \'.headers\' file is created', async () => {
     const request = SDK.NetworkRequest.NetworkRequest.create(
-        'requestId' as Protocol.Network.RequestId, 'https://www.example.com/' as Platform.DevToolsPath.UrlString,
-        '' as Platform.DevToolsPath.UrlString, null, null, null);
+        'requestId' as Protocol.Network.RequestId, urlString`https://www.example.com/`, urlString``, null, null, null);
     request.responseHeaders = [
       {name: 'foo', value: 'bar'},
     ];
-    await createWorkspaceProject('file:///path/to/overrides' as Platform.DevToolsPath.UrlString, []);
+    await createWorkspaceProject(urlString`file:///path/to/overrides`, []);
 
     component = await renderHeadersComponent(request);
     assert.isNotNull(component.shadowRoot);
@@ -476,7 +469,7 @@ describeWithMockConnection('RequestHeadersView', () => {
         Host.UserMetrics.Action.HeaderOverrideFileCreated));
 
     pencilButton.click();
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     assert.isTrue(recordedMetricsContain(
         Host.InspectorFrontendHostAPI.EnumeratedHistogram.ActionTaken,
@@ -494,7 +487,7 @@ describeWithEnvironment('RequestHeadersView\'s Category', () => {
       loggingContext: 'details-general',
     };
     assert.isNotNull(component.shadowRoot);
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const details = getElementWithinComponent(component, 'details', HTMLDetailsElement);
     const summary = getElementWithinComponent(component, 'summary', HTMLElement);
@@ -529,7 +522,7 @@ describeWithEnvironment('RequestHeadersView\'s Category', () => {
       loggingContext: 'details-response-headers',
     };
     assert.isNotNull(component.shadowRoot);
-    await coordinator.done();
+    await RenderCoordinator.done();
     component.addEventListener(NetworkComponents.RequestHeadersView.ToggleRawHeadersEvent.eventName, () => {
       eventCounter += 1;
     });

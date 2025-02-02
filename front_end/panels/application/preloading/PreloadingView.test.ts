@@ -15,13 +15,10 @@ import {
   describeWithMockConnection,
   dispatchEvent,
 } from '../../../testing/MockConnection.js';
-import * as DataGrid from '../../../ui/components/data_grid/data_grid.js';
-import * as Coordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
+import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
 import * as ReportView from '../../../ui/components/report_view/report_view.js';
 import * as UI from '../../../ui/legacy/legacy.js';
 import * as Resources from '../application.js';
-
-const coordinator = Coordinator.RenderCoordinator.RenderCoordinator.instance();
 
 const zip2 = <T, S>(xs: T[], ys: S[]) => {
   assert.strictEqual(xs.length, ys.length);
@@ -147,7 +144,7 @@ class NavigationEmulator {
     let json;
     try {
       json = JSON.parse(specrules);
-    } catch (_) {
+    } catch {
       dispatchEvent(this.primaryTarget, 'Preload.ruleSetUpdated', {
         ruleSet: {
           id: `ruleSetId:0.${this.seq}`,
@@ -247,6 +244,10 @@ function createRuleSetView(target: SDK.Target.Target): Resources.PreloadingView.
   const view = new Resources.PreloadingView.PreloadingRuleSetView(model);
   const container = new UI.Widget.VBox();
   const div = document.createElement('div');
+  view.contentElement.style.display = 'block';
+  view.contentElement.style.width = '640px';
+  view.contentElement.style.height = '480px';
+
   renderElementIntoDOM(div);
   container.markAsRoot();
   container.show(div);
@@ -263,6 +264,8 @@ function createAttemptView(target: SDK.Target.Target): Resources.PreloadingView.
   const view = new Resources.PreloadingView.PreloadingAttemptView(model);
   const container = new UI.Widget.VBox();
   const div = document.createElement('div');
+  view.contentElement.style.width = '640px';
+  view.contentElement.style.height = '480px';
   renderElementIntoDOM(div);
   container.markAsRoot();
   container.show(div);
@@ -325,7 +328,7 @@ describeWithMockConnection('PreloadingRuleSetView', () => {
       ],
     });
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const ruleSetGridComponent = view.getRuleSetGridForTest();
     assert.isNotNull(ruleSetGridComponent.shadowRoot);
@@ -352,7 +355,7 @@ describeWithMockConnection('PreloadingRuleSetView', () => {
       "source": "list",
 `);
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const ruleSetGridComponent = view.getRuleSetGridForTest();
     assert.isNotNull(ruleSetGridComponent.shadowRoot);
@@ -368,14 +371,9 @@ describeWithMockConnection('PreloadingRuleSetView', () => {
 
     );
 
-    const cells = [
-      {columnId: 'id', value: 'ruleSetId:0.2'},
-      {columnId: 'Validity', value: 'Invalid'},
-    ];
-    ruleSetGridComponent.dispatchEvent(
-        new DataGrid.DataGridEvents.BodyCellFocusedEvent({columnId: 'Validity', value: 'Invalid'}, {cells}));
+    ruleSetGridComponent.dispatchEvent(new CustomEvent('select', {detail: 'ruleSetId:0.2'}));
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     assert.deepEqual(
         ruleSetDetailsComponent.shadowRoot?.getElementById('ruleset-url')?.textContent, 'https://example.com/');
@@ -404,7 +402,7 @@ describeWithMockConnection('PreloadingRuleSetView', () => {
 `);
     await emulator.navigateAndDispatchEvents('notprerendered.html');
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const ruleSetGridComponent = view.getRuleSetGridForTest();
     assert.isNotNull(ruleSetGridComponent.shadowRoot);
@@ -434,7 +432,7 @@ describeWithMockConnection('PreloadingRuleSetView', () => {
 `);
     await emulator.activateAndDispatchEvents('prerendered.html');
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const ruleSetGridComponent = view.getRuleSetGridForTest();
     assert.isNotNull(ruleSetGridComponent.shadowRoot);
@@ -483,7 +481,7 @@ describeWithMockConnection('PreloadingRuleSetView', () => {
       waitingForDebugger: false,
     });
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const ruleSetGridComponent = view.getRuleSetGridForTest();
     assert.isNotNull(ruleSetGridComponent.shadowRoot);
@@ -520,7 +518,7 @@ describeWithMockConnection('PreloadingAttemptView', () => {
 }
 `);
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const preloadingGridComponent = view.getPreloadingGridForTest();
     assert.isNotNull(preloadingGridComponent.shadowRoot);
@@ -582,7 +580,7 @@ describeWithMockConnection('PreloadingAttemptView', () => {
       waitingForDebugger: false,
     });
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const preloadingGridComponent = view.getPreloadingGridForTest();
     assert.isNotNull(preloadingGridComponent.shadowRoot);
@@ -658,7 +656,7 @@ describeWithMockConnection('PreloadingAttemptView', () => {
       ],
     });
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const ruleSetSelectorToolbarItem = view.getRuleSetSelectorToolbarItemForTest();
     const preloadingGridComponent = view.getPreloadingGridForTest();
@@ -688,7 +686,7 @@ describeWithMockConnection('PreloadingAttemptView', () => {
     // Turn on filtering.
     view.selectRuleSetOnFilterForTest('ruleSetId:0.2' as Protocol.Preload.RuleSetId);
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     assert.strictEqual(ruleSetSelectorToolbarItem.element.querySelector('span')?.textContent, 'example.com/');
 
@@ -708,7 +706,7 @@ describeWithMockConnection('PreloadingAttemptView', () => {
     // Turn off filtering.
     view.selectRuleSetOnFilterForTest(null);
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     assert.strictEqual(ruleSetSelectorToolbarItem.element.querySelector('span')?.textContent, 'All speculative loads');
 
@@ -749,7 +747,7 @@ describeWithMockConnection('PreloadingAttemptView', () => {
 }
 `);
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const preloadingGridComponent = view.getPreloadingGridForTest();
     assert.isNotNull(preloadingGridComponent.shadowRoot);
@@ -769,14 +767,10 @@ describeWithMockConnection('PreloadingAttemptView', () => {
         ],
     );
 
-    const cells = [
-      {columnId: 'id', value: 'loaderId:1:Prerender:https://example.com/prerendered.html:undefined'},
-      // Omit other columns.
-    ];
     preloadingGridComponent.dispatchEvent(
-        new DataGrid.DataGridEvents.BodyCellFocusedEvent({columnId: 'URL', value: '/prerendered.html'}, {cells}));
+        new CustomEvent('select', {detail: 'loaderId:1:Prerender:https://example.com/prerendered.html:undefined'}));
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const report =
         getElementWithinComponent(preloadingDetailsComponent, 'devtools-report', ReportView.ReportView.Report);
@@ -825,7 +819,7 @@ describeWithMockConnection('PreloadingAttemptView', () => {
     const preloadingDetailsComponent = view.getPreloadingDetailsForTest();
     assert.isNotNull(preloadingDetailsComponent.shadowRoot);
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     assertGridContents(
         preloadingGridComponent,
@@ -840,14 +834,10 @@ describeWithMockConnection('PreloadingAttemptView', () => {
         ],
     );
 
-    const cells = [
-      {columnId: 'id', value: 'loaderId:1:Prerender:https://example.com/prerendered.html:undefined'},
-      // Omit other columns.
-    ];
     preloadingGridComponent.dispatchEvent(
-        new DataGrid.DataGridEvents.BodyCellFocusedEvent({columnId: 'URL', value: '/prerendered.html'}, {cells}));
+        new CustomEvent('select', {detail: 'loaderId:1:Prerender:https://example.com/prerendered.html:undefined'}));
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const report =
         getElementWithinComponent(preloadingDetailsComponent, 'devtools-report', ReportView.ReportView.Report);
@@ -904,7 +894,7 @@ describeWithMockConnection('PreloadingAttemptView', () => {
     const preloadingDetailsComponent = view.getPreloadingDetailsForTest();
     assert.isNotNull(preloadingDetailsComponent.shadowRoot);
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     assertGridContents(
         preloadingGridComponent,
@@ -919,14 +909,10 @@ describeWithMockConnection('PreloadingAttemptView', () => {
         ],
     );
 
-    const cells = [
-      {columnId: 'id', value: 'loaderId:1:Prerender:https://example.com/prerendered.html:undefined'},
-      // Omit other columns.
-    ];
     preloadingGridComponent.dispatchEvent(
-        new DataGrid.DataGridEvents.BodyCellFocusedEvent({columnId: 'URL', value: '/prerendered.html'}, {cells}));
+        new CustomEvent('select', {detail: 'loaderId:1:Prerender:https://example.com/prerendered.html:undefined'}));
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const report =
         getElementWithinComponent(preloadingDetailsComponent, 'devtools-report', ReportView.ReportView.Report);
@@ -972,7 +958,7 @@ describeWithMockConnection('PreloadingSummaryView', () => {
 `);
     await emulator.activateAndDispatchEvents('prerendered.html');
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const usedPreloadingComponent = view.getUsedPreloadingForTest();
     assert.isNotNull(usedPreloadingComponent.shadowRoot);
@@ -998,7 +984,7 @@ async function testWarnings(
   dispatchEvent(target, 'Preload.preloadEnabledStateUpdated', event);
 
   await warningsUpdatedPromise;
-  await coordinator.done();
+  await RenderCoordinator.done();
 
   const infobarContainer = view.getInfobarContainerForTest();
   const infobar = infobarContainer.querySelector('devtools-resources-preloading-disabled-infobar');

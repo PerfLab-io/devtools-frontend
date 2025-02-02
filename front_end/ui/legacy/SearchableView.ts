@@ -33,6 +33,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import './Toolbar.js'; // eslint-disable-line import/no-duplicates
+
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
@@ -42,8 +44,8 @@ import * as IconButton from '../components/icon_button/icon_button.js';
 
 import * as ARIAUtils from './ARIAUtils.js';
 import {InspectorView} from './InspectorView.js';
-import searchableViewStyles from './searchableView.css.legacy.js';
-import {Toolbar, ToolbarButton, ToolbarText, ToolbarToggle} from './Toolbar.js';
+import searchableViewStyles from './searchableView.css.js';
+import {ToolbarButton, ToolbarText, ToolbarToggle} from './Toolbar.js';  // eslint-disable-line import/no-duplicates
 import {createHistoryInput, createTextButton} from './UIUtils.js';
 import {VBox} from './Widget.js';
 
@@ -179,7 +181,7 @@ export class SearchableView extends VBox {
     this.footerElement = this.footerElementContainer.createChild('div', 'toolbar-search');
     this.footerElement.setAttribute('jslog', `${VisualLogging.toolbar('search').track({resize: true})}`);
 
-    const replaceToggleToolbar = new Toolbar('replace-toggle-toolbar', this.footerElement);
+    const replaceToggleToolbar = this.footerElement.createChild('devtools-toolbar', 'replace-toggle-toolbar');
     this.replaceToggleButton =
         new ToolbarToggle(i18nString(UIStrings.enableFindAndReplace), 'replace', undefined, 'replace');
     ARIAUtils.setLabel(this.replaceToggleButton.element, i18nString(UIStrings.enableFindAndReplace));
@@ -269,7 +271,7 @@ export class SearchableView extends VBox {
     const buttonsContainer = this.footerElement.createChild('div', 'toolbar-search-buttons');
     const firstRowButtons = buttonsContainer.createChild('div', 'first-row-buttons');
 
-    const toolbar = new Toolbar('toolbar-search-options', firstRowButtons);
+    const toolbar = firstRowButtons.createChild('devtools-toolbar', 'toolbar-search-options');
     this.searchNavigationPrevElement =
         new ToolbarButton(i18nString(UIStrings.searchPrevious), 'chevron-up', undefined, 'select-previous');
     this.searchNavigationPrevElement.addEventListener(ToolbarButton.Events.CLICK, () => this.onPrevButtonSearch());
@@ -732,7 +734,7 @@ export class SearchConfig {
         regex = new RegExp(query.substring(1, query.length - 1), modifiers);
         fromQuery = true;
       }
-    } catch (e) {
+    } catch {
       // Silent catch.
     }
 

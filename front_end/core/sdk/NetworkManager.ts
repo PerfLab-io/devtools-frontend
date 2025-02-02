@@ -147,6 +147,14 @@ export class NetworkManager extends SDKModel<EventTypes> {
     if (Common.Settings.Settings.instance().moduleSetting('cache-disabled').get()) {
       void this.#networkAgent.invoke_setCacheDisabled({cacheDisabled: true});
     }
+    if (Common.Settings.Settings.instance().getHostConfig().devToolsPrivacyUI?.enabled &&
+        Common.Settings.Settings.instance().getHostConfig().thirdPartyCookieControls?.managedBlockThirdPartyCookies !==
+            true &&
+        (Common.Settings.Settings.instance().createSetting('cookie-control-override-enabled', undefined).get() ||
+         Common.Settings.Settings.instance().createSetting('grace-period-mitigation-disabled', undefined).get() ||
+         Common.Settings.Settings.instance().createSetting('heuristic-mitigation-disabled', undefined).get())) {
+      this.cookieControlFlagsSettingChanged();
+    }
 
     void this.#networkAgent.invoke_enable({maxPostDataSize: MAX_EAGER_POST_REQUEST_BODY_LENGTH});
     void this.#networkAgent.invoke_setAttachDebugStack({enabled: true});
@@ -161,6 +169,16 @@ export class NetworkManager extends SDKModel<EventTypes> {
     Common.Settings.Settings.instance()
         .moduleSetting('cache-disabled')
         .addChangeListener(this.cacheDisabledSettingChanged, this);
+
+    Common.Settings.Settings.instance()
+        .createSetting('cookie-control-override-enabled', undefined)
+        .addChangeListener(this.cookieControlFlagsSettingChanged, this);
+    Common.Settings.Settings.instance()
+        .createSetting('grace-period-mitigation-disabled', undefined)
+        .addChangeListener(this.cookieControlFlagsSettingChanged, this);
+    Common.Settings.Settings.instance()
+        .createSetting('heuristic-mitigation-disabled', undefined)
+        .addChangeListener(this.cookieControlFlagsSettingChanged, this);
   }
 
   static forRequest(request: NetworkRequest): NetworkManager|null {
@@ -313,6 +331,23 @@ export class NetworkManager extends SDKModel<EventTypes> {
     void this.#networkAgent.invoke_setCacheDisabled({cacheDisabled: enabled});
   }
 
+  private cookieControlFlagsSettingChanged(): void {
+    const overridesEnabled =
+        Boolean(Common.Settings.Settings.instance().createSetting('cookie-control-override-enabled', undefined).get());
+    const gracePeriodEnabled = overridesEnabled ?
+        Boolean(
+            Common.Settings.Settings.instance().createSetting('grace-period-mitigation-disabled', undefined).get()) :
+        false;
+    const heuristicEnabled = overridesEnabled ?
+        Boolean(Common.Settings.Settings.instance().createSetting('heuristic-mitigation-disabled', undefined).get()) :
+        false;
+    void this.#networkAgent.invoke_setCookieControls({
+      enableThirdPartyCookieRestriction: overridesEnabled,
+      disableThirdPartyCookieMetadata: gracePeriodEnabled,
+      disableThirdPartyCookieHeuristics: heuristicEnabled,
+    });
+  }
+
   override dispose(): void {
     Common.Settings.Settings.instance()
         .moduleSetting('cache-disabled')
@@ -383,19 +418,19 @@ export interface MessageGeneratedEvent {
   warning: boolean;
 }
 
-export type EventTypes = {
-  [Events.RequestStarted]: RequestStartedEvent,
-  [Events.RequestUpdated]: NetworkRequest,
-  [Events.RequestFinished]: NetworkRequest,
-  [Events.RequestUpdateDropped]: RequestUpdateDroppedEventData,
-  [Events.ResponseReceived]: ResponseReceivedEvent,
-  [Events.MessageGenerated]: MessageGeneratedEvent,
-  [Events.RequestRedirected]: NetworkRequest,
-  [Events.LoadingFinished]: NetworkRequest,
-  [Events.ReportingApiReportAdded]: Protocol.Network.ReportingApiReport,
-  [Events.ReportingApiReportUpdated]: Protocol.Network.ReportingApiReport,
-  [Events.ReportingApiEndpointsChangedForOrigin]: Protocol.Network.ReportingApiEndpointsChangedForOriginEvent,
-};
+export interface EventTypes {
+  [Events.RequestStarted]: RequestStartedEvent;
+  [Events.RequestUpdated]: NetworkRequest;
+  [Events.RequestFinished]: NetworkRequest;
+  [Events.RequestUpdateDropped]: RequestUpdateDroppedEventData;
+  [Events.ResponseReceived]: ResponseReceivedEvent;
+  [Events.MessageGenerated]: MessageGeneratedEvent;
+  [Events.RequestRedirected]: NetworkRequest;
+  [Events.LoadingFinished]: NetworkRequest;
+  [Events.ReportingApiReportAdded]: Protocol.Network.ReportingApiReport;
+  [Events.ReportingApiReportUpdated]: Protocol.Network.ReportingApiReport;
+  [Events.ReportingApiEndpointsChangedForOrigin]: Protocol.Network.ReportingApiEndpointsChangedForOriginEvent;
+}
 
 /**
  * Define some built-in DevTools throttling presets.
@@ -1683,15 +1718,15 @@ export namespace MultitargetNetworkManager {
     REQUEST_FULFILLED = 'RequestFulfilled',
   }
 
-  export type EventTypes = {
-    [Events.BLOCKED_PATTERNS_CHANGED]: void,
-    [Events.CONDITIONS_CHANGED]: void,
-    [Events.USER_AGENT_CHANGED]: void,
-    [Events.INTERCEPTORS_CHANGED]: void,
-    [Events.ACCEPTED_ENCODINGS_CHANGED]: void,
-    [Events.REQUEST_INTERCEPTED]: string,
-    [Events.REQUEST_FULFILLED]: Platform.DevToolsPath.UrlString,
-  };
+  export interface EventTypes {
+    [Events.BLOCKED_PATTERNS_CHANGED]: void;
+    [Events.CONDITIONS_CHANGED]: void;
+    [Events.USER_AGENT_CHANGED]: void;
+    [Events.INTERCEPTORS_CHANGED]: void;
+    [Events.ACCEPTED_ENCODINGS_CHANGED]: void;
+    [Events.REQUEST_INTERCEPTED]: string;
+    [Events.REQUEST_FULFILLED]: Platform.DevToolsPath.UrlString;
+  }
 }
 
 export class InterceptedRequest {

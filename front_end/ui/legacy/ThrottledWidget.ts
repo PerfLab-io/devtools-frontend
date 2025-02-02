@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import * as Common from '../../core/common/common.js';
+
 import {VBox} from './Widget.js';
 
 export class ThrottledWidget extends VBox {
@@ -16,11 +17,11 @@ export class ThrottledWidget extends VBox {
     this.updateWhenVisible = false;
   }
 
-  protected override doUpdate(): Promise<void> {
+  protected doUpdate(): Promise<void> {
     return Promise.resolve();
   }
 
-  override update(): void {
+  update(): void {
     this.updateWhenVisible = !this.isShowing();
     if (this.updateWhenVisible) {
       return;
@@ -32,6 +33,10 @@ export class ThrottledWidget extends VBox {
       this.updateWhenVisible = true;
       return Promise.resolve();
     });
+  }
+
+  override get updateComplete(): Promise<boolean> {
+    return this.updateThrottler.processCompleted?.then(result => Boolean(result)) || Promise.resolve(false);
   }
 
   override wasShown(): void {

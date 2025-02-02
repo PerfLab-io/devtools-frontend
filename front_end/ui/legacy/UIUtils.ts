@@ -33,6 +33,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import './Toolbar.js';
+
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
@@ -41,23 +43,18 @@ import * as Buttons from '../components/buttons/buttons.js';
 import * as IconButton from '../components/icon_button/icon_button.js';
 import * as VisualLogging from '../visual_logging/visual_logging.js';
 
-import applicationColorTokensStyles from './applicationColorTokens.css.legacy.js';
 import * as ARIAUtils from './ARIAUtils.js';
-import checkboxTextLabelStyles from './checkboxTextLabel.css.legacy.js';
-import confirmDialogStyles from './confirmDialog.css.legacy.js';
-import designTokensStyles from './designTokens.css.legacy.js';
+import checkboxTextLabelStyles from './checkboxTextLabel.css.js';
+import confirmDialogStyles from './confirmDialog.css.js';
 import {Dialog} from './Dialog.js';
 import {Size} from './Geometry.js';
 import {GlassPane, PointerEventsBehavior, SizeBehavior} from './GlassPane.js';
-import inlineButtonStyles from './inlineButton.css.legacy.js';
-import inspectorCommonStyles from './inspectorCommon.css.legacy.js';
+import inlineButtonStyles from './inlineButton.css.js';
+import inspectorCommonStyles from './inspectorCommon.css.js';
 import {KeyboardShortcut, Keys} from './KeyboardShortcut.js';
-import smallBubbleStyles from './smallBubble.css.legacy.js';
-import textButtonStyles from './textButton.css.legacy.js';
+import smallBubbleStyles from './smallBubble.css.js';
 import * as ThemeSupport from './theme_support/theme_support.js';
-import themeColorsStyles from './themeColors.css.legacy.js';
-import tokens from './tokens.css.legacy.js';
-import {Toolbar, type ToolbarButton} from './Toolbar.js';
+import type {ToolbarButton} from './Toolbar.js';
 import {Tooltip} from './Tooltip.js';
 import type {TreeOutline} from './Treeoutline.js';
 import {Widget} from './Widget.js';
@@ -234,7 +231,7 @@ class DragHandler {
       if (targetDocument.defaultView && targetDocument.defaultView.top) {
         this.dragEventsTargetDocumentTop = targetDocument.defaultView.top.document;
       }
-    } catch (e) {
+    } catch {
       this.dragEventsTargetDocumentTop = this.dragEventsTargetDocument;
     }
 
@@ -1190,7 +1187,6 @@ export function createHistoryInput(type = 'search', className?: string): HTMLInp
 
 export function createSelect(name: string, options: string[]|Map<string, string[]>[]|Set<string>): HTMLSelectElement {
   const select = document.createElement('select');
-  select.classList.add('chrome-select');
   ARIAUtils.setLabel(select, name);
   for (const option of options) {
     if (option instanceof Map) {
@@ -1255,7 +1251,7 @@ export function createIconLabel(
  * the radio button accessible.
  *
  * The element is automatically styled correctly, as long as the core styles (in particular
- * `inspectorCommon.css` is injected into the current document / shadow root). The lit-html
+ * `inspectorCommon.css` is injected into the current document / shadow root). The lit
  * equivalent of calling this method is:
  *
  * ```js
@@ -1285,7 +1281,7 @@ export function createRadioButton(
  * and a `step` of 1 (the default for the element).
  *
  * The element is automatically styled correctly, as long as the core styles (in particular
- * `inspectorCommon.css` is injected into the current document / shadow root). The lit-html
+ * `inspectorCommon.css` is injected into the current document / shadow root). The lit
  * equivalent of calling this method is:
  *
  * ```js
@@ -1686,9 +1682,8 @@ export function createInlineButton(toolbarButton: ToolbarButton): Element {
   const element = document.createElement('span');
   const shadowRoot = createShadowRootWithCoreStyles(element, {cssFile: inlineButtonStyles});
   element.classList.add('inline-button');
-  const toolbar = new Toolbar('');
+  const toolbar = shadowRoot.createChild('devtools-toolbar');
   toolbar.appendToolbarItem(toolbarButton);
-  shadowRoot.appendChild(toolbar.element);
   return element;
 }
 
@@ -1881,19 +1876,12 @@ function focusChanged(event: Event): void {
   updateXWidgetfocusWidgetForNode(element);
 }
 
-export function injectCoreStyles(root: Element|ShadowRoot): void {
-  ThemeSupport.ThemeSupport.instance().appendStyle(root, applicationColorTokensStyles);
-  ThemeSupport.ThemeSupport.instance().appendStyle(root, designTokensStyles);
-  ThemeSupport.ThemeSupport.instance().appendStyle(root, inspectorCommonStyles);
-  ThemeSupport.ThemeSupport.instance().appendStyle(root, textButtonStyles);
-  ThemeSupport.ThemeSupport.instance().appendStyle(root, themeColorsStyles);
-  ThemeSupport.ThemeSupport.instance().appendStyle(root, tokens);
-
-  ThemeSupport.ThemeSupport.instance().injectHighlightStyleSheets(root);
-}
-
-export function injectTextButtonStyles(root: Element|ShadowRoot): void {
-  ThemeSupport.ThemeSupport.instance().appendStyle(root, textButtonStyles);
+export function injectCoreStyles(elementOrShadowRoot: Element|ShadowRoot): void {
+  ThemeSupport.ThemeSupport.instance().appendStyle(elementOrShadowRoot, inspectorCommonStyles);
+  const shadowRootOrDocument = (elementOrShadowRoot instanceof ShadowRoot) ?
+      elementOrShadowRoot :
+      (elementOrShadowRoot.shadowRoot ?? elementOrShadowRoot.ownerDocument);
+  shadowRootOrDocument.adoptedStyleSheets.push(Buttons.textButtonStyles);
 }
 
 /**
@@ -1906,7 +1894,7 @@ export function injectTextButtonStyles(root: Element|ShadowRoot): void {
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Element/attachShadow
  */
 export function createShadowRootWithCoreStyles(
-    element: Element, options: {cssFile?: CSSStyleSheet[]|{cssContent: string}, delegatesFocus?: boolean} = {
+    element: Element, options: {cssFile?: ({cssContent: string})[]|{cssContent: string}, delegatesFocus?: boolean} = {
       delegatesFocus: undefined,
       cssFile: undefined,
     }): ShadowRoot {
@@ -1917,12 +1905,12 @@ export function createShadowRootWithCoreStyles(
 
   const shadowRoot = element.attachShadow({mode: 'open', delegatesFocus});
   injectCoreStyles(shadowRoot);
-  if (cssFile) {
-    if ('cssContent' in cssFile) {
-      ThemeSupport.ThemeSupport.instance().appendStyle(shadowRoot, cssFile);
-    } else {
-      shadowRoot.adoptedStyleSheets = cssFile;
+  if (Array.isArray(cssFile)) {
+    for (const cf of cssFile) {
+      ThemeSupport.ThemeSupport.instance().appendStyle(shadowRoot, cf);
     }
+  } else if (cssFile) {
+    ThemeSupport.ThemeSupport.instance().appendStyle(shadowRoot, cssFile);
   }
   shadowRoot.addEventListener('focus', focusChanged, true);
   return shadowRoot;

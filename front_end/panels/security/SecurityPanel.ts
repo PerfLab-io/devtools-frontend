@@ -11,7 +11,7 @@ import * as Protocol from '../../generated/protocol.js';
 import * as NetworkForward from '../../panels/network/forward/forward.js';
 import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as UI from '../../ui/legacy/legacy.js';
-import * as LitHtml from '../../ui/lit-html/lit-html.js';
+import {html, render} from '../../ui/lit/lit.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
 import {CookieControlsView} from './CookieControlsView.js';
@@ -29,6 +29,8 @@ import {
   SummaryMessages,
 } from './SecurityModel.js';
 import {SecurityPanelSidebar} from './SecurityPanelSidebar.js';
+
+const {widgetConfig} = UI.Widget;
 
 const UIStrings = {
   /**
@@ -464,7 +466,7 @@ const SignatureSchemeStrings = new Map([
 
 const LOCK_ICON_NAME = 'lock';
 const WARNING_ICON_NAME = 'warning';
-const INFO_ICON_NAME = 'info';
+const UNKNOWN_ICON_NAME = 'indeterminate-question-box';
 
 export function getSecurityStateIconForDetailedView(
     securityState: Protocol.Security.SecurityState, className: string): IconButton.Icon.Icon {
@@ -481,7 +483,7 @@ export function getSecurityStateIconForDetailedView(
       break;
     case Protocol.Security.SecurityState.Info:  // fallthrough
     case Protocol.Security.SecurityState.Unknown:
-      iconName = INFO_ICON_NAME;
+      iconName = UNKNOWN_ICON_NAME;
       break;
   }
 
@@ -494,7 +496,7 @@ export function getSecurityStateIconForOverview(
   switch (securityState) {
     case Protocol.Security.SecurityState.Unknown:  // fallthrough
     case Protocol.Security.SecurityState.Neutral:
-      iconName = INFO_ICON_NAME;
+      iconName = UNKNOWN_ICON_NAME;
       break;
     case Protocol.Security.SecurityState.Insecure:  // fallthrough
     case Protocol.Security.SecurityState.InsecureBroken:
@@ -531,17 +533,16 @@ export function createHighlightedUrl(url: Platform.DevToolsPath.UrlString, secur
   return highlightedUrl;
 }
 
-const {render, html} = LitHtml;
-export type ViewInput = {
-  panel: SecurityPanel,
-};
-export type ViewOutput = {
-  setVisibleView: (view: UI.Widget.VBox) => void,
-  splitWidget: UI.SplitWidget.SplitWidget,
-  mainView: SecurityMainView,
-  visibleView: UI.Widget.VBox|null,
-  sidebar: SecurityPanelSidebar,
-};
+export interface ViewInput {
+  panel: SecurityPanel;
+}
+export interface ViewOutput {
+  setVisibleView: (view: UI.Widget.VBox) => void;
+  splitWidget: UI.SplitWidget.SplitWidget;
+  mainView: SecurityMainView;
+  visibleView: UI.Widget.VBox|null;
+  sidebar: SecurityPanelSidebar;
+}
 
 export type View = (input: ViewInput, output: ViewOutput, target: HTMLElement) => void;
 
@@ -565,13 +566,12 @@ export class SecurityPanel extends UI.Panel.Panel implements SDK.TargetManager.S
     ${UI.Widget.widgetRef(UI.SplitWidget.SplitWidget, e => {output.splitWidget = e;})}>
         <devtools-widget
           slot="main"
-          .widgetClass=${SecurityMainView}
-          .widgetParams=${[input.panel] as SecurityMainViewProps}
+          .widgetConfig=${widgetConfig(SecurityMainView, {panel: input.panel})}
           ${UI.Widget.widgetRef(SecurityMainView, e => {output.mainView = e;})}>
         </devtools-widget>
         <devtools-widget
           slot="sidebar"
-          .widgetClass=${SecurityPanelSidebar}
+          .widgetConfig=${widgetConfig(SecurityPanelSidebar)}
           @showCookieReport=${()=>output.setVisibleView(new CookieReportView())}
           @showFlagControls=${() => output.setVisibleView(new CookieControlsView())}
           ${UI.Widget.widgetRef(SecurityPanelSidebar, e => {output.sidebar = e;})}>
@@ -582,7 +582,7 @@ export class SecurityPanel extends UI.Panel.Panel implements SDK.TargetManager.S
   }) {
     super('security');
 
-    void this.doUpdate();
+    this.update();
 
     this.sidebar.setMinimumSize(100, 25);
     this.sidebar.element.classList.add('panel-sidebar');
@@ -610,6 +610,8 @@ export class SecurityPanel extends UI.Panel.Panel implements SDK.TargetManager.S
     SDK.TargetManager.TargetManager.instance().addModelListener(
         SDK.ResourceTreeModel.ResourceTreeModel, SDK.ResourceTreeModel.Events.PrimaryPageChanged,
         this.onPrimaryPageChanged, this);
+
+    this.sidebar.showLastSelectedElement();
   }
 
   static instance(opts: {forceNew: boolean|null} = {forceNew: null}): SecurityPanel {
@@ -642,7 +644,7 @@ export class SecurityPanel extends UI.Panel.Panel implements SDK.TargetManager.S
     return certificateButton;
   }
 
-  override async doUpdate(): Promise<void> {
+  update(): void {
     this.view({panel: this}, this, this.contentElement);
   }
 
@@ -653,11 +655,6 @@ export class SecurityPanel extends UI.Panel.Panel implements SDK.TargetManager.S
 
   private onVisibleSecurityStateChanged({data}: Common.EventTarget.EventTargetEvent<PageVisibleSecurityState>): void {
     this.updateVisibleSecurityState(data);
-  }
-
-  selectAndSwitchToMainView(): void {
-    // The sidebar element will trigger displaying the main view. Rather than making a redundant call to display the main view, we rely on this.
-    this.sidebar.securityOverviewElement.select(true);
   }
 
   showOrigin(origin: Platform.DevToolsPath.UrlString): void {
@@ -675,7 +672,7 @@ export class SecurityPanel extends UI.Panel.Panel implements SDK.TargetManager.S
   override wasShown(): void {
     super.wasShown();
     if (!this.visibleView) {
-      this.selectAndSwitchToMainView();
+      this.sidebar.showLastSelectedElement();
     }
   }
 
@@ -827,9 +824,7 @@ export class SecurityPanel extends UI.Panel.Panel implements SDK.TargetManager.S
     const {frame} = event.data;
     const request = this.lastResponseReceivedForLoaderId.get(frame.loaderId);
 
-    if (!(this.visibleView instanceof CookieReportView) && !(this.visibleView instanceof CookieControlsView)) {
-      this.selectAndSwitchToMainView();
-    }
+    this.sidebar.showLastSelectedElement();
     this.sidebar.clearOrigins();
     this.origins.clear();
     this.lastResponseReceivedForLoaderId.clear();
@@ -852,8 +847,8 @@ export class SecurityPanel extends UI.Panel.Panel implements SDK.TargetManager.S
   private onInterstitialShown(): void {
     // The panel might have been displaying the origin view on the
     // previously loaded page. When showing an interstitial, switch
-    // back to the Overview view.
-    this.selectAndSwitchToMainView();
+    // back to the sidebar's last shown view.
+    this.sidebar.showLastSelectedElement();
     this.sidebar.toggleOriginsList(true /* hidden */);
   }
 
@@ -871,9 +866,8 @@ export enum OriginGroup {
   /* eslint-enable @typescript-eslint/naming-convention */
 }
 
-type SecurityMainViewProps = [SecurityPanel];
 export class SecurityMainView extends UI.Widget.VBox {
-  private readonly panel: SecurityPanel;
+  panel!: SecurityPanel;
   private readonly summarySection: HTMLElement;
   private readonly securityExplanationsMain: HTMLElement;
   private readonly securityExplanationsExtra: HTMLElement;
@@ -881,15 +875,14 @@ export class SecurityMainView extends UI.Widget.VBox {
   private summaryText: HTMLElement;
   private explanations: (Protocol.Security.SecurityStateExplanation|SecurityStyleExplanation)[]|null;
   private securityState: Protocol.Security.SecurityState|null;
-  constructor(panel: SecurityPanel, element?: HTMLElement) {
+  constructor(element?: HTMLElement) {
     super(undefined, undefined, element);
+    this.registerRequiredCSS(lockIconStyles, mainViewStyles);
     this.element.setAttribute('jslog', `${VisualLogging.pane('security.main-view')}`);
 
     this.setMinimumSize(200, 100);
 
     this.contentElement.classList.add('security-main-view');
-
-    this.panel = panel;
 
     this.summarySection = this.contentElement.createChild('div', 'security-summary');
 
@@ -1329,10 +1322,6 @@ export class SecurityMainView extends UI.Widget.VBox {
     void Common.Revealer.reveal(NetworkForward.UIFilter.UIRequestFilter.filters(
         [{filterType: NetworkForward.UIFilter.FilterType.MixedContent, filterValue: filterKey}]));
   }
-  override wasShown(): void {
-    super.wasShown();
-    this.registerCSSFiles([lockIconStyles, mainViewStyles]);
-  }
 }
 
 export class SecurityOriginView extends UI.Widget.VBox {
@@ -1340,6 +1329,7 @@ export class SecurityOriginView extends UI.Widget.VBox {
   private readonly originLockIcon: HTMLElement;
   constructor(panel: SecurityPanel, origin: Platform.DevToolsPath.UrlString, originState: OriginState) {
     super();
+    this.registerRequiredCSS(originViewStyles, lockIconStyles);
     this.element.setAttribute('jslog', `${VisualLogging.pane('security.origin-view')}`);
     this.panel = panel;
     this.setMinimumSize(200, 100);
@@ -1601,11 +1591,6 @@ export class SecurityOriginView extends UI.Widget.VBox {
         newSecurityState, `security-property security-property-${newSecurityState}`);
     this.originLockIcon.appendChild(icon);
   }
-
-  override wasShown(): void {
-    super.wasShown();
-    this.registerCSSFiles([originViewStyles, lockIconStyles]);
-  }
 }
 
 export class SecurityDetailsTable {
@@ -1640,3 +1625,18 @@ export interface OriginState {
 }
 
 export type Origin = Platform.DevToolsPath.UrlString;
+
+export class SecurityRevealer implements Common.Revealer.Revealer<CookieReportView> {
+  async reveal(cookieReportView: CookieReportView): Promise<void> {
+    await UI.ViewManager.ViewManager.instance().showView('security');
+    const view = UI.ViewManager.ViewManager.instance().view('security');
+    if (view) {
+      const securityPanel = await view.widget();
+      if (securityPanel instanceof SecurityPanel) {
+        securityPanel.setVisibleView(cookieReportView);
+      } else {
+        throw new Error('Expected securityPanel to be an instance of SecurityPanel');
+      }
+    }
+  }
+}

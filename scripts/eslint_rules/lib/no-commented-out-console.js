@@ -3,6 +3,9 @@
 // found in the LICENSE file.
 'use strict';
 
+/**
+ * @type {import('eslint').Rule.RuleModule}
+ */
 module.exports = {
   meta: {
     type: 'problem',
@@ -14,7 +17,7 @@ module.exports = {
     schema: []  // no options
   },
   create: function(context) {
-    const sourceCode = context.getSourceCode();
+    const sourceCode = context.sourceCode ?? context.getSourceCode();
 
     function checkCommentAndReportError(comment) {
       const trimmed = comment.value.trim();

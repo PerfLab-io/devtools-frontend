@@ -1241,6 +1241,7 @@ export namespace Audits {
     InvalidFieldsSpecified = 'InvalidFieldsSpecified',
     RelyingPartyOriginIsOpaque = 'RelyingPartyOriginIsOpaque',
     TypeNotMatching = 'TypeNotMatching',
+    UiDismissedNoEmbargo = 'UiDismissedNoEmbargo',
   }
 
   export interface FederatedAuthUserInfoRequestIssueDetails {
@@ -1283,6 +1284,23 @@ export namespace Audits {
      */
     failureMessage: string;
     requestId?: Network.RequestId;
+  }
+
+  export const enum SelectElementAccessibilityIssueReason {
+    DisallowedSelectChild = 'DisallowedSelectChild',
+    DisallowedOptGroupChild = 'DisallowedOptGroupChild',
+    NonPhrasingContentOptionChild = 'NonPhrasingContentOptionChild',
+    InteractiveContentOptionChild = 'InteractiveContentOptionChild',
+    InteractiveContentLegendChild = 'InteractiveContentLegendChild',
+  }
+
+  /**
+   * This issue warns about errors in the select element content model.
+   */
+  export interface SelectElementAccessibilityIssueDetails {
+    nodeId: DOM.BackendNodeId;
+    selectElementAccessibilityIssueReason: SelectElementAccessibilityIssueReason;
+    hasDisallowedAttributes: boolean;
   }
 
   export const enum StyleSheetLoadingIssueReason {
@@ -1361,6 +1379,7 @@ export namespace Audits {
     FederatedAuthUserInfoRequestIssue = 'FederatedAuthUserInfoRequestIssue',
     PropertyRuleIssue = 'PropertyRuleIssue',
     SharedDictionaryIssue = 'SharedDictionaryIssue',
+    SelectElementAccessibilityIssue = 'SelectElementAccessibilityIssue',
   }
 
   /**
@@ -1390,6 +1409,7 @@ export namespace Audits {
     propertyRuleIssueDetails?: PropertyRuleIssueDetails;
     federatedAuthUserInfoRequestIssueDetails?: FederatedAuthUserInfoRequestIssueDetails;
     sharedDictionaryIssueDetails?: SharedDictionaryIssueDetails;
+    selectElementAccessibilityIssueDetails?: SelectElementAccessibilityIssueDetails;
   }
 
   /**
@@ -3195,6 +3215,13 @@ export namespace CSS {
      * Identifier of the frame where "via-inspector" stylesheet should be created.
      */
     frameId: Page.FrameId;
+    /**
+     * If true, creates a new stylesheet for every call. If false,
+     * returns a stylesheet previously created by a call with force=false
+     * for the frame's document if it exists or creates a new stylesheet
+     * (default: false).
+     */
+    force?: boolean;
   }
 
   export interface CreateStyleSheetResponse extends ProtocolResponseWithError {
@@ -3291,6 +3318,15 @@ export namespace CSS {
 
   export interface ResolveValuesResponse extends ProtocolResponseWithError {
     results: string[];
+  }
+
+  export interface GetLonghandPropertiesRequest {
+    shorthandName: string;
+    value: string;
+  }
+
+  export interface GetLonghandPropertiesResponse extends ProtocolResponseWithError {
+    longhandProperties: CSSProperty[];
   }
 
   export interface GetInlineStylesForNodeRequest {
@@ -6011,73 +6047,6 @@ export namespace DOMStorage {
 
   export interface DomStorageItemsClearedEvent {
     storageId: StorageId;
-  }
-}
-
-export namespace Database {
-
-  /**
-   * Unique identifier of Database object.
-   */
-  export type DatabaseId = OpaqueIdentifier<string, 'Protocol.Database.DatabaseId'>;
-
-  /**
-   * Database object.
-   */
-  export interface Database {
-    /**
-     * Database ID.
-     */
-    id: DatabaseId;
-    /**
-     * Database domain.
-     */
-    domain: string;
-    /**
-     * Database name.
-     */
-    name: string;
-    /**
-     * Database version.
-     */
-    version: string;
-  }
-
-  /**
-   * Database error.
-   */
-  export interface Error {
-    /**
-     * Error message.
-     */
-    message: string;
-    /**
-     * Error code.
-     */
-    code: integer;
-  }
-
-  export interface ExecuteSQLRequest {
-    databaseId: DatabaseId;
-    query: string;
-  }
-
-  export interface ExecuteSQLResponse extends ProtocolResponseWithError {
-    columnNames?: string[];
-    values?: any[];
-    sqlError?: Error;
-  }
-
-  export interface GetDatabaseTableNamesRequest {
-    databaseId: DatabaseId;
-  }
-
-  export interface GetDatabaseTableNamesResponse extends ProtocolResponseWithError {
-    tableNames: string[];
-  }
-
-  export interface AddDatabaseEvent {
-    database: Database;
   }
 }
 
@@ -9204,6 +9173,7 @@ export namespace Network {
     StorageAccess = 'StorageAccess',
     TopLevelStorageAccess = 'TopLevelStorageAccess',
     Scheme = 'Scheme',
+    SameSiteNoneCookiesInSandbox = 'SameSiteNoneCookiesInSandbox',
   }
 
   /**
@@ -10165,6 +10135,21 @@ export namespace Network {
     resource: LoadNetworkResourcePageResult;
   }
 
+  export interface SetCookieControlsRequest {
+    /**
+     * Whether 3pc restriction is enabled.
+     */
+    enableThirdPartyCookieRestriction: boolean;
+    /**
+     * Whether 3pc grace period exception should be enabled; false by default.
+     */
+    disableThirdPartyCookieMetadata: boolean;
+    /**
+     * Whether 3pc heuristics exceptions should be enabled; false by default.
+     */
+    disableThirdPartyCookieHeuristics: boolean;
+  }
+
   /**
    * Fired when data chunk was received over the network.
    */
@@ -10760,6 +10745,7 @@ export namespace Network {
     InternalError = 'InternalError',
     UnknownError = 'UnknownError',
     FulfilledLocally = 'FulfilledLocally',
+    SiteIssuerLimit = 'SiteIssuerLimit',
   }
 
   /**
@@ -11738,6 +11724,7 @@ export namespace Page {
     ChUa = 'ch-ua',
     ChUaArch = 'ch-ua-arch',
     ChUaBitness = 'ch-ua-bitness',
+    ChUaHighEntropyValues = 'ch-ua-high-entropy-values',
     ChUaPlatform = 'ch-ua-platform',
     ChUaModel = 'ch-ua-model',
     ChUaMobile = 'ch-ua-mobile',
@@ -13570,6 +13557,45 @@ export namespace Page {
     frame: Frame;
   }
 
+  export const enum FrameStartedNavigatingEventNavigationType {
+    Reload = 'reload',
+    ReloadBypassingCache = 'reloadBypassingCache',
+    Restore = 'restore',
+    RestoreWithPost = 'restoreWithPost',
+    HistorySameDocument = 'historySameDocument',
+    HistoryDifferentDocument = 'historyDifferentDocument',
+    SameDocument = 'sameDocument',
+    DifferentDocument = 'differentDocument',
+  }
+
+  /**
+   * Fired when a navigation starts. This event is fired for both
+   * renderer-initiated and browser-initiated navigations. For renderer-initiated
+   * navigations, the event is fired after `frameRequestedNavigation`.
+   * Navigation may still be cancelled after the event is issued. Multiple events
+   * can be fired for a single navigation, for example, when a same-document
+   * navigation becomes a cross-document navigation (such as in the case of a
+   * frameset).
+   */
+  export interface FrameStartedNavigatingEvent {
+    /**
+     * ID of the frame that is being navigated.
+     */
+    frameId: FrameId;
+    /**
+     * The URL the navigation started with. The final URL can be different.
+     */
+    url: string;
+    /**
+     * Loader identifier. Even though it is present in case of same-document
+     * navigation, the previously committed loaderId would not change unless
+     * the navigation changes from a same-document to a cross-document
+     * navigation.
+     */
+    loaderId: Network.LoaderId;
+    navigationType: FrameStartedNavigatingEventNavigationType;
+  }
+
   /**
    * Fired when a renderer-initiated navigation is requested.
    * Navigation may still be cancelled after the event is issued.
@@ -14460,7 +14486,6 @@ export namespace Storage {
    * Enum of possible storage types.
    */
   export const enum StorageType {
-    Appcache = 'appcache',
     Cookies = 'cookies',
     File_systems = 'file_systems',
     Indexeddb = 'indexeddb',
@@ -15231,6 +15256,25 @@ export namespace Storage {
     sets: RelatedWebsiteSet[];
   }
 
+  export interface GetAffectedUrlsForThirdPartyCookieMetadataRequest {
+    /**
+     * The URL of the page currently being visited.
+     */
+    firstPartyUrl: string;
+    /**
+     * The list of embedded resource URLs from the page.
+     */
+    thirdPartyUrls: string[];
+  }
+
+  export interface GetAffectedUrlsForThirdPartyCookieMetadataResponse extends ProtocolResponseWithError {
+    /**
+     * Array of matching URLs. If there is a primary pattern match for the first-
+     * party URL, only the first-party URL is returned in the array.
+     */
+    matchedUrls: string[];
+  }
+
   /**
    * A cache's contents have been modified.
    */
@@ -15726,6 +15770,16 @@ export namespace Target {
     port: integer;
   }
 
+  /**
+   * The state of the target window.
+   */
+  export const enum WindowState {
+    Normal = 'normal',
+    Minimized = 'minimized',
+    Maximized = 'maximized',
+    Fullscreen = 'fullscreen',
+  }
+
   export interface ActivateTargetRequest {
     targetId: TargetID;
   }
@@ -15813,29 +15867,42 @@ export namespace Target {
      */
     url: string;
     /**
-     * Frame width in DIP (headless chrome only).
+     * Frame left origin in DIP (requires newWindow to be true or headless shell).
+     */
+    left?: integer;
+    /**
+     * Frame top origin in DIP (requires newWindow to be true or headless shell).
+     */
+    top?: integer;
+    /**
+     * Frame width in DIP (requires newWindow to be true or headless shell).
      */
     width?: integer;
     /**
-     * Frame height in DIP (headless chrome only).
+     * Frame height in DIP (requires newWindow to be true or headless shell).
      */
     height?: integer;
+    /**
+     * Frame window state (requires newWindow to be true or headless shell).
+     * Default is normal.
+     */
+    windowState?: WindowState;
     /**
      * The browser context to create the page in.
      */
     browserContextId?: Browser.BrowserContextID;
     /**
-     * Whether BeginFrames for this target will be controlled via DevTools (headless chrome only,
+     * Whether BeginFrames for this target will be controlled via DevTools (headless shell only,
      * not supported on MacOS yet, false by default).
      */
     enableBeginFrameControl?: boolean;
     /**
-     * Whether to create a new Window or Tab (chrome-only, false by default).
+     * Whether to create a new Window or Tab (false by default, not supported by headless shell).
      */
     newWindow?: boolean;
     /**
-     * Whether to create the target in background or foreground (chrome-only,
-     * false by default).
+     * Whether to create the target in background or foreground (false by default, not supported
+     * by headless shell).
      */
     background?: boolean;
     /**
@@ -18171,6 +18238,17 @@ export namespace Debugger {
     externalURL?: string;
   }
 
+  export interface ResolvedBreakpoint {
+    /**
+     * Breakpoint unique identifier.
+     */
+    breakpointId: BreakpointId;
+    /**
+     * Actual breakpoint location.
+     */
+    location: Location;
+  }
+
   export const enum ContinueToLocationRequestTargetCallFrames {
     Any = 'any',
     Current = 'current',
@@ -18702,6 +18780,7 @@ export namespace Debugger {
 
   /**
    * Fired when breakpoint is resolved to an actual script and location.
+   * Deprecated in favor of `resolvedBreakpoints` in the `scriptParsed` event.
    */
   export interface BreakpointResolvedEvent {
     /**
@@ -18927,6 +19006,12 @@ export namespace Debugger {
      * The name the embedder supplied for this script.
      */
     embedderName?: string;
+    /**
+     * The list of set breakpoints in this script if calls to `setBreakpointByUrl`
+     * matches this script's URL or hash. Clients that use this list can ignore the
+     * `breakpointResolved` event. They are equivalent.
+     */
+    resolvedBreakpoints?: ResolvedBreakpoint[];
   }
 }
 
@@ -20191,13 +20276,21 @@ export namespace Runtime {
 
   export interface GetHeapUsageResponse extends ProtocolResponseWithError {
     /**
-     * Used heap size in bytes.
+     * Used JavaScript heap size in bytes.
      */
     usedSize: number;
     /**
-     * Allocated heap size in bytes.
+     * Allocated JavaScript heap size in bytes.
      */
     totalSize: number;
+    /**
+     * Used size in bytes in the embedder's garbage-collected heap.
+     */
+    embedderHeapUsedSize: number;
+    /**
+     * Size in bytes of backing storage for array buffers and external strings.
+     */
+    backingStorageSize: number;
   }
 
   export interface GetPropertiesRequest {

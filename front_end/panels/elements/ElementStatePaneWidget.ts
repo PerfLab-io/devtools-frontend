@@ -64,6 +64,7 @@ enum SpecificPseudoStates {
   INDETERMINATE = 'indeterminate',
   PLACEHOLDER_SHOWN = 'placeholder-shown',
   AUTOFILL = 'autofill',
+  OPEN = 'open',
 }
 
 export class ElementStatePaneWidget extends UI.Widget.Widget {
@@ -77,6 +78,7 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
 
   constructor() {
     super(true);
+    this.registerRequiredCSS(elementStatePaneWidgetStyles);
     this.contentElement.className = 'styles-element-state-pane';
     this.contentElement.setAttribute('jslog', `${VisualLogging.pane('element-states')}`);
     const inputs: HTMLInputElement[] = [];
@@ -218,6 +220,7 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
         SpecificPseudoStates.PLACEHOLDER_SHOWN, createElementStateCheckbox(SpecificPseudoStates.PLACEHOLDER_SHOWN));
     this.specificPseudoStateDivs.set(
         SpecificPseudoStates.AUTOFILL, createElementStateCheckbox(SpecificPseudoStates.AUTOFILL));
+    this.specificPseudoStateDivs.set(SpecificPseudoStates.OPEN, createElementStateCheckbox(SpecificPseudoStates.OPEN));
 
     this.specificPseudoStateDivs.forEach(div => {
       elementSpecificContainer.appendChild(div);
@@ -260,10 +263,9 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
   }
   override wasShown(): void {
     super.wasShown();
-    this.registerCSSFiles([elementStatePaneWidgetStyles]);
     this.update();
   }
-  override update(): void {
+  update(): void {
     let node = UI.Context.Context.instance().flavor(SDK.DOMModel.DOMNode);
     if (node) {
       node = node.enclosingElementOrSelf();
@@ -413,6 +415,12 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
       hideSpecificCheckbox(SpecificPseudoStates.AUTOFILL, false);
     } else {
       hideSpecificCheckbox(SpecificPseudoStates.AUTOFILL, true);
+    }
+
+    if (isElementOfTypes(node, ['input', 'select', 'dialog', 'details'])) {
+      hideSpecificCheckbox(SpecificPseudoStates.OPEN, false);
+    } else {
+      hideSpecificCheckbox(SpecificPseudoStates.OPEN, true);
     }
 
     this.specificHeader.hidden = showedACheckbox ? false : true;

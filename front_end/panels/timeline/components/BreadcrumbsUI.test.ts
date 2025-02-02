@@ -5,13 +5,13 @@
 import * as Trace from '../../../models/trace/trace.js';
 import {renderElementIntoDOM} from '../../../testing/DOMHelpers.js';
 import {describeWithEnvironment} from '../../../testing/EnvironmentHelpers.js';
-import * as Coordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
+import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
 
 import * as TimelineComponents from './components.js';
 
-function milliToMicro(x: number): Trace.Types.Timing.MicroSeconds {
-  return Trace.Helpers.Timing.millisecondsToMicroseconds(
-      Trace.Types.Timing.MilliSeconds(x),
+function milliToMicro(x: number): Trace.Types.Timing.Micro {
+  return Trace.Helpers.Timing.milliToMicro(
+      Trace.Types.Timing.Milli(x),
   );
 }
 
@@ -35,11 +35,10 @@ describeWithEnvironment('BreadcrumbsUI', () => {
   }
 
   it('renders one breadcrumb', async () => {
-    const coordinator = Coordinator.RenderCoordinator.RenderCoordinator.instance();
     const component = new BreadcrumbsUI();
     renderElementIntoDOM(component);
 
-    const traceWindow: Trace.Types.Timing.TraceWindowMicroSeconds = {
+    const traceWindow: Trace.Types.Timing.TraceWindowMicro = {
       min: milliToMicro(1),
       max: milliToMicro(10),
       range: milliToMicro(9),
@@ -52,7 +51,7 @@ describeWithEnvironment('BreadcrumbsUI', () => {
 
     component.data = {initialBreadcrumb: breadcrumb, activeBreadcrumb: breadcrumb};
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const breadcrumbsRanges = queryBreadcrumbs(component);
 
@@ -61,17 +60,16 @@ describeWithEnvironment('BreadcrumbsUI', () => {
   });
 
   it('renders all the breadcrumbs provided', async () => {
-    const coordinator = Coordinator.RenderCoordinator.RenderCoordinator.instance();
     const component = new BreadcrumbsUI();
     renderElementIntoDOM(component);
 
-    const traceWindow2: Trace.Types.Timing.TraceWindowMicroSeconds = {
+    const traceWindow2: Trace.Types.Timing.TraceWindowMicro = {
       min: milliToMicro(2),
       max: milliToMicro(9),
       range: milliToMicro(7),
     };
 
-    const traceWindow: Trace.Types.Timing.TraceWindowMicroSeconds = {
+    const traceWindow: Trace.Types.Timing.TraceWindowMicro = {
       min: milliToMicro(1),
       max: milliToMicro(10),
       range: milliToMicro(9),
@@ -89,7 +87,7 @@ describeWithEnvironment('BreadcrumbsUI', () => {
 
     component.data = {initialBreadcrumb: breadcrumb, activeBreadcrumb: breadcrumb2};
 
-    await coordinator.done();
+    await RenderCoordinator.done();
 
     const breadcrumbsRanges = queryBreadcrumbs(component);
 
