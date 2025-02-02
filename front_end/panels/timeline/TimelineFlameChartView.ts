@@ -733,6 +733,10 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
     this.bulkAddOverlays(this.#markers);
   }
 
+  removeAllOverlays(): void {
+    this.setActiveInsight(null);
+  }
+
   setOverlays(overlays: Overlays.Overlays.TimelineOverlay[], options: Overlays.Overlays.TimelineOverlaySetOptions):
       void {
     this.bulkRemoveOverlays(this.#currentInsightOverlays);

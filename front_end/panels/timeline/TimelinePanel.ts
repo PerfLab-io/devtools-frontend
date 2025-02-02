@@ -67,7 +67,6 @@ import {IsolateSelector} from './IsolateSelector.js';
 import {AnnotationModifiedEvent, ModificationsManager} from './ModificationsManager.js';
 import * as Overlays from './overlays/overlays.js';
 import {cpuprofileJsonGenerator, traceJsonGenerator} from './SaveFileFormatter.js';
-
 import type {Client, TimelineController} from './TimelineController.js';
 import type {TimelineFlameChartDataProvider} from './TimelineFlameChartDataProvider.js';
 import {Events as TimelineFlameChartViewEvents, TimelineFlameChartView} from './TimelineFlameChartView.js';
@@ -153,10 +152,6 @@ const UIStrings = {
    */
   processed: 'Processed',
   /**
-   *@description Text to close something
-   */
-  close: 'Close',
-  /**
    *@description Text to download the trace file after an error
    */
   // downloadAfterError: 'Download trace',
@@ -228,37 +223,25 @@ const UIStrings = {
    */
   eventSelected: 'Event {PH1} selected',
   /**
-   *@description Text of a hyperlink to documentation.
+   * @description Description of the Timeline up/down scroll action that appears in the Performance panel shortcuts dialog.
    */
-  learnMore: 'Learn more',
+  timelineScrollUpDown: 'Move up/down',
   /**
-   * @description Tooltip text for a button that takes the user back to the default view which shows performance metrics that are live.
+   * @description Description of the Timeline left/right panning action that appears in the Performance panel shortcuts dialog.
    */
-  backToLiveMetrics: 'Go back to the live metrics page',
+  timelinePanLeftRight: 'Move left/right',
   /**
-   * @description Description of the Timeline up/down scroll action that appears in the Performance panel shortcuts dialog. 
+   * @description Description of the Timeline in/out zoom action that appears in the Performance panel shortcuts dialog.
    */
-  timelineScrollUpDown: 'Move up/down', 
+  timelineZoomInOut: 'Zoom in/out',
   /**
-   * @description Description of the Timeline left/right panning action that appears in the Performance panel shortcuts dialog. 
-   */
-  timelinePanLeftRight: 'Move left/right', 
-  /**
-   * @description Description of the Timeline in/out zoom action that appears in the Performance panel shortcuts dialog. 
-   */
-  timelineZoomInOut: 'Zoom in/out', 
-  /**
-   * @description Description of the Timeline fast in/out zoom action that appears in the Performance panel shortcuts dialog. 
+   * @description Description of the Timeline fast in/out zoom action that appears in the Performance panel shortcuts dialog.
    */
   timelineFastZoomInOut: 'Fast zoom in/out',
   /**
    * @description Title for the Dim 3rd Parties checkbox.
    */
   dimThirdParties: 'Dim 3rd parties',
-  /** 
-   * @description Description for the Dim 3rd Parties checkbox tooltip describing how 3rd parties are classified.
-   */
-  thirdPartiesByThirdPartyWeb: '3rd parties classified by third-party-web',
 };
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/TimelinePanel.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -694,6 +677,10 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
         })());
     });
 
+    document.getElementById('-blink-dev-tools')?.addEventListener(ClearActiveOverlaysEvent.eventName, () => {
+      this.#clearActiveOverlays();
+    });
+
     this.#sideBar.element.addEventListener(TimelineComponents.Sidebar.RemoveAnnotation.eventName, event => {
       const {removedAnnotation} = (event as TimelineComponents.Sidebar.RemoveAnnotation);
       ModificationsManager.activeManager()?.removeAnnotation(removedAnnotation);
@@ -766,6 +753,10 @@ export class TimelinePanel extends UI.Panel.Panel implements Client, TimelineMod
 
   #setActiveOverlays(overlays: Overlays.Overlays.TimelineOverlay[]): void {
     this.flameChart.setOverlays(overlays, {updateTraceWindow: true});
+  }
+
+  #clearActiveOverlays(): void {
+    this.flameChart.removeAllOverlays();
   }
 
   /**
@@ -2827,15 +2818,16 @@ export const enum Events {
   HighlightEntries = 'highlightentries',
   HighlightLCPImageWithDelay = 'highlightlcpimagewithdelay',
   ShowThirdParties = 'showthirdparties',
+  ClearActiveOverlays = 'clearactiveoverlays',
 }
 
-export type EventTypes = {
+export interface EventTypes {
   [Events.RawTraceDataLoaded]: {
     rawTraceData: Blob | string | null,
-  },
+  };
   [Events.LoadTraceFile]: {
     blob: Blob,
-  },
+  };
   [Events.HighlightLCPImageWithDelay]: {
     navigationId: string,
     entry: {
@@ -2843,17 +2835,20 @@ export type EventTypes = {
       start: Trace.Types.Timing.Micro,
       end: Trace.Types.Timing.Micro,
     },
-  },
+  };
   [Events.HighlightEntries]: {
     navigationId: string,
     entries: Array<Trace.Types.File.EntryLabelAnnotation>,
-  },
+  };
   [Events.ShowThirdParties]: {
     navigationId: string,
     filterByThirdParty?: string,
     filterByTimestamp?: number,
-  },
-};
+  };
+  [Events.ClearActiveOverlays]: {
+    navigationId: string,
+  };
+}
 
 export class OpenTraceFileEvent extends CustomEvent<Events.OpenTraceFile> {
   static readonly eventName = Events.OpenTraceFile;
@@ -2918,6 +2913,14 @@ export class ShowThirdPartiesEvent extends CustomEvent<EventTypes[Events.ShowThi
 
   constructor(options: EventTypes[Events.ShowThirdParties]) {
     super(ShowThirdPartiesEvent.eventName, { detail: options });
+  }
+}
+
+export class ClearActiveOverlaysEvent extends CustomEvent<EventTypes[Events.ClearActiveOverlays]> {
+  static readonly eventName = Events.ClearActiveOverlays;
+
+  constructor(options: EventTypes[Events.ClearActiveOverlays]) {
+    super(ClearActiveOverlaysEvent.eventName, { detail: options });
   }
 }
 
