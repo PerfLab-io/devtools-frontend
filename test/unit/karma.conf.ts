@@ -5,11 +5,14 @@
 /* eslint @typescript-eslint/no-explicit-any: 0 */
 
 import * as path from 'path';
+import puppeteer from 'puppeteer-core';
 
 import {formatAsPatch, resultAssertionsDiff, ResultsDBReporter} from '../../test/conductor/karma-resultsdb-reporter.js';
 import {CHECKOUT_ROOT, GEN_DIR, SOURCE_ROOT} from '../../test/conductor/paths.js';
 import * as ResultsDb from '../../test/conductor/resultsdb.js';
 import {loadTests, TestConfig} from '../../test/conductor/test_config.js';
+import {ScreenshotError} from '../conductor/screenshot-error.js';
+import {assertElementScreenshotUnchanged} from '../shared/screenshots.js';
 
 const COVERAGE_OUTPUT_DIRECTORY = 'karma-coverage';
 const REMOTE_DEBUGGING_PORT = 7722;
@@ -27,8 +30,66 @@ function* reporters() {
   }
 }
 
-const CustomChrome = function(this: unknown, _baseBrowserDecorator: unknown, _args: unknown, _config: unknown) {
+interface BrowserWithArgs {
+  name: string;
+  flags: string[];
+}
+const CustomChrome = function(this: any, _baseBrowserDecorator: unknown, args: BrowserWithArgs, _config: unknown) {
   require('karma-chrome-launcher')['launcher:Chrome'][1].apply(this, arguments);
+  this._execCommand = async function(_cmd: string, args: string[]) {
+    const url = args.pop()!;
+    const browser = await puppeteer.launch({
+      headless: !TestConfig.debug || TestConfig.headless,
+      executablePath: TestConfig.chromeBinary,
+      defaultViewport: null,
+      dumpio: true,
+      args,
+      ignoreDefaultArgs: ['--hide-scrollbars'],
+    });
+    this._process = browser.process();
+
+    this._process.on('exit', (code: unknown, signal: unknown) => {
+      this._onProcessExit(code, signal, '');
+    });
+
+    const page = await browser.newPage();
+
+    await page.exposeFunction('assertScreenshot', async (elementSelector: string, filename: string) => {
+      try {
+        const testFrame = page.frames()[1];
+        const element = await testFrame.waitForSelector(elementSelector);
+
+        await assertElementScreenshotUnchanged(element, filename, {
+          captureBeyondViewport: false,
+        });
+        return undefined;
+      } catch (error) {
+        if (error instanceof ScreenshotError) {
+          ScreenshotError.errors.push(error);
+        }
+        return `ScreenshotError: ${error.message}`;
+      }
+    });
+
+    await page.goto(url);
+  };
+  this._getOptions = function(url: string) {
+    return [
+      '--remote-allow-origins=*',
+      `--remote-debugging-port=${REMOTE_DEBUGGING_PORT}`,
+      '--use-mock-keychain',
+      '--disable-features=DialMediaRouteProvider',
+      '--password-store=basic',
+      '--disable-extensions',
+      '--disable-gpu',
+      '--disable-font-subpixel-positioning',
+      '--disable-lcd-text',
+      '--force-device-scale-factor=1',
+      '--disable-device-discovery-notifications',
+      ...args.flags,
+      url,
+    ];
+  };
 };
 
 const executablePath = TestConfig.chromeBinary;
@@ -52,7 +113,7 @@ const ProgressWithDiffReporter = function(
     this: any, formatError: unknown, reportSlow: unknown, useColors: unknown, browserConsoleLogOptions: unknown) {
   BaseProgressReporter.call(this, formatError, reportSlow, useColors, browserConsoleLogOptions);
   const baseSpecFailure = this.specFailure;
-  this.specFailure = function(this: any, browser: unknown, result: any) {
+  this.specFailure = function(this: any, _browser: unknown, result: any) {
     baseSpecFailure.apply(this, arguments);
     const patch = formatAsPatch(resultAssertionsDiff(result));
     if (patch) {
@@ -96,6 +157,7 @@ module.exports = function(config: any) {
       {pattern: path.join(GEN_DIR, 'inspector_overlay/**/*.js'), served: true, included: false},
       {pattern: path.join(GEN_DIR, 'inspector_overlay/**/*.js.map'), served: true, included: false},
       {pattern: path.join(GEN_DIR, 'front_end/**/fixtures/**/*'), served: true, included: false},
+      {pattern: path.join(GEN_DIR, 'front_end/ui/components/docs/**/*'), served: true, included: false},
     ],
 
     reporters: [...reporters()],
@@ -104,15 +166,7 @@ module.exports = function(config: any) {
     customLaunchers: {
       BrowserWithArgs: {
         base: CustomChrome.prototype.name,
-        flags: [
-          '--remote-allow-origins=*',
-          `--remote-debugging-port=${REMOTE_DEBUGGING_PORT}`,
-          '--use-mock-keychain',
-          '--disable-features=DialMediaRouteProvider',
-          '--password-store=basic',
-          ...(TestConfig.debug && !TestConfig.headless ? [] : ['--headless=new']),
-          '--disable-extensions',
-        ],
+        flags: [],
       },
     },
 
@@ -121,6 +175,7 @@ module.exports = function(config: any) {
     client: {
       mocha: {
         ...TestConfig.mochaGrep,
+        retries: TestConfig.retries,
         timeout: 5_000,
       },
       remoteDebuggingPort: REMOTE_DEBUGGING_PORT,

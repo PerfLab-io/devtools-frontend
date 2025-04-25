@@ -1,6 +1,7 @@
 // Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import '../../ui/legacy/legacy.js';
 
@@ -62,7 +63,7 @@ const UIStrings = {
    *@description Type selector element title in Breakpoint Edit Dialog of the Sources panel
    */
   logAMessageToConsoleDoNotBreak: 'Log a message to Console, do not break',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/sources/BreakpointEditDialog.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 

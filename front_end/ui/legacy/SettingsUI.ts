@@ -28,11 +28,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* eslint-disable rulesdir/no-imperative-dom-api */
+
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
 import * as Settings from '../components/settings/settings.js';
+import {Directives} from '../lit/lit.js';
 import * as VisualLogging from '../visual_logging/visual_logging.js';
 
 import * as ARIAUtils from './ARIAUtils.js';
@@ -48,16 +51,16 @@ const UIStrings = {
   /**
    *@description Message to display if a setting change requires a reload of DevTools
    */
-  oneOrMoreSettingsHaveChanged: 'One or more settings have changed which requires a reload to take effect.',
-};
+  oneOrMoreSettingsHaveChanged: 'One or more settings have changed which requires a reload to take effect',
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/SettingsUI.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export function createSettingCheckbox(
     name: Common.UIString.LocalizedString, setting: Common.Settings.Setting<boolean>, tooltip?: string): CheckboxLabel {
   const label = CheckboxLabel.create(name, undefined, undefined, setting.name);
-  label.checkboxElement.name = name;
-  bindCheckbox(label.checkboxElement, setting);
+  label.name = name;
+  bindCheckbox(label, setting);
   if (tooltip) {
     Tooltip.install(label, tooltip);
   }
@@ -125,15 +128,28 @@ const createSettingSelect = function(
   }
 };
 
+export const bindToSetting = (setting: string|Common.Settings.Setting<boolean>): ReturnType<typeof Directives.ref> => {
+  if (typeof setting === 'string') {
+    setting = Common.Settings.Settings.instance().moduleSetting(setting);
+  }
+  return Directives.ref(e => bindCheckbox(e, setting));
+};
+
 export const bindCheckbox = function(
-    inputElement: Element, setting: Common.Settings.Setting<boolean>, metric?: UserMetricOptions): void {
-  const input = (inputElement as HTMLInputElement);
+    inputElement: Element|undefined, setting: Common.Settings.Setting<boolean>, metric?: UserMetricOptions): void {
   function settingChanged(): void {
+    const input = (inputElement as HTMLInputElement);
     if (input.checked !== setting.get()) {
       input.checked = setting.get();
     }
   }
-  setting.addChangeListener(settingChanged);
+  if (inputElement) {
+    setting.addChangeListener(settingChanged);
+  } else {
+    setting.removeChangeListener(settingChanged);
+    return;
+  }
+  const input = (inputElement as HTMLInputElement);
   settingChanged();
 
   function inputChanged(): void {

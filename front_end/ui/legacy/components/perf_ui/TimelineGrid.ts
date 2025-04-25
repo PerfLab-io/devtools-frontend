@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2007, 2008 Apple Inc.  All rights reserved.
@@ -164,11 +165,6 @@ export class TimelineGrid {
     return this.dividersLabelBarElementInternal;
   }
 
-  removeDividers(): void {
-    this.dividersElementInternal.removeChildren();
-    this.dividersLabelBarElementInternal.removeChildren();
-  }
-
   updateDividers(calculator: Calculator, freeZoneAtLeft?: number): boolean {
     const dividersData = TimelineGrid.calculateGridOffsets(calculator, freeZoneAtLeft);
     const dividerOffsets = dividersData.offsets;
@@ -261,14 +257,6 @@ export class TimelineGrid {
     this.eventDividersElement.classList.remove('hidden');
   }
 
-  hideDividers(): void {
-    this.dividersElementInternal.classList.add('hidden');
-  }
-
-  showDividers(): void {
-    this.dividersElementInternal.classList.remove('hidden');
-  }
-
   setScrollTop(scrollTop: number): void {
     this.dividersLabelBarElementInternal.style.top = scrollTop + 'px';
     this.eventDividersElement.style.top = scrollTop + 'px';
@@ -287,9 +275,9 @@ export interface Calculator {
 }
 
 export interface DividersData {
-  offsets: {
+  offsets: Array<{
     position: number,
     time: number,
-  }[];
+  }>;
   precision: number;
 }

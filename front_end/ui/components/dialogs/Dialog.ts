@@ -1,6 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as Platform from '../../../core/platform/platform.js';
@@ -13,9 +14,11 @@ import * as Buttons from '../buttons/buttons.js';
 
 import dialogStylesRaw from './dialog.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const dialogStyles = new CSSStyleSheet();
-dialogStyles.replaceSync(dialogStylesRaw.cssContent);
+dialogStyles.replaceSync(dialogStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -25,7 +28,7 @@ const UIStrings = {
    * @description Title of close button for the shortcuts dialog.
    */
   close: 'Close',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('ui/components/dialogs/Dialog.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -111,7 +114,6 @@ export const MODAL = 'MODAL';
 export type DialogOrigin = DialogAnchor|null|(() => DialogAnchor)|typeof MODAL;
 export class Dialog extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  readonly #renderBound = this.#render.bind(this);
   readonly #forceDialogCloseInDevToolsBound = this.#forceDialogCloseInDevToolsMutation.bind(this);
   readonly #handleScrollAttemptBound = this.#handleScrollAttempt.bind(this);
   readonly #props: DialogData = {
@@ -241,7 +243,7 @@ export class Dialog extends HTMLElement {
   }
 
   #onStateChange(): void {
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   connectedCallback(): void {
@@ -631,6 +633,7 @@ export class Dialog extends HTMLElement {
               variant: Buttons.Button.Variant.TOOLBAR,
               iconName: 'cross',
               title: i18nString(UIStrings.close),
+              size: Buttons.Button.Size.SMALL,
             } as Buttons.Button.ButtonData}
             jslog=${VisualLogging.close().track({click: true})}
           ></devtools-button>

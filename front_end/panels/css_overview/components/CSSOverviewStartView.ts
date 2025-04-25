@@ -1,6 +1,7 @@
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/panel_feedback/panel_feedback.js';
 import '../../../ui/components/panel_introduction_steps/panel_introduction_steps.js';
@@ -10,11 +11,7 @@ import type * as Platform from '../../../core/platform/platform.js';
 import * as Buttons from '../../../ui/components/buttons/buttons.js';
 import {html, render} from '../../../ui/lit/lit.js';
 
-import cssOverviewStartViewStylesRaw from './cssOverviewStartView.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const cssOverviewStartViewStyles = new CSSStyleSheet();
-cssOverviewStartViewStyles.replaceSync(cssOverviewStartViewStylesRaw.cssContent);
+import cssOverviewStartViewStyles from './cssOverviewStartView.css.js';
 
 const UIStrings = {
   /**
@@ -42,7 +39,7 @@ const UIStrings = {
    *@description Title of the link to the quick start video and documentation to CSS overview panel
    */
   quickStartWithCSSOverview: 'Quick start: get started with the new CSS overview panel',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/css_overview/components/CSSOverviewStartView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -60,7 +57,6 @@ export class CSSOverviewStartView extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [cssOverviewStartViewStyles];
     this.#render();
   }
 
@@ -80,6 +76,7 @@ export class CSSOverviewStartView extends HTMLElement {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
+      <style>${cssOverviewStartViewStyles.cssText}</style>
       <div class="css-overview-start-view">
         <devtools-panel-introduction-steps>
           <span slot="title">${i18nString(UIStrings.identifyCSSImprovements)}</span>

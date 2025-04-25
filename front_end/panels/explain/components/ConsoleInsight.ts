@@ -1,6 +1,8 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/spinners/spinners.js';
 
@@ -19,16 +21,8 @@ import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 import {type PromptBuilder, type Source, SourceType} from '../PromptBuilder.js';
 
-import stylesRaw from './consoleInsight.css.js';
-import listStylesRaw from './consoleInsightSourcesList.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const styles = new CSSStyleSheet();
-styles.replaceSync(stylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const listStyles = new CSSStyleSheet();
-listStyles.replaceSync(listStylesRaw.cssContent);
+import styles from './consoleInsight.css.js';
+import listStyles from './consoleInsightSourcesList.css.js';
 
 // Note: privacy and legal notices are not localized so far.
 const UIStrings = {
@@ -89,7 +83,7 @@ const UIStrings = {
    */
   errorBody: 'Something went wrong. Try again.',
   /**
-   * @description Label for screenreaders that is added to the end of the link
+   * @description Label for screen readers that is added to the end of the link
    * title to indicate that the link will be opened in a new tab.
    */
   opensInNewTab: '(opens in a new tab)',
@@ -152,7 +146,11 @@ const UIStrings = {
    * @description Error message shown when the request to get an AI response times out.
    */
   timedOut: 'Generating a response took too long. Please try again.',
-};
+  /**
+   *@description Text informing the user that AI assistance is not available in Incognito mode or Guest mode.
+   */
+  notAvailableInIncognitoMode: 'AI assistance is not available in Incognito mode or Guest mode',
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/explain/components/ConsoleInsight.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -185,7 +183,7 @@ function localizeType(sourceType: SourceType): string {
 const TERMS_OF_SERVICE_URL = 'https://policies.google.com/terms';
 const PRIVACY_POLICY_URL = 'https://policies.google.com/privacy';
 const CODE_SNIPPET_WARNING_URL = 'https://support.google.com/legal/answer/13505487';
-const LEARNMORE_URL = 'https://goo.gle/devtools-console-messages-ai' as Platform.DevToolsPath.UrlString;
+const LEARN_MORE_URL = 'https://goo.gle/devtools-console-messages-ai' as Platform.DevToolsPath.UrlString;
 const REPORT_URL = 'https://support.google.com/legal/troubleshooter/1114905?hl=en#ts=1115658%2C13380504' as
     Platform.DevToolsPath.UrlString;
 const SIGN_IN_URL = 'https://accounts.google.com' as Platform.DevToolsPath.UrlString;
@@ -212,7 +210,6 @@ type StateData = {
   isPageReloadRecommended: boolean,
   completed: boolean,
   directCitationUrls: string[],
-  highlightIndex?: number,
   timedOut?: boolean,
 }&Host.AidaClient.AidaResponse|{
   type: State.ERROR,
@@ -258,6 +255,8 @@ export class ConsoleInsight extends HTMLElement {
   }
 
   readonly #shadow = this.attachShadow({mode: 'open'});
+
+  disableAnimations = false;
 
   #promptBuilder: PublicPromptBuilder;
   #aidaClient: PublicAidaClient;
@@ -311,18 +310,21 @@ export class ConsoleInsight extends HTMLElement {
     if (this.#state.type !== State.INSIGHT || !this.#referenceDetailsRef.value) {
       return;
     }
-    this.#state.highlightIndex = index;
     const areDetailsAlreadyExpanded = this.#referenceDetailsRef.value.open;
     this.#areReferenceDetailsOpen = true;
     this.#render();
 
-    const highlightedElement = this.#shadow.querySelector('li .highlighted');
+    const highlightedElement =
+        this.#shadow.querySelector(`.sources-list x-link[data-index="${index}"]`) as HTMLElement | null;
     if (highlightedElement) {
+      UI.UIUtils.runCSSAnimationOnce(highlightedElement, 'highlighted');
       if (areDetailsAlreadyExpanded) {
         highlightedElement.scrollIntoView({behavior: 'auto'});
+        highlightedElement.focus();
       } else {  // Wait for the details element to open before scrolling.
         this.#referenceDetailsRef.value.addEventListener('transitionend', () => {
           highlightedElement.scrollIntoView({behavior: 'auto'});
+          highlightedElement.focus();
         }, {once: true});
       }
     }
@@ -373,10 +375,9 @@ export class ConsoleInsight extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [styles, Input.checkboxStyles];
     this.classList.add('opening');
     this.#consoleInsightsEnabledSetting?.addChangeListener(this.#onConsoleInsightsSettingChanged, this);
-    const blockedByAge = Common.Settings.Settings.instance().getHostConfig().aidaAvailability?.blockedByAge === true;
+    const blockedByAge = Root.Runtime.hostConfig.aidaAvailability?.blockedByAge === true;
     if (this.#state.type === State.LOADING && this.#consoleInsightsEnabledSetting?.getIfNotDisabled() === true &&
         !blockedByAge && this.#state.consentOnboardingCompleted) {
       Host.userMetrics.actionTaken(Host.UserMetrics.Action.GeneratingInsightWithoutDisclaimer);
@@ -445,7 +446,7 @@ export class ConsoleInsight extends HTMLElement {
     if (this.#state.type !== State.LOADING) {
       return;
     }
-    const blockedByAge = Common.Settings.Settings.instance().getHostConfig().aidaAvailability?.blockedByAge === true;
+    const blockedByAge = Root.Runtime.hostConfig.aidaAvailability?.blockedByAge === true;
     if (this.#consoleInsightsEnabledSetting?.getIfNotDisabled() !== true || blockedByAge) {
       this.#transitionTo({
         type: State.SETTING_IS_NOT_TRUE,
@@ -495,8 +496,7 @@ export class ConsoleInsight extends HTMLElement {
     } else {
       Host.userMetrics.actionTaken(Host.UserMetrics.Action.InsightRatedNegative);
     }
-    const disallowLogging =
-        Common.Settings.Settings.instance().getHostConfig().aidaAvailability?.disallowLogging ?? true;
+    const disallowLogging = Root.Runtime.hostConfig.aidaAvailability?.disallowLogging ?? true;
     void this.#aidaClient.registerClientEvent({
       corresponding_aida_rpc_global_id: this.#state.metadata.rpcGlobalId,
       disable_user_content_logging: disallowLogging,
@@ -664,7 +664,7 @@ export class ConsoleInsight extends HTMLElement {
 
   #renderLearnMoreAboutInsights(): Lit.TemplateResult {
     // clang-format off
-    return html`<x-link href=${LEARNMORE_URL} class="link" jslog=${VisualLogging.link('learn-more').track({click: true})}>
+    return html`<x-link href=${LEARN_MORE_URL} class="link" jslog=${VisualLogging.link('learn-more').track({click: true})}>
       ${i18nString(UIStrings.learnMore)}
     </x-link>`;
     // clang-format on
@@ -675,27 +675,21 @@ export class ConsoleInsight extends HTMLElement {
       return Lit.nothing;
     }
 
-    const highlightIndex = this.#state.highlightIndex || -1;
     // clang-format off
     return html`
       <ol class="sources-list">
-        ${this.#state.directCitationUrls.map((url, index) => {
-          const linkClasses = Lit.Directives.classMap({
-            link: true,
-            highlighted: highlightIndex - 1 === index,
-          });
-          return html`
-            <li>
-              <x-link
-                href=${url}
-                class=${linkClasses}
-                jslog=${VisualLogging.link('references.console-insights').track({click: true})}
-              >
-                ${url}
-              </x-link>
-            </li>
-          `;
-        })}
+        ${this.#state.directCitationUrls.map((url, index) => html`
+          <li>
+            <x-link
+              href=${url}
+              class="link"
+              data-index=${index + 1}
+              jslog=${VisualLogging.link('references.console-insights').track({click: true})}
+            >
+              ${url}
+            </x-link>
+          </li>
+        `)}
       </ol>
     `;
     // clang-format on
@@ -750,17 +744,12 @@ export class ConsoleInsight extends HTMLElement {
   #onToggleReferenceDetails(): void {
     if (this.#referenceDetailsRef.value) {
       this.#areReferenceDetailsOpen = this.#referenceDetailsRef.value.open;
-      if (!this.#areReferenceDetailsOpen && this.#state.type === State.INSIGHT &&
-          this.#state.highlightIndex !== undefined) {
-        this.#state.highlightIndex = undefined;
-        this.#render();
-      }
     }
   }
 
   #renderMain(): Lit.TemplateResult {
     const jslog = `${VisualLogging.section(this.#state.type).track({resize: true})}`;
-    const noLogging = Common.Settings.Settings.instance().getHostConfig().aidaAvailability?.enterprisePolicyValue ===
+    const noLogging = Root.Runtime.hostConfig.aidaAvailability?.enterprisePolicyValue ===
         Root.Runtime.GenAiEnterprisePolicyValue.ALLOW_WITHOUT_LOGGING;
 
     // clang-format off
@@ -782,7 +771,7 @@ export class ConsoleInsight extends HTMLElement {
         <main jslog=${jslog}>
           ${
             this.#state.validMarkdown ? html`<devtools-markdown-view
-              .data=${{tokens: this.#state.tokens, renderer: this.#renderer, animationEnabled: true} as MarkdownView.MarkdownView.MarkdownViewData}>
+              .data=${{tokens: this.#state.tokens, renderer: this.#renderer, animationEnabled: !this.disableAnimations} as MarkdownView.MarkdownView.MarkdownViewData}>
             </devtools-markdown-view>`: this.#state.explanation
           }
           ${this.#state.timedOut ? html`<p class="error-message">${i18nString(UIStrings.timedOut)}</p>` : Lit.nothing}
@@ -894,7 +883,7 @@ export class ConsoleInsight extends HTMLElement {
       case State.SYNC_IS_PAUSED:
         return html`
           <main jslog=${jslog}>
-            <div class="error">${i18nString(UIStrings.notLoggedIn)}</div>
+            <div class="error">${Root.Runtime.hostConfig.isOffTheRecord ? i18nString(UIStrings.notAvailableInIncognitoMode) : i18nString(UIStrings.notLoggedIn)}</div>
           </main>`;
       case State.OFFLINE:
         return html`
@@ -906,7 +895,7 @@ export class ConsoleInsight extends HTMLElement {
   }
 
   #renderDisclaimer(): Lit.LitTemplate {
-    const noLogging = Common.Settings.Settings.instance().getHostConfig().aidaAvailability?.enterprisePolicyValue ===
+    const noLogging = Root.Runtime.hostConfig.aidaAvailability?.enterprisePolicyValue ===
         Root.Runtime.GenAiEnterprisePolicyValue.ALLOW_WITHOUT_LOGGING;
 
     // clang-format off
@@ -919,14 +908,13 @@ export class ConsoleInsight extends HTMLElement {
         jslog=${VisualLogging.action('open-ai-settings').track({click: true})}
       >Open settings</button>
       or
-      <x-link href=${LEARNMORE_URL} class="link" jslog=${VisualLogging.link('learn-more').track({click: true})}>learn more</x-link>
+      <x-link href=${LEARN_MORE_URL} class="link" jslog=${VisualLogging.link('learn-more').track({click: true})}>learn more</x-link>
     </span>`;
     // clang-format on
   }
 
   #renderFooter(): Lit.LitTemplate {
-    const showThumbsUpDownButtons =
-        !(Common.Settings.Settings.instance().getHostConfig().aidaAvailability?.disallowLogging ?? true);
+    const showThumbsUpDownButtons = !(Root.Runtime.hostConfig.aidaAvailability?.disallowLogging ?? true);
     const disclaimer = this.#renderDisclaimer();
     // clang-format off
     switch (this.#state.type) {
@@ -942,6 +930,9 @@ export class ConsoleInsight extends HTMLElement {
         </footer>`;
       case State.NOT_LOGGED_IN:
       case State.SYNC_IS_PAUSED:
+        if (Root.Runtime.hostConfig.isOffTheRecord) {
+          return Lit.nothing;
+        }
         return html`<footer jslog=${VisualLogging.section('footer')}>
         <div class="filler"></div>
         <div>
@@ -1131,6 +1122,8 @@ export class ConsoleInsight extends HTMLElement {
   #render(): void {
     // clang-format off
     render(html`
+      <style>${styles.cssText}</style>
+      <style>${Input.checkboxStyles.cssText}</style>
       <div class="wrapper" jslog=${VisualLogging.pane('console-insights').track({resize: true})}>
         <div class="animation-wrapper">
           ${this.#renderHeader()}
@@ -1156,12 +1149,13 @@ class ConsoleInsightSourcesList extends HTMLElement {
 
   constructor() {
     super();
-    this.#shadow.adoptedStyleSheets = [listStyles, Input.checkboxStyles];
   }
 
   #render(): void {
     // clang-format off
      render(html`
+      <style>${listStyles.cssText}</style>
+      <style>${Input.checkboxStyles.cssText}</style>
       <ul>
         ${Directives.repeat(this.#sources, item => item.value, item => {
           return html`<li><x-link class="link" title="${localizeType(item.type)} ${i18nString(UIStrings.opensInNewTab)}" href="data:text/plain,${encodeURIComponent(item.value)}" jslog=${VisualLogging.link('source-' + item.type).track({click: true})}>

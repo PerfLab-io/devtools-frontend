@@ -244,7 +244,7 @@ describe('NetworkRequest', () => {
   });
 });
 
-describeWithMockConnection('NetworkRequest', () => {
+describeWithMockConnection('NetworkRequest with mock connection', () => {
   let networkManagerForRequestStub: sinon.SinonStub;
   let cookie: SDK.Cookie.Cookie;
   let addBlockedCookieSpy: sinon.SinonSpy;
@@ -455,7 +455,7 @@ describeWithMockConnection('requestStreamingContent', () => {
 
     void networkManager.requestForId('1')!.requestStreamingContent();
 
-    assert.isTrue(responseBodySpy.calledOnce);
+    sinon.assert.calledOnce(responseBodySpy);
   });
 
   it('streams the full response body for in-flight requests', () => {
@@ -478,7 +478,7 @@ describeWithMockConnection('requestStreamingContent', () => {
 
     void networkManager.requestForId('1')!.requestStreamingContent();
 
-    assert.isTrue(responseBodySpy.calledOnce);
+    sinon.assert.calledOnce(responseBodySpy);
   });
 
   it('sends ChunkAdded events when new data is received', async () => {

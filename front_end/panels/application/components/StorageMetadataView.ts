@@ -1,6 +1,7 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/report_view/report_view.js';
 
@@ -103,7 +104,11 @@ const UIStrings = {
    *@example {bucket} PH1
    */
   confirmBucketDeletion: 'Delete the "{PH1}" bucket?',
-};
+  /**
+   *@description Explanation text shown in the confirmation dialogue that displays before deleting the bucket.
+   */
+  bucketWillBeRemoved: 'The selected storage bucket and contained data will be removed.',
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/application/components/StorageMetadataView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -236,10 +241,11 @@ export class StorageMetadataView extends LegacyWrapper.LegacyWrapper.WrappableCo
   #renderBucketControls(): Lit.TemplateResult {
     // clang-format off
     return html`
+      <devtools-report-divider></devtools-report-divider>
       <devtools-report-section>
         <devtools-button
           aria-label=${i18nString(UIStrings.deleteBucket)}
-          .variant=${Buttons.Button.Variant.PRIMARY}
+          .variant=${Buttons.Button.Variant.OUTLINED}
           @click=${this.#deleteBucket}>
           ${i18nString(UIStrings.deleteBucket)}
         </devtools-button>
@@ -252,6 +258,7 @@ export class StorageMetadataView extends LegacyWrapper.LegacyWrapper.WrappableCo
       throw new Error('Should not call #deleteBucket if #storageBucketsModel or #storageBucket is null.');
     }
     const ok = await UI.UIUtils.ConfirmDialog.show(
+        i18nString(UIStrings.bucketWillBeRemoved),
         i18nString(UIStrings.confirmBucketDeletion, {PH1: this.#storageBucket.bucket.name || ''}), this,
         {jslogContext: 'delete-bucket-confirmation'});
     if (ok) {

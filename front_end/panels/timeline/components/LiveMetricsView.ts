@@ -1,6 +1,8 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/icon_button/icon_button.js';
 import './CPUThrottlingSelector.js';
@@ -9,44 +11,37 @@ import './NetworkThrottlingSelector.js';
 import '../../../ui/components/menus/menus.js';
 import './MetricCard.js';
 
-import * as Common from '../../../core/common/common.js';
+// import * as Common from '../../../core/common/common.js';
 import * as i18n from '../../../core/i18n/i18n.js';
 import type * as Platform from '../../../core/platform/platform.js';
 import * as CrUXManager from '../../../models/crux-manager/crux-manager.js';
 import * as EmulationModel from '../../../models/emulation/emulation.js';
 import * as LiveMetrics from '../../../models/live-metrics/live-metrics.js';
-import * as Buttons from '../../../ui/components/buttons/buttons.js';
+import * as Trace from '../../../models/trace/trace.js';
+// import * as Buttons from '../../../ui/components/buttons/buttons.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
 import * as LegacyWrapper from '../../../ui/components/legacy_wrapper/legacy_wrapper.js';
-import type * as Menus from '../../../ui/components/menus/menus.js';
+// import type * as Menus from '../../../ui/components/menus/menus.js';
 import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
-import type * as Settings from '../../../ui/components/settings/settings.js';
+// import type * as Settings from '../../../ui/components/settings/settings.js';
 import * as UI from '../../../ui/legacy/legacy.js';
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
-import * as MobileThrottling from '../../mobile_throttling/mobile_throttling.js';
-import {getThrottlingRecommendations, md} from '../utils/Helpers.js';
+// import * as MobileThrottling from '../../mobile_throttling/mobile_throttling.js';
+// import {getThrottlingRecommendations, md} from '../utils/Helpers.js';
 
-import liveMetricsViewStylesRaw from './liveMetricsView.css.js';
+import liveMetricsViewStyles from './liveMetricsView.css.js';
 import type {MetricCardData} from './MetricCard.js';
-import metricValueStylesRaw from './metricValueStyles.css.js';
-import {CLS_THRESHOLDS, INP_THRESHOLDS, renderMetricValue} from './Utils.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const liveMetricsViewStyles = new CSSStyleSheet();
-liveMetricsViewStyles.replaceSync(liveMetricsViewStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const metricValueStyles = new CSSStyleSheet();
-metricValueStyles.replaceSync(metricValueStylesRaw.cssContent);
+import metricValueStyles from './metricValueStyles.css.js';
+import {CLS_THRESHOLDS, /*INP_THRESHOLDS,*/ renderMetricValue} from './Utils.js';
 
 const {html, nothing} = Lit;
 
-type DeviceOption = CrUXManager.DeviceScope|'AUTO';
+// type DeviceOption = CrUXManager.DeviceScope|'AUTO';
 
-const DEVICE_OPTION_LIST: DeviceOption[] = ['AUTO', ...CrUXManager.DEVICE_SCOPE_LIST];
+// const DEVICE_OPTION_LIST: DeviceOption[] = ['AUTO', ...CrUXManager.DEVICE_SCOPE_LIST];
 
-const RTT_MINIMUM = 60;
+// const RTT_MINIMUM = 60;
 
 const UIStrings = {
   /**
@@ -259,7 +254,11 @@ const UIStrings = {
    * @description Title of a view that can be used to analyze the performance of a Node process as a timeline. "Node" is a product name and should not be translated.
    */
   nodePerformanceTimeline: 'Node performance',
-};
+  /**
+   * @description Description of a view that can be used to analyze the performance of a Node process as a timeline. "Node" is a product name and should not be translated.
+   */
+  nodeClickToRecord: 'Record a performance timeline of the connected Node process.',
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/LiveMetricsView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -267,7 +266,7 @@ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableComponent {
   readonly #shadow = this.attachShadow({mode: 'open'});
 
-  #isNode: boolean = false;
+  #isNode = false;
 
   #lcpValue?: LiveMetrics.LcpValue;
   #clsValue?: LiveMetrics.ClsValue;
@@ -361,8 +360,6 @@ export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableCompon
   }
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [liveMetricsViewStyles, metricValueStyles];
-
     const liveMetrics = LiveMetrics.LiveMetrics.instance();
     liveMetrics.addEventListener(LiveMetrics.Events.STATUS, this.#onMetricStatus, this);
 
@@ -394,10 +391,38 @@ export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableCompon
         EmulationModel.DeviceModeModel.Events.UPDATED, this.#onEmulationChanged, this);
   }
 
+  #getLcpFieldPhases(): LiveMetrics.LcpValue['phases']|null {
+    const ttfb = this.#cruxManager.getSelectedFieldMetricData('largest_contentful_paint_image_time_to_first_byte')
+                     ?.percentiles?.p75;
+    const loadDelay =
+        this.#cruxManager.getSelectedFieldMetricData('largest_contentful_paint_image_resource_load_delay')
+            ?.percentiles?.p75;
+    const loadDuration =
+        this.#cruxManager.getSelectedFieldMetricData('largest_contentful_paint_image_resource_load_duration')
+            ?.percentiles?.p75;
+    const renderDelay =
+        this.#cruxManager.getSelectedFieldMetricData('largest_contentful_paint_image_element_render_delay')
+            ?.percentiles?.p75;
+
+    if (typeof ttfb !== 'number' || typeof loadDelay !== 'number' || typeof loadDuration !== 'number' ||
+        typeof renderDelay !== 'number') {
+      return null;
+    }
+
+    return {
+      timeToFirstByte: Trace.Types.Timing.Milli(ttfb),
+      resourceLoadDelay: Trace.Types.Timing.Milli(loadDelay),
+      resourceLoadTime: Trace.Types.Timing.Milli(loadDuration),
+      elementRenderDelay: Trace.Types.Timing.Milli(renderDelay),
+    };
+  }
+
   #renderLcpCard(): Lit.LitTemplate {
     const fieldData = this.#cruxManager.getSelectedFieldMetricData('largest_contentful_paint');
     const nodeLink = this.#lcpValue?.nodeRef?.link;
     const phases = this.#lcpValue?.phases;
+
+    const fieldPhases = this.#getLcpFieldPhases();
 
     // clang-format off
     return html`
@@ -409,10 +434,10 @@ export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableCompon
         tooltipContainer: this.#tooltipContainerEl,
         warnings: this.#lcpValue?.warnings,
         phases: phases && [
-          [i18nString(UIStrings.timeToFirstByte), phases.timeToFirstByte],
-          [i18nString(UIStrings.resourceLoadDelay), phases.resourceLoadDelay],
-          [i18nString(UIStrings.resourceLoadDuration), phases.resourceLoadTime],
-          [i18nString(UIStrings.elementRenderDelay), phases.elementRenderDelay],
+          [i18nString(UIStrings.timeToFirstByte), phases.timeToFirstByte, fieldPhases?.timeToFirstByte],
+          [i18nString(UIStrings.resourceLoadDelay), phases.resourceLoadDelay, fieldPhases?.resourceLoadDelay],
+          [i18nString(UIStrings.resourceLoadDuration), phases.resourceLoadTime, fieldPhases?.resourceLoadTime],
+          [i18nString(UIStrings.elementRenderDelay), phases.elementRenderDelay, fieldPhases?.elementRenderDelay],
         ],
       } as MetricCardData}>
         ${nodeLink ? html`
@@ -496,321 +521,321 @@ export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableCompon
     // clang-format on
   }
 
-  #renderRecordAction(action: UI.ActionRegistration.Action): Lit.LitTemplate {
-    function onClick(): void {
-      void action.execute();
-    }
+  // #renderRecordAction(action: UI.ActionRegistration.Action): Lit.LitTemplate {
+  //   function onClick(): void {
+  //     void action.execute();
+  //   }
 
-    // clang-format off
-    return html`
-      <div class="record-action">
-        <devtools-button @click=${onClick} .data=${{
-            variant: Buttons.Button.Variant.TEXT,
-            size: Buttons.Button.Size.REGULAR,
-            iconName: action.icon(),
-            title: action.title(),
-            jslogContext: action.id(),
-        } as Buttons.Button.ButtonData}>
-          ${action.title()}
-        </devtools-button>
-        <span class="shortcut-label">${UI.ShortcutRegistry.ShortcutRegistry.instance().shortcutTitleForAction(action.id())}</span>
-      </div>
-    `;
-    // clang-format on
-  }
+  //   // clang-format off
+  //   return html`
+  //     <div class="record-action">
+  //       <devtools-button @click=${onClick} .data=${{
+  //           variant: Buttons.Button.Variant.TEXT,
+  //           size: Buttons.Button.Size.REGULAR,
+  //           iconName: action.icon(),
+  //           title: action.title(),
+  //           jslogContext: action.id(),
+  //       } as Buttons.Button.ButtonData}>
+  //         ${action.title()}
+  //       </devtools-button>
+  //       <span class="shortcut-label">${UI.ShortcutRegistry.ShortcutRegistry.instance().shortcutTitleForAction(action.id())}</span>
+  //     </div>
+  //   `;
+  //   // clang-format on
+  // }
 
-  #getNetworkRecTitle(): string|null {
-    const response = this.#cruxManager.getSelectedFieldMetricData('round_trip_time');
-    if (!response?.percentiles) {
-      return null;
-    }
+  // #getNetworkRecTitle(): string|null {
+  //   const response = this.#cruxManager.getSelectedFieldMetricData('round_trip_time');
+  //   if (!response?.percentiles) {
+  //     return null;
+  //   }
 
-    const rtt = Number(response.percentiles.p75);
-    if (!Number.isFinite(rtt)) {
-      return null;
-    }
+  //   const rtt = Number(response.percentiles.p75);
+  //   if (!Number.isFinite(rtt)) {
+  //     return null;
+  //   }
 
-    if (rtt < RTT_MINIMUM) {
-      return i18nString(UIStrings.tryDisablingThrottling);
-    }
+  //   if (rtt < RTT_MINIMUM) {
+  //     return i18nString(UIStrings.tryDisablingThrottling);
+  //   }
 
-    const conditions = MobileThrottling.ThrottlingPresets.ThrottlingPresets.getRecommendedNetworkPreset(rtt);
-    if (!conditions) {
-      return null;
-    }
+  //   const conditions = MobileThrottling.ThrottlingPresets.ThrottlingPresets.getRecommendedNetworkPreset(rtt);
+  //   if (!conditions) {
+  //     return null;
+  //   }
 
-    const title = typeof conditions.title === 'function' ? conditions.title() : conditions.title;
-    return i18nString(UIStrings.tryUsingThrottling, {PH1: title});
-  }
+  //   const title = typeof conditions.title === 'function' ? conditions.title() : conditions.title;
+  //   return i18nString(UIStrings.tryUsingThrottling, {PH1: title});
+  // }
 
-  #getDeviceRec(): string|null {
-    // `form_factors` metric is only populated if CrUX data is fetched for all devices.
-    const fractions = this.#cruxManager.getFieldResponse(this.#cruxManager.fieldPageScope, 'ALL')
-                          ?.record.metrics.form_factors?.fractions;
-    if (!fractions) {
-      return null;
-    }
+  // #getDeviceRec(): string|null {
+  //   // `form_factors` metric is only populated if CrUX data is fetched for all devices.
+  //   const fractions = this.#cruxManager.getFieldResponse(this.#cruxManager.fieldPageScope, 'ALL')
+  //                         ?.record.metrics.form_factors?.fractions;
+  //   if (!fractions) {
+  //     return null;
+  //   }
 
-    return i18nString(UIStrings.percentDevices, {
-      PH1: Math.round(fractions.phone * 100),
-      PH2: Math.round(fractions.desktop * 100),
-    });
-  }
+  //   return i18nString(UIStrings.percentDevices, {
+  //     PH1: Math.round(fractions.phone * 100),
+  //     PH2: Math.round(fractions.desktop * 100),
+  //   });
+  // }
 
-  #renderRecordingSettings(): Lit.LitTemplate {
-    const fieldEnabled = this.#cruxManager.getConfigSetting().get().enabled;
+  // #renderRecordingSettings(): Lit.LitTemplate {
+  //   const fieldEnabled = this.#cruxManager.getConfigSetting().get().enabled;
 
-    const deviceRecEl = document.createElement('span');
-    deviceRecEl.classList.add('environment-rec');
-    deviceRecEl.textContent = this.#getDeviceRec() || i18nString(UIStrings.notEnoughData);
+  //   const deviceRecEl = document.createElement('span');
+  //   deviceRecEl.classList.add('environment-rec');
+  //   deviceRecEl.textContent = this.#getDeviceRec() || i18nString(UIStrings.notEnoughData);
 
-    const networkRecEl = document.createElement('span');
-    networkRecEl.classList.add('environment-rec');
-    networkRecEl.textContent = this.#getNetworkRecTitle() || i18nString(UIStrings.notEnoughData);
+  //   const networkRecEl = document.createElement('span');
+  //   networkRecEl.classList.add('environment-rec');
+  //   networkRecEl.textContent = this.#getNetworkRecTitle() || i18nString(UIStrings.notEnoughData);
 
-    const recs = getThrottlingRecommendations();
+  //   const recs = getThrottlingRecommendations();
 
-    // clang-format off
-    return html`
-      <h3 class="card-title">${i18nString(UIStrings.environmentSettings)}</h3>
-      <div class="device-toolbar-description">${md(i18nString(UIStrings.useDeviceToolbar))}</div>
-      ${fieldEnabled ? html`
-        <ul class="environment-recs-list">
-          <li>${i18n.i18n.getFormatLocalizedString(str_, UIStrings.device, {PH1: deviceRecEl})}</li>
-          <li>${i18n.i18n.getFormatLocalizedString(str_, UIStrings.network, {PH1: networkRecEl})}</li>
-        </ul>
-      ` : nothing}
-      <div class="environment-option">
-        <devtools-cpu-throttling-selector .recommendedOption=${recs.cpuOption}></devtools-cpu-throttling-selector>
-      </div>
-      <div class="environment-option">
-        <devtools-network-throttling-selector .recommendedConditions=${recs.networkConditions}></devtools-network-throttling-selector>
-      </div>
-      <div class="environment-option">
-        <setting-checkbox
-          class="network-cache-setting"
-          .data=${{
-            setting: Common.Settings.Settings.instance().moduleSetting('cache-disabled'),
-            textOverride: i18nString(UIStrings.disableNetworkCache),
-          } as Settings.SettingCheckbox.SettingCheckboxData}
-        ></setting-checkbox>
-      </div>
-    `;
-    // clang-format on
-  }
+  //   // clang-format off
+  //   return html`
+  //     <h3 class="card-title">${i18nString(UIStrings.environmentSettings)}</h3>
+  //     <div class="device-toolbar-description">${md(i18nString(UIStrings.useDeviceToolbar))}</div>
+  //     ${fieldEnabled ? html`
+  //       <ul class="environment-recs-list">
+  //         <li>${i18n.i18n.getFormatLocalizedString(str_, UIStrings.device, {PH1: deviceRecEl})}</li>
+  //         <li>${i18n.i18n.getFormatLocalizedString(str_, UIStrings.network, {PH1: networkRecEl})}</li>
+  //       </ul>
+  //     ` : nothing}
+  //     <div class="environment-option">
+  //       <devtools-cpu-throttling-selector .recommendedOption=${recs.cpuOption}></devtools-cpu-throttling-selector>
+  //     </div>
+  //     <div class="environment-option">
+  //       <devtools-network-throttling-selector .recommendedConditions=${recs.networkConditions}></devtools-network-throttling-selector>
+  //     </div>
+  //     <div class="environment-option">
+  //       <setting-checkbox
+  //         class="network-cache-setting"
+  //         .data=${{
+  //           setting: Common.Settings.Settings.instance().moduleSetting('cache-disabled'),
+  //           textOverride: i18nString(UIStrings.disableNetworkCache),
+  //         } as Settings.SettingCheckbox.SettingCheckboxData}
+  //       ></setting-checkbox>
+  //     </div>
+  //   `;
+  //   // clang-format on
+  // }
 
-  #getPageScopeLabel(pageScope: CrUXManager.PageScope): string {
-    const key = this.#cruxManager.pageResult?.[`${pageScope}-ALL`]?.record.key[pageScope];
-    if (key) {
-      return pageScope === 'url' ? i18nString(UIStrings.urlOptionWithKey, {PH1: key}) :
-                                   i18nString(UIStrings.originOptionWithKey, {PH1: key});
-    }
+  // #getPageScopeLabel(pageScope: CrUXManager.PageScope): string {
+  //   const key = this.#cruxManager.pageResult?.[`${pageScope}-ALL`]?.record.key[pageScope];
+  //   if (key) {
+  //     return pageScope === 'url' ? i18nString(UIStrings.urlOptionWithKey, {PH1: key}) :
+  //                                  i18nString(UIStrings.originOptionWithKey, {PH1: key});
+  //   }
 
-    const baseLabel = pageScope === 'url' ? i18nString(UIStrings.urlOption) : i18nString(UIStrings.originOption);
-    return i18nString(UIStrings.needsDataOption, {PH1: baseLabel});
-  }
+  //   const baseLabel = pageScope === 'url' ? i18nString(UIStrings.urlOption) : i18nString(UIStrings.originOption);
+  //   return i18nString(UIStrings.needsDataOption, {PH1: baseLabel});
+  // }
 
-  #onPageScopeMenuItemSelected(event: Menus.SelectMenu.SelectMenuItemSelectedEvent): void {
-    if (event.itemValue === 'url') {
-      this.#cruxManager.fieldPageScope = 'url';
-    } else {
-      this.#cruxManager.fieldPageScope = 'origin';
-    }
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
-  }
+  // #onPageScopeMenuItemSelected(event: Menus.SelectMenu.SelectMenuItemSelectedEvent): void {
+  //   if (event.itemValue === 'url') {
+  //     this.#cruxManager.fieldPageScope = 'url';
+  //   } else {
+  //     this.#cruxManager.fieldPageScope = 'origin';
+  //   }
+  //   void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
+  // }
 
-  #renderPageScopeSetting(): Lit.LitTemplate {
-    if (!this.#cruxManager.getConfigSetting().get().enabled) {
-      return Lit.nothing;
-    }
+  // #renderPageScopeSetting(): Lit.LitTemplate {
+  //   if (!this.#cruxManager.getConfigSetting().get().enabled) {
+  //     return Lit.nothing;
+  //   }
 
-    const urlLabel = this.#getPageScopeLabel('url');
-    const originLabel = this.#getPageScopeLabel('origin');
+  //   const urlLabel = this.#getPageScopeLabel('url');
+  //   const originLabel = this.#getPageScopeLabel('origin');
 
-    const buttonTitle = this.#cruxManager.fieldPageScope === 'url' ? urlLabel : originLabel;
-    const accessibleTitle = i18nString(UIStrings.showFieldDataForPage, {PH1: buttonTitle});
+  //   const buttonTitle = this.#cruxManager.fieldPageScope === 'url' ? urlLabel : originLabel;
+  //   const accessibleTitle = i18nString(UIStrings.showFieldDataForPage, {PH1: buttonTitle});
 
-    // If there is no data at all we should force users to switch pages or reconfigure CrUX.
-    const shouldDisable = !this.#cruxManager.pageResult?.['url-ALL'] && !this.#cruxManager.pageResult?.['origin-ALL'];
+  //   // If there is no data at all we should force users to switch pages or reconfigure CrUX.
+  //   const shouldDisable = !this.#cruxManager.pageResult?.['url-ALL'] && !this.#cruxManager.pageResult?.['origin-ALL'];
 
-    return html`
-      <devtools-select-menu
-        id="page-scope-select"
-        class="field-data-option"
-        @selectmenuselected=${this.#onPageScopeMenuItemSelected}
-        .showDivider=${true}
-        .showArrow=${true}
-        .sideButton=${false}
-        .showSelectedItem=${true}
-        .buttonTitle=${buttonTitle}
-        .disabled=${shouldDisable}
-        title=${accessibleTitle}
-      >
-        <devtools-menu-item
-          .value=${'url'}
-          .selected=${this.#cruxManager.fieldPageScope === 'url'}
-        >
-          ${urlLabel}
-        </devtools-menu-item>
-        <devtools-menu-item
-          .value=${'origin'}
-          .selected=${this.#cruxManager.fieldPageScope === 'origin'}
-        >
-          ${originLabel}
-        </devtools-menu-item>
-      </devtools-select-menu>
-    `;
-  }
+  //   return html`
+  //     <devtools-select-menu
+  //       id="page-scope-select"
+  //       class="field-data-option"
+  //       @selectmenuselected=${this.#onPageScopeMenuItemSelected}
+  //       .showDivider=${true}
+  //       .showArrow=${true}
+  //       .sideButton=${false}
+  //       .showSelectedItem=${true}
+  //       .buttonTitle=${buttonTitle}
+  //       .disabled=${shouldDisable}
+  //       title=${accessibleTitle}
+  //     >
+  //       <devtools-menu-item
+  //         .value=${'url'}
+  //         .selected=${this.#cruxManager.fieldPageScope === 'url'}
+  //       >
+  //         ${urlLabel}
+  //       </devtools-menu-item>
+  //       <devtools-menu-item
+  //         .value=${'origin'}
+  //         .selected=${this.#cruxManager.fieldPageScope === 'origin'}
+  //       >
+  //         ${originLabel}
+  //       </devtools-menu-item>
+  //     </devtools-select-menu>
+  //   `;
+  // }
 
-  #getDeviceScopeDisplayName(deviceScope: CrUXManager.DeviceScope): string {
-    switch (deviceScope) {
-      case 'ALL':
-        return i18nString(UIStrings.allDevices);
-      case 'DESKTOP':
-        return i18nString(UIStrings.desktop);
-      case 'PHONE':
-        return i18nString(UIStrings.mobile);
-      case 'TABLET':
-        return i18nString(UIStrings.tablet);
-    }
-  }
+  // #getDeviceScopeDisplayName(deviceScope: CrUXManager.DeviceScope): string {
+  //   switch (deviceScope) {
+  //     case 'ALL':
+  //       return i18nString(UIStrings.allDevices);
+  //     case 'DESKTOP':
+  //       return i18nString(UIStrings.desktop);
+  //     case 'PHONE':
+  //       return i18nString(UIStrings.mobile);
+  //     case 'TABLET':
+  //       return i18nString(UIStrings.tablet);
+  //   }
+  // }
 
-  #getLabelForDeviceOption(deviceOption: DeviceOption): string {
-    let baseLabel;
-    if (deviceOption === 'AUTO') {
-      const deviceScope = this.#cruxManager.getSelectedDeviceScope();
-      const deviceScopeLabel = this.#getDeviceScopeDisplayName(deviceScope);
-      baseLabel = i18nString(UIStrings.auto, {PH1: deviceScopeLabel});
-    } else {
-      baseLabel = this.#getDeviceScopeDisplayName(deviceOption);
-    }
+  // #getLabelForDeviceOption(deviceOption: DeviceOption): string {
+  //   let baseLabel;
+  //   if (deviceOption === 'AUTO') {
+  //     const deviceScope = this.#cruxManager.resolveDeviceOptionToScope(deviceOption);
+  //     const deviceScopeLabel = this.#getDeviceScopeDisplayName(deviceScope);
+  //     baseLabel = i18nString(UIStrings.auto, {PH1: deviceScopeLabel});
+  //   } else {
+  //     baseLabel = this.#getDeviceScopeDisplayName(deviceOption);
+  //   }
 
-    if (!this.#cruxManager.pageResult) {
-      return i18nString(UIStrings.loadingOption, {PH1: baseLabel});
-    }
+  //   if (!this.#cruxManager.pageResult) {
+  //     return i18nString(UIStrings.loadingOption, {PH1: baseLabel});
+  //   }
 
-    const result = this.#cruxManager.getSelectedFieldResponse();
-    if (!result) {
-      return i18nString(UIStrings.needsDataOption, {PH1: baseLabel});
-    }
+  //   const result = this.#cruxManager.getSelectedFieldResponse();
+  //   if (!result) {
+  //     return i18nString(UIStrings.needsDataOption, {PH1: baseLabel});
+  //   }
 
-    return baseLabel;
-  }
+  //   return baseLabel;
+  // }
 
-  #onDeviceOptionMenuItemSelected(event: Menus.SelectMenu.SelectMenuItemSelectedEvent): void {
-    this.#cruxManager.fieldDeviceOption = event.itemValue as DeviceOption;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
-  }
+  // #onDeviceOptionMenuItemSelected(event: Menus.SelectMenu.SelectMenuItemSelectedEvent): void {
+  //   this.#cruxManager.fieldDeviceOption = event.itemValue as DeviceOption;
+  //   void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
+  // }
 
-  #renderDeviceScopeSetting(): Lit.LitTemplate {
-    if (!this.#cruxManager.getConfigSetting().get().enabled) {
-      return Lit.nothing;
-    }
+  // #renderDeviceScopeSetting(): Lit.LitTemplate {
+  //   if (!this.#cruxManager.getConfigSetting().get().enabled) {
+  //     return Lit.nothing;
+  //   }
 
-    // If there is no data at all we should force users to try adjusting the page scope
-    // before coming back to this option.
-    const shouldDisable = !this.#cruxManager.getFieldResponse(this.#cruxManager.fieldPageScope, 'ALL');
+  //   // If there is no data at all we should force users to try adjusting the page scope
+  //   // before coming back to this option.
+  //   const shouldDisable = !this.#cruxManager.getFieldResponse(this.#cruxManager.fieldPageScope, 'ALL');
 
-    const currentDeviceLabel = this.#getLabelForDeviceOption(this.#cruxManager.fieldDeviceOption);
+  //   const currentDeviceLabel = this.#getLabelForDeviceOption(this.#cruxManager.fieldDeviceOption);
 
-    // clang-format off
-    return html`
-      <devtools-select-menu
-        id="device-scope-select"
-        class="field-data-option"
-        @selectmenuselected=${this.#onDeviceOptionMenuItemSelected}
-        .showDivider=${true}
-        .showArrow=${true}
-        .sideButton=${false}
-        .showSelectedItem=${true}
-        .buttonTitle=${i18nString(UIStrings.device, {PH1: currentDeviceLabel})}
-        .disabled=${shouldDisable}
-        title=${i18nString(UIStrings.showFieldDataForDevice, {PH1: currentDeviceLabel})}
-      >
-        ${DEVICE_OPTION_LIST.map(deviceOption => {
-          return html`
-            <devtools-menu-item
-              .value=${deviceOption}
-              .selected=${this.#cruxManager.fieldDeviceOption === deviceOption}
-            >
-              ${this.#getLabelForDeviceOption(deviceOption)}
-            </devtools-menu-item>
-          `;
-        })}
-      </devtools-select-menu>
-    `;
-    // clang-format on
-  }
+  //   // clang-format off
+  //   return html`
+  //     <devtools-select-menu
+  //       id="device-scope-select"
+  //       class="field-data-option"
+  //       @selectmenuselected=${this.#onDeviceOptionMenuItemSelected}
+  //       .showDivider=${true}
+  //       .showArrow=${true}
+  //       .sideButton=${false}
+  //       .showSelectedItem=${true}
+  //       .buttonTitle=${i18nString(UIStrings.device, {PH1: currentDeviceLabel})}
+  //       .disabled=${shouldDisable}
+  //       title=${i18nString(UIStrings.showFieldDataForDevice, {PH1: currentDeviceLabel})}
+  //     >
+  //       ${DEVICE_OPTION_LIST.map(deviceOption => {
+  //         return html`
+  //           <devtools-menu-item
+  //             .value=${deviceOption}
+  //             .selected=${this.#cruxManager.fieldDeviceOption === deviceOption}
+  //           >
+  //             ${this.#getLabelForDeviceOption(deviceOption)}
+  //           </devtools-menu-item>
+  //         `;
+  //       })}
+  //     </devtools-select-menu>
+  //   `;
+  //   // clang-format on
+  // }
 
-  #getCollectionPeriodRange(): string|null {
-    const selectedResponse = this.#cruxManager.getSelectedFieldResponse();
-    if (!selectedResponse) {
-      return null;
-    }
+  // #getCollectionPeriodRange(): string|null {
+  //   const selectedResponse = this.#cruxManager.getSelectedFieldResponse();
+  //   if (!selectedResponse) {
+  //     return null;
+  //   }
 
-    const {firstDate, lastDate} = selectedResponse.record.collectionPeriod;
+  //   const {firstDate, lastDate} = selectedResponse.record.collectionPeriod;
 
-    const formattedFirstDate = new Date(
-        firstDate.year,
-        // CrUX month is 1-indexed but `Date` month is 0-indexed
-        firstDate.month - 1,
-        firstDate.day,
-    );
-    const formattedLastDate = new Date(
-        lastDate.year,
-        // CrUX month is 1-indexed but `Date` month is 0-indexed
-        lastDate.month - 1,
-        lastDate.day,
-    );
+  //   const formattedFirstDate = new Date(
+  //       firstDate.year,
+  //       // CrUX month is 1-indexed but `Date` month is 0-indexed
+  //       firstDate.month - 1,
+  //       firstDate.day,
+  //   );
+  //   const formattedLastDate = new Date(
+  //       lastDate.year,
+  //       // CrUX month is 1-indexed but `Date` month is 0-indexed
+  //       lastDate.month - 1,
+  //       lastDate.day,
+  //   );
 
-    const options: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    };
+  //   const options: Intl.DateTimeFormatOptions = {
+  //     year: 'numeric',
+  //     month: 'short',
+  //     day: 'numeric',
+  //   };
 
-    return i18nString(UIStrings.dateRange, {
-      PH1: formattedFirstDate.toLocaleDateString(undefined, options),
-      PH2: formattedLastDate.toLocaleDateString(undefined, options),
-    });
-  }
+  //   return i18nString(UIStrings.dateRange, {
+  //     PH1: formattedFirstDate.toLocaleDateString(undefined, options),
+  //     PH2: formattedLastDate.toLocaleDateString(undefined, options),
+  //   });
+  // }
 
-  #renderCollectionPeriod(): Lit.LitTemplate {
-    const range = this.#getCollectionPeriodRange();
+  // #renderCollectionPeriod(): Lit.LitTemplate {
+  //   const range = this.#getCollectionPeriodRange();
 
-    const dateEl = document.createElement('span');
-    dateEl.classList.add('collection-period-range');
-    dateEl.textContent = range || i18nString(UIStrings.notEnoughData);
+  //   const dateEl = document.createElement('span');
+  //   dateEl.classList.add('collection-period-range');
+  //   dateEl.textContent = range || i18nString(UIStrings.notEnoughData);
 
-    const message = i18n.i18n.getFormatLocalizedString(str_, UIStrings.collectionPeriod, {
-      PH1: dateEl,
-    });
+  //   const message = i18n.i18n.getFormatLocalizedString(str_, UIStrings.collectionPeriod, {
+  //     PH1: dateEl,
+  //   });
 
-    const warnings = this.#cruxManager.pageResult?.warnings || [];
+  //   const warnings = this.#cruxManager.pageResult?.warnings || [];
 
-    return html`
-      <div class="field-data-message">
-        <div>${message}</div>
-        ${warnings.map(warning => html`
-          <div class="field-data-warning">${warning}</div>
-        `)}
-      </div>
-    `;
-  }
+  //   return html`
+  //     <div class="field-data-message">
+  //       <div>${message}</div>
+  //       ${warnings.map(warning => html`
+  //         <div class="field-data-warning">${warning}</div>
+  //       `)}
+  //     </div>
+  //   `;
+  // }
 
-  #renderFieldDataMessage(): Lit.LitTemplate {
-    if (this.#cruxManager.getConfigSetting().get().enabled) {
-      return this.#renderCollectionPeriod();
-    }
+  // #renderFieldDataMessage(): Lit.LitTemplate {
+  //   if (this.#cruxManager.getConfigSetting().get().enabled) {
+  //     return this.#renderCollectionPeriod();
+  //   }
 
-    const linkEl =
-        UI.XLink.XLink.create('https://developer.chrome.com/docs/crux', i18n.i18n.lockedString('Chrome UX Report'));
-    const messageEl = i18n.i18n.getFormatLocalizedString(str_, UIStrings.seeHowYourLocalMetricsCompare, {PH1: linkEl});
+  //   const linkEl =
+  //       UI.XLink.XLink.create('https://developer.chrome.com/docs/crux', i18n.i18n.lockedString('Chrome UX Report'));
+  //   const messageEl = i18n.i18n.getFormatLocalizedString(str_, UIStrings.seeHowYourLocalMetricsCompare, {PH1: linkEl});
 
-    return html`
-      <div class="field-data-message">${messageEl}</div>
-    `;
-  }
+  //   return html`
+  //     <div class="field-data-message">${messageEl}</div>
+  //   `;
+  // }
 
   #renderLogSection(): Lit.LitTemplate {
     // clang-format off
@@ -849,12 +874,12 @@ export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableCompon
     });
   }
 
-  async #logExtraInteractionDetails(interaction: LiveMetrics.Interaction): Promise<void> {
-    const success = await LiveMetrics.LiveMetrics.instance().logInteractionScripts(interaction);
-    if (success) {
-      await Common.Console.Console.instance().showPromise();
-    }
-  }
+  // async #logExtraInteractionDetails(interaction: LiveMetrics.Interaction): Promise<void> {
+  //   const success = await LiveMetrics.LiveMetrics.instance().logInteractionScripts(interaction);
+  //   if (success) {
+  //     await Common.Console.Console.instance().showPromise();
+  //   }
+  // }
 
   #renderInteractionsLog(): Lit.LitTemplate {
     if (!this.#interactions.size) {
@@ -1010,6 +1035,8 @@ export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableCompon
 
   #renderNodeView(): Lit.LitTemplate {
     return html`
+      <style>${liveMetricsViewStyles.cssText}</style>
+      <style>${metricValueStyles.cssText}</style>
       <div class="node-view">
         <main>
           <h2 class="section-title">${i18nString(UIStrings.nodePerformanceTimeline)}</h2>
@@ -1033,6 +1060,8 @@ export class LiveMetricsView extends LegacyWrapper.LegacyWrapper.WrappableCompon
 
     // clang-format off
     const output = html`
+      <style>${liveMetricsViewStyles.cssText}</style>
+      <style>${metricValueStyles.cssText}</style>
       <div class="container">
         <div class="live-metrics-view">
           <main class="live-metrics">

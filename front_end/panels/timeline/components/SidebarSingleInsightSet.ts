@@ -1,6 +1,7 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as Platform from '../../../core/platform/platform.js';
@@ -13,15 +14,12 @@ import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 import {md} from '../utils/Helpers.js';
 
+import type {BaseInsightComponent} from './insights/BaseInsightComponent.js';
 import {shouldRenderForCategory} from './insights/Helpers.js';
 import * as Insights from './insights/insights.js';
 import type {ActiveInsight} from './Sidebar.js';
-import stylesRaw from './sidebarSingleInsightSet.css.js';
+import sidebarSingleInsightSetStyles from './sidebarSingleInsightSet.css.js';
 import {determineCompareRating, NumberWithUnit} from './Utils.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const styles = new CSSStyleSheet();
-styles.replaceSync(stylesRaw.cssContent);
 
 const {html} = Lit.StaticHtml;
 
@@ -71,7 +69,7 @@ const UIStrings = {
   fieldMismatchNotice:
       'There are many reasons why local and field metrics [may not match](https://web.dev/articles/lab-and-field-data-differences). ' +
       'Adjust [throttling settings and device emulation](https://developer.chrome.com/docs/devtools/device-mode) to analyze traces more similar to the average user\'s environment.',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/SidebarSingleInsightSet.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -89,13 +87,10 @@ export interface SidebarSingleInsightSetData {
  * "enable experimental performance insights" experiment. This is used to enable
  * us to ship incrementally without turning insights on by default for all
  * users. */
-const EXPERIMENTAL_INSIGHTS: ReadonlySet<string> = new Set([
-  'FontDisplay',
-  'LongCriticalNetworkTree',
-]);
+const EXPERIMENTAL_INSIGHTS: ReadonlySet<string> = new Set([]);
 
 type InsightNameToComponentMapping =
-    Record<string, typeof Insights.BaseInsightComponent.BaseInsightComponent<Trace.Insights.Types.InsightModel<{}>>>;
+    Record<string, typeof Insights.BaseInsightComponent.BaseInsightComponent<Trace.Insights.Types.InsightModel>>;
 
 /**
  * Every insight (INCLUDING experimental ones).
@@ -103,25 +98,30 @@ type InsightNameToComponentMapping =
  * Order does not matter (but keep alphabetized).
  */
 const INSIGHT_NAME_TO_COMPONENT: InsightNameToComponentMapping = {
+  Cache: Insights.Cache.Cache,
   CLSCulprits: Insights.CLSCulprits.CLSCulprits,
-  DOMSize: Insights.DOMSize.DOMSize,
   DocumentLatency: Insights.DocumentLatency.DocumentLatency,
+  DOMSize: Insights.DOMSize.DOMSize,
+  DuplicatedJavaScript: Insights.DuplicatedJavaScript.DuplicatedJavaScript,
   FontDisplay: Insights.FontDisplay.FontDisplay,
+  ForcedReflow: Insights.ForcedReflow.ForcedReflow,
   ImageDelivery: Insights.ImageDelivery.ImageDelivery,
   InteractionToNextPaint: Insights.InteractionToNextPaint.InteractionToNextPaint,
   LCPDiscovery: Insights.LCPDiscovery.LCPDiscovery,
   LCPPhases: Insights.LCPPhases.LCPPhases,
-  LongCriticalNetworkTree: Insights.LongCriticalNetworkTree.LongCriticalNetworkTree,
+  LegacyJavaScript: Insights.LegacyJavaScript.LegacyJavaScript,
+  ModernHTTP: Insights.ModernHTTP.ModernHTTP,
+  NetworkDependencyTree: Insights.NetworkDependencyTree.NetworkDependencyTree,
   RenderBlocking: Insights.RenderBlocking.RenderBlocking,
   SlowCSSSelector: Insights.SlowCSSSelector.SlowCSSSelector,
   ThirdParties: Insights.ThirdParties.ThirdParties,
-  ForcedReflow: Insights.ForcedReflow.ForcedReflow,
   Viewport: Insights.Viewport.Viewport,
 };
 
 export class SidebarSingleInsightSet extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  #renderBound = this.#render.bind(this);
+
+  #activeInsightElement: BaseInsightComponent<Trace.Insights.Types.InsightModel>|null = null;
 
   #data: SidebarSingleInsightSetData = {
     insights: null,
@@ -133,14 +133,34 @@ export class SidebarSingleInsightSet extends HTMLElement {
   };
 
   #dismissedFieldMismatchNotice = false;
+  #activeHighlightTimeout = -1;
 
   set data(data: SidebarSingleInsightSetData) {
     this.#data = data;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [styles];
     this.#render();
+  }
+
+  disconnectedCallback(): void {
+    window.clearTimeout(this.#activeHighlightTimeout);
+  }
+
+  highlightActiveInsight(): void {
+    if (!this.#activeInsightElement) {
+      return;
+    }
+    // First clear any existing highlight that is going on.
+    this.#activeInsightElement.removeAttribute('highlight-insight');
+    window.clearTimeout(this.#activeHighlightTimeout);
+
+    requestAnimationFrame(() => {
+      this.#activeInsightElement?.setAttribute('highlight-insight', 'true');
+      this.#activeHighlightTimeout = window.setTimeout(() => {
+        this.#activeInsightElement?.removeAttribute('highlight-insight');
+      }, 2_000);
+    });
   }
 
   #metricIsVisible(label: 'LCP'|'CLS'|'INP'): boolean {
@@ -214,7 +234,7 @@ export class SidebarSingleInsightSet extends HTMLElement {
     return {lcp, cls, inp};
   }
 
-  #getFieldMetrics(insightSetKey: string): Omit<Trace.Insights.Common.CrUXFieldMetricResults, 'fcp'>|null {
+  #getFieldMetrics(insightSetKey: string): Trace.Insights.Common.CrUXFieldMetricResults|null {
     const insightSet = this.#data.insights?.get(insightSetKey);
     if (!insightSet) {
       return null;
@@ -380,22 +400,30 @@ export class SidebarSingleInsightSet extends HTMLElement {
         continue;
       }
 
+      const fieldMetrics = this.#getFieldMetrics(insightSetKey);
+
       // clang-format off
       const component = html`<div>
         <${componentClass.litTagName}
           .selected=${this.#data.activeInsight?.model === model}
+          ${Lit.Directives.ref(elem => {
+            if(this.#data.activeInsight?.model === model && elem) {
+              this.#activeInsightElement = elem as BaseInsightComponent<Trace.Insights.Types.InsightModel>;
+            }
+          })}
           .model=${model}
           .bounds=${insightSet.bounds}
           .insightSetKey=${insightSetKey}
-          .parsedTrace=${this.#data.parsedTrace}>
+          .parsedTrace=${this.#data.parsedTrace}
+          .fieldMetrics=${fieldMetrics}>
         </${componentClass.litTagName}>
       </div>`;
       // clang-format on
 
-      if (model.shouldShow) {
-        shownInsights.push(component);
-      } else {
+      if (model.state === 'pass') {
         passedInsights.push(component);
+      } else {
+        shownInsights.push(component);
       }
     }
 
@@ -426,6 +454,7 @@ export class SidebarSingleInsightSet extends HTMLElement {
 
     // clang-format off
     Lit.render(html`
+      <style>${sidebarSingleInsightSetStyles.cssText}</style>
       <div class="navigation">
         ${this.#renderMetrics(insightSetKey)}
         ${this.#renderInsights(insights, insightSetKey)}

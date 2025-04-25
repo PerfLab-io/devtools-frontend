@@ -522,7 +522,7 @@ const formatName = (name) => {
       );
     });
 
-    it('for overriden methods', () => {
+    it('for overridden methods', () => {
       assert.deepEqual(
           typeScriptOutline(
               'class Foo extends Bar {\n' +
@@ -1002,9 +1002,16 @@ const sub = (x, y) => x - y;
       );
     });
   });
-});
 
-describe('OutlineQuickOpen', () => {
+  it('terminates for property assignments with member expressions at the end of a script', () => {
+    const doc = 'o.x = o.y;';
+    for (const typescript of [false, true]) {
+      const extensions = [CodeMirror.javascript.javascript({typescript})];
+      const state = CodeMirror.EditorState.create({doc, extensions});
+      assert.isEmpty(Sources.OutlineQuickOpen.outline(state));
+    }
+  });
+
   const {OutlineQuickOpen} = Sources.OutlineQuickOpen;
 
   it('reports no items before attached', () => {

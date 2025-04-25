@@ -9,7 +9,7 @@ import {
   getCleanTextContentFromElements,
   renderElementIntoDOM,
 } from '../../../testing/DOMHelpers.js';
-import {describeWithEnvironment, getGetHostConfigStub} from '../../../testing/EnvironmentHelpers.js';
+import {describeWithEnvironment, updateHostConfig} from '../../../testing/EnvironmentHelpers.js';
 import * as Explain from '../explain.js';
 
 describeWithEnvironment('ConsoleInsight', () => {
@@ -71,7 +71,7 @@ describeWithEnvironment('ConsoleInsight', () => {
   });
 
   it('shows opt-in teaser when blocked by age', async () => {
-    const stub = getGetHostConfigStub({
+    updateHostConfig({
       aidaAvailability: {
         blockedByAge: true,
       },
@@ -90,7 +90,6 @@ describeWithEnvironment('ConsoleInsight', () => {
           'Turn on Console insights in Settings to receive AI assistance for understanding and addressing console warnings and errors. Learn more',
         ],
     );
-    stub.restore();
   });
 
   it('generates an explanation when the user logs in', async () => {
@@ -151,15 +150,15 @@ describeWithEnvironment('ConsoleInsight', () => {
     renderElementIntoDOM(component);
     await drainMicroTasks();
     assert.isNotNull(component.shadowRoot);
-    assert.strictEqual(component.shadowRoot!.querySelector('h2')?.innerText, 'Understand console messages with AI');
+    assert.strictEqual(component.shadowRoot.querySelector('h2')?.innerText, 'Understand console messages with AI');
 
-    dispatchClickEvent(component.shadowRoot!.querySelector('.continue-button')!, {
+    dispatchClickEvent(component.shadowRoot.querySelector('.continue-button')!, {
       bubbles: true,
       composed: true,
     });
     await drainMicroTasks();
     // Rating buttons are shown.
-    assert(component.shadowRoot!.querySelector('.rating'));
+    assert(component.shadowRoot.querySelector('.rating'));
   });
 
   it('shows an error message on timeout', async () => {
@@ -191,7 +190,11 @@ describeWithEnvironment('ConsoleInsight', () => {
   });
 
   const reportsRating = (positive: boolean) => async () => {
-    const stub = getGetHostConfigStub({});
+    updateHostConfig({
+      aidaAvailability: {
+        disallowLogging: false,
+      },
+    });
     const actionTaken = sinon.stub(Host.userMetrics, 'actionTaken');
     const aidaClient = getTestAidaClient();
     component = new Explain.ConsoleInsight(
@@ -203,30 +206,30 @@ describeWithEnvironment('ConsoleInsight', () => {
       composed: true,
     });
 
-    assert(aidaClient.registerClientEvent.calledOnce);
+    sinon.assert.calledOnce(aidaClient.registerClientEvent);
     sinon.assert.match(aidaClient.registerClientEvent.firstCall.firstArg, sinon.match({
       corresponding_aida_rpc_global_id: 0,
       do_conversation_client_event: {
         user_feedback: {sentiment: positive ? 'POSITIVE' : 'NEGATIVE'},
       },
     }));
-    assert(actionTaken.calledWith(
-        positive ? Host.UserMetrics.Action.InsightRatedPositive : Host.UserMetrics.Action.InsightRatedNegative));
+    sinon.assert.calledWith(
+        actionTaken,
+        positive ? Host.UserMetrics.Action.InsightRatedPositive : Host.UserMetrics.Action.InsightRatedNegative);
 
     dispatchClickEvent(component.shadowRoot!.querySelector(`.rating [data-rating=${positive}]`)!, {
       bubbles: true,
       composed: true,
     });
     // Can only rate once.
-    assert(aidaClient.registerClientEvent.calledOnce);
-    stub.restore();
+    sinon.assert.calledOnce(aidaClient.registerClientEvent);
   };
 
   it('reports positive rating', reportsRating(true));
   it('reports negative rating', reportsRating(false));
 
   it('has no thumbs up/down buttons if logging is disabled', async () => {
-    const stub = getGetHostConfigStub({
+    updateHostConfig({
       aidaAvailability: {
         disallowLogging: true,
       },
@@ -242,8 +245,6 @@ describeWithEnvironment('ConsoleInsight', () => {
     assert.isNull(thumbsUpButton);
     const thumbsDownButton = component.shadowRoot!.querySelector('.rating [data-rating="false"]');
     assert.isNull(thumbsDownButton);
-
-    stub.restore();
   });
 
   it('report if the user is not logged in', async () => {
@@ -363,7 +364,7 @@ describeWithEnvironment('ConsoleInsight', () => {
 
     assert.isFalse(details?.hasAttribute('open'));
     assert.isFalse(directCitations[0].classList.contains('highlighted'));
-    const link = markdownView!.shadowRoot?.querySelector('sup x-link') as HTMLElement;
+    const link = markdownView!.shadowRoot?.querySelector('sup button') as HTMLElement;
     link.click();
     assert.isTrue(details?.hasAttribute('open'));
     assert.isTrue(directCitations[0].classList.contains('highlighted'));

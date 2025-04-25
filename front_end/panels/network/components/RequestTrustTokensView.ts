@@ -1,6 +1,7 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/report_view/report_view.js';
 import '../../../ui/components/icon_button/icon_button.js';
@@ -15,9 +16,11 @@ import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
 import requestTrustTokensViewStylesRaw from './RequestTrustTokensView.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const requestTrustTokensViewStyles = new CSSStyleSheet();
-requestTrustTokensViewStyles.replaceSync(requestTrustTokensViewStylesRaw.cssContent);
+requestTrustTokensViewStyles.replaceSync(requestTrustTokensViewStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -101,7 +104,7 @@ const UIStrings = {
    *@description Text for an error status in the Network panel
    */
   perSiteLimit: 'Per-site issuer limit reached.',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/network/components/RequestTrustTokensView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 

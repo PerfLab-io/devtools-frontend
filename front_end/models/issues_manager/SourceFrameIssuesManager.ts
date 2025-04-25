@@ -43,7 +43,7 @@ export class SourceFrameIssuesManager {
     if (!description || !srcLocation) {
       return;
     }
-    const messageText = await getIssueTitleFromMarkdownDescription(description);
+    const messageText = await getIssueTitleFromMarkdownDescription(/*description*/);
     if (!messageText) {
       return;
     }

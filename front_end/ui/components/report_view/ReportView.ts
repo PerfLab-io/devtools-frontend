@@ -1,6 +1,7 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import {html, nothing, render} from '../../lit/lit.js';
 
@@ -11,29 +12,21 @@ import reportSectionDividerStylesRaw from './reportSectionDivider.css.js';
 import reportSectionHeaderStylesRaw from './reportSectionHeader.css.js';
 import reportValueStylesRaw from './reportValue.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const reportStyles = new CSSStyleSheet();
-reportStyles.replaceSync(reportStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+reportStyles.replaceSync(reportStylesRaw.cssText);
 const reportKeyStyles = new CSSStyleSheet();
-reportKeyStyles.replaceSync(reportKeyStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+reportKeyStyles.replaceSync(reportKeyStylesRaw.cssText);
 const reportSectionStyles = new CSSStyleSheet();
-reportSectionStyles.replaceSync(reportSectionStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+reportSectionStyles.replaceSync(reportSectionStylesRaw.cssText);
 const reportSectionDividerStyles = new CSSStyleSheet();
-reportSectionDividerStyles.replaceSync(reportSectionDividerStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+reportSectionDividerStyles.replaceSync(reportSectionDividerStylesRaw.cssText);
 const reportSectionHeaderStyles = new CSSStyleSheet();
-reportSectionHeaderStyles.replaceSync(reportSectionHeaderStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+reportSectionHeaderStyles.replaceSync(reportSectionHeaderStylesRaw.cssText);
 const reportValueStyles = new CSSStyleSheet();
-reportValueStyles.replaceSync(reportValueStylesRaw.cssContent);
+reportValueStyles.replaceSync(reportValueStylesRaw.cssText);
 
 /**
  * The `Report` component can be used to display static information. A report
@@ -59,7 +52,7 @@ export interface ReportData {
 }
 export class Report extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  #reportTitle: string = '';
+  #reportTitle = '';
 
   set data({reportTitle}: ReportData) {
     this.#reportTitle = reportTitle;
@@ -75,8 +68,8 @@ export class Report extends HTMLElement {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
+      ${this.#reportTitle ? html`<div class="report-title">${this.#reportTitle}</div>` : nothing}
       <div class="content">
-        ${this.#reportTitle ? html`<div class="report-title">${this.#reportTitle}</div>` : nothing}
         <slot></slot>
       </div>
     `, this.#shadow, {host: this});

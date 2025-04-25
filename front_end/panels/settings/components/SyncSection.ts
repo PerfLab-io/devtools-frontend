@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/chrome_link/chrome_link.js';
 import '../../../ui/components/settings/settings.js';
@@ -14,9 +15,11 @@ import * as Lit from '../../../ui/lit/lit.js';
 
 import syncSectionStylesRaw from './syncSection.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const syncSectionStyles = new CSSStyleSheet();
-syncSectionStyles.replaceSync(syncSectionStylesRaw.cssContent);
+syncSectionStyles.replaceSync(syncSectionStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -41,7 +44,7 @@ const UIStrings = {
    * front of the email address currently used for Chrome Sync.
    */
   signedIn: 'Signed into Chrome as:',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/settings/components/SyncSection.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -56,8 +59,6 @@ export class SyncSection extends HTMLElement {
   #syncInfo: Host.InspectorFrontendHostAPI.SyncInformation = {isSyncActive: false};
   #syncSetting?: Common.Settings.Setting<boolean>;
 
-  #boundRender = this.#render.bind(this);
-
   connectedCallback(): void {
     this.#shadow.adoptedStyleSheets = [syncSectionStyles];
   }
@@ -65,7 +66,7 @@ export class SyncSection extends HTMLElement {
   set data(data: SyncSectionData) {
     this.#syncInfo = data.syncInfo;
     this.#syncSetting = data.syncSetting;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #render(): void {

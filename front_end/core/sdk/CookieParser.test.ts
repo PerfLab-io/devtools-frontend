@@ -101,10 +101,10 @@ describe('CookieParser', () => {
               size: 83,
             },
           ]);
-      assert.isTrue(stub.calledOnceWithExactly('Failed getting cookie attribute: Discard'));
+      sinon.assert.calledOnceWithExactly(stub, 'Failed getting cookie attribute: Discard');
     });
 
-    it('handles multiple cookies with an invalid attribute', () => {
+    it('handles multiple cookies with an invalid attribute different size', () => {
       const stub = sinon.stub(console, 'error');
       parseAndExpectSetCookies(
           `cookie1 = value; max-age= 1440; Domain   =.example.com
@@ -121,7 +121,7 @@ describe('CookieParser', () => {
               size: 83,
             },
           ]);
-      assert.isTrue(stub.calledOnceWithExactly('Failed getting cookie attribute: Discard'));
+      sinon.assert.calledOnceWithExactly(stub, 'Failed getting cookie attribute: Discard');
     });
 
     describe('handles the SameSite attribute', () => {

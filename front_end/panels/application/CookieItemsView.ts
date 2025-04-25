@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2009 Apple Inc.  All rights reserved.
@@ -80,7 +81,7 @@ const UIStrings = {
    *@example {5} PH1
    */
   numberOfCookiesShownInTableS: 'Number of cookies shown in table: {PH1}',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/application/CookieItemsView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 class CookiePreviewWidget extends UI.Widget.VBox {
@@ -107,7 +108,7 @@ class CookiePreviewWidget extends UI.Widget.VBox {
         i18nString(UIStrings.showUrlDecoded), this.showDecodedSetting.get(), undefined, 'show-url-decoded');
     toggle.title = i18nString(UIStrings.showUrlDecoded);
     toggle.classList.add('cookie-preview-widget-toggle');
-    toggle.checkboxElement.addEventListener('click', () => this.showDecoded(!this.showDecodedSetting.get()));
+    toggle.addEventListener('click', () => this.showDecoded(!this.showDecodedSetting.get()));
     header.appendChild(toggle);
     this.toggle = toggle;
 
@@ -127,7 +128,7 @@ class CookiePreviewWidget extends UI.Widget.VBox {
       return;
     }
     this.showDecodedSetting.set(decoded);
-    this.toggle.checkboxElement.checked = decoded;
+    this.toggle.checked = decoded;
     this.updatePreview();
   }
 
@@ -164,7 +165,6 @@ class CookiePreviewWidget extends UI.Widget.VBox {
 export class CookieItemsView extends StorageItemsView {
   private model: SDK.CookieModel.CookieModel;
   private cookieDomain: string;
-  private totalSize: number;
   private cookiesTable: CookieTable.CookiesTable.CookiesTable;
   private readonly splitWidget: UI.SplitWidget.SplitWidget;
   private readonly previewPanel: UI.Widget.VBox;
@@ -184,7 +184,6 @@ export class CookieItemsView extends StorageItemsView {
     this.model = model;
     this.cookieDomain = cookieDomain;
 
-    this.totalSize = 0;
     this.cookiesTable = new CookieTable.CookiesTable.CookiesTable(
         /* renderInline */ false, this.saveCookie.bind(this), this.refreshItems.bind(this),
         this.handleCookieSelected.bind(this), this.deleteCookie.bind(this));
@@ -256,7 +255,7 @@ export class CookieItemsView extends StorageItemsView {
     if (oldCookie && newCookie.key() !== oldCookie.key()) {
       await this.model.deleteCookie(oldCookie);
     }
-    return this.model.saveCookie(newCookie);
+    return await this.model.saveCookie(newCookie);
   }
 
   private deleteCookie(cookie: SDK.Cookie.Cookie, callback: () => void): void {
@@ -265,7 +264,6 @@ export class CookieItemsView extends StorageItemsView {
 
   private updateWithCookies(allCookies: SDK.Cookie.Cookie[]): void {
     this.allCookies = allCookies;
-    this.totalSize = allCookies.reduce((size, cookie) => size + cookie.size(), 0);
 
     const parsedURL = Common.ParsedURL.ParsedURL.fromString(this.cookieDomain);
     const host = parsedURL ? parsedURL.host : '';

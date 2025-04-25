@@ -7,6 +7,8 @@ import * as fs from 'fs';
 import * as glob from 'glob';
 import * as os from 'os';
 import * as path from 'path';
+import yargs from 'yargs';
+import unparse from 'yargs-unparser';
 
 import {commandLineArgs} from './conductor/commandline.js';
 import {
@@ -18,13 +20,11 @@ import {
   SOURCE_ROOT,
 } from './conductor/paths.js';
 
-const yargs = require('yargs');
-const unparse = require('yargs-unparser');
 const options = commandLineArgs(yargs(process.argv.slice(2)))
                     .options('skip-ninja', {type: 'boolean', desc: 'Skip rebuilding'})
                     .options('debug-driver', {type: 'boolean', hidden: true, desc: 'Debug the driver part of tests'})
                     .options('verbose', {alias: 'v', type: 'count', desc: 'Increases the log level'})
-                    .options('bail', {alias: 'b', desc: ' bail after first test failure'})
+                    .options('bail', {type: 'boolean', alias: 'b', desc: ' bail after first test failure'})
                     .options('auto-watch', {
                       desc: 'watch changes to files and run tests automatically on file change (only for unit tests)'
                     })
@@ -32,13 +32,13 @@ const options = commandLineArgs(yargs(process.argv.slice(2)))
                       type: 'string',
                       desc: 'Path to the test suite, starting from out/Target/gen directory.',
                       normalize: true,
-                      default: ['front_end', 'test/e2e', 'test/interactions'].map(
+                      default: ['front_end', 'test/e2e', 'test/interactions', 'test/e2e_non_hosted'].map(
                           f => path.relative(process.cwd(), path.join(SOURCE_ROOT, f))),
                     })
                     .strict()
                     .parseSync();
 
-const CONSUMED_OPTIONS = ['tests', 'skip-ninja', 'debug-driver', 'bail', 'b', 'verbose', 'v', 'watch'];
+const CONSUMED_OPTIONS = ['tests', 'skip-ninja', 'debug-driver', 'verbose', 'v', 'watch'];
 
 let logLevel = 'error';
 if (options['verbose'] === 1) {
@@ -52,6 +52,8 @@ function forwardOptions() {
   for (const consume of CONSUMED_OPTIONS) {
     forwardedOptions[consume] = undefined;
   }
+
+  // @ts-expect-error yargs and unparse have slightly different types
   return unparse(forwardedOptions);
 }
 
@@ -116,7 +118,7 @@ class Tests {
     ];
     if (options['debug-driver']) {
       argumentsForNode.unshift('--inspect-brk');
-    } else if (options['debug']) {
+    } else if (options['debug'] && !argumentsForNode.includes('--inspect-brk')) {
       argumentsForNode.unshift('--inspect');
     }
 
@@ -146,6 +148,27 @@ class MochaTests extends Tests {
   }
 }
 
+class NonHostedMochaTests extends Tests {
+  override run(tests: PathPair[]) {
+    const args = [
+      path.join(SOURCE_ROOT, 'node_modules', 'mocha', 'bin', 'mocha'),
+      '--config',
+      path.join(this.suite.buildPath, 'mocharc.js'),
+      '-u',
+      path.join(this.suite.buildPath, 'conductor', 'mocha-interface.js'),
+    ];
+    if (options['debug']) {
+      args.unshift('--inspect-brk');
+    }
+    return super.run(
+        tests,
+        args,
+        /* positionalTestArgs= */ false,  // Mocha interprets positional arguments as test files itself. Work around
+                                          // that by passing the tests as dashed args instead.
+    );
+  }
+}
+
 /**
  * Workaround the fact that these test don't have
  * build output in out/Default like dir.
@@ -158,17 +181,20 @@ class ScriptPathPair extends PathPair {
 
 class ScriptsMochaTests extends Tests {
   override readonly cwd = SOURCE_ROOT;
+
   override run(tests: PathPair[]) {
     return super.run(
-        tests.map(test => ScriptPathPair.getFromPair(test)!),
+        tests.map(test => ScriptPathPair.getFromPair(test)),
         [
-          path.join(SOURCE_ROOT, 'node_modules', 'mocha', 'bin', 'mocha'),
+          '--experimental-strip-types', '--no-warnings=ExperimentalWarning',
+          path.join(SOURCE_ROOT, 'node_modules', 'mocha', 'bin', 'mocha'), '--extension=ts,js'
         ],
     );
   }
 
   override match(path: PathPair): boolean {
-    return super.match(ScriptPathPair.getFromPair(path)!);
+    return [this.suite, ...this.extraPaths].some(
+        pathToCheck => isContainedInDirectory(path.sourcePath, pathToCheck.sourcePath));
   }
 }
 
@@ -192,6 +218,7 @@ function main() {
     new KarmaTests(path.join(GEN_DIR, 'front_end'), path.join(GEN_DIR, 'inspector_overlay')),
     new MochaTests(path.join(GEN_DIR, 'test/interactions')),
     new MochaTests(path.join(GEN_DIR, 'test/e2e')),
+    new NonHostedMochaTests(path.join(GEN_DIR, 'test/e2e_non_hosted')),
     new MochaTests(path.join(GEN_DIR, 'test/perf')),
     new ScriptsMochaTests(path.join(SOURCE_ROOT, 'scripts/eslint_rules/tests')),
     new ScriptsMochaTests(path.join(SOURCE_ROOT, 'scripts/stylelint_rules/tests')),

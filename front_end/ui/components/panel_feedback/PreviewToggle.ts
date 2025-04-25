@@ -1,6 +1,7 @@
 // Copyright (c) 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view, rulesdir/inject-checkbox-styles */
 
 import '../../../ui/legacy/legacy.js';
 
@@ -9,11 +10,7 @@ import * as Root from '../../../core/root/root.js';
 import {html, nothing, render} from '../../../ui/lit/lit.js';
 import * as Input from '../input/input.js';
 
-import previewToggleStylesRaw from './previewToggle.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const previewToggleStyles = new CSSStyleSheet();
-previewToggleStyles.replaceSync(previewToggleStylesRaw.cssContent);
+import previewToggleStyles from './previewToggle.css.js';
 
 export interface PreviewToggleData {
   name: string;
@@ -37,7 +34,7 @@ const UIStrings = {
    *@description Link text the user can click to see documentation.
    */
   learnMoreLink: 'Learn More',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('ui/components/panel_feedback/PreviewToggle.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -49,12 +46,8 @@ export class PreviewToggle extends HTMLElement {
   #helperText: string|null = null;
   #feedbackURL: string|null = null;
   #learnMoreURL: string|undefined;
-  #experiment: string = '';
+  #experiment = '';
   #onChangeCallback?: (checked: boolean) => void;
-
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [Input.checkboxStyles, previewToggleStyles];
-  }
 
   set data(data: PreviewToggleData) {
     this.#name = data.name;
@@ -72,6 +65,8 @@ export class PreviewToggle extends HTMLElement {
     // clang-format off
     render(
       html`
+      <style>${Input.checkboxStyles.cssText}</style>
+      <style>${previewToggleStyles.cssText}</style>
       <div class="container">
         <label class="experiment-preview">
           <input type="checkbox" ?checked=${checked} @change=${this.#checkboxChanged} aria-label=${this.#name} />

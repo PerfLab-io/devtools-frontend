@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2007, 2008 Apple Inc.  All rights reserved.
@@ -39,7 +40,6 @@ import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
-import * as Bindings from '../../models/bindings/bindings.js';
 import type * as Extensions from '../../models/extensions/extensions.js';
 import * as Logs from '../../models/logs/logs.js';
 import * as Trace from '../../models/trace/trace.js';
@@ -185,7 +185,7 @@ const UIStrings = {
    * @description Text of a button in the Network panel's toolbar that open Network Conditions panel in the drawer.
    */
   moreNetworkConditions: 'More network conditions…',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/network/NetworkPanel.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 let networkPanelInstance: NetworkPanel;
@@ -390,10 +390,10 @@ export class NetworkPanel extends UI.Panel.Panel implements
     return networkPanelInstance;
   }
 
-  static revealAndFilter(filters: {
-    filterType: NetworkForward.UIFilter.FilterType|null,
+  static revealAndFilter(filters: Array<{
+    filterType: NetworkForward.UIFilter.FilterType | null,
     filterValue: string,
-  }[]): Promise<void> {
+  }>): Promise<void> {
     const panel = NetworkPanel.instance();
     let filterString = '';
     for (const filter of filters) {
@@ -405,13 +405,6 @@ export class NetworkPanel extends UI.Panel.Panel implements
     }
     panel.networkLogView.setTextFilterValue(filterString);
     return UI.ViewManager.ViewManager.instance().showView('network');
-  }
-
-  static async selectAndShowRequest(
-      request: SDK.NetworkRequest.NetworkRequest, tab: NetworkForward.UIRequestLocation.UIRequestTabs,
-      options?: NetworkForward.UIRequestLocation.FilterOptions): Promise<void> {
-    const panel = NetworkPanel.instance();
-    await panel.selectAndActivateRequest(request, tab, options);
   }
 
   throttlingSelectForTest(): UI.Toolbar.ToolbarComboBox {
@@ -578,7 +571,7 @@ export class NetworkPanel extends UI.Panel.Panel implements
   }
 
   private load(): void {
-    if (this.filmStripRecorder && this.filmStripRecorder.isRecording()) {
+    if (this.filmStripRecorder?.isRecording()) {
       if (this.pendingStopTimer) {
         window.clearTimeout(this.pendingStopTimer);
       }
@@ -688,9 +681,6 @@ export class NetworkPanel extends UI.Panel.Panel implements
     this.hideRequestPanel();
   }
 
-  private onRowSizeChanged(): void {
-    this.updateUI();
-  }
   private onRequestSelected(event: Common.EventTarget.EventTargetEvent<SDK.NetworkRequest.NetworkRequest|null>): void {
     const request = event.data;
     this.currentRequest = request;
@@ -809,8 +799,8 @@ export class NetworkPanel extends UI.Panel.Panel implements
       return;
     }
     if (target instanceof Workspace.UISourceCode.UISourceCode) {
-      const resource = Bindings.ResourceUtils.resourceForURL(target.url());
-      if (resource && resource.request) {
+      const resource = SDK.ResourceTreeModel.ResourceTreeModel.resourceForURL(target.url());
+      if (resource?.request) {
         appendRevealItem(resource.request);
       } else {
         appendRevealItemMissingData();
@@ -967,7 +957,7 @@ export class FilmStripRecorder implements Trace.TracingManager.TracingManagerCli
 
     this.tracingManager = tracingManager;
     this.resourceTreeModel = this.tracingManager.target().model(SDK.ResourceTreeModel.ResourceTreeModel);
-    void this.tracingManager.start(this, '-*,disabled-by-default-devtools.screenshot', '');
+    void this.tracingManager.start(this, '-*,disabled-by-default-devtools.screenshot');
 
     Host.userMetrics.actionTaken(Host.UserMetrics.Action.FilmStripStartedRecording);
   }

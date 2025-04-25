@@ -1,6 +1,7 @@
 // Copyright (c) 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/icon_button/icon_button.js';
 import '../../../ui/components/node_text/node_text.js';
@@ -12,9 +13,11 @@ import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 import type {DOMNode} from './Helper.js';
 import queryContainerStylesRaw from './queryContainer.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const queryContainerStyles = new CSSStyleSheet();
-queryContainerStyles.replaceSync(queryContainerStylesRaw.cssContent);
+queryContainerStyles.replaceSync(queryContainerStylesRaw.cssText);
 
 const {render, html} = Lit;
 const {PhysicalAxis, QueryAxis} = SDK.CSSContainerQuery;

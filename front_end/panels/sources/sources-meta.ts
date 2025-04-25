@@ -189,13 +189,15 @@ const UIStrings = {
    */
   createNewSnippet: 'Create new snippet',
   /**
-   *@description Title of an action in the sources tool to add folder to workspace
+   * @description Button in the Workspace tab of the Sources panel, used to
+   *              (manually) add a folder to the workspace.
+   */
+  addFolderManually: 'Add folder manually',
+  /**
+   * @description Title of an action in the Sources panel command menu to (manually)
+   *              add a folder to the workspace.
    */
   addFolderToWorkspace: 'Add folder to workspace',
-  /**
-   *@description Title of an action in the sources tool to add folder to workspace
-   */
-  addFolder: 'Add folder',
   /**
    *@description Title of an action in the debugger tool to previous call frame
    */
@@ -464,7 +466,7 @@ const UIStrings = {
    * @description Title of an action that navigates to the next editor in the Sources panel.
    */
   previousEditorTab: 'Previous editor',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/sources/sources-meta.ts', UIStrings);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
 let loadedSourcesModule: (typeof Sources|undefined);
@@ -1976,7 +1978,7 @@ Common.Revealer.registerRevealer({
 UI.Toolbar.registerToolbarItem({
   actionId: 'sources.add-folder-to-workspace',
   location: UI.Toolbar.ToolbarItemLocation.FILES_NAVIGATION_TOOLBAR,
-  label: i18nLazyString(UIStrings.addFolder),
+  label: i18nLazyString(UIStrings.addFolderManually),
   loadItem: undefined,
   order: undefined,
   separator: undefined,

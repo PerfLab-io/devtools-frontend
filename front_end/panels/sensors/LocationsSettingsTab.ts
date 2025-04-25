@@ -1,11 +1,13 @@
 // Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
+
+import '../../ui/components/cards/cards.js';
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Buttons from '../../ui/components/buttons/buttons.js';
-import * as Cards from '../../ui/components/cards/cards.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
@@ -94,7 +96,7 @@ const UIStrings = {
    *@description Text of add locations button in Locations Settings Tab of the Device Toolbar
    */
   addLocation: 'Add location',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/sensors/LocationsSettingsTab.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -113,23 +115,10 @@ export class LocationsSettingsTab extends UI.Widget.VBox implements UI.ListWidge
         this.contentElement.createChild('div', 'settings-card-container-wrapper').createChild('div');
     settingsContent.classList.add('settings-card-container');
 
-    const addButton = new Buttons.Button.Button();
-    addButton.classList.add('add-locations-button');
-    addButton.data = {
-      variant: Buttons.Button.Variant.OUTLINED,
-      iconName: 'plus',
-      jslogContext: 'emulation.add-location',
-    };
-    addButton.textContent = i18nString(UIStrings.addLocation);
-    addButton.addEventListener('click', () => this.addButtonClicked());
+    const locationsCard = settingsContent.createChild('devtools-card');
+    locationsCard.heading = i18nString(UIStrings.locations);
 
-    const listContainer = document.createElement('div');
-    const locationsCard = new Cards.Card.Card();
-    locationsCard.data = {
-      heading: i18nString(UIStrings.locations),
-      content: [listContainer, addButton],
-    };
-    settingsContent.appendChild(locationsCard);
+    const listContainer = locationsCard.createChild('div');
 
     this.list = new UI.ListWidget.ListWidget(this, undefined, true);
     this.list.element.classList.add('locations-list');
@@ -160,6 +149,17 @@ export class LocationsSettingsTab extends UI.Widget.VBox implements UI.ListWidge
       }
       return location;
     }
+
+    const addButton = new Buttons.Button.Button();
+    addButton.classList.add('add-locations-button');
+    addButton.data = {
+      variant: Buttons.Button.Variant.OUTLINED,
+      iconName: 'plus',
+      jslogContext: 'emulation.add-location',
+    };
+    addButton.textContent = i18nString(UIStrings.addLocation);
+    addButton.addEventListener('click', () => this.addButtonClicked());
+    locationsCard.append(addButton);
 
     this.customSetting.set(list);
     this.customSetting.addChangeListener(this.locationsUpdated, this);
@@ -213,7 +213,7 @@ export class LocationsSettingsTab extends UI.Widget.VBox implements UI.ListWidge
     return element;
   }
 
-  removeItemRequested(item: LocationDescription, index: number): void {
+  removeItemRequested(_item: LocationDescription, index: number): void {
     const list = this.customSetting.get();
     list.splice(index, 1);
     this.customSetting.set(list);
@@ -291,7 +291,7 @@ export class LocationsSettingsTab extends UI.Widget.VBox implements UI.ListWidge
     return editor;
 
     function titleValidator(
-        item: LocationDescription, index: number, input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
+        _item: LocationDescription, _index: number, input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
       const maxLength = 50;
       const value = input.value.trim();
 
@@ -309,7 +309,7 @@ export class LocationsSettingsTab extends UI.Widget.VBox implements UI.ListWidge
     }
 
     function latValidator(
-        item: LocationDescription, index: number, input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
+        _item: LocationDescription, _index: number, input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
       const minLat = -90;
       const maxLat = 90;
       const value = input.value.trim();
@@ -335,7 +335,7 @@ export class LocationsSettingsTab extends UI.Widget.VBox implements UI.ListWidge
     }
 
     function longValidator(
-        item: LocationDescription, index: number, input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
+        _item: LocationDescription, _index: number, input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
       const minLong = -180;
       const maxLong = 180;
       const value = input.value.trim();
@@ -361,7 +361,7 @@ export class LocationsSettingsTab extends UI.Widget.VBox implements UI.ListWidge
     }
 
     function timezoneIdValidator(
-        item: LocationDescription, index: number, input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
+        _item: LocationDescription, _index: number, input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
       const value = input.value.trim();
       // Chromium uses ICU's timezone implementation, which is very
       // liberal in what it accepts. ICU does not simply use an allowlist
@@ -378,7 +378,7 @@ export class LocationsSettingsTab extends UI.Widget.VBox implements UI.ListWidge
     }
 
     function localeValidator(
-        item: LocationDescription, index: number, input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
+        _item: LocationDescription, _index: number, input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
       const value = input.value.trim();
       // Similarly to timezone IDs, there's not much point in validating
       // input locales other than checking if it contains at least two

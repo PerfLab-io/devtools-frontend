@@ -1,11 +1,12 @@
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import './Toolbar.js';
 
 import * as Common from '../../core/common/common.js';
-import * as Host from '../../core/host/host.js';
+// import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
 import type * as Root from '../../core/root/root.js';
@@ -13,7 +14,7 @@ import * as IconButton from '../components/icon_button/icon_button.js';
 import * as VisualLogging from '../visual_logging/visual_logging.js';
 
 import * as ARIAUtils from './ARIAUtils.js';
-import type {ContextMenu} from './ContextMenu.js';
+// import type {ContextMenu} from './ContextMenu.js';
 import {type EventData, Events as TabbedPaneEvents, TabbedPane} from './TabbedPane.js';
 import {type ItemsProvider, type ToolbarItem, ToolbarMenuButton} from './Toolbar.js';
 import {createTextChild} from './UIUtils.js';
@@ -40,7 +41,7 @@ const UIStrings = {
    *@example {Sensors} PH1
    */
   sPanel: '{PH1} panel',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/ViewManager.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -161,7 +162,7 @@ export class ViewManager {
     // default ordering as defined by the views themselves.
 
     const viewsByLocation = new Map<ViewLocationValues|'none', PreRegisteredView[]>();
-    for (const view of getRegisteredViewExtensions(Common.Settings.Settings.instance().getHostConfig())) {
+    for (const view of getRegisteredViewExtensions()) {
       if (view.viewId() !== 'timeline') {continue;}
 
       const location = view.location() || 'none';
@@ -214,7 +215,7 @@ export class ViewManager {
     viewManagerInstance = undefined;
   }
 
-  static createToolbar(toolbarItems: ToolbarItem[]): Element|null {
+  static createToolbar(/*toolbarItems: ToolbarItem[]*/): Element|null {
     // if (!toolbarItems.length) {
     //   return null;
     // }
@@ -345,9 +346,9 @@ export class ViewManager {
   }
 
   createTabbedLocation(
-      revealCallback?: (() => void), location?: string, restoreSelection?: boolean, allowReorder?: boolean,
-      defaultTab?: string|null): TabbedViewLocation {
-    return new TabbedLocation(this, revealCallback, location, restoreSelection, allowReorder, defaultTab);
+      revealCallback?: (() => void), location?: string, restoreSelection?: boolean, allowReorder?: boolean/*,
+      defaultTab?: string|null*/): TabbedViewLocation {
+    return new TabbedLocation(this, revealCallback, location, restoreSelection, allowReorder/*, defaultTab*/);
   }
 
   createStackLocation(revealCallback?: (() => void), location?: string, jslogContext?: string): ViewLocation {
@@ -391,8 +392,8 @@ export class ContainerWidget extends VBox {
     }
     const promises = [];
     // TODO(crbug.com/1006759): Transform to async-await
-    promises.push(this.view.toolbarItems().then(toolbarItems => {
-      const toolbarElement = ViewManager.createToolbar(toolbarItems);
+    promises.push(this.view.toolbarItems().then(/*toolbarItems*/() => {
+      const toolbarElement = ViewManager.createToolbar(/*toolbarItems*/);
       if (toolbarElement) {
         this.element.insertBefore(toolbarElement, this.element.firstChild);
       }
@@ -478,8 +479,8 @@ class ExpandableContainerWidget extends VBox {
     }
     // TODO(crbug.com/1006759): Transform to async-await
     const promises = [];
-    promises.push(this.view.toolbarItems().then(toolbarItems => {
-      const toolbarElement = ViewManager.createToolbar(toolbarItems);
+    promises.push(this.view.toolbarItems().then(/*toolbarItems*/() => {
+      const toolbarElement = ViewManager.createToolbar(/*toolbarItems*/);
       if (toolbarElement) {
         this.titleElement.appendChild(toolbarElement);
       }
@@ -599,12 +600,12 @@ class TabbedLocation extends Location implements TabbedViewLocation {
   private readonly closeableTabSetting: Common.Settings.Setting<CloseableTabSetting>;
   private readonly tabOrderSetting: Common.Settings.Setting<TabOrderSetting>;
   private readonly lastSelectedTabSetting?: Common.Settings.Setting<string>;
-  private readonly defaultTab: string|null|undefined;
-  private readonly views: Map<string, View>;
+  // private readonly defaultTab: string|null|undefined;
+  private readonly views = new Map<string, View>();
 
   constructor(
       manager: ViewManager, revealCallback?: (() => void), location?: string, restoreSelection?: boolean,
-      allowReorder?: boolean, defaultTab?: string|null) {
+      allowReorder?: boolean/*, defaultTab?: string|null*/) {
     const tabbedPane = new TabbedPane();
     if (allowReorder) {
       tabbedPane.setAllowTabReorder(true);
@@ -627,9 +628,7 @@ class TabbedLocation extends Location implements TabbedViewLocation {
     if (restoreSelection) {
       this.lastSelectedTabSetting = Common.Settings.Settings.instance().createSetting(location + '-selected-tab', '');
     }
-    this.defaultTab = 'timeline';
-
-    this.views = new Map();
+    // this.defaultTab = 'timeline';
 
     if (location) {
       this.appendApplicableItems(location);
@@ -711,7 +710,7 @@ class TabbedLocation extends Location implements TabbedViewLocation {
     // }
   }
 
-  private appendTabsToMenu(contextMenu: ContextMenu): void {
+  private appendTabsToMenu(/*contextMenu: ContextMenu*/): void {
     // const views = Array.from(this.views.values());
     // views.sort((viewa, viewb) => viewa.title().localeCompare(viewb.title()));
     // for (const view of views) {
@@ -742,7 +741,7 @@ class TabbedLocation extends Location implements TabbedViewLocation {
     }
   }
 
-  appendView(view: View, insertBefore?: View|null): void {
+  appendView(/*view: View, insertBefore?: View|null*/): void {
     // if (this.tabbedPaneInternal.hasTab(view.viewId())) {
     //   return;
     // }
@@ -787,8 +786,8 @@ class TabbedLocation extends Location implements TabbedViewLocation {
   }
 
   override async showView(
-      view: View, insertBefore?: View|null, userGesture?: boolean, omitFocus?: boolean,
-      shouldSelectTab: boolean|undefined = true): Promise<void> {
+      /*view: View, insertBefore?: View|null, userGesture?: boolean, omitFocus?: boolean,
+      shouldSelectTab: boolean|undefined = true*/): Promise<void> {
     // this.appendView(view, insertBefore);
     // if (shouldSelectTab) {
     //   this.tabbedPaneInternal.selectTab(view.viewId(), userGesture);

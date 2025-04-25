@@ -1,6 +1,7 @@
 // Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -40,7 +41,7 @@ const UIStrings = {
    * @description A message that prompts the user to open devtools for a specific environment (Node.js)
    */
   openDedicatedTools: 'Open dedicated DevTools for `Node.js`',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('entrypoints/inspector_main/InspectorMain.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 let inspectorMainImplInstance: InspectorMainImpl;
@@ -107,7 +108,7 @@ export class InspectorMainImpl implements Common.Runnable.Runnable {
       if (type !== SDK.Target.Type.TAB) {
         void target.runtimeAgent().invoke_runIfWaitingForDebugger();
       }
-    }, Components.TargetDetachedDialog.TargetDetachedDialog.webSocketConnectionLost);
+    }, Components.TargetDetachedDialog.TargetDetachedDialog.connectionLost);
 
     new SourcesPanelIndicator();
     new BackendSettingsSync();
@@ -119,14 +120,13 @@ export class InspectorMainImpl implements Common.Runnable.Runnable {
         });
 
     // Skip possibly showing the cookie control reload banner if devtools UI is not enabled or if there is an enterprise policy blocking third party cookies
-    if (!Common.Settings.Settings.instance().getHostConfig().devToolsPrivacyUI?.enabled ||
-        Common.Settings.Settings.instance().getHostConfig().thirdPartyCookieControls?.managedBlockThirdPartyCookies ===
-            true) {
+    if (!Root.Runtime.hostConfig.devToolsPrivacyUI?.enabled ||
+        Root.Runtime.hostConfig.thirdPartyCookieControls?.managedBlockThirdPartyCookies === true) {
       return;
     }
 
     // Third party cookie control settings according to the browser
-    const browserCookieControls = Common.Settings.Settings.instance().getHostConfig().thirdPartyCookieControls;
+    const browserCookieControls = Root.Runtime.hostConfig.thirdPartyCookieControls;
 
     // Devtools cookie controls settings
     const cookieControlOverrideSetting =

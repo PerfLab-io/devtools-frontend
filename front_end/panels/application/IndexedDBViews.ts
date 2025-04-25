@@ -27,6 +27,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import '../../ui/components/report_view/report_view.js';
 import '../../ui/legacy/legacy.js';
@@ -65,10 +66,14 @@ const UIStrings = {
    */
   refreshDatabase: 'Refresh database',
   /**
-   *@description Text in Indexed DBViews of the Application panel
+   *@description Text in Application panel IndexedDB delete confirmation dialog
    *@example {msb} PH1
    */
-  pleaseConfirmDeleteOfSDatabase: 'Please confirm delete of "{PH1}" database.',
+  confirmDeleteDatabase: 'Delete "{PH1}" database?',
+  /**
+   *@description Explanation text in Application panel IndexedDB delete confirmation dialog
+   */
+  databaseWillBeRemoved: 'The selected database and contained data will be removed.',
   /**
    *@description Text in Indexed DBViews of the Application panel
    */
@@ -143,7 +148,7 @@ const UIStrings = {
    *@example {2} PH1
    */
   keyGeneratorValueS: 'Key generator value: {PH1}',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/application/IndexedDBViews.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -222,7 +227,8 @@ export class IDBDatabaseView extends ApplicationComponents.StorageMetadataView.S
 
   private async deleteDatabase(): Promise<void> {
     const ok = await UI.UIUtils.ConfirmDialog.show(
-        i18nString(UIStrings.pleaseConfirmDeleteOfSDatabase, {PH1: this.database.databaseId.name}), this,
+        i18nString(UIStrings.databaseWillBeRemoved),
+        i18nString(UIStrings.confirmDeleteDatabase, {PH1: this.database.databaseId.name}), this,
         {jslogContext: 'delete-database-confirmation'});
     if (ok) {
       void this.model.deleteDatabase(this.database.databaseId);
@@ -252,12 +258,12 @@ export class IDBDataView extends UI.View.SimpleView {
   private clearingObjectStore: boolean;
   private pageSize: number;
   private skipCount: number;
-  private entries: Entry[];
+  // Used in Web Tests
+  protected entries: Entry[];
   private objectStore!: ObjectStore;
   private index!: Index|null;
   private keyInput!: UI.Toolbar.ToolbarInput;
   private dataGrid!: DataGrid.DataGrid.DataGridImpl<unknown>;
-  private previouslySelectedNode?: DataGrid.DataGrid.DataGridNode<unknown>;
   private lastPageSize!: number;
   private lastSkipCount!: number;
   private pageBackButton!: UI.Toolbar.ToolbarButton;
@@ -367,12 +373,10 @@ export class IDBDataView extends UI.View.SimpleView {
       columns,
       deleteCallback: this.deleteButtonClicked.bind(this),
       refreshCallback: this.updateData.bind(this, true),
-      editCallback: undefined,
     });
     dataGrid.setStriped(true);
     dataGrid.addEventListener(DataGrid.DataGrid.Events.SELECTED_NODE, () => {
       this.updateToolbarEnablement();
-      this.updateSelectionColor();
     }, this);
     return dataGrid;
   }
@@ -552,7 +556,6 @@ export class IDBDataView extends UI.View.SimpleView {
       this.pageForwardButton.setEnabled(hasMore);
       this.needsRefresh.setVisible(false);
       this.updateToolbarEnablement();
-      this.updateSelectionColor();
       this.updatedDataForTests();
     }
 
@@ -637,22 +640,6 @@ export class IDBDataView extends UI.View.SimpleView {
     const empty = !this.dataGrid || this.dataGrid.rootNode().children.length === 0;
     this.deleteSelectedButton.setEnabled(!empty && this.dataGrid.selectedNode !== null);
   }
-
-  private updateSelectionColor(): void {
-    if (this.previouslySelectedNode) {
-      this.previouslySelectedNode.element().querySelectorAll('.source-code').forEach(element => {
-        const shadowRoot = element.shadowRoot;
-        shadowRoot?.adoptedStyleSheets.pop();
-      });
-    }
-    this.previouslySelectedNode = this.dataGrid.selectedNode ?? undefined;
-    this.dataGrid.selectedNode?.element().querySelectorAll('.source-code').forEach(element => {
-      const shadowRoot = element.shadowRoot;
-      const sheet = new CSSStyleSheet();
-      sheet.replaceSync('::selection {background-color: var(--sys-color-state-focus-select);}');
-      shadowRoot?.adoptedStyleSheets.push(sheet);
-    });
-  }
 }
 
 export class IDBDataGridNode extends DataGrid.DataGrid.DataGridNode<unknown> {
@@ -689,8 +676,6 @@ export class IDBDataGridNode extends DataGrid.DataGrid.DataGridNode<unknown> {
             value, undefined /* linkifier */, true /* skipProto */, true /* readOnly */);
         cell.appendChild(objectElement);
         break;
-      }
-      default: {
       }
     }
 

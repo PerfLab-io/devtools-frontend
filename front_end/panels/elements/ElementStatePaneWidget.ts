@@ -1,10 +1,11 @@
 // Copyright (c) 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
+
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
-import type * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Buttons from '../../ui/components/buttons/buttons.js';
 import * as UI from '../../ui/legacy/legacy.js';
@@ -42,7 +43,7 @@ const UIStrings = {
    *@description Text that is usually a hyperlink to more documentation
    */
   learnMore: 'Learn more',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/elements/ElementStatePaneWidget.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 enum SpecificPseudoStates {
@@ -68,8 +69,8 @@ enum SpecificPseudoStates {
 }
 
 export class ElementStatePaneWidget extends UI.Widget.Widget {
-  private readonly inputs: HTMLInputElement[];
-  private readonly inputStates: WeakMap<HTMLInputElement, string>;
+  private readonly inputs: UI.UIUtils.CheckboxLabel[];
+  private readonly inputStates: WeakMap<UI.UIUtils.CheckboxLabel, string>;
   private readonly duals: Map<SpecificPseudoStates, SpecificPseudoStates>;
   private cssModel?: SDK.CSSModel.CSSModel|null;
   private specificPseudoStateDivs: Map<SpecificPseudoStates, HTMLDivElement>;
@@ -81,7 +82,7 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
     this.registerRequiredCSS(elementStatePaneWidgetStyles);
     this.contentElement.className = 'styles-element-state-pane';
     this.contentElement.setAttribute('jslog', `${VisualLogging.pane('element-states')}`);
-    const inputs: HTMLInputElement[] = [];
+    const inputs: UI.UIUtils.CheckboxLabel[] = [];
     this.inputs = inputs;
     this.inputStates = new WeakMap();
     this.duals = new Map();
@@ -94,7 +95,7 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
     };
     const clickListener = (event: MouseEvent): void => {
       const node = UI.Context.Context.instance().flavor(SDK.DOMModel.DOMNode);
-      if (!node || !(event.target instanceof HTMLInputElement)) {
+      if (!node || !(event.target instanceof UI.UIUtils.CheckboxLabel)) {
         return;
       }
       const state = this.inputStates.get(event.target);
@@ -111,14 +112,11 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
     const createElementStateCheckbox = (state: string): HTMLDivElement => {
       const div = document.createElement('div');
       div.id = state;
-      const label =
-          UI.UIUtils.CheckboxLabel.createWithStringLiteral(':' + state, undefined, undefined, undefined, true);
-      const input = label.checkboxElement;
-      this.inputStates.set(input, state);
-      input.addEventListener('click', (clickListener as EventListener), false);
-      input.setAttribute('jslog', `${VisualLogging.toggle().track({change: true}).context(state)}`);
-      inputs.push(input);
-      div.appendChild(label);
+      const checkbox = UI.UIUtils.CheckboxLabel.createWithStringLiteral(':' + state, undefined, state, true);
+      this.inputStates.set(checkbox, state);
+      checkbox.addEventListener('click', (clickListener as EventListener), false);
+      inputs.push(checkbox);
+      div.appendChild(checkbox);
       return div;
     };
     const setDualStateCheckboxes = (first: SpecificPseudoStates, second: SpecificPseudoStates): void => {
@@ -128,14 +126,13 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
     const createEmulateFocusedPageCheckbox = (): Element => {
       const div = document.createElement('div');
       div.classList.add('page-state-checkbox');
-      const label = UI.UIUtils.CheckboxLabel.create(
+      const checkbox = UI.UIUtils.CheckboxLabel.create(
           i18nString(UIStrings.emulateFocusedPage), undefined, undefined, 'emulate-page-focus', true);
-      UI.SettingsUI.bindCheckbox(
-          label.checkboxElement, Common.Settings.Settings.instance().moduleSetting('emulate-page-focus'), {
-            enable: Host.UserMetrics.Action.ToggleEmulateFocusedPageFromStylesPaneOn,
-            disable: Host.UserMetrics.Action.ToggleEmulateFocusedPageFromStylesPaneOff,
-          });
-      UI.Tooltip.Tooltip.install(label.textElement, i18nString(UIStrings.emulatesAFocusedPage));
+      UI.SettingsUI.bindCheckbox(checkbox, Common.Settings.Settings.instance().moduleSetting('emulate-page-focus'), {
+        enable: Host.UserMetrics.Action.ToggleEmulateFocusedPageFromStylesPaneOn,
+        disable: Host.UserMetrics.Action.ToggleEmulateFocusedPageFromStylesPaneOff,
+      });
+      UI.Tooltip.Tooltip.install(checkbox, i18nString(UIStrings.emulatesAFocusedPage));
 
       const learnMoreButton = new Buttons.Button.Button();
       learnMoreButton.data = {
@@ -147,10 +144,10 @@ export class ElementStatePaneWidget extends UI.Widget.Widget {
       };
       learnMoreButton.addEventListener(
           'click',
-          () => Host.InspectorFrontendHost.InspectorFrontendHostInstance.openInNewTab(
-              'https://goo.gle/devtools-emulate-focused-page' as Platform.DevToolsPath.UrlString));
+          () => UI.UIUtils.openInNewTab(
+              'https://developer.chrome.com/docs/devtools/rendering/apply-effects#emulate_a_focused_page'));
 
-      div.appendChild(label);
+      div.appendChild(checkbox);
       div.appendChild(learnMoreButton);
       return div;
     };

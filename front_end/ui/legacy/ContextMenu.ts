@@ -32,6 +32,8 @@ import type * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import type * as Platform from '../../core/platform/platform.js';
 import * as Root from '../../core/root/root.js';
+import * as Buttons from '../components/buttons/buttons.js';
+import {html, render} from '../lit/lit.js';
 import * as VisualLogging from '../visual_logging/visual_logging.js';
 
 import {ActionRegistry} from './ActionRegistry.js';
@@ -158,7 +160,8 @@ export class Item {
   }
 
   setAccelerator(key: Key, modifiers: Modifier[]): void {
-    const modifierSum = modifiers.reduce((result, modifier) => result + modifier.value, 0);
+    const modifierSum = modifiers.reduce(
+        (result, modifier) => result + ShortcutRegistry.instance().devToolsToChromeModifier(modifier), 0);
     this.accelerator = {keyCode: key.code, modifiers: modifierSum};
   }
 
@@ -230,6 +233,10 @@ export class Section {
       jslogContext: actionId,
     });
     const shortcut = ShortcutRegistry.instance().shortcutTitleForAction(actionId);
+    const keyAndModifier = ShortcutRegistry.instance().keyAndModifiersForAction(actionId);
+    if (keyAndModifier) {
+      result.setAccelerator(keyAndModifier.key, [keyAndModifier.modifier]);
+    }
     if (shortcut) {
       result.setShortcut(shortcut);
     }
@@ -334,6 +341,10 @@ export class SubMenu extends Item {
     return this.section('save');
   }
 
+  annotationSection(): Section {
+    return this.section('annotation');
+  }
+
   footerSection(): Section {
     return this.section('footer');
   }
@@ -391,7 +402,7 @@ export class SubMenu extends Item {
 
       const itemLocation = item.location;
       const actionId = item.actionId;
-      if (!itemLocation || !itemLocation.startsWith(location + '/')) {
+      if (!itemLocation?.startsWith(location + '/')) {
         continue;
       }
 
@@ -405,8 +416,6 @@ export class SubMenu extends Item {
       }
     }
   }
-
-  private static uniqueSectionName: number = 0;
 }
 
 export interface ContextMenuOptions {
@@ -417,6 +426,9 @@ export interface ContextMenuOptions {
   y?: number;
 }
 
+const MENU_ITEM_HEIGHT_FOR_LOGGING = 20;
+const MENU_ITEM_WIDTH_FOR_LOGGING = 200;
+
 export class ContextMenu extends SubMenu {
   protected override contextMenu: this;
   private pendingTargets: unknown[];
@@ -426,7 +438,6 @@ export class ContextMenu extends SubMenu {
   private x: number;
   private y: number;
   private onSoftMenuClosed?: () => void;
-  private jsLogContext?: string;
   private readonly handlers: Map<number, () => void>;
   override idInternal: number;
   private softMenu?: SoftContextMenu;
@@ -537,14 +548,15 @@ export class ContextMenu extends SubMenu {
         if (descriptor.type === 'checkbox') {
           VisualLogging.registerLoggable(
               descriptor, `${VisualLogging.toggle().track({click: true}).context(descriptor.jslogContext)}`,
-              parent || descriptors);
+              parent || descriptors, new DOMRect(0, 0, MENU_ITEM_WIDTH_FOR_LOGGING, MENU_ITEM_HEIGHT_FOR_LOGGING));
         } else if (descriptor.type === 'item') {
           VisualLogging.registerLoggable(
               descriptor, `${VisualLogging.action().track({click: true}).context(descriptor.jslogContext)}`,
-              parent || descriptors);
+              parent || descriptors, new DOMRect(0, 0, MENU_ITEM_WIDTH_FOR_LOGGING, MENU_ITEM_HEIGHT_FOR_LOGGING));
         } else if (descriptor.type === 'subMenu') {
           VisualLogging.registerLoggable(
-              descriptor, `${VisualLogging.item().context(descriptor.jslogContext)}`, parent || descriptors);
+              descriptor, `${VisualLogging.item().context(descriptor.jslogContext)}`, parent || descriptors,
+              new DOMRect(0, 0, MENU_ITEM_WIDTH_FOR_LOGGING, MENU_ITEM_HEIGHT_FOR_LOGGING));
         }
         if (descriptor.subItems) {
           this.registerLoggablesWithin(descriptor.subItems, descriptor);
@@ -570,13 +582,13 @@ export class ContextMenu extends SubMenu {
       const isMouseEvent =
           (this.event as PointerEvent).pointerType === 'mouse' && (this.event as PointerEvent).button >= 0;
       this.softMenu.setFocusOnTheFirstItem(!isMouseEvent);
-      this.softMenu.show((ownerDocument as Document), new AnchorBox(this.x, this.y, 0, 0));
+      this.softMenu.show((ownerDocument), new AnchorBox(this.x, this.y, 0, 0));
       if (this.contextMenuLabel) {
         this.softMenu.setContextMenuElementLabel(this.contextMenuLabel);
       }
     } else {
       Host.InspectorFrontendHost.InspectorFrontendHostInstance.showContextMenuAtPoint(
-          this.x, this.y, menuObject, (ownerDocument as Document));
+          this.x, this.y, menuObject, (ownerDocument));
 
       function listenToEvents(this: ContextMenu): void {
         Host.InspectorFrontendHost.InspectorFrontendHostInstance.events.addEventListener(
@@ -584,17 +596,15 @@ export class ContextMenu extends SubMenu {
         Host.InspectorFrontendHost.InspectorFrontendHostInstance.events.addEventListener(
             Host.InspectorFrontendHostAPI.Events.ContextMenuItemSelected, this.onItemSelected, this);
       }
-      VisualLogging.registerLoggable(menuObject, `${VisualLogging.menu()}`, this.loggableParent);
+      VisualLogging.registerLoggable(
+          menuObject, `${VisualLogging.menu()}`, this.loggableParent,
+          new DOMRect(0, 0, MENU_ITEM_WIDTH_FOR_LOGGING, MENU_ITEM_HEIGHT_FOR_LOGGING * menuObject.length));
       this.registerLoggablesWithin(menuObject);
       this.openHostedMenu = menuObject;
       // showContextMenuAtPoint call above synchronously issues a clear event for previous context menu (if any),
       // so we skip it before subscribing to the clear event.
       queueMicrotask(listenToEvents.bind(this));
     }
-  }
-
-  setContextMenuLabel(label: string): void {
-    this.contextMenuLabel = label;
   }
 
   setX(x: number): void {
@@ -618,9 +628,9 @@ export class ContextMenu extends SubMenu {
     }
   }
 
-  private buildMenuDescriptors(): (SoftContextMenuDescriptor|Host.InspectorFrontendHostAPI.ContextMenuDescriptor)[] {
-    return super.buildDescriptor().subItems as (
-               SoftContextMenuDescriptor | Host.InspectorFrontendHostAPI.ContextMenuDescriptor)[];
+  private buildMenuDescriptors(): Array<SoftContextMenuDescriptor|Host.InspectorFrontendHostAPI.ContextMenuDescriptor> {
+    return super.buildDescriptor().subItems as
+        Array<SoftContextMenuDescriptor|Host.InspectorFrontendHostAPI.ContextMenuDescriptor>;
   }
 
   private onItemSelected(event: Common.EventTarget.EventTargetEvent<number>): void {
@@ -644,7 +654,7 @@ export class ContextMenu extends SubMenu {
         return null;
       };
       const item = itemWithId(this.openHostedMenu, id);
-      if (item && item.jslogContext) {
+      if (item?.jslogContext) {
         void VisualLogging.logClick(item, new MouseEvent('click'));
       }
     }
@@ -688,15 +698,173 @@ export class ContextMenu extends SubMenu {
 
   private static pendingMenu: ContextMenu|null = null;
   private static useSoftMenu = false;
-  static readonly groupWeights =
-      ['header', 'new', 'reveal', 'edit', 'clipboard', 'debug', 'view', 'default', 'override', 'save', 'footer'];
+  static readonly groupWeights = [
+    'header', 'new', 'reveal', 'edit', 'clipboard', 'debug', 'view', 'default', 'override', 'save', 'annotation',
+    'footer'
+  ];
 }
+
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
+/**
+ * @attr soft-menu - Whether to use the soft menu implementation.
+ * @attr keep-open - Whether the menu should stay open after an item is clicked.
+ * @attr icon-name - Name of the icon to display on the button.
+ * @attr disabled - Whether the menu button is disabled
+ * @attr jslogContext - The jslog context for the button.
+ *
+ * @prop {Function} populateMenuCall - Callback function to populate the menu.
+ * @prop {Boolean} softMenu - Reflects the `"soft-menu"` attribute.
+ * @prop {Boolean} keepOpen -Reflects the `"keep-open"` attribute.
+ * @prop {String} iconName - Reflects the `"icon-name"` attribute.
+ * @prop {Boolean} disabled - Reflects the `"disabled"` attribute.
+ * @prop {String} jslogContext - Reflects the `"jslogContext"` attribute.
+ */
+export class MenuButton extends HTMLElement {
+  static readonly observedAttributes = ['icon-name', 'disabled'];
+  readonly #shadow = this.attachShadow({mode: 'open'});
+  #triggerTimeoutId?: number;
+  #populateMenuCall?: (arg0: ContextMenu) => void;
+
+  /**
+   * Sets the callback function used to populate the context menu when the button is clicked.
+   * @param {Function} populateCall - A function that takes a `ContextMenu` instance and adds items to it.
+   */
+  set populateMenuCall(populateCall: (arg0: ContextMenu) => void) {
+    this.#populateMenuCall = populateCall;
+  }
+
+  /**
+   * Reflects the `soft-menu` attribute. If true, uses the `SoftContextMenu` implementation.
+   * @default false
+   */
+  get softMenu(): boolean {
+    return Boolean(this.getAttribute('soft-menu'));
+  }
+
+  set softMenu(softMenu: boolean) {
+    this.toggleAttribute('soft-menu', softMenu);
+  }
+
+  /**
+   * Reflects the `keep-open` attribute. If true, the menu stays open after an item click.
+   * @default false
+   */
+  get keepOpen(): boolean {
+    return Boolean(this.getAttribute('keep-open'));
+  }
+
+  set keepOpen(keepOpen: boolean) {
+    this.toggleAttribute('keep-open', keepOpen);
+  }
+
+  /**
+   * Reflects the `icon-name` attribute. Sets the icon to display on the button.
+   */
+  set iconName(iconName: string) {
+    this.setAttribute('icon-name', iconName);
+  }
+
+  get iconName(): string|null {
+    return this.getAttribute('icon-name');
+  }
+
+  /**
+   * Reflects the `jslogContext` attribute. Sets the visual logging context for the button.
+   */
+  set jslogContext(jslogContext: string) {
+    this.setAttribute('jslog', VisualLogging.action(jslogContext).track({click: true}).toString());
+  }
+
+  get jslogContext(): string|null {
+    return this.getAttribute('jslogContext');
+  }
+
+  /**
+   * Reflects the `disabled` attribute. If true, the button is disabled and cannot be clicked.
+   * @default false
+   */
+  get disabled(): boolean {
+    return this.hasAttribute('disabled');
+  }
+
+  set disabled(disabled: boolean) {
+    this.toggleAttribute('disabled', disabled);
+  }
+
+  /**
+   * Creates and shows the `ContextMenu`. It calls the `populateMenuCall`
+   * callback to fill the menu with items before displaying it relative to the button.
+   * Manages the `aria-expanded` state.
+   * @param {Event} event - The event that triggered the menu
+   */
+  #openMenu(event: Event): void {
+    this.#triggerTimeoutId = undefined;
+    if (!this.#populateMenuCall) {
+      return;
+    }
+    const button = this.#shadow.querySelector('devtools-button');
+    const contextMenu = new ContextMenu(event, {
+      useSoftMenu: this.softMenu,
+      keepOpen: this.keepOpen,
+      x: this.getBoundingClientRect().right,
+      y: this.getBoundingClientRect().top + this.offsetHeight,
+      // Without adding a delay, pointer events will be un-ignored too early, and a single click causes
+      // the context menu to be closed and immediately re-opened on Windows (https://crbug.com/339560549).
+      onSoftMenuClosed: () => setTimeout(() => button?.removeAttribute('aria-expanded'), 50),
+    });
+    this.#populateMenuCall(contextMenu);
+    button?.setAttribute('aria-expanded', 'true');
+    void contextMenu.show();
+  }
+
+  /**
+   * Handles the click event on the button. It clears any pending trigger timeout
+   * and immediately calls the `openMenu` method to show the context menu.
+   * @param {Event} event - The click event.
+   */
+  #triggerContextMenu(event: MouseEvent): void {
+    const triggerTimeout = 50;
+    if (!this.#triggerTimeoutId) {
+      this.#triggerTimeoutId = window.setTimeout(this.#openMenu.bind(this, event), triggerTimeout);
+    }
+  }
+
+  attributeChangedCallback(_: string, oldValue: string, newValue: string): void {
+    if (oldValue !== newValue) {
+      this.#render();
+    }
+  }
+
+  connectedCallback(): void {
+    this.#render();
+  }
+
+  #render(): void {
+    if (!this.iconName) {
+      throw new Error('<devtools-menu-button> expects an icon.');
+    }
+
+    // clang-format off
+    render(
+      html`
+              <devtools-button
+                .disabled=${this.disabled}
+                .iconName=${this.iconName}
+                .variant=${Buttons.Button.Variant.ICON}
+                aria-haspopup='menu'
+                @click=${this.#triggerContextMenu}></devtools-button>`,
+      this.#shadow, { host: this });
+    // clang-format on
+  }
+}
+customElements.define('devtools-menu-button', MenuButton);
+/* eslint-enable rulesdir/no-lit-render-outside-of-view */
 
 export interface Provider<T> {
   appendApplicableItems(event: Event, contextMenu: ContextMenu, target: T): void;
 }
 
-const registeredProviders: ProviderRegistration<unknown>[] = [];
+const registeredProviders: Array<ProviderRegistration<unknown>> = [];
 
 export function registerProvider<T>(registration: ProviderRegistration<T>): void {
   registeredProviders.push(registration);

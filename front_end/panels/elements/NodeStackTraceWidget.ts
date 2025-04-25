@@ -1,6 +1,7 @@
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as i18n from '../../core/i18n/i18n.js';
 import * as SDK from '../../core/sdk/sdk.js';
@@ -14,14 +15,14 @@ const UIStrings = {
    *@description Message displayed when no JavaScript stack trace is available for the DOM node in the Stack Trace widget of the Elements panel
    */
   noStackTraceAvailable: 'No stack trace available',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/elements/NodeStackTraceWidget.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export class NodeStackTraceWidget extends UI.ThrottledWidget.ThrottledWidget {
   private readonly noStackTraceElement: HTMLElement;
   private readonly creationStackTraceElement: HTMLElement;
-  private readonly linkifier: Components.Linkifier.Linkifier;
+  private readonly linkifier = new Components.Linkifier.Linkifier(MaxLengthForLinks);
 
   constructor() {
     super(true /* isWebComponent */);
@@ -30,8 +31,6 @@ export class NodeStackTraceWidget extends UI.ThrottledWidget.ThrottledWidget {
     this.noStackTraceElement = this.contentElement.createChild('div', 'gray-info-message');
     this.noStackTraceElement.textContent = i18nString(UIStrings.noStackTraceAvailable);
     this.creationStackTraceElement = this.contentElement.createChild('div', 'stack-trace');
-
-    this.linkifier = new Components.Linkifier.Linkifier(MaxLengthForLinks);
   }
 
   override wasShown(): void {

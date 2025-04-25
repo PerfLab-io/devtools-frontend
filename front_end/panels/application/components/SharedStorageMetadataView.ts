@@ -12,9 +12,11 @@ import * as Lit from '../../../ui/lit/lit.js';
 import sharedStorageMetadataViewStylesRaw from './sharedStorageMetadataView.css.js';
 import {StorageMetadataView} from './StorageMetadataView.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const sharedStorageMetadataViewStyles = new CSSStyleSheet();
-sharedStorageMetadataViewStyles.replaceSync(sharedStorageMetadataViewStylesRaw.cssContent);
+sharedStorageMetadataViewStyles.replaceSync(sharedStorageMetadataViewStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -51,7 +53,7 @@ const UIStrings = {
    *@description The number of bytes used by entries currently in the origin's database
    */
   numBytesUsed: 'Number of Bytes Used',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/application/components/SharedStorageMetadataView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -63,9 +65,9 @@ interface SharedStorageMetadataGetter {
 export class SharedStorageMetadataView extends StorageMetadataView {
   #sharedStorageMetadataGetter: SharedStorageMetadataGetter;
   #creationTime: Protocol.Network.TimeSinceEpoch|null = null;
-  #length: number = 0;
-  #bytesUsed: number = 0;
-  #remainingBudget: number = 0;
+  #length = 0;
+  #bytesUsed = 0;
+  #remainingBudget = 0;
 
   constructor(sharedStorageMetadataGetter: SharedStorageMetadataGetter, owner: string) {
     super();
@@ -104,8 +106,8 @@ export class SharedStorageMetadataView extends StorageMetadataView {
       ${this.value(String(this.#length))}
       ${this.key(i18nString(UIStrings.numBytesUsed))}
       ${this.value(String(this.#bytesUsed))}
-      ${this.key(html`${i18nString(UIStrings.entropyBudget)}<devtools-icon name="info" title=${i18nString(UIStrings.budgetExplanation)}></devtools-icon>`)}
-      ${this.value(html`${this.#remainingBudget}${this.#renderResetBudgetButton()}`)}`;
+      ${this.key(html`<span class="entropy-budget">${i18nString(UIStrings.entropyBudget)}<devtools-icon name="info" title=${i18nString(UIStrings.budgetExplanation)}></devtools-icon></span>`)}
+      ${this.value(html`<span class="entropy-budget">${this.#remainingBudget}${this.#renderResetBudgetButton()}</span>`)}`;
     // clang-format on
   }
 
@@ -113,7 +115,7 @@ export class SharedStorageMetadataView extends StorageMetadataView {
     if (!this.#creationTime) {
       return html`${i18nString(UIStrings.notYetCreated)}`;
     }
-    const date = new Date(1e3 * (this.#creationTime as number));
+    const date = new Date(1e3 * (this.#creationTime));
     return html`${date.toLocaleString()}`;
   }
 

@@ -26,7 +26,7 @@ describeWithEnvironment('TimelineDetailsView', function() {
 
   it('displays the details of a network request event correctly', async function() {
     const {parsedTrace, insights} = await TraceLoader.traceEngine(this, 'lcp-web-font.json.gz');
-    const detailsView = new Timeline.TimelineDetailsView.TimelineDetailsView(mockViewDelegate);
+    const detailsView = new Timeline.TimelineDetailsView.TimelineDetailsPane(mockViewDelegate);
 
     const networkRequests = parsedTrace.NetworkRequests.byTime;
     const cssRequest = networkRequests.find(request => {
@@ -47,13 +47,20 @@ describeWithEnvironment('TimelineDetailsView', function() {
     await detailsView.setSelection(selection);
 
     const detailsContentElement = detailsView.getDetailsContentElementForTest();
-    // NetworkRequestDetails and RelatedInsightsChips nodes.
-    assert.lengthOf(detailsContentElement.childNodes, 2);
+    assert.deepEqual(
+        Array.from(detailsContentElement.children).map(n => n.localName),
+        ['devtools-performance-network-request-details']);
+
+    const content = detailsContentElement.firstElementChild?.shadowRoot;
+    assert(content);
+    assert.lengthOf(content.querySelectorAll('div.network-request-details-row'), 9);
+    assert.lengthOf(content.querySelectorAll('div.network-request-details-item'), 2);
+    assert.lengthOf(content.querySelectorAll('devtools-related-insight-chips'), 1);
   });
 
   it('displays the details for a frame correctly', async function() {
     const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev-with-commit.json.gz');
-    const detailsView = new Timeline.TimelineDetailsView.TimelineDetailsView(mockViewDelegate);
+    const detailsView = new Timeline.TimelineDetailsView.TimelineDetailsPane(mockViewDelegate);
     await detailsView.setModel({
       parsedTrace,
       selectedEvents: null,
@@ -77,9 +84,10 @@ describeWithEnvironment('TimelineDetailsView', function() {
     assert.strictEqual(duration.innerText, 'Duration37.85 ms (at 109.82 ms)');
   });
 
-  it('renders the layout shift component for a single layout shift', async function() {
+  // Semi-regularly flaking on CQ bots.
+  it.skip('[crbug.com/406981939]: renders the layout shift component for a single layout shift', async function() {
     const {parsedTrace} = await TraceLoader.traceEngine(this, 'shift-attribution.json.gz');
-    const detailsView = new Timeline.TimelineDetailsView.TimelineDetailsView(mockViewDelegate);
+    const detailsView = new Timeline.TimelineDetailsView.TimelineDetailsPane(mockViewDelegate);
     await detailsView.setModel({
       parsedTrace,
       selectedEvents: null,
@@ -99,9 +107,10 @@ describeWithEnvironment('TimelineDetailsView', function() {
     assert.isNotNull(layoutShiftDetails);
   });
 
-  it('renders the layout shift component for a selected cluster', async function() {
+  // Semi-regularly flaking on CQ bots.
+  it.skip('[crbug.com/406981939]: renders the layout shift component for a selected cluster', async function() {
     const {parsedTrace} = await TraceLoader.traceEngine(this, 'shift-attribution.json.gz');
-    const detailsView = new Timeline.TimelineDetailsView.TimelineDetailsView(mockViewDelegate);
+    const detailsView = new Timeline.TimelineDetailsView.TimelineDetailsPane(mockViewDelegate);
     await detailsView.setModel({
       parsedTrace,
       selectedEvents: null,
@@ -123,7 +132,7 @@ describeWithEnvironment('TimelineDetailsView', function() {
 
   it('updates the range details when the user has a range selected', async function() {
     const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev-with-commit.json.gz');
-    const detailsView = new Timeline.TimelineDetailsView.TimelineDetailsView(mockViewDelegate);
+    const detailsView = new Timeline.TimelineDetailsView.TimelineDetailsPane(mockViewDelegate);
     await detailsView.setModel({
       parsedTrace,
       // We have to set selected events for the range selection UI to be drawn

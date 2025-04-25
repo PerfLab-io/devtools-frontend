@@ -34,7 +34,7 @@ describeWithMockConnection('ResourceUtils', () => {
     createTarget({parentTarget: tabTarget, subtype: 'prerender'});
     target = createTarget({parentTarget: tabTarget});
     target.setInspectedURL(INSPECTED_URL);
-    sinon.stub(SDK.ResourceTreeModel.ResourceTreeModel.prototype, 'resourceForURL')
+    sinon.stub(SDK.ResourceTreeModel.ResourceTreeModel, 'resourceForURL')
         .returns(null)
         .withArgs(RESOURCE_URL)
         .returns(RESOURCE);
@@ -52,7 +52,7 @@ describeWithMockConnection('ResourceUtils', () => {
     assert.strictEqual(Bindings.ResourceUtils.displayNameForURL(RESOURCE_URL), RESOURCE.displayName);
   });
 
-  it('returns a resource name if available', async () => {
+  it('returns a resource name if available via method', async () => {
     assert.strictEqual(Bindings.ResourceUtils.displayNameForURL(UI_SOURCE_CODE_URL), UI_SOURCE_CODE.displayName());
   });
 

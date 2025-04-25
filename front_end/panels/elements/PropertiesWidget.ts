@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2007 Apple Inc.  All rights reserved.
@@ -64,7 +65,7 @@ const UIStrings = {
    * no properties matched the filter and thus no results were returned.
    */
   noMatchingProperty: 'No matching property',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/elements/PropertiesWidget.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -74,6 +75,7 @@ export class PropertiesWidget extends UI.ThrottledWidget.ThrottledWidget {
   private filterRegex: RegExp|null = null;
   private readonly noMatchesElement: HTMLElement;
   private readonly treeOutline: ObjectUI.ObjectPropertiesSection.ObjectPropertiesSectionsTreeOutline;
+  // @ts-expect-error keep local reference
   private readonly expandController: ObjectUI.ObjectPropertiesSection.ObjectPropertiesSectionsTreeExpandController;
   private lastRequestedNode?: SDK.DOMModel.DOMNode;
   constructor(throttlingTimeout?: number) {
@@ -106,7 +108,7 @@ export class PropertiesWidget extends UI.ThrottledWidget.ThrottledWidget {
     this.noMatchesElement = this.contentElement.createChild('div', 'gray-info-message hidden');
     this.noMatchesElement.textContent = i18nString(UIStrings.noMatchingProperty);
 
-    this.treeOutline = new ObjectUI.ObjectPropertiesSection.ObjectPropertiesSectionsTreeOutline({readOnly: true});
+    this.treeOutline = new ObjectUI.ObjectPropertiesSection.ObjectPropertiesSectionsTreeOutline();
     this.treeOutline.setShowSelectionOnKeyboardFocus(/* show */ true, /* preventTabOrder */ false);
     this.expandController =
         new ObjectUI.ObjectPropertiesSection.ObjectPropertiesSectionsTreeExpandController(this.treeOutline);
@@ -173,13 +175,14 @@ export class PropertiesWidget extends UI.ThrottledWidget.ThrottledWidget {
     this.filterList();
   }
 
-  private onNodeChange(event: Common.EventTarget
-                           .EventTargetEvent<{node: SDK.DOMModel.DOMNode, name: string}|SDK.DOMModel.DOMNode>): void {
+  private onNodeChange(
+      event: Common.EventTarget.EventTargetEvent<{node: SDK.DOMModel.DOMNode, name: string}|SDK.DOMModel.DOMNode>,
+      ): void {
     if (!this.node) {
       return;
     }
     const data = event.data;
-    const node = (data instanceof SDK.DOMModel.DOMNode ? data : data.node as SDK.DOMModel.DOMNode);
+    const node = (data instanceof SDK.DOMModel.DOMNode ? data : data.node);
     if (this.node !== node) {
       return;
     }

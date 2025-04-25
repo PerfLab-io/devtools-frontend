@@ -1,6 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/icon_button/icon_button.js';
 
@@ -14,9 +15,11 @@ import * as Actions from '../recorder-actions/recorder-actions.js';
 
 import recordingListViewStylesRaw from './recordingListView.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const recordingListViewStyles = new CSSStyleSheet();
-recordingListViewStyles.replaceSync(recordingListViewStylesRaw.cssContent);
+recordingListViewStyles.replaceSync(recordingListViewStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -41,7 +44,7 @@ const UIStrings = {
    * @description The title of the row corresponding to a recording. By clicking on the row, the user open the recording for editing.
    */
   openRecording: 'Open recording',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings(
     'panels/recorder/components/RecordingListView.ts',
     UIStrings,

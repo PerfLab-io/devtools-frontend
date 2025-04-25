@@ -1,6 +1,7 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import './CSSAngleEditor.js';
 import './CSSAngleSwatch.js';
@@ -19,9 +20,11 @@ import {
 } from './CSSAngleUtils.js';
 import {ValueChangedEvent} from './InlineEditorUtils.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const cssAngleStyles = new CSSStyleSheet();
-cssAngleStyles.replaceSync(cssAngleStylesRaw.cssContent);
+cssAngleStyles.replaceSync(cssAngleStylesRaw.cssText);
 
 const {render, html} = Lit;
 const styleMap = Lit.Directives.styleMap;

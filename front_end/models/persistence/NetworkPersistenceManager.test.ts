@@ -37,7 +37,7 @@ const setUpEnvironmentWithUISourceCode =
       return {workspace, project, uiSourceCode, networkPersistenceManager};
     };
 
-describeWithMockConnection('NetworkPersistenceManager', () => {
+describeWithMockConnection('NetworkPersistenceManager Local Overrides', () => {
   beforeEach(async () => {
     SDK.NetworkManager.MultitargetNetworkManager.dispose();
     const target = createTarget();
@@ -121,7 +121,7 @@ describeWithMockConnection('NetworkPersistenceManager', () => {
   });
 });
 
-describeWithMockConnection('NetworkPersistenceManager', () => {
+describeWithMockConnection('NetworkPersistenceManager with overrides', () => {
   let networkPersistenceManager: Persistence.NetworkPersistenceManager.NetworkPersistenceManager;
 
   beforeEach(async () => {
@@ -702,7 +702,7 @@ describeWithMockConnection('NetworkPersistenceManager', () => {
   });
 });
 
-describeWithMockConnection('NetworkPersistenceManager', () => {
+describeWithMockConnection('NetworkPersistenceManager target changed', () => {
   beforeEach(() => {
     SDK.NetworkManager.MultitargetNetworkManager.dispose();
   });
@@ -725,7 +725,7 @@ describeWithMockConnection('NetworkPersistenceManager', () => {
   });
 });
 
-describe('NetworkPersistenceManager', () => {
+describe('NetworkPersistenceManager helpers', () => {
   before(async () => {
     await initializeGlobalVars();
   });
@@ -972,7 +972,7 @@ describe('NetworkPersistenceManager', () => {
       fileSystemPath: 'file:///path/to/overrides',
     });
     const spy = sinon.spy(networkPersistenceManager, 'updateInterceptionPatterns');
-    assert.isTrue(spy.notCalled);
+    sinon.assert.notCalled(spy);
 
     uiSourceCode.setWorkingCopy(`[
       {
@@ -984,6 +984,6 @@ describe('NetworkPersistenceManager', () => {
       }
     ]`);
     uiSourceCode.commitWorkingCopy();
-    assert.isTrue(spy.calledOnce);
+    sinon.assert.calledOnce(spy);
   });
 });

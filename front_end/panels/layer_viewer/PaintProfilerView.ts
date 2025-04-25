@@ -28,6 +28,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* eslint-disable rulesdir/no-imperative-dom-api */
+
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
@@ -67,7 +69,7 @@ const UIStrings = {
    *@description Label for command log tree in the Profiler tab
    */
   commandLog: 'Command Log',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/layer_viewer/PaintProfilerView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 let categories: {[x: string]: PaintProfilerCategory}|null = null;
@@ -247,7 +249,7 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin<EventType
     this.canvas.width = this.canvasContainer.clientWidth * window.devicePixelRatio;
     this.canvas.height = this.canvasContainer.clientHeight * window.devicePixelRatio;
     this.samplesPerBar = 0;
-    if (!this.profiles || !this.profiles.length || !this.logCategories) {
+    if (!this.profiles?.length || !this.logCategories) {
       return;
     }
 
@@ -260,7 +262,7 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin<EventType
     const barHeightByCategory = [];
     let heightByCategory: {[category: string]: number} = {};
     for (let i = 0, lastBarIndex = 0, lastBarTime = 0; i < sampleCount;) {
-      let categoryName = (this.logCategories[i] && this.logCategories[i].name) || 'misc';
+      let categoryName = (this.logCategories[i]?.name) || 'misc';
       const sampleIndex = this.log[i].commandIndex;
       for (let row = 0; row < this.profiles.length; row++) {
         const sample = this.profiles[row][sampleIndex];
@@ -329,7 +331,7 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin<EventType
 
   private calculatePieChart(): {total: number, slices: Array<{value: number, color: string, title: string}>} {
     const window = this.selectionWindow();
-    if (!this.profiles || !this.profiles.length || !window) {
+    if (!this.profiles?.length || !window) {
       return {total: 0, slices: []};
     }
     let totalTime = 0;
@@ -386,7 +388,7 @@ export class PaintProfilerView extends Common.ObjectWrapper.eventMixin<EventType
     let left;
     let right;
     const window = this.selectionWindow();
-    if (this.profiles && this.profiles.length && window) {
+    if (this.profiles?.length && window) {
       left = this.log[window.left].commandIndex;
       right = this.log[window.right - 1].commandIndex;
     }
@@ -450,7 +452,7 @@ export class PaintProfilerCommandLogView extends UI.ThrottledWidget.ThrottledWid
   private appendLogItem(logItem: SDK.PaintProfiler.PaintProfilerLogItem): void {
     let treeElement = this.treeItemCache.get(logItem);
     if (!treeElement) {
-      treeElement = new LogTreeElement(this, logItem);
+      treeElement = new LogTreeElement(logItem);
       this.treeItemCache.set(logItem, treeElement);
     } else if (treeElement.parent) {
       return;
@@ -492,14 +494,10 @@ export class PaintProfilerCommandLogView extends UI.ThrottledWidget.ThrottledWid
 
 export class LogTreeElement extends UI.TreeOutline.TreeElement {
   readonly logItem: SDK.PaintProfiler.PaintProfilerLogItem;
-  private readonly ownerView: PaintProfilerCommandLogView;
-  private readonly filled: boolean;
 
-  constructor(ownerView: PaintProfilerCommandLogView, logItem: SDK.PaintProfiler.PaintProfilerLogItem) {
+  constructor(logItem: SDK.PaintProfiler.PaintProfilerLogItem) {
     super('', Boolean(logItem.params));
     this.logItem = logItem;
-    this.ownerView = ownerView;
-    this.filled = false;
   }
 
   override onattach(): void {

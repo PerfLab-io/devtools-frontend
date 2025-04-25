@@ -269,9 +269,9 @@ describe('StringUtilities', () => {
       const stringA = ' '.repeat(10000);
       const stringB = stringA + ' ';
       const hashA = Platform.StringUtilities.hashCode(stringA);
-      assert.isTrue(hashA !== Platform.StringUtilities.hashCode(stringB));
+      assert.notStrictEqual(hashA, Platform.StringUtilities.hashCode(stringB));
       assert.isTrue(isFinite(hashA));
-      assert.isTrue(hashA + 1 !== hashA);
+      assert.notStrictEqual(hashA + 1, hashA);
     });
   });
 
@@ -494,6 +494,9 @@ describe('StringUtilities', () => {
       assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses('a(b)'), 0);
       assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses(')a(b)'), 0);
       assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses(')a(()bc(d(f)('), 3);
+      assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses('"(\')"'), 0);
+      assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses('("(\')"'), 1);
+      assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses('abc(def"g(h)"i)jkl'), 0);
     });
   });
 
@@ -635,10 +638,6 @@ describe('StringUtilities', () => {
 
     it('should convert UPPER_SNAKE_CASE to kebab-case', () => {
       assert.strictEqual(toKebabCase('REGULAR_BREAKPOINT'), 'regular-breakpoint');
-    });
-
-    it('should handle uppercase acronyms as words', () => {
-      assert.strictEqual(toKebabCase('showUAShadowDOM'), 'show-ua-shadow-dom');
     });
 
     it('should handle uppercase acronyms as words', () => {

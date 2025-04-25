@@ -1,4 +1,8 @@
-import {AidaRequest} from '../../front_end/core/host/AidaClient.ts'
+// Copyright 2025 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import type {AidaRequest} from '../../front_end/core/host/AidaClient.ts';
 
 /**
  * Some types used in auto-run.js. They only exist here because it's
@@ -10,7 +14,7 @@ import {AidaRequest} from '../../front_end/core/host/AidaClient.ts'
  */
 export interface RunResult {
   allExampleResults: IndividualPromptRequestResponse[];
-  metadata: ExampleMetadata[]
+  metadata: ExampleMetadata[];
 }
 
 /**
@@ -25,9 +29,11 @@ export interface ExecutedExample {
  * The result of making a single request to Aida.
  */
 export interface IndividualPromptRequestResponse {
-  request: AidaRequest;
-  response: string;
+  request: AidaRequest|string;
+  response: string|object;
   exampleId: string;
+  /** Automatically computed score [0-1]. */
+  score?: number;
 }
 
 export interface ExampleMetadata {
@@ -43,13 +49,22 @@ export interface YargsInput {
   label: string;
   parallel: boolean;
   includeFollowUp: boolean;
-  testTarget: 'elements'|'performance';
+  times: number;
+  testTarget: TestTarget;
 }
+export type TestTarget = 'elements'|'performance-main-thread'|'performance-insights'|'elements-multimodal'|'patching';
 
 // Clang cannot handle the Record<> syntax over multiple lines, it seems.
 /* clang-format off */
 export type Logs = Record<string, {
-  index: number;
-  text: string;
+  index: number,
+  text: string,
 }> ;
 /* clang-format on */
+
+export interface PatchTest {
+  repository: string;
+  folderName: string;
+  query: string;
+  changedFiles: Array<{path: string, matches: string[], doesNotMatch?: string[]}>;
+}

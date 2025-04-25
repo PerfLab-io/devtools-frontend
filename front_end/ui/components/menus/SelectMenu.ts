@@ -1,6 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import * as Platform from '../../../core/platform/platform.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
@@ -17,13 +18,13 @@ import {
 import selectMenuStylesRaw from './selectMenu.css.js';
 import selectMenuButtonStylesRaw from './selectMenuButton.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const selectMenuStyles = new CSSStyleSheet();
-selectMenuStyles.replaceSync(selectMenuStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+selectMenuStyles.replaceSync(selectMenuStylesRaw.cssText);
 const selectMenuButtonStyles = new CSSStyleSheet();
-selectMenuButtonStyles.replaceSync(selectMenuButtonStylesRaw.cssContent);
+selectMenuButtonStyles.replaceSync(selectMenuButtonStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -87,9 +88,8 @@ const deployMenuArrow = new URL('../../../Images/triangle-down.svg', import.meta
 
 export class SelectMenu extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  readonly #renderBound = this.#render.bind(this);
   #button: SelectMenuButton|null = null;
-  #open: boolean = false;
+  #open = false;
   #props: SelectMenuData = {
     buttonTitle: '',
     position: Dialogs.Dialog.DialogVerticalPosition.BOTTOM,
@@ -108,7 +108,7 @@ export class SelectMenu extends HTMLElement {
 
   set buttonTitle(buttonTitle: string|TitleCallback) {
     this.#props.buttonTitle = buttonTitle;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get position(): Dialogs.Dialog.DialogVerticalPosition {
@@ -117,7 +117,7 @@ export class SelectMenu extends HTMLElement {
 
   set position(position: Dialogs.Dialog.DialogVerticalPosition) {
     this.#props.position = position;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get horizontalAlignment(): Dialogs.Dialog.DialogHorizontalAlignment {
@@ -126,7 +126,7 @@ export class SelectMenu extends HTMLElement {
 
   set horizontalAlignment(horizontalAlignment: Dialogs.Dialog.DialogHorizontalAlignment) {
     this.#props.horizontalAlignment = horizontalAlignment;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get showArrow(): boolean {
@@ -135,7 +135,7 @@ export class SelectMenu extends HTMLElement {
 
   set showArrow(showArrow: boolean) {
     this.#props.showArrow = showArrow;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get sideButton(): boolean {
@@ -144,7 +144,7 @@ export class SelectMenu extends HTMLElement {
 
   set sideButton(sideButton: boolean) {
     this.#props.sideButton = sideButton;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get disabled(): boolean {
@@ -153,7 +153,7 @@ export class SelectMenu extends HTMLElement {
 
   set disabled(disabled: boolean) {
     this.#props.disabled = disabled;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get showDivider(): boolean {
@@ -162,7 +162,7 @@ export class SelectMenu extends HTMLElement {
 
   set showDivider(showDivider: boolean) {
     this.#props.showDivider = showDivider;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get showSelectedItem(): boolean {
@@ -171,7 +171,7 @@ export class SelectMenu extends HTMLElement {
 
   set showSelectedItem(showSelectedItem: boolean) {
     this.#props.showSelectedItem = showSelectedItem;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get jslogContext(): string {
@@ -180,7 +180,7 @@ export class SelectMenu extends HTMLElement {
 
   set jslogContext(jslogContext: string) {
     this.#props.jslogContext = jslogContext;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   connectedCallback(): void {
@@ -200,7 +200,7 @@ export class SelectMenu extends HTMLElement {
   #showMenu(): void {
     this.#open = true;
     this.setAttribute('has-open-dialog', 'has-open-dialog');
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   override click(): void {
@@ -258,7 +258,7 @@ export class SelectMenu extends HTMLElement {
       this.removeAttribute('has-open-dialog');
     });
     this.#open = false;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #onItemSelected(evt: MenuItemSelectedEvent): void {
@@ -300,7 +300,6 @@ export interface SelectMenuButtonData {
 }
 export class SelectMenuButton extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  readonly #renderBound = this.#render.bind(this);
   #showButton: HTMLButtonElement|null = null;
 
   connectedCallback(): void {
@@ -336,7 +335,7 @@ export class SelectMenuButton extends HTMLElement {
 
   set showArrow(showArrow: boolean) {
     this.#props.showArrow = showArrow;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get arrowDirection(): Dialogs.Dialog.DialogVerticalPosition {
@@ -345,7 +344,7 @@ export class SelectMenuButton extends HTMLElement {
 
   set arrowDirection(arrowDirection: Dialogs.Dialog.DialogVerticalPosition) {
     this.#props.arrowDirection = arrowDirection;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get disabled(): boolean {
@@ -354,7 +353,7 @@ export class SelectMenuButton extends HTMLElement {
 
   set disabled(disabled: boolean) {
     this.#props.disabled = disabled;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   set open(open: boolean) {
@@ -365,7 +364,7 @@ export class SelectMenuButton extends HTMLElement {
 
   set singleArrow(singleArrow: boolean) {
     this.#props.singleArrow = singleArrow;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get jslogContext(): string {
@@ -374,7 +373,7 @@ export class SelectMenuButton extends HTMLElement {
 
   set jslogContext(jslogContext: string) {
     this.#props.jslogContext = jslogContext;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   override click(): void {

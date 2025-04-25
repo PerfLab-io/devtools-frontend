@@ -91,6 +91,6 @@
   pointer-events: none;
 }
 
-.shadow-split-widget .hidden, .shadow-split-widget.hidden {
-  display: none;
+:host {
+  display: flex;
 }

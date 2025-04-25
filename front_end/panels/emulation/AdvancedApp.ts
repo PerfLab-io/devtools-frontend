@@ -19,7 +19,6 @@ export class AdvancedApp implements Common.App.App {
   private toolboxWindow?: Window|null;
   private toolboxRootView?: UI.RootView.RootView;
   private changingDockSide?: boolean;
-  private toolboxDocument?: Document;
 
   constructor() {
     UI.DockController.DockController.instance().addEventListener(
@@ -87,8 +86,6 @@ export class AdvancedApp implements Common.App.App {
 
     this.toolboxRootView = new UI.RootView.RootView();
     this.toolboxRootView.attachToDocument(toolboxDocument);
-
-    this.toolboxDocument = toolboxDocument;
 
     this.updateDeviceModeView();
   }
@@ -183,9 +180,9 @@ export class AdvancedApp implements Common.App.App {
 }
 
 // Export required for usage in toolbox.ts
-// @ts-ignore Exported for Tests.js
+// @ts-expect-error Exported for Tests.js
 globalThis.Emulation = globalThis.Emulation || {};
-// @ts-ignore Exported for Tests.js
+// @ts-expect-error Exported for Tests.js
 globalThis.Emulation.AdvancedApp = AdvancedApp;
 
 let advancedAppProviderInstance: AdvancedAppProvider;

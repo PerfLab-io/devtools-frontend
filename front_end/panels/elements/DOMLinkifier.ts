@@ -1,6 +1,7 @@
 // Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -17,12 +18,13 @@ const UIStrings = {
    * This should be translated if appropriate.
    */
   node: '<node>',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/elements/DOMLinkifier.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export interface Options extends Common.Linkifier.Options {
   hiddenClassList?: string[];
+  disabled?: boolean;
 }
 
 export const decorateNodeLabel = function(
@@ -102,6 +104,7 @@ export const linkifyNodeReference = function(node: SDK.DOMModel.DOMNode|null, op
   preventKeyboardFocus: undefined,
   textContent: undefined,
   isDynamicLink: false,
+  disabled: false,
 }): Node {
   if (!node) {
     return document.createTextNode(i18nString(UIStrings.node));
@@ -112,6 +115,7 @@ export const linkifyNodeReference = function(node: SDK.DOMModel.DOMNode|null, op
   const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(root, {cssFile: domLinkifierStyles});
   const link = shadowRoot.createChild('button', 'node-link text-button link-style');
   link.classList.toggle('dynamic-link', options.isDynamicLink);
+  link.classList.toggle('disabled', options.disabled);
   link.setAttribute('jslog', `${VisualLogging.link('node').track({click: true, keydown: 'Enter'})}`);
 
   decorateNodeLabel(node, link, options);

@@ -1,6 +1,7 @@
 // Copyright (c) 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 // eslint-disable-next-line rulesdir/es-modules-import
 import inspectorCommonStylesRaw from '../../../ui/legacy/inspectorCommon.css.js';
@@ -9,13 +10,13 @@ import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
 import cssQueryStylesRaw from './cssQuery.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const inspectorCommonStyles = new CSSStyleSheet();
-inspectorCommonStyles.replaceSync(inspectorCommonStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+inspectorCommonStyles.replaceSync(inspectorCommonStylesRaw.cssText);
 const cssQueryStyles = new CSSStyleSheet();
-cssQueryStyles.replaceSync(cssQueryStylesRaw.cssContent);
+cssQueryStyles.replaceSync(cssQueryStylesRaw.cssText);
 
 const {render, html} = Lit;
 
@@ -30,9 +31,9 @@ export interface CSSQueryData {
 export class CSSQuery extends HTMLElement {
 
   readonly #shadow = this.attachShadow({mode: 'open'});
-  #queryPrefix: string = '';
+  #queryPrefix = '';
   #queryName?: string;
-  #queryText: string = '';
+  #queryText = '';
   #onQueryTextClick?: (event: Event) => void;
   #jslogContext?: string;
 

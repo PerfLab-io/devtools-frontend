@@ -1,15 +1,18 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import * as UI from '../../../ui/legacy/legacy.js';
 import {html, render} from '../../../ui/lit/lit.js';
 
 import computedStyleTraceStylesRaw from './computedStyleTrace.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const computedStyleTraceStyles = new CSSStyleSheet();
-computedStyleTraceStyles.replaceSync(computedStyleTraceStylesRaw.cssContent);
+computedStyleTraceStyles.replaceSync(computedStyleTraceStylesRaw.cssText);
 
 export interface ComputedStyleTraceData {
   selector: string;

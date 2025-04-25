@@ -1,16 +1,13 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import type * as Platform from '../../../core/platform/platform.js';
 import {html, render} from '../../../ui/lit/lit.js';
 import * as VisualElements from '../../visual_logging/visual_logging.js';
 
-import adornerStylesRaw from './adorner.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const adornerStyles = new CSSStyleSheet();
-adornerStyles.replaceSync(adornerStylesRaw.cssContent);
+import adornerStyles from './adorner.css.js';
 
 export interface AdornerData {
   name: string;
@@ -32,7 +29,6 @@ export class Adorner extends HTMLElement {
     this.name = data.name;
     this.#jslogContext = data.jslogContext;
     if (data.content) {
-      data.content.slot = 'content';
       this.#content?.remove();
       this.append(data.content);
       this.#content = data.content;
@@ -53,7 +49,6 @@ export class Adorner extends HTMLElement {
     if (this.#jslogContext && !this.getAttribute('jslog')) {
       this.setAttribute('jslog', `${VisualElements.adorner(this.#jslogContext)}`);
     }
-    this.#shadow.adoptedStyleSheets = [adornerStyles];
   }
 
   isActive(): boolean {
@@ -125,20 +120,13 @@ export class Adorner extends HTMLElement {
   }
 
   #render(): void {
-    // Disabled until https://crbug.com/1079231 is fixed.
-    // clang-format off
-    render(html`
-      <slot name="content"></slot>
-    `, this.#shadow, {
-      host: this,
-    });
+    render(html`<style>${adornerStyles.cssText}</style><slot></slot>`, this.#shadow, {host: this});
   }
 }
 
 customElements.define('devtools-adorner', Adorner);
 
 declare global {
-
   interface HTMLElementTagNameMap {
     'devtools-adorner': Adorner;
   }

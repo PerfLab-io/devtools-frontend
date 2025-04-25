@@ -1,6 +1,7 @@
 // Copyright (c) 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/icon_button/icon_button.js';
 
@@ -16,9 +17,11 @@ import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 import {getIssueKindIconData} from './IssueCounter.js';
 import IssueLinkIconStylesRaw from './issueLinkIcon.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const IssueLinkIconStyles = new CSSStyleSheet();
-IssueLinkIconStyles.replaceSync(IssueLinkIconStylesRaw.cssContent);
+IssueLinkIconStyles.replaceSync(IssueLinkIconStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -36,7 +39,7 @@ const UIStrings = {
    *@description Title for an link to show an issue that is unavailable because the issue couldn't be resolved
    */
   issueUnavailable: 'Issue unavailable at this time',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/components/issue_counter/IssueLinkIcon.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -94,7 +97,7 @@ export class IssueLinkIcon extends HTMLElement {
     }
     const description = this.#issue?.getDescription();
     if (description) {
-      const title = await IssuesManager.MarkdownIssueDescription.getIssueTitleFromMarkdownDescription(description);
+      const title = await IssuesManager.MarkdownIssueDescription.getIssueTitleFromMarkdownDescription(/*description*/);
       if (title) {
         this.#issueTitle = title;
       }

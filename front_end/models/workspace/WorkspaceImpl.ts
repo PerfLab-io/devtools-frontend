@@ -85,8 +85,10 @@ export interface Project {
 export enum projectTypes {
   Debugger = 'debugger',
   Formatter = 'formatter',
+  Inspector = 'inspector',
   Network = 'network',
   FileSystem = 'filesystem',
+  ConnectableFileSystem = 'connectablefilesystem',
   ContentScripts = 'contentscripts',
   Service = 'service',
 }
@@ -290,6 +292,11 @@ export class WorkspaceImpl extends Common.ObjectWrapper.ObjectWrapper<EventTypes
 
   project(projectId: string): Project|null {
     return this.projectsInternal.get(projectId) || null;
+  }
+
+  projectForFileSystemRoot(root: Platform.DevToolsPath.RawPathString): Project|null {
+    const projectId = Common.ParsedURL.ParsedURL.rawPathToUrlString(root);
+    return this.project(projectId);
   }
 
   projects(): Project[] {

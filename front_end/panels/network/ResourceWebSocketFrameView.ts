@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
@@ -140,7 +141,7 @@ const UIStrings = {
    *@description Example for placeholder text
    */
   filterUsingRegex: 'Filter using regex (example: (web)?socket)',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/network/ResourceWebSocketFrameView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
@@ -158,7 +159,6 @@ export class ResourceWebSocketFrameView extends UI.Widget.VBox {
   private readonly filterTextInput: UI.Toolbar.ToolbarInput;
   private filterRegex: RegExp|null;
   private readonly frameEmptyWidget: UI.EmptyWidget.EmptyWidget;
-  private readonly selectedNode: ResourceWebSocketFrameNode|null;
   private currentSelectedNode?: ResourceWebSocketFrameNode|null;
 
   private messageFilterSetting: Common.Settings.Setting<string> =
@@ -190,7 +190,6 @@ export class ResourceWebSocketFrameView extends UI.Widget.VBox {
     this.dataGrid = new DataGrid.SortableDataGrid.SortableDataGrid({
       displayName: i18nString(UIStrings.webSocketFrame),
       columns,
-      editCallback: undefined,
       deleteCallback: undefined,
       refreshCallback: undefined,
     });
@@ -246,7 +245,6 @@ export class ResourceWebSocketFrameView extends UI.Widget.VBox {
         i18nString(UIStrings.noMessageSelected), i18nString(UIStrings.selectMessageToBrowseItsContent));
     this.splitWidget.setSidebarWidget(this.frameEmptyWidget);
 
-    this.selectedNode = null;
     if (filter) {
       this.applyFilter(filter);
     }
@@ -293,7 +291,7 @@ export class ResourceWebSocketFrameView extends UI.Widget.VBox {
     if (!this.frameFilter(frame)) {
       return;
     }
-    this.dataGrid.insertChild(new ResourceWebSocketFrameNode(this.request.url(), frame));
+    this.dataGrid.insertChild(new ResourceWebSocketFrameNode(frame));
   }
 
   private frameFilter(frame: SDK.NetworkRequest.WebSocketFrame): boolean {
@@ -361,12 +359,11 @@ export class ResourceWebSocketFrameView extends UI.Widget.VBox {
   refresh(): void {
     this.dataGrid.rootNode().removeChildren();
 
-    const url = this.request.url();
     let frames = this.request.frames();
     const offset = clearFrameOffsets.get(this.request) || 0;
     frames = frames.slice(offset);
     frames = frames.filter(this.frameFilter.bind(this));
-    frames.forEach(frame => this.dataGrid.insertChild(new ResourceWebSocketFrameNode(url, frame)));
+    frames.forEach(frame => this.dataGrid.insertChild(new ResourceWebSocketFrameNode(frame)));
   }
 
   private sortItems(): void {
@@ -383,7 +380,7 @@ const enum OpCodes {
   PONG_FRAME = 10,
 }
 
-export const opCodeDescriptions: (() => string)[] = (function(): (() => Common.UIString.LocalizedString)[] {
+export const opCodeDescriptions: Array<() => string> = (function(): Array<() => Common.UIString.LocalizedString> {
   const map = [];
   map[OpCodes.CONTINUATION_FRAME] = i18nLazyString(UIStrings.continuationFrame);
   map[OpCodes.TEXT_FRAME] = i18nLazyString(UIStrings.textMessage);
@@ -401,13 +398,12 @@ const FILTER_TYPES: UI.FilterBar.Item[] = [
 ];
 
 export class ResourceWebSocketFrameNode extends DataGrid.SortableDataGrid.SortableDataGridNode<unknown> {
-  private readonly url: Platform.DevToolsPath.UrlString;
   readonly frame: SDK.NetworkRequest.WebSocketFrame;
   private readonly isTextFrame: boolean;
   private dataTextInternal: string;
   private binaryViewInternal: BinaryResourceView|null;
 
-  constructor(url: Platform.DevToolsPath.UrlString, frame: SDK.NetworkRequest.WebSocketFrame) {
+  constructor(frame: SDK.NetworkRequest.WebSocketFrame) {
     let length = String(frame.text.length);
     const time = new Date(frame.time * 1000);
     const timeText = ('0' + time.getHours()).substr(-2) + ':' + ('0' + time.getMinutes()).substr(-2) + ':' +
@@ -437,7 +433,6 @@ export class ResourceWebSocketFrameNode extends DataGrid.SortableDataGrid.Sortab
 
     super({data: description, length, time: timeNode});
 
-    this.url = url;
     this.frame = frame;
     this.isTextFrame = isTextFrame;
     this.dataTextInternal = dataText;

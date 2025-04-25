@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as Platform from '../../../core/platform/platform.js';
@@ -10,16 +11,18 @@ import {html, nothing, render} from '../../../ui/lit/lit.js';
 
 import accessibilityTreeNodeStylesRaw from './accessibilityTreeNode.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const accessibilityTreeNodeStyles = new CSSStyleSheet();
-accessibilityTreeNodeStyles.replaceSync(accessibilityTreeNodeStylesRaw.cssContent);
+accessibilityTreeNodeStyles.replaceSync(accessibilityTreeNodeStylesRaw.cssText);
 
 const UIStrings = {
   /**
    *@description Ignored node element text content in Accessibility Tree View of the Elements panel
    */
   ignored: 'Ignored',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/elements/components/AccessibilityTreeNode.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 

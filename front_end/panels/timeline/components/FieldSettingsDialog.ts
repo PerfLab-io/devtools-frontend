@@ -1,6 +1,7 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view, rulesdir/inject-checkbox-styles */
 
 import './OriginMap.js';
 
@@ -14,12 +15,8 @@ import * as UI from '../../../ui/legacy/legacy.js';
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
-import fieldSettingsDialogStylesRaw from './fieldSettingsDialog.css.js';
+import fieldSettingsDialogStyles from './fieldSettingsDialog.css.js';
 import type {OriginMap} from './OriginMap.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const fieldSettingsDialogStyles = new CSSStyleSheet();
-fieldSettingsDialogStyles.replaceSync(fieldSettingsDialogStylesRaw.cssContent);
 
 const UIStrings = {
   /**
@@ -90,7 +87,7 @@ const UIStrings = {
    * @example {http//malformed.com} PH1
    */
   invalidOrigin: '"{PH1}" is not a valid origin or URL.',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/FieldSettingsDialog.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -112,8 +109,8 @@ export class FieldSettingsDialog extends HTMLElement {
 
   #configSetting = CrUXManager.CrUXManager.instance().getConfigSetting();
 
-  #urlOverride: string = '';
-  #urlOverrideEnabled: boolean = false;
+  #urlOverride = '';
+  #urlOverrideEnabled = false;
   #urlOverrideWarning = '';
   #originMap?: OriginMap;
 
@@ -203,8 +200,6 @@ export class FieldSettingsDialog extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [fieldSettingsDialogStyles, Input.textInputStyles, Input.checkboxStyles];
-
     this.#configSetting.addChangeListener(this.#onSettingsChanged, this);
 
     void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
@@ -257,6 +252,7 @@ export class FieldSettingsDialog extends HTMLElement {
           variant: Buttons.Button.Variant.PRIMARY,
           title: i18nString(UIStrings.ok),
         } as Buttons.Button.ButtonData}
+        class="enable"
         jslog=${VisualLogging.action('timeline.field-data.enable').track({click: true})}
         data-field-data-enable
       >${i18nString(UIStrings.ok)}</devtools-button>
@@ -338,6 +334,9 @@ export class FieldSettingsDialog extends HTMLElement {
 
     // clang-format off
     const output = html`
+      <style>${fieldSettingsDialogStyles.cssText}</style>
+      <style>${Input.textInputStyles.cssText}</style>
+      <style>${Input.checkboxStyles.cssText}</style>
       <div class="open-button-section">${this.#renderOpenButton()}</div>
       <devtools-dialog
         @clickoutsidedialog=${this.#closeDialog}

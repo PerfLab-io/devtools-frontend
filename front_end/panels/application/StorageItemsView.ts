@@ -1,6 +1,7 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import '../../ui/legacy/legacy.js';
 
@@ -29,7 +30,7 @@ const UIStrings = {
    *@description Text that informs screen reader users that the storage table has been refreshed
    */
   refreshedStatus: 'Table refreshed',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/application/StorageItemsView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -41,9 +42,11 @@ export class StorageItemsView extends UI.Widget.VBox {
   readonly filterItem: UI.Toolbar.ToolbarInput;
   readonly deleteAllButton: UI.Toolbar.ToolbarButton;
   readonly deleteSelectedButton: UI.Toolbar.ToolbarButton;
-  readonly metadataView = new ApplicationComponents.StorageMetadataView.StorageMetadataView();
+  readonly metadataView: ApplicationComponents.StorageMetadataView.StorageMetadataView;
 
-  constructor(_title: string, _filterName: string) {
+  constructor(
+      _title: string, _filterName: string,
+      metadataView?: ApplicationComponents.StorageMetadataView.StorageMetadataView) {
     super(false);
     this.filterRegex = null;
 
@@ -74,6 +77,7 @@ export class StorageItemsView extends UI.Widget.VBox {
     for (const item of toolbarItems) {
       this.mainToolbar.appendToolbarItem(item);
     }
+    this.metadataView = metadataView ?? new ApplicationComponents.StorageMetadataView.StorageMetadataView();
     this.contentElement.appendChild(this.metadataView);
   }
 
@@ -127,10 +131,6 @@ export class StorageItemsView extends UI.Widget.VBox {
 
   setCanDeleteSelected(enabled: boolean): void {
     this.deleteSelectedButton.setEnabled(enabled);
-  }
-
-  setCanRefresh(enabled: boolean): void {
-    this.refreshButton.setEnabled(enabled);
   }
 
   setCanFilter(enabled: boolean): void {

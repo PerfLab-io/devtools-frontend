@@ -28,6 +28,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* eslint-disable rulesdir/no-imperative-dom-api */
+
 import * as i18n from '../../core/i18n/i18n.js';
 import type * as Platform from '../../core/platform/platform.js';
 import * as VisualLogging from '../visual_logging/visual_logging.js';
@@ -41,7 +43,7 @@ const UIStrings = {
    *@description Text that is usually a hyperlink to more documentation
    */
   learnMore: 'Learn more',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/EmptyWidget.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -62,7 +64,13 @@ export class EmptyWidget extends VBox {
   }
 
   appendLink(link: Platform.DevToolsPath.UrlString): HTMLElement {
-    const learnMoreLink = XLink.create(link, i18nString(UIStrings.learnMore), undefined, undefined, 'learn-more');
+    const learnMoreLink = XLink.create(
+        link,
+        i18nString(UIStrings.learnMore),
+        undefined,
+        undefined,
+        'learn-more',
+    );
     this.#textElement.insertAdjacentElement('afterend', learnMoreLink);
     return learnMoreLink;
   }

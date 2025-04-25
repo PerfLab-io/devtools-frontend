@@ -1,6 +1,7 @@
 // Copyright (c) 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/icon_button/icon_button.js';
 
@@ -11,9 +12,11 @@ import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 import {findFlexContainerIcon, findGridContainerIcon, type IconInfo} from './CSSPropertyIconResolver.js';
 import stylePropertyEditorStylesRaw from './stylePropertyEditor.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const stylePropertyEditorStyles = new CSSStyleSheet();
-stylePropertyEditorStyles.replaceSync(stylePropertyEditorStylesRaw.cssContent);
+stylePropertyEditorStyles.replaceSync(stylePropertyEditorStylesRaw.cssText);
 
 const UIStrings = {
   /**
@@ -28,7 +31,7 @@ const UIStrings = {
    * @example {row} propertyValue
    */
   deselectButton: 'Remove {propertyName}: {propertyValue}',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/elements/components/StylePropertyEditor.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -73,8 +76,8 @@ export class PropertyDeselectedEvent extends Event {
 
 export class StylePropertyEditor extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  #authoredProperties: Map<string, string> = new Map();
-  #computedProperties: Map<string, string> = new Map();
+  #authoredProperties = new Map<string, string>();
+  #computedProperties = new Map<string, string>();
   protected readonly editableProperties: EditableProperty[] = [];
 
   constructor() {
@@ -126,7 +129,7 @@ export class StylePropertyEditor extends HTMLElement {
     </div>`;
   }
 
-  #renderButton(propertyValue: string, propertyName: string, selected: boolean = false): Lit.TemplateResult {
+  #renderButton(propertyValue: string, propertyName: string, selected = false): Lit.TemplateResult {
     const query = `${propertyName}: ${propertyValue}`;
     const iconInfo = this.findIcon(query, this.#computedProperties);
     if (!iconInfo) {

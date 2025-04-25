@@ -43,7 +43,7 @@ describeWithEnvironment('PreloadingDetailsReportView', () => {
 
     const component = await renderPreloadingDetailsReportView(data);
     assert.isNotNull(component.shadowRoot);
-    const placeholder = component.shadowRoot.querySelector('.preloading-noselected');
+    const placeholder = component.shadowRoot.querySelector('.empty-state');
 
     assert.include(placeholder?.textContent, 'Select an element for more details');
   });
@@ -112,6 +112,114 @@ describeWithEnvironment('PreloadingDetailsReportView', () => {
       ['URL', url],
       ['Action', 'Prerender'],
       ['Status', 'Speculative load is running.'],
+      ['Rule set', 'example.com/'],
+    ]);
+  });
+
+  it('renders prerendering details with target hint blank', async () => {
+    const url = urlString`https://example.com/prerendered.html`;
+    const data: PreloadingComponents.PreloadingDetailsReportView.PreloadingDetailsReportViewData = {
+      pipeline: SDK.PreloadingModel.PreloadPipeline.newFromAttemptsForTesting([
+        {
+          action: Protocol.Preload.SpeculationAction.Prerender,
+          key: {
+            loaderId: 'loaderId' as Protocol.Network.LoaderId,
+            action: Protocol.Preload.SpeculationAction.Prerender,
+            url,
+            targetHint: Protocol.Preload.SpeculationTargetHint.Blank,
+          },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
+          status: SDK.PreloadingModel.PreloadingStatus.RUNNING,
+          prerenderStatus: null,
+          disallowedMojoInterface: null,
+          mismatchedHeaders: null,
+          ruleSetIds: ['ruleSetId'] as Protocol.Preload.RuleSetId[],
+          nodeIds: [1] as Protocol.DOM.BackendNodeId[],
+        },
+      ]),
+      ruleSets: [
+        {
+          id: 'ruleSetId' as Protocol.Preload.RuleSetId,
+          loaderId: 'loaderId' as Protocol.Network.LoaderId,
+          sourceText: `
+{
+  "prerender": [
+    {
+      "source": "list",
+      "urls": ["prerendered.html"]
+    }
+  ]
+}
+`,
+        },
+      ],
+      pageURL: urlString`https://example.com/`,
+    };
+
+    const component = await renderPreloadingDetailsReportView(data);
+    const report = getElementWithinComponent(component, 'devtools-report', ReportView.ReportView.Report);
+
+    const keys = getCleanTextContentFromElements(report, 'devtools-report-key');
+    const values = getCleanTextContentFromElements(report, 'devtools-report-value');
+    assert.deepEqual(zip2(keys, values), [
+      ['URL', url],
+      ['Action', 'Prerender'],
+      ['Status', 'Speculative load is running.'],
+      ['Target hint', '_blank'],
+      ['Rule set', 'example.com/'],
+    ]);
+  });
+
+  it('renders prerendering details with target hint self', async () => {
+    const url = urlString`https://example.com/prerendered.html`;
+    const data: PreloadingComponents.PreloadingDetailsReportView.PreloadingDetailsReportViewData = {
+      pipeline: SDK.PreloadingModel.PreloadPipeline.newFromAttemptsForTesting([
+        {
+          action: Protocol.Preload.SpeculationAction.Prerender,
+          key: {
+            loaderId: 'loaderId' as Protocol.Network.LoaderId,
+            action: Protocol.Preload.SpeculationAction.Prerender,
+            url,
+            targetHint: Protocol.Preload.SpeculationTargetHint.Self,
+          },
+          pipelineId: 'pipelineId:1' as Protocol.Preload.PreloadPipelineId,
+          status: SDK.PreloadingModel.PreloadingStatus.RUNNING,
+          prerenderStatus: null,
+          disallowedMojoInterface: null,
+          mismatchedHeaders: null,
+          ruleSetIds: ['ruleSetId'] as Protocol.Preload.RuleSetId[],
+          nodeIds: [1] as Protocol.DOM.BackendNodeId[],
+        },
+      ]),
+      ruleSets: [
+        {
+          id: 'ruleSetId' as Protocol.Preload.RuleSetId,
+          loaderId: 'loaderId' as Protocol.Network.LoaderId,
+          sourceText: `
+{
+  "prerender": [
+    {
+      "source": "list",
+      "urls": ["prerendered.html"]
+    }
+  ]
+}
+`,
+        },
+      ],
+      pageURL: urlString`https://example.com/`,
+    };
+
+    const component = await renderPreloadingDetailsReportView(data);
+    const report = getElementWithinComponent(component, 'devtools-report', ReportView.ReportView.Report);
+
+    const keys = getCleanTextContentFromElements(report, 'devtools-report-key');
+    const values = getCleanTextContentFromElements(report, 'devtools-report-value');
+    assert.deepEqual(zip2(keys, values), [
+      ['URL', url],
+      ['Action', 'Prerender'],
+      ['Status', 'Speculative load is running.'],
+      ['Target hint', '_self'],
       ['Rule set', 'example.com/'],
     ]);
   });

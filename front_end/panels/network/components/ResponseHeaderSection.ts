@@ -1,6 +1,7 @@
 // Copyright 2022 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import * as Common from '../../../core/common/common.js';
 import * as Host from '../../../core/host/host.js';
@@ -33,9 +34,11 @@ import {
 } from './HeaderSectionRow.js';
 import responseHeaderSectionStylesRaw from './ResponseHeaderSection.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const responseHeaderSectionStyles = new CSSStyleSheet();
-responseHeaderSectionStyles.replaceSync(responseHeaderSectionStylesRaw.cssContent);
+responseHeaderSectionStyles.replaceSync(responseHeaderSectionStylesRaw.cssText);
 
 const UIStrings = {
   /**
@@ -77,7 +80,7 @@ const UIStrings = {
    */
   toUseThisResourceFromADifferentSite:
       'To use this resource from a different site, the server may relax the cross-origin resource policy response header:',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/network/components/ResponseHeaderSection.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -283,7 +286,7 @@ export class ResponseHeaderSection extends ResponseHeaderSectionBase {
       this.#overrides =
           JSON.parse(deferredContent.content || '[]') as Persistence.NetworkPersistenceManager.HeaderOverride[];
       if (!this.#overrides.every(Persistence.NetworkPersistenceManager.isHeaderOverride)) {
-        throw 'Type mismatch after parsing';
+        throw new Error('Type mismatch after parsing');
       }
       if (Common.Settings.Settings.instance().moduleSetting('persistence-network-overrides-enabled').get() &&
           this.#isEditingAllowed === EditingAllowedStatus.DISABLED) {

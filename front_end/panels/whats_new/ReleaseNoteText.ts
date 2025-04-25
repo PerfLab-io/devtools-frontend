@@ -14,8 +14,8 @@ let registeredLinks = false;
 export interface ReleaseNote {
   version: number;
   header: string;
-  markdownLinks: {key: string, link: string}[];
-  videoLinks: {description: string, link: Platform.DevToolsPath.UrlString, type?: VideoType}[];
+  markdownLinks: Array<{key: string, link: string}>;
+  videoLinks: Array<{description: string, link: Platform.DevToolsPath.UrlString, type?: VideoType}>;
   link: string;
 }
 
@@ -40,28 +40,28 @@ export function getReleaseNote(): ReleaseNote {
 }
 
 let releaseNote: ReleaseNote = {
-  version: 74,
-  header: 'What\'s new in DevTools 133',
+  version: 77,
+  header: 'What\'s new in DevTools 136',
   markdownLinks: [
     {
-      key: 'persistent-chat-history',
-      link: 'https://developer.chrome.com/blog/new-in-devtools-133/#persistent-chat-history',
+      key: 'perf-insights',
+      link: 'https://developer.chrome.com/blog/new-in-devtools-136/#perf-insights',
     },
     {
-      key: 'perf-nav',
-      link: 'https://developer.chrome.com/blog/new-in-devtools-133/#perf-nav',
+      key: 'click-to-highlight',
+      link: 'https://developer.chrome.com/blog/new-in-devtools-136/#click-to-highlight',
     },
     {
-      key: 'perf-image-delivery',
-      link: 'https://developer.chrome.com/blog/new-in-devtools-133/#perf-image-delivery',
+      key: 'cookies-filter',
+      link: 'https://developer.chrome.com/blog/new-in-devtools-136/#cookies-filter',
     },
   ],
   videoLinks: [
     {
-      description: 'Highlights of updates from Chrome 130-132',
-      link: 'https://www.youtube.com/watch?v=kzDUe-f4gac' as Platform.DevToolsPath.UrlString,
+      description: 'See the highlights from Chrome 136',
+      link: 'https://developer.chrome.com/blog/new-in-devtools-136' as Platform.DevToolsPath.UrlString,
       type: VideoType.WHATS_NEW,
     },
   ],
-  link: 'https://developer.chrome.com/blog/new-in-devtools-133/',
+  link: 'https://developer.chrome.com/blog/new-in-devtools-136/',
 };

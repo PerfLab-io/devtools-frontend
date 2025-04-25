@@ -28,6 +28,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* eslint-disable rulesdir/no-imperative-dom-api */
+
 import * as i18n from '../../core/i18n/i18n.js';
 import type * as SDK from '../../core/sdk/sdk.js';
 import type * as Protocol from '../../generated/protocol.js';
@@ -65,7 +67,7 @@ const UIStrings = {
    *@description Text in Platform Fonts Widget of the Elements panel. Indicates a number of glyphs (characters) .
    */
   dGlyphs: '{n, plural, =1 {(# glyph)} other {(# glyphs)}}',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/elements/PlatformFontsWidget.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -107,7 +109,7 @@ export class PlatformFontsWidget extends UI.ThrottledWidget.ThrottledWidget {
 
     this.fontStatsSection.removeChildren();
 
-    const isEmptySection = !platformFonts || !platformFonts.length;
+    const isEmptySection = !platformFonts?.length;
     this.sectionTitle.classList.toggle('hidden', isEmptySection);
     if (isEmptySection || !platformFonts) {
       return;

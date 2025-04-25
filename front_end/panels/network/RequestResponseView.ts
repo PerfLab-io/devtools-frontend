@@ -27,6 +27,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -52,7 +53,7 @@ const UIStrings = {
    *@description Text in Request Preview View of the Network panel
    */
   failedToLoadResponseData: 'Failed to load response data',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/network/RequestResponseView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class RequestResponseView extends UI.Widget.VBox {

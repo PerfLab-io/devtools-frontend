@@ -36,7 +36,7 @@ import {
   ThemeChangeEvent,
 } from '../../ui/legacy/theme_support/theme_support.js';
 
-// @ts-ignore Exposed for legacy layout tests
+// @ts-expect-error Exposed for legacy layout tests
 self.runtime = Root.Runtime.Runtime.instance({forceNew: true});
 // export const mainInstance = new Main.MainImpl.MainImpl();
 // @ts-ignore

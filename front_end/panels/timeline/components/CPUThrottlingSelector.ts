@@ -1,6 +1,7 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/menus/menus.js';
 
@@ -14,11 +15,7 @@ import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 import * as MobileThrottling from '../../mobile_throttling/mobile_throttling.js';
 
-import cpuThrottlingSelectorStylesRaw from './cpuThrottlingSelector.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const cpuThrottlingSelectorStyles = new CSSStyleSheet();
-cpuThrottlingSelectorStyles.replaceSync(cpuThrottlingSelectorStylesRaw.cssContent);
+import cpuThrottlingSelectorStyles from './cpuThrottlingSelector.css.js';
 
 const {html} = Lit;
 
@@ -54,7 +51,7 @@ const UIStrings = {
    * @description Label shown above a list of CPU calibration preset options.
    */
   labelCalibratedPresets: 'Calibrated presets',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/CPUThrottlingSelector.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -89,7 +86,6 @@ export class CPUThrottlingSelector extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [cpuThrottlingSelectorStyles];
     SDK.CPUThrottlingManager.CPUThrottlingManager.instance().addEventListener(
         SDK.CPUThrottlingManager.Events.RATE_CHANGED, this.#onOptionChange, this);
     this.#calibratedThrottlingSetting.addChangeListener(this.#onCalibratedSettingChanged, this);
@@ -168,6 +164,7 @@ export class CPUThrottlingSelector extends HTMLElement {
 
     // clang-format off
     const output = html`
+      <style>${cpuThrottlingSelectorStyles.cssText}</style>
       <devtools-select-menu
             @selectmenuselected=${this.#onMenuItemSelected}
             .showDivider=${true}

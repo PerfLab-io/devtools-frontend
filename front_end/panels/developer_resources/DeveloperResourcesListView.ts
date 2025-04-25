@@ -1,6 +1,8 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../ui/legacy/components/data_grid/data_grid.js';
 
@@ -32,6 +34,10 @@ const UIStrings = {
    *@description Text in Coverage List View of the Coverage tab
    */
   totalBytes: 'Total Bytes',
+  /**
+   * @description Column header. The column contains the time it took to load a resource.
+   */
+  duration: 'Duration',
   /**
    *@description Text for errors
    */
@@ -65,7 +71,15 @@ const UIStrings = {
    *@description Accessible text for the value in bytes in memory allocation.
    */
   sBytes: '{n, plural, =1 {# byte} other {# bytes}}',
-};
+  /**
+   * @description Number of resource(s) match
+   */
+  numberOfResourceMatch: '{n, plural, =1 {# resource matches} other {# resources match}}',
+  /**
+   * @description No resource matches
+   */
+  noResourceMatches: 'No resource matches',
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/developer_resources/DeveloperResourcesListView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 const {withThousandsSeparator} = Platform.NumberUtilities;
@@ -75,20 +89,20 @@ export interface ViewInput {
   highlight: (element: Element, textContent: string, columnId: string) => void;
   filters: TextUtils.TextUtils.ParsedFilter[];
   onContextMenu: (e: CustomEvent<{menu: UI.ContextMenu.ContextMenu, element: HTMLElement}>) => void;
+  onSelect: (e: CustomEvent<HTMLElement>) => void;
   onInitiatorMouseEnter: (frameId: Protocol.Page.FrameId|null) => void;
   onInitiatorMouseLeave: () => void;
 }
 
-export interface ViewOutput {}
-
-export type View = (input: ViewInput, output: ViewOutput, target: HTMLElement) => void;
+export type View = (input: ViewInput, output: object, target: HTMLElement) => void;
 
 export class DeveloperResourcesListView extends UI.Widget.VBox {
   #items: SDK.PageResourceLoader.PageResource[] = [];
   #selectedItem: SDK.PageResourceLoader.PageResource|null = null;
+  #onSelect: ((item: SDK.PageResourceLoader.PageResource|null) => void)|null = null;
   readonly #view: View;
   #filters: TextUtils.TextUtils.ParsedFilter[] = [];
-  constructor(view: View = (input, output, target) => {
+  constructor(element: HTMLElement, view: View = (input, _, target) => {
     // clang-format off
         render(html`
             <devtools-data-grid
@@ -96,6 +110,7 @@ export class DeveloperResourcesListView extends UI.Widget.VBox {
               striped
               .filters=${input.filters}
                @contextmenu=${input.onContextMenu}
+               @selected=${input.onSelect}
               class="flex-auto"
             >
               <table>
@@ -112,14 +127,18 @@ export class DeveloperResourcesListView extends UI.Widget.VBox {
                   <th id="size" sortable fixed width="80px" align="right">
                     ${i18nString(UIStrings.totalBytes)}
                   </th>
+                  <th id="duration" sortable fixed width="80px" align="right">
+                    ${i18nString(UIStrings.duration)}
+                  </th>
                   <th id="error-message" sortable width="200px">
                     ${i18nString(UIStrings.error)}
                   </th>
                 </tr>
-                ${input.items.map(item => html`
+                ${input.items.map((item, index) => html`
                   <tr selected=${(item === this.#selectedItem) || nothing}
                       data-url=${item.url ?? nothing}
-                      data-initiator-url=${item.initiator.initiatorUrl ?? nothing}>
+                      data-initiator-url=${item.initiator.initiatorUrl ?? nothing}
+                      data-index=${index}>
                     <td>${item.success === true  ? i18nString(UIStrings.success) :
                           item.success === false ? i18nString(UIStrings.failure) :
                                                    i18nString(UIStrings.pending)}</td>
@@ -136,6 +155,9 @@ export class DeveloperResourcesListView extends UI.Widget.VBox {
                     <td aria-label=${item.size !== null ? i18nString(UIStrings.sBytes, {n: item.size}) : nothing}
                         data-value=${item.size ?? nothing}>${
                       item.size !== null ?  html`<span>${withThousandsSeparator(item.size)}</span>` : ''}</td>
+                    <td aria-label=${item.duration !== null ? i18n.TimeUtilities.millisToString(item.duration) : nothing}
+                        data-value=${item.duration ?? nothing}>${
+                        item.duration !== null ? html`<span>${i18n.TimeUtilities.millisToString(item.duration)}</span>` : ''}</td>
                     <td class="error-message">${(() => {
                         const cell = document.createElement('span');
                         if (item.errorMessage) {
@@ -147,7 +169,7 @@ export class DeveloperResourcesListView extends UI.Widget.VBox {
                   </tr>`)}
               </table>
             </devtools-data-grid>`,
-            target, {host: input});  // eslint-disable-line rulesdir/lit-host-this
+            target, {host: input});
     // clang-format on
     function renderUrl(url: string): HTMLElement {
       const outer = document.createElement('div');
@@ -163,18 +185,18 @@ export class DeveloperResourcesListView extends UI.Widget.VBox {
       return outer;
     }
   }) {
-    super(true);
+    super(true, undefined, element);
     this.#view = view;
     this.registerRequiredCSS(developerResourcesListViewStyles);
   }
 
-  select(item: SDK.PageResourceLoader.PageResource): void {
+  set selectedItem(item: SDK.PageResourceLoader.PageResource) {
     this.#selectedItem = item;
     this.requestUpdate();
   }
 
-  selectedItem(): SDK.PageResourceLoader.PageResource|null {
-    return this.#selectedItem;
+  set onSelect(onSelect: (item: SDK.PageResourceLoader.PageResource|null) => void) {
+    this.#onSelect = onSelect;
   }
 
   #populateContextMenu(contextMenu: UI.ContextMenu.ContextMenu, element: HTMLElement): void {
@@ -203,14 +225,20 @@ export class DeveloperResourcesListView extends UI.Widget.VBox {
     this.requestUpdate();
   }
 
-  updateFilterAndHighlight(filters: TextUtils.TextUtils.ParsedFilter[]): void {
+  set filters(filters: TextUtils.TextUtils.ParsedFilter[]) {
     this.#filters = filters;
     this.requestUpdate();
-  }
-
-  getNumberOfVisibleItems(): number {
-    return parseInt(this.contentElement.querySelector('devtools-data-grid')?.getAttribute('aria-rowcount') || '', 10) ??
-        0;
+    void this.updateComplete.then(() => {
+      const numberOfResourceMatch =
+          Number(this.contentElement.querySelector('devtools-data-grid')?.getAttribute('aria-rowcount')) ?? 0;
+      let resourceMatch = '';
+      if (numberOfResourceMatch === 0) {
+        resourceMatch = i18nString(UIStrings.noResourceMatches);
+      } else {
+        resourceMatch = i18nString(UIStrings.numberOfResourceMatch, {n: numberOfResourceMatch});
+      }
+      UI.ARIAUtils.alert(resourceMatch);
+    });
   }
 
   override performUpdate(): void {
@@ -222,6 +250,10 @@ export class DeveloperResourcesListView extends UI.Widget.VBox {
         if (e.detail?.element) {
           this.#populateContextMenu(e.detail.menu, e.detail.element);
         }
+      },
+      onSelect: (e: CustomEvent<HTMLElement|null>) => {
+        this.#selectedItem = e.detail ? this.#items[Number(e.detail.dataset.index)] : null;
+        this.#onSelect?.(this.#selectedItem);
       },
       onInitiatorMouseEnter: (frameId: Protocol.Page.FrameId|null) => {
         const frame = frameId ? SDK.FrameManager.FrameManager.instance().getFrame(frameId) : null;
@@ -243,7 +275,7 @@ export class DeveloperResourcesListView extends UI.Widget.VBox {
       return;
     }
     const matches = filter.regex.exec(textContent);
-    if (!matches || !matches.length) {
+    if (!matches?.length) {
       return;
     }
     const range = new TextUtils.TextRange.SourceRange(matches.index, matches[0].length);
