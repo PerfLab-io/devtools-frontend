@@ -52,7 +52,7 @@ logging.basicConfig(
 
 def runTsc(tsconfig_location):
     cmd = [NODE_LOCATION, TSC_LOCATION, '-p', tsconfig_location]
-    logging.info("runTsc: %s", ' '.join(cmd))
+    print("runTsc: %s", ' '.join(cmd))
     process = subprocess.Popen(cmd,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE,

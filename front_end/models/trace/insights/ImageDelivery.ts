@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import * as i18n from '../../../core/i18n/i18n.js';
+import type * as Platform from '../../../core/platform/platform.js';
 import type * as Handlers from '../handlers/handlers.js';
 import * as Helpers from '../helpers/helpers.js';
 import type * as Types from '../types/types.js';
@@ -133,7 +134,7 @@ export type ImageDeliveryInsightModel = InsightModel<typeof UIStrings, {
   optimizableImages: OptimizableImage[],
 }>;
 
-export function getOptimizationMessage(optimization: ImageOptimization): string {
+export function getOptimizationMessage(optimization: ImageOptimization): Platform.UIString.LocalizedString {
   switch (optimization.type) {
     case ImageOptimizationType.ADJUST_COMPRESSION:
       return i18nString(UIStrings.useCompression);
@@ -149,7 +150,7 @@ export function getOptimizationMessage(optimization: ImageOptimization): string 
   }
 }
 
-export function getOptimizationMessageWithBytes(optimization: ImageOptimization): string {
+export function getOptimizationMessageWithBytes(optimization: ImageOptimization): Platform.UIString.LocalizedString {
   const byteSavingsText = i18n.ByteUtilities.bytesToString(optimization.byteSavings);
   const optimizationMessage = getOptimizationMessage(optimization);
   return i18nString(UIStrings.estimatedSavings, {PH1: optimizationMessage, PH2: byteSavingsText});

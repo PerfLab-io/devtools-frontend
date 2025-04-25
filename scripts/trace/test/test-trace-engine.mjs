@@ -98,10 +98,10 @@ test("insights look ok", (t) => {
     );
   }
 
-  const entityNames = insightSet.model.ThirdParties.summaries.map(
+  const entityNames = insightSet.model.ThirdParties.entitySummaries.map(
     (s) => s.entity.name
   );
-  const values = insightSet.model.ThirdParties.summaries.values();
+  const values = insightSet.model.ThirdParties.entitySummaries.values();
   const simplified = Object.fromEntries(
     values.map((v, i) => [
       entityNames[i],

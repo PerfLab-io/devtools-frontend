@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import * as Common from '../../../core/common/common.js';
+// import * as ompleteURL(frameUrl, script.sourceUrl) ?? script.sourceUrl;
 import * as Platform from '../../../core/platform/platform.js';
 // eslint-disable-next-line rulesdir/no-imports-in-directory
 import type * as SDK from '../../../core/sdk/sdk.js';
@@ -12,6 +12,19 @@ import * as Types from '../types/types.js';
 import {data as metaHandlerData, type MetaHandlerData} from './MetaHandler.js';
 import {data as networkRequestsHandlerData} from './NetworkRequestsHandler.js';
 import type {HandlerName} from './types.js';
+
+function completeURL(base: string, url: string): string|null {
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('javascript:') || url.startsWith('mailto:')) {
+    return url;
+  }
+
+  try {
+    return new URL(url, base).href;
+  } catch {}
+
+  return null;
+}
+
 
 export interface ScriptsData {
   /** Note: this is only populated when the "Enhanced Traces" feature is enabled. */
@@ -256,13 +269,13 @@ export async function finalize(options: Types.Configuration.ParseOptions): Promi
     // example: `// #sourceURL=foo.js` for target frame https://www.example.com/home -> https://www.example.com/home/foo.js
     let sourceUrl = script.url;
     if (script.sourceUrl) {
-      sourceUrl = Common.ParsedURL.ParsedURL.completeURL(frameUrl, script.sourceUrl) ?? script.sourceUrl;
+      sourceUrl = completeURL(frameUrl, script.sourceUrl) ?? script.sourceUrl;
     }
 
     // Resolve the source map url. The value given by v8 may be relative, so resolve it here.
     // This process should match the one in `SourceMapManager.attachSourceMap`.
     const sourceMapUrl =
-        Common.ParsedURL.ParsedURL.completeURL(sourceUrl as Platform.DevToolsPath.UrlString, script.sourceMapUrl);
+        completeURL(sourceUrl as Platform.DevToolsPath.UrlString, script.sourceMapUrl);
     if (!sourceMapUrl) {
       continue;
     }
