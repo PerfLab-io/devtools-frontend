@@ -9,6 +9,7 @@
  * Note that `resetTestDOM` is automatically run before each test (see `test_setup.ts`).
  **/
 
+import type * as Platform from '../core/platform/platform.js';
 import type * as NodeText from '../ui/components/node_text/node_text.js';
 import * as UI from '../ui/legacy/legacy.js';
 
@@ -55,37 +56,50 @@ function removeChildren(node: Node): void {
     node.removeChild(firstChild);
   }
 }
+
 /**
- * Completely cleans out the test DOM to ensure it's empty for the next test run.
- * This is run automatically between tests - you should not be manually calling this yourself.
+ * Sets up the DOM for testing,
+ * If not clean logs an error and cleans itself
  **/
-export const resetTestDOM = () => {
+export const setupTestDOM = async () => {
   const previousContainer = document.getElementById(TEST_CONTAINER_ID);
   if (previousContainer) {
-    removeChildren(previousContainer);
-    previousContainer.remove();
+    // This should not be reachable, unless the
+    // AfterEach hook fails before cleaning the DOM.
+    // Clean it here and report
+    console.error('Non clean test state found!');
+    await cleanTestDOM();
   }
-
   const newContainer = document.createElement('div');
   newContainer.id = TEST_CONTAINER_ID;
 
   document.body.appendChild(newContainer);
 };
 
-interface Constructor<T> {
-  new(...args: unknown[]): T;
-}
+/**
+ * Completely cleans out the test DOM to ensure it's empty for the next test run.
+ * This is run automatically between tests - you should not be manually calling this yourself.
+ **/
+export const cleanTestDOM = async () => {
+  const previousContainer = document.getElementById(TEST_CONTAINER_ID);
+  if (previousContainer) {
+    removeChildren(previousContainer);
+    previousContainer.remove();
+  }
+  await raf();
+};
 
 /**
  * Asserts that all emenents of `nodeList` are at least of type `T`.
  */
 export function assertElements<T extends Element>(
-    nodeList: NodeListOf<Element>, elementClass: Constructor<T>): asserts nodeList is NodeListOf<T> {
+    nodeList: NodeListOf<Element>,
+    elementClass: Platform.Constructor.Constructor<T>): asserts nodeList is NodeListOf<T> {
   nodeList.forEach(e => assert.instanceOf(e, elementClass));
 }
 
 export function getElementWithinComponent<T extends HTMLElement, V extends Element>(
-    component: T, selector: string, elementClass: Constructor<V>) {
+    component: T, selector: string, elementClass: Platform.Constructor.Constructor<V>) {
   assert.isNotNull(component.shadowRoot);
   const element = component.shadowRoot.querySelector(selector);
   assert.instanceOf(element, elementClass);
@@ -93,7 +107,7 @@ export function getElementWithinComponent<T extends HTMLElement, V extends Eleme
 }
 
 export function getElementsWithinComponent<T extends HTMLElement, V extends Element>(
-    component: T, selector: string, elementClass: Constructor<V>) {
+    component: T, selector: string, elementClass: Platform.Constructor.Constructor<V>) {
   assert.isNotNull(component.shadowRoot);
   const elements = component.shadowRoot.querySelectorAll(selector);
   assertElements(elements, elementClass);
@@ -232,11 +246,11 @@ export function getEventPromise<T extends Event>(element: HTMLElement, eventName
 }
 
 export async function doubleRaf() {
-  return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  return await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 }
 
 export async function raf() {
-  return new Promise(resolve => requestAnimationFrame(resolve));
+  return await new Promise(resolve => requestAnimationFrame(resolve));
 }
 
 /**
@@ -274,7 +288,11 @@ export function getCleanTextContentFromElements(el: ShadowRoot|HTMLElement, sele
 export function getCleanTextContentFromSingleElement(el: ShadowRoot|HTMLElement, selector: string): string {
   const element = el.querySelector(selector);
   assert.isOk(element, `Could not find element with selector ${selector}`);
-  return element.textContent ? element.textContent.trim().replace(/[ \n]{2,}/g, ' ') : '';
+  return element.textContent ? cleanTextContent(element.textContent) : '';
+}
+
+export function cleanTextContent(input: string): string {
+  return input.trim().replace(/[ \n]{2,}/g, ' ');
 }
 
 export function assertNodeTextContent(component: NodeText.NodeText.NodeText, expectedContent: string) {
@@ -290,4 +308,29 @@ export function querySelectorErrorOnMissing<T extends HTMLElement = HTMLElement>
     throw new Error(`Expected element with selector ${selector} not found.`);
   }
   return elem;
+}
+
+/**
+ * Given a filename in the format "<folder>/<image.png>"
+ * this function asserts that a screenshot taken from the element
+ * identified by the TEST_CONTAINER_ID matches a screenshot
+ * in test/interactions/goldens/linux/<folder>/<image.png>.
+ *
+ * Currently, it only asserts screenshots match goldens on Linux.
+ * The function relies on the bindings exposed via the karma config.
+ */
+export async function assertScreenshot(filename: string) {
+  // To avoid a lot of empty space in the screenshot.
+  document.getElementById(TEST_CONTAINER_ID)!.style.width = 'fit-content';
+  let frame: Window|null = window;
+  while (frame) {
+    frame.scrollTo(0, 0);
+    frame = frame.parent !== frame ? frame.parent : null;
+  }
+  await raf();
+  // @ts-expect-error see karma config.
+  const errorMessage = await window.assertScreenshot(`#${TEST_CONTAINER_ID}`, filename);
+  if (errorMessage) {
+    throw new Error(errorMessage);
+  }
 }

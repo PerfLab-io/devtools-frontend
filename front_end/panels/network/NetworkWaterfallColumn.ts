@@ -1,6 +1,7 @@
 // Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import type * as SDK from '../../core/sdk/sdk.js';
@@ -76,7 +77,6 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
 
     this.popoverHelper =
         new UI.PopoverHelper.PopoverHelper(this.element, this.getPopoverRequest.bind(this), 'network.timing');
-    this.popoverHelper.setHasPadding(true);
     this.popoverHelper.setTimeout(300, 300);
 
     this.nodes = [];
@@ -141,7 +141,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
     return styleMap;
   }
 
-  private static buildResourceTypeStyle(): Map<Common.ResourceType.ResourceType, LayerStyle>[] {
+  private static buildResourceTypeStyle(): Array<Map<Common.ResourceType.ResourceType, LayerStyle>> {
     const baseResourceTypeColors = new Map([
       ['document', 'hsl(215, 100%, 80%)'],
       ['font', 'hsl(8, 100%, 80%)'],
@@ -217,17 +217,20 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
   }
 
   private onMouseMove(event: MouseEvent): void {
-    this.setHoveredNode(this.getNodeFromPoint(event.offsetX, event.offsetY), event.shiftKey);
+    this.setHoveredNode(this.getNodeFromPoint(event.offsetY), event.shiftKey);
   }
 
   private onClick(event: MouseEvent): void {
-    const handled = this.setSelectedNode(this.getNodeFromPoint(event.offsetX, event.offsetY));
+    const handled = this.setSelectedNode(this.getNodeFromPoint(event.offsetY));
     if (handled) {
       event.consume(true);
     }
   }
 
-  private getPopoverRequest(event: MouseEvent): UI.PopoverHelper.PopoverRequest|null {
+  private getPopoverRequest(event: MouseEvent|KeyboardEvent): UI.PopoverHelper.PopoverRequest|null {
+    if (event instanceof KeyboardEvent) {
+      return null;
+    }
     if (!this.hoveredNode) {
       return null;
     }
@@ -279,8 +282,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
     return {
       box: anchorBox,
       show: (popover: UI.GlassPane.GlassPane) => {
-        const content =
-            RequestTimingView.createTimingTable((request as SDK.NetworkRequest.NetworkRequest), this.calculator);
+        const content = RequestTimingView.createTimingTable((request), this.calculator);
         popover.registerRequiredCSS(networkingTimingTableStyles);
         popover.contentElement.appendChild(content);
         return Promise.resolve(true);
@@ -300,7 +302,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
   }
 
   private setSelectedNode(node: NetworkNode|null): boolean {
-    if (node && node.dataGrid) {
+    if (node?.dataGrid) {
       node.select();
       node.dataGrid.element.focus();
       return true;
@@ -330,7 +332,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
     this.calculator = calculator;
   }
 
-  getNodeFromPoint(x: number, y: number): NetworkNode|null {
+  getNodeFromPoint(y: number): NetworkNode|null {
     if (y <= this.headerHeight) {
       return null;
     }
@@ -398,7 +400,7 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
         !Common.Settings.Settings.instance().moduleSetting('network-color-code-resource-types').get() &&
         !this.calculator.startAtZero;
     const nodes = this.nodes;
-    const context = (this.canvas.getContext('2d') as CanvasRenderingContext2D | null);
+    const context = (this.canvas.getContext('2d'));
     if (!context) {
       return;
     }
@@ -454,8 +456,8 @@ export class NetworkWaterfallColumn extends UI.Widget.VBox {
 
   private drawLayers(context: CanvasRenderingContext2D, useTimingBars: boolean): void {
     for (const entry of this.pathForStyle) {
-      const style = (entry[0] as LayerStyle);
-      const path = (entry[1] as Path2D);
+      const style = (entry[0]);
+      const path = (entry[1]);
       context.save();
       context.beginPath();
       if (style.lineWidth) {

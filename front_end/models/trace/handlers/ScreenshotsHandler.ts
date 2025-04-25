@@ -38,7 +38,9 @@ export async function finalize(): Promise<void> {
   const pipelineReporterEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(unpairedAsyncEvents);
 
   frameSequenceToTs = Object.fromEntries(pipelineReporterEvents.map(evt => {
-    const frameSequenceId = evt.args.data.beginEvent.args.chrome_frame_reporter.frame_sequence;
+    const args = evt.args.data.beginEvent.args;
+    const frameReporter = 'frame_reporter' in args ? args.frame_reporter : args.chrome_frame_reporter;
+    const frameSequenceId = frameReporter.frame_sequence;
     const presentationTs = Types.Timing.Micro(evt.ts + evt.dur);
     return [frameSequenceId, presentationTs];
   }));
@@ -53,7 +55,7 @@ export async function finalize(): Promise<void> {
       ph,
       pid,
       tid,
-      // TODO(paulirish, crbug.com/41363012): investigate why getPresentationTimestamp(snapshotEvent) seems less accurate. Resolve screenshot timing innaccuracy.
+      // TODO(paulirish, crbug.com/41363012): investigate why getPresentationTimestamp(snapshotEvent) seems less accurate. Resolve screenshot timing inaccuracy.
       // `getPresentationTimestamp(snapshotEvent) - snapshotEvent.ts` is how many microsec the screenshot should be adjusted to the right/later
       ts: snapshotEvent.ts,
       args: {
@@ -77,6 +79,7 @@ export function screenshotImageDataUri(event: Types.Events.LegacySyntheticScreen
  * We match that up with the "PipelineReporter" trace events as they terminate at presentation.
  * Presentation == when the pixels hit the screen. AKA Swap on the GPU
  */
+// @ts-expect-error expected to be used.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getPresentationTimestamp(screenshotEvent: Types.Events.LegacyScreenshot): Types.Timing.Micro {
   const frameSequence = parseInt(screenshotEvent.id, 16);

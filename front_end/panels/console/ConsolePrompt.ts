@@ -1,6 +1,7 @@
 // Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -36,7 +37,7 @@ const UIStrings = {
    *@description Text a user needs to type in order to confirm that they are aware of the danger of pasting code into the DevTools console.
    */
   allowPasting: 'allow pasting',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/console/ConsolePrompt.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class ConsolePrompt extends Common.ObjectWrapper.eventMixin<EventTypes, typeof UI.Widget.Widget>(
@@ -47,14 +48,13 @@ export class ConsolePrompt extends Common.ObjectWrapper.eventMixin<EventTypes, t
   private editor: TextEditor.TextEditor.TextEditor;
   private readonly eagerPreviewElement: HTMLDivElement;
   private textChangeThrottler: Common.Throttler.Throttler;
-  private readonly formatter: ObjectUI.RemoteObjectPreviewFormatter.RemoteObjectPreviewFormatter;
   private requestPreviewBound: () => Promise<void>;
   private requestPreviewCurrent = 0;
   private readonly innerPreviewElement: HTMLElement;
   private readonly promptIcon: IconButton.Icon.Icon;
   private readonly iconThrottler: Common.Throttler.Throttler;
   private readonly eagerEvalSetting: Common.Settings.Setting<boolean>;
-  private previewRequestForTest: Promise<void>|null;
+  protected previewRequestForTest: Promise<void>|null;
   private highlightingNode: boolean;
   // The CodeMirror state field that controls whether the argument hints are showing.
   // If they are, the escape key will clear them. However, if they aren't, then the
@@ -96,7 +96,6 @@ export class ConsolePrompt extends Common.ObjectWrapper.eventMixin<EventTypes, t
     this.eagerPreviewElement = document.createElement('div');
     this.eagerPreviewElement.classList.add('console-eager-preview');
     this.textChangeThrottler = new Common.Throttler.Throttler(150);
-    this.formatter = new ObjectUI.RemoteObjectPreviewFormatter.RemoteObjectPreviewFormatter();
     this.requestPreviewBound = this.requestPreview.bind(this);
     this.innerPreviewElement = this.eagerPreviewElement.createChild('div', 'console-eager-inner-preview');
     const previewIcon = new IconButton.Icon.Icon();
@@ -237,10 +236,6 @@ export class ConsolePrompt extends Common.ObjectWrapper.eventMixin<EventTypes, t
     CodeMirror.closeCompletion(this.editor.editor);
   }
 
-  private isCaretAtEndOfPrompt(): boolean {
-    return this.editor.state.selection.main.head === this.editor.state.doc.length;
-  }
-
   moveCaretToEndOfPrompt(): void {
     this.editor.dispatch({
       selection: CodeMirror.EditorSelection.cursor(this.editor.state.doc.length),
@@ -373,7 +368,7 @@ export class ConsolePrompt extends Common.ObjectWrapper.eventMixin<EventTypes, t
       executionContext: SDK.RuntimeModel.ExecutionContext, message: SDK.ConsoleModel.ConsoleMessage, expression: string,
       useCommandLineAPI: boolean): Promise<void> {
     const callFrame = executionContext.debuggerModel.selectedCallFrame();
-    if (callFrame && callFrame.script.isJavaScript()) {
+    if (callFrame?.script.isJavaScript()) {
       const nameMap = await SourceMapScopes.NamesResolver.allVariablesInCallFrame(callFrame);
       expression = await this.substituteNames(expression, nameMap);
     }

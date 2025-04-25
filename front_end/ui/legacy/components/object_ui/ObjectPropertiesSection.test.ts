@@ -16,7 +16,7 @@ import * as UI from '../../legacy.js';
 import * as ObjectUI from './object_ui.js';
 
 describe('ObjectPropertiesSection', () => {
-  describeWithRealConnection('ObjectPropertiesSection', () => {
+  describeWithRealConnection('with real connection', () => {
     async function evaluateAndGetProperties(code: string, accessorPropertiesOnly = false, generatePreview = false):
         Promise<{object: SDK.RemoteObject.RemoteObject, properties: SDK.RemoteObject.RemoteObjectProperty[]}> {
       const targetManager = SDK.TargetManager.TargetManager.instance();
@@ -39,7 +39,7 @@ describe('ObjectPropertiesSection', () => {
 
     async function setupTreeOutline(code: string, accessorPropertiesOnly: boolean, generatePreview: boolean) {
       const {object, properties} = await evaluateAndGetProperties(code, accessorPropertiesOnly, generatePreview);
-      const treeOutline = new ObjectUI.ObjectPropertiesSection.ObjectPropertiesSectionsTreeOutline({readOnly: true});
+      const treeOutline = new ObjectUI.ObjectPropertiesSection.ObjectPropertiesSectionsTreeOutline();
       ObjectUI.ObjectPropertiesSection.ObjectPropertyTreeElement.populateWithProperties(
           treeOutline.rootElement(), properties, null, true /* skipProto */, false /* skipGettersAndSetters */, object);
       return treeOutline;
@@ -72,7 +72,7 @@ describe('ObjectPropertiesSection', () => {
     });
   });
 
-  describeWithEnvironment('ObjectPropertiesSection', () => {
+  describeWithEnvironment('with environment', () => {
     describe('appendMemoryIcon', () => {
       it('appends a memory icon for inspectable object types', () => {
         const object = sinon.createStubInstance(SDK.RemoteObject.RemoteObject);

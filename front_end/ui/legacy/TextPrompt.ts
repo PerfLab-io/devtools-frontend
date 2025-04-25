@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2008 Apple Inc.  All rights reserved.
@@ -58,7 +59,7 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
   private completionStopCharacters!: string;
   private usesSuggestionBuilder!: boolean;
   private elementInternal?: Element;
-  private boundOnKeyDown?: ((ev: Event) => void);
+  private boundOnKeyDown?: ((ev: KeyboardEvent) => void);
   private boundOnInput?: ((ev: Event) => void);
   private boundOnMouseWheel?: ((event: Event) => void);
   private boundClearAutocomplete?: (() => void);
@@ -71,7 +72,6 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
   private oldTabIndex?: number;
   private completeTimeout?: number;
   private disableDefaultSuggestionForEmptyInputInternal?: boolean;
-  private changed: boolean;
   jslogContext: string|undefined = undefined;
 
   constructor() {
@@ -87,7 +87,6 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
     this.ghostTextElement.classList.add('auto-complete-text');
     this.ghostTextElement.setAttribute('contenteditable', 'false');
     this.leftParenthesesIndices = [];
-    this.changed = false;
     ARIAUtils.setHidden(this.ghostTextElement, true);
   }
 
@@ -129,7 +128,7 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
 
   private attachInternal(element: Element): Element {
     if (this.proxyElement) {
-      throw 'Cannot attach an attached TextPrompt';
+      throw new Error('Cannot attach an attached TextPrompt');
     }
     this.elementInternal = element;
 
@@ -189,7 +188,7 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
     if (this.focusRestorer) {
       this.focusRestorer.restore();
     }
-    if (this.proxyElement && this.proxyElement.parentElement) {
+    if (this.proxyElement?.parentElement) {
       this.proxyElement.parentElement.insertBefore(this.element(), this.proxyElement);
       this.proxyElement.remove();
     }
@@ -339,10 +338,9 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
     // Subclasses can implement.
   }
 
-  onKeyDown(ev: Event): void {
+  onKeyDown(event: KeyboardEvent): void {
     let handled = false;
-    const event = (ev as KeyboardEvent);
-    if (this.isSuggestBoxVisible() && this.suggestBox && this.suggestBox.keyPressed(event)) {
+    if (this.isSuggestBoxVisible() && this.suggestBox?.keyPressed(event)) {
       void VisualLogging.logKeyDown(this.suggestBox.element, event);
       event.consume(true);
       return;
@@ -392,8 +390,8 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
   }
 
   private acceptSuggestionOnStopCharacters(key: string): boolean {
-    if (!this.currentSuggestion || !this.queryRange || key.length !== 1 || !this.completionStopCharacters ||
-        !this.completionStopCharacters.includes(key)) {
+    if (!this.currentSuggestion || !this.queryRange || key.length !== 1 ||
+        !this.completionStopCharacters?.includes(key)) {
       return false;
     }
 
@@ -441,7 +439,6 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
     this.refreshGhostText();
     this.previousText = text;
     this.dispatchEventToListeners(Events.TEXT_CHANGED);
-    this.changed = true;
 
     this.autoCompleteSoon();
   }
@@ -473,7 +470,6 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
 
     if (beforeText !== this.textWithCurrentSuggestion()) {
       this.dispatchEventToListeners(Events.TEXT_CHANGED);
-      this.changed = true;
     }
   }
 
@@ -482,7 +478,7 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
   }
 
   private refreshGhostText(): void {
-    if (this.currentSuggestion && this.currentSuggestion.hideGhostText) {
+    if (this.currentSuggestion?.hideGhostText) {
       this.ghostTextElement.remove();
       return;
     }
@@ -543,7 +539,7 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
     const completionRequestId = ++this.completionRequestId;
     const completions =
         await this.loadCompletions.call(null, expressionRange.toString(), wordQueryRange.toString(), Boolean(force));
-    this.completionsReady(completionRequestId, (selection as Selection), wordQueryRange, Boolean(force), completions);
+    this.completionsReady(completionRequestId, (selection), wordQueryRange, Boolean(force), completions);
   }
 
   disableDefaultSuggestionForEmptyInput(): void {
@@ -621,7 +617,6 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
     this.refreshGhostText();
     if (isIntermediateSuggestion) {
       this.dispatchEventToListeners(Events.TEXT_CHANGED);
-      this.changed = true;
     }
   }
 
@@ -644,7 +639,6 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
 
     this.clearAutocomplete();
     this.dispatchEventToListeners(Events.TEXT_CHANGED);
-    this.changed = true;
 
     return true;
   }
@@ -670,17 +664,7 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
   }
 
   isSuggestBoxVisible(): boolean {
-    return this.suggestBox !== undefined && this.suggestBox.visible();
-  }
-
-  isCaretInsidePrompt(): boolean {
-    const selection = this.element().getComponentSelection();
-    if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
-      return false;
-    }
-    // @see crbug.com/602541
-    const selectionRange = selection.getRangeAt(0);
-    return selectionRange.startContainer.isSelfOrDescendant(this.element());
+    return this.suggestBox?.visible() ?? false;
   }
 
   private isCaretAtEndOfPrompt(): boolean {
@@ -705,7 +689,7 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
 
     let foundNextText = false;
     while (node) {
-      if (node.nodeType === Node.TEXT_NODE && node.nodeValue && node.nodeValue.length) {
+      if (node.nodeType === Node.TEXT_NODE && node.nodeValue?.length) {
         if (foundNextText && !this.ghostTextElement.isAncestor(node)) {
           return false;
         }
@@ -760,10 +744,6 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
 
   tabKeyPressed(_event: Event): boolean {
     return this.acceptAutoComplete();
-  }
-
-  proxyElementForTests(): Element|null {
-    return this.proxyElement || null;
   }
 
   /**

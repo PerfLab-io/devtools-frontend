@@ -1,17 +1,14 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import * as i18n from '../../../core/i18n/i18n.js';
 import type * as Trace from '../../../models/trace/trace.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
 import * as Lit from '../../../ui/lit/lit.js';
 
-import stylesRaw from './relatedInsightChips.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const styles = new CSSStyleSheet();
-styles.replaceSync(stylesRaw.cssContent);
+import relatedInsightsStyles from './relatedInsightChips.css.js';
 
 const {html} = Lit;
 
@@ -25,7 +22,7 @@ const UIStrings = {
    * @example {Improve image delivery} PH1
    */
   insightWithName: 'Insight: {PH1}',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/RelatedInsightChips.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -42,13 +39,9 @@ export interface Data {
 }
 export class RelatedInsightChips extends HTMLElement {
   #shadow = this.attachShadow({mode: 'open'});
-
-  #boundRender = this.#render.bind(this);
-
   #data: Data = {eventToRelatedInsightsMap: new Map(), activeEvent: null};
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [styles];
     this.#render();
   }
 
@@ -57,12 +50,12 @@ export class RelatedInsightChips extends HTMLElement {
       return;
     }
     this.#data.activeEvent = event;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   set eventToRelatedInsightsMap(map: Data['eventToRelatedInsightsMap']) {
     this.#data.eventToRelatedInsightsMap = map;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #insightClick(insight: RelatedInsight): (e: Event) => void {
@@ -110,6 +103,7 @@ export class RelatedInsightChips extends HTMLElement {
 
     // clang-format off
     Lit.render(html`
+      <style>${relatedInsightsStyles.cssText}</style>
       <ul>${insightMessages}</ul>
       <ul>${insightChips}</ul>
     `, this.#shadow, {host: this});

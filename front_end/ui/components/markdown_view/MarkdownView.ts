@@ -1,21 +1,23 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import './CodeBlock.js';
 import './MarkdownImage.js';
 import './MarkdownLink.js';
 
 import type * as Marked from '../../../third_party/marked/marked.js';
-import * as UI from '../../legacy/legacy.js';
 import * as Lit from '../../lit/lit.js';
 import * as VisualLogging from '../../visual_logging/visual_logging.js';
 
 import markdownViewStylesRaw from './markdownView.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const markdownViewStyles = new CSSStyleSheet();
-markdownViewStyles.replaceSync(markdownViewStylesRaw.cssContent);
+markdownViewStyles.replaceSync(markdownViewStylesRaw.cssText);
 
 const html = Lit.html;
 const render = Lit.render;
@@ -53,19 +55,13 @@ export class MarkdownView extends HTMLElement {
         code: 'pending',
       });
     } else {
-      this.#animationEnabled = false;
-      this.#renderer.removeCustomClasses({
-        paragraph: 'pending',
-        heading: 'pending',
-        list_item: 'pending',
-        code: 'pending',
-      });
+      this.#finishAnimations();
     }
 
     this.#update();
   }
 
-  finishAnimations(): void {
+  #finishAnimations(): void {
     const animatingElements = this.#shadow.querySelectorAll('.animating');
     for (const element of animatingElements) {
       element.classList.remove('animating');
@@ -341,7 +337,8 @@ export class MarkdownInsightRenderer extends MarkdownLitRenderer {
         if (!sanitizedUrl) {
           return null;
         }
-        return html`${UI.XLink.XLink.create(sanitizedUrl, token.text, undefined, undefined, 'link-in-explanation')}`;
+        // Only links pointing to resources within DevTools can be rendered here.
+        return html`${token.text ?? token.href}`;
       }
       case 'code':
         return html`<devtools-code-block
@@ -352,11 +349,11 @@ export class MarkdownInsightRenderer extends MarkdownLitRenderer {
         </devtools-code-block>`;
       case 'citation':
         // clang-format off
-        return html`<sup><x-link
-            class="devtools-link"
+        return html`<sup><button
+            class="citation"
             jslog=${VisualLogging.link('inline-citation').track({click: true})}
             @click=${this.#citationClickHandler.bind(this, Number(token.linkText))}
-          >[${token.linkText}]</x-link></sup>`;
+          >[${token.linkText}]</button></sup>`;
         // clang-format on
     }
     return super.templateForToken(token as Marked.Marked.MarkedToken);

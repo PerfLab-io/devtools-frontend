@@ -1,6 +1,7 @@
 // Copyright (c) 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -142,7 +143,7 @@ const UIStrings = {
    * Storage quota refers to the amount of disk available for the website or app.
    */
   simulateCustomStorage: 'Simulate custom storage quota',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/application/StorageView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -226,7 +227,7 @@ export class StorageView extends UI.ThrottledWidget.ThrottledWidget {
     this.quotaOverrideCheckbox.setAttribute(
         'jslog', `${VisualLogging.toggle('simulate-custom-quota').track({change: true})}`);
     quotaOverrideCheckboxRow.appendChild(this.quotaOverrideCheckbox);
-    this.quotaOverrideCheckbox.checkboxElement.addEventListener('click', this.onClickCheckbox.bind(this), false);
+    this.quotaOverrideCheckbox.addEventListener('click', this.onClickCheckbox.bind(this), false);
     this.quotaOverrideControlRow = quota.appendRow();
     this.quotaOverrideEditor = this.quotaOverrideControlRow.createChild('input', 'quota-override-notification-editor');
     this.quotaOverrideEditor.setAttribute(
@@ -342,7 +343,7 @@ export class StorageView extends UI.ThrottledWidget.ThrottledWidget {
 
     if (oldOrigin !== this.securityOrigin) {
       this.quotaOverrideControlRow.classList.add('hidden');
-      this.quotaOverrideCheckbox.checkboxElement.checked = false;
+      this.quotaOverrideCheckbox.checked = false;
       this.quotaOverrideErrorMessage.textContent = '';
     }
     void this.doUpdate();
@@ -356,7 +357,7 @@ export class StorageView extends UI.ThrottledWidget.ThrottledWidget {
 
     if (oldStorageKey !== this.storageKey) {
       this.quotaOverrideControlRow.classList.add('hidden');
-      this.quotaOverrideCheckbox.checkboxElement.checked = false;
+      this.quotaOverrideCheckbox.checked = false;
       this.quotaOverrideErrorMessage.textContent = '';
     }
     void this.doUpdate();
@@ -405,12 +406,12 @@ export class StorageView extends UI.ThrottledWidget.ThrottledWidget {
   private async onClickCheckbox(): Promise<void> {
     if (this.quotaOverrideControlRow.classList.contains('hidden')) {
       this.quotaOverrideControlRow.classList.remove('hidden');
-      this.quotaOverrideCheckbox.checkboxElement.checked = true;
+      this.quotaOverrideCheckbox.checked = true;
       this.quotaOverrideEditor.value = this.previousOverrideFieldValue;
       this.quotaOverrideEditor.focus();
     } else if (this.target && this.securityOrigin) {
       this.quotaOverrideControlRow.classList.add('hidden');
-      this.quotaOverrideCheckbox.checkboxElement.checked = false;
+      this.quotaOverrideCheckbox.checked = false;
       await this.clearQuotaForOrigin(this.target, this.securityOrigin);
       this.quotaOverrideErrorMessage.textContent = '';
     }
@@ -423,7 +424,7 @@ export class StorageView extends UI.ThrottledWidget.ThrottledWidget {
     const selectedStorageTypes = [];
     for (const type of this.settings.keys()) {
       const setting = this.settings.get(type);
-      if (setting && setting.get()) {
+      if (setting?.get()) {
         selectedStorageTypes.push(type);
       }
     }
@@ -486,7 +487,7 @@ export class StorageView extends UI.ThrottledWidget.ThrottledWidget {
 
     if (set.has(Protocol.Storage.StorageType.Cache_storage) || hasAll) {
       const target = SDK.TargetManager.TargetManager.instance().primaryPageTarget();
-      const model = target && target.model(SDK.ServiceWorkerCacheModel.ServiceWorkerCacheModel);
+      const model = target?.model(SDK.ServiceWorkerCacheModel.ServiceWorkerCacheModel);
       if (model) {
         model.clearForStorageKey(storageKey);
       }

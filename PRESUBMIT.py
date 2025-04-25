@@ -145,33 +145,6 @@ def _CheckESBuildVersion(input_api, output_api):
     return results
 
 
-def _CheckEnumeratedHistograms(input_api, output_api):
-    enumerated_histograms_files = [
-        input_api.os_path.join(input_api.PresubmitLocalPath(), 'front_end',
-                               'devtools_compatibility.js'),
-        input_api.os_path.join(input_api.PresubmitLocalPath(), 'front_end',
-                               'core', 'host', 'InspectorFrontendHostAPI.ts')
-    ]
-    affected_main_files = _getAffectedFiles(input_api,
-                                            enumerated_histograms_files, [],
-                                            ['.js', '.ts'])
-    if len(affected_main_files) == 0:
-        return [
-            output_api.PresubmitNotifyResult(
-                'No affected files for UMA Enumerated Histograms check')
-        ]
-
-    results = [
-        output_api.PresubmitNotifyResult(
-            'Running UMA Enumerated Histograms check:')
-    ]
-    script_path = input_api.os_path.join(input_api.PresubmitLocalPath(),
-                                         'scripts',
-                                         'check_enumerated_histograms.js')
-    results.extend(_checkWithNodeScript(input_api, output_api, script_path))
-    return results
-
-
 def _CheckFormat(input_api, output_api):
     if _IsEnvCog(input_api):
         return [
@@ -185,8 +158,8 @@ def _CheckFormat(input_api, output_api):
                               ['git', 'cl', 'format', '--js'], [], results)
 
 
-def _CheckDevToolsRunESLintTests(input_api, output_api):
-    # Check for changes in the eslint_rules directory, and run the eslint rules
+def _CheckDevToolsRunStylelintTests(input_api, output_api):
+    # Check for changes in the stylelint_rules directory, and run the stylelint rules
     # tests if so.
     # We don't do this on every CL as most do not touch the rules, but if we do
     # change them we need to make sure all the tests are passing.
@@ -198,25 +171,38 @@ def _CheckDevToolsRunESLintTests(input_api, output_api):
         import devtools_paths
     finally:
         sys.path = original_sys_path
-    eslint_rules_dir_path = input_api.os_path.join(
-        input_api.PresubmitLocalPath(), 'scripts', 'eslint_rules')
-    eslint_rules_affected_files = _getAffectedFiles(input_api,
-                                                    [eslint_rules_dir_path],
-                                                    [], [])
 
-    if (len(eslint_rules_affected_files) == 0):
+    stylelint_tests_path = input_api.os_path.join(
+        input_api.PresubmitLocalPath(), 'scripts', 'stylelint_rules')
+    stylelint_rules_check_paths = [
+        input_api.os_path.join(input_api.PresubmitLocalPath(), 'node_modules',
+                               'stylelint'),
+        # Rule is added/updated
+        stylelint_tests_path,
+        # Variable declaration used in test are changed
+        input_api.os_path.join(input_api.PresubmitLocalPath(), 'front_end',
+                               'application_tokens.css'),
+        input_api.os_path.join(input_api.PresubmitLocalPath(), 'front_end',
+                               'design_system_tokens.css'),
+        input_api.os_path.join(input_api.PresubmitLocalPath(), 'front_end',
+                               'inspectorCommon.css'),
+    ]
+    stylelint_rules_affected_files = _getAffectedFiles(
+        input_api, stylelint_rules_check_paths, [], [])
+
+    if (len(stylelint_rules_affected_files) == 0):
         return []
 
     mocha_path = devtools_paths.mocha_path()
-    eslint_tests_path = input_api.os_path.join(eslint_rules_dir_path, 'tests',
-                                               '*.test.js')
+    stylelint_tests_path = input_api.os_path.join(stylelint_tests_path,
+                                                  'tests', '*.test.js')
 
-    results = [output_api.PresubmitNotifyResult('ESLint rules unit tests')]
+    results = [output_api.PresubmitNotifyResult('Stylelint rules unit tests')]
     results.extend(
         # The dot reporter is more concise which is useful to not get LOADS of
         # output when just one test fails.
         _checkWithNodeScript(input_api, output_api, mocha_path,
-                             ['--reporter', 'dot', eslint_tests_path]))
+                             ['--reporter', 'dot', stylelint_tests_path]))
     return results
 
 
@@ -261,9 +247,7 @@ def _CheckDevToolsLint(input_api, output_api):
 
     front_end_directory = input_api.os_path.join(
         input_api.PresubmitLocalPath(), 'front_end')
-    component_docs_directory = input_api.os_path.join(front_end_directory,
-                                                      'ui', 'components',
-                                                      'docs')
+
     inspector_overlay_directory = input_api.os_path.join(
         input_api.PresubmitLocalPath(), 'inspector_overlay')
     test_directory = input_api.os_path.join(input_api.PresubmitLocalPath(),
@@ -279,15 +263,8 @@ def _CheckDevToolsLint(input_api, output_api):
     ]
 
     lint_related_files = [
-        input_api.os_path.join(input_api.PresubmitLocalPath(), 'node_modules',
-                               'eslint'),
-        input_api.os_path.join(input_api.PresubmitLocalPath(), 'node_modules',
-                               'stylelint'),
-        input_api.os_path.join(input_api.PresubmitLocalPath(), 'node_modules',
-                               '@typescript-eslint'),
         input_api.os_path.join(input_api.PresubmitLocalPath(),
                                'eslint.config.mjs'),
-        input_api.os_path.join(scripts_directory, 'eslint_rules'),
         input_api.os_path.join(input_api.PresubmitLocalPath(),
                                '.stylelintrc.json'),
         input_api.os_path.join(input_api.PresubmitLocalPath(),
@@ -299,8 +276,20 @@ def _CheckDevToolsLint(input_api, output_api):
                                'run_lint_check.mjs'),
     ]
 
-    lint_config_files = _getAffectedFiles(input_api, lint_related_files, [],
-                                          ['.js', '.py'])
+    lint_related_directories = [
+        input_api.os_path.join(input_api.PresubmitLocalPath(), 'node_modules',
+                               'eslint'),
+        input_api.os_path.join(input_api.PresubmitLocalPath(), 'node_modules',
+                               'stylelint'),
+        input_api.os_path.join(input_api.PresubmitLocalPath(), 'node_modules',
+                               '@typescript-eslint'),
+        input_api.os_path.join(scripts_directory, 'eslint_rules'),
+    ]
+
+    lint_config_files = _getAffectedFiles(
+        input_api, lint_related_directories,
+        [], [".js", ".mjs", ".ts"]) + _getAffectedFiles(
+            input_api, lint_related_files, [], [])
 
     should_bail_out, files_to_lint = _getFilesToLint(
         input_api, output_api, lint_config_files, default_linted_directories,
@@ -314,7 +303,11 @@ def _CheckDevToolsLint(input_api, output_api):
         files_to_lint = []
 
     results.extend(
-        _checkWithNodeScript(input_api, output_api, lint_path, files_to_lint))
+        _checkWithNodeScript(input_api,
+                             output_api,
+                             lint_path,
+                             files_to_lint,
+                             allow_typescript=True))
     return results
 
 
@@ -556,12 +549,11 @@ def _CommonChecks(canned_checks):
         _CheckExperimentTelemetry,
         _CheckGeneratedFiles,
         _CheckDevToolsLint,
-        _CheckDevToolsRunESLintTests,
+        _CheckDevToolsRunStylelintTests,
         _CheckDevToolsRunBuildTests,
         _CheckDevToolsNonJSFileLicenseHeaders,
         _CheckFormat,
         _CheckESBuildVersion,
-        _CheckEnumeratedHistograms,
         _CheckObsoleteScreenshotGoldens,
         _CheckNodeModules,
     ]
@@ -660,7 +652,8 @@ def _getAffectedFiles(input_api, parent_directories, excluded_actions,
 def _checkWithNodeScript(input_api,
                          output_api,
                          script_path,
-                         script_arguments=[]):  # pylint: disable=invalid-name
+                         script_arguments=[],
+                         allow_typescript=False):
     original_sys_path = sys.path
     try:
         sys.path = sys.path + [
@@ -670,9 +663,14 @@ def _checkWithNodeScript(input_api,
     finally:
         sys.path = original_sys_path
 
-    return _ExecuteSubProcess(input_api, output_api,
-                              [devtools_paths.node_path(), script_path],
-                              script_arguments, [])
+    process = [devtools_paths.node_path(), script_path]
+
+    if allow_typescript:
+        process.insert(1, '--no-warnings=ExperimentalWarning')
+        process.insert(1, '--experimental-strip-types')
+
+    return _ExecuteSubProcess(input_api, output_api, process, script_arguments,
+                              [])
 
 
 def _getFilesToLint(input_api, output_api, lint_config_files,

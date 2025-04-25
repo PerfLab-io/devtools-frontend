@@ -1,16 +1,18 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../../core/common/common.js';
 import type * as Trace from '../../../models/trace/trace.js';
+import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
 import * as UI from '../../../ui/legacy/legacy.js';
 
 import {SidebarAnnotationsTab} from './SidebarAnnotationsTab.js';
 import {SidebarInsightsTab} from './SidebarInsightsTab.js';
 
 export interface ActiveInsight {
-  model: Trace.Insights.Types.InsightModel<{}>;
+  model: Trace.Insights.Types.InsightModel;
   insightSetKey: string;
 }
 
@@ -88,10 +90,8 @@ export class SidebarWidget extends UI.Widget.VBox {
     // Swap to the Annotations tab if:
     // 1. Insights is currently selected.
     // 2. The Insights tab is disabled (which means we have no insights for this trace)
-    // 3. The annotations tab exists (we can remove this check once annotations
-    //    are non-experimental)
     if (this.#tabbedPane.selectedTabId === SidebarTabs.INSIGHTS &&
-        this.#tabbedPane.tabIsDisabled(SidebarTabs.INSIGHTS) && this.#tabbedPane.hasTab(SidebarTabs.ANNOTATIONS)) {
+        this.#tabbedPane.tabIsDisabled(SidebarTabs.INSIGHTS)) {
       this.#tabbedPane.selectTab(SidebarTabs.ANNOTATIONS);
     }
   }
@@ -105,9 +105,7 @@ export class SidebarWidget extends UI.Widget.VBox {
 
   #updateAnnotationsCountBadge(): void {
     const annotations = this.#annotationsView.deduplicatedAnnotations();
-    if (annotations.length) {
-      this.#tabbedPane.setBadge('annotations', annotations.length.toString(), 'primary');
-    }
+    this.#tabbedPane.setBadge('annotations', annotations.length > 0 ? annotations.length.toString() : null);
   }
 
   setParsedTrace(parsedTrace: Trace.Handlers.Types.ParsedTrace|null, metadata: Trace.Types.File.MetaData|null): void {
@@ -123,8 +121,10 @@ export class SidebarWidget extends UI.Widget.VBox {
     );
   }
 
-  setActiveInsight(activeInsight: ActiveInsight|null): void {
-    this.#insightsView.setActiveInsight(activeInsight);
+  setActiveInsight(activeInsight: ActiveInsight|null, opts: {
+    highlight: boolean,
+  }): void {
+    this.#insightsView.setActiveInsight(activeInsight, opts);
 
     if (activeInsight) {
       this.#tabbedPane.selectTab(SidebarTabs.INSIGHTS);
@@ -150,8 +150,16 @@ class InsightsView extends UI.Widget.VBox {
     this.#component.insights = data;
   }
 
-  setActiveInsight(active: ActiveInsight|null): void {
+  setActiveInsight(active: ActiveInsight|null, opts: {highlight: boolean}): void {
     this.#component.activeInsight = active;
+    if (opts.highlight && active) {
+      // Wait for the rendering of the component to be done, otherwise we
+      // might highlight the wrong insight. The UI needs to be fully
+      // re-rendered before we can highlight the newly-expanded insight.
+      void RenderCoordinator.done().then(() => {
+        this.#component.highlightActiveInsight();
+      });
+    }
   }
 }
 

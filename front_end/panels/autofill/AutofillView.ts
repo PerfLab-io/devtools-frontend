@@ -1,6 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view, rulesdir/inject-checkbox-styles */
 
 import '../../ui/components/adorners/adorners.js';
 import '../../ui/legacy/components/data_grid/data_grid.js';
@@ -14,19 +15,22 @@ import * as AutofillManager from '../../models/autofill_manager/autofill_manager
 import * as ComponentHelpers from '../../ui/components/helpers/helpers.js';
 import * as Input from '../../ui/components/input/input.js';
 import * as LegacyWrapper from '../../ui/components/legacy_wrapper/legacy_wrapper.js';
+// inspectorCommonStyles is imported for the empty state styling that is used for the start view
+// eslint-disable-next-line rulesdir/es-modules-import
+import inspectorCommonStyles from '../../ui/legacy/inspectorCommon.css.js';
 import * as Lit from '../../ui/lit/lit.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
-import autofillViewStylesRaw from './autofillView.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const autofillViewStyles = new CSSStyleSheet();
-autofillViewStyles.replaceSync(autofillViewStylesRaw.cssContent);
+import autofillViewStyles from './autofillView.css.js';
 
 const {html, render, Directives: {styleMap}} = Lit;
 const {FillingStrategy} = Protocol.Autofill;
 
 const UIStrings = {
+  /**
+   * @description Text shown when there is no data on autofill available.
+   */
+  noAutofill: 'No autofill detected',
   /**
    * @description Explanation for how to populate the autofill panel with data. Shown when there is
    * no data available.
@@ -96,7 +100,7 @@ const UIStrings = {
    *@description Link text for a hyperlink to webpage for leaving user feedback
    */
   sendFeedback: 'Send feedback',
-};
+} as const;
 
 const AUTOFILL_INFO_URL = 'https://goo.gle/devtools-autofill-panel' as Platform.DevToolsPath.UrlString;
 const AUTOFILL_FEEDBACK_URL = 'https://crbug.com/329106326' as Platform.DevToolsPath.UrlString;
@@ -106,10 +110,9 @@ export const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  readonly #renderBound = this.#render.bind(this);
   #autoOpenViewSetting: Common.Settings.Setting<boolean>;
   #showTestAddressesInAutofillMenuSetting: Common.Settings.Setting<boolean>;
-  #address: string = '';
+  #address = '';
   #filledFields: Protocol.Autofill.FilledField[] = [];
   #matches: AutofillManager.AutofillManager.Match[] = [];
   #highlightedMatches: AutofillManager.AutofillManager.Match[] = [];
@@ -123,7 +126,6 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
   }
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [Input.checkboxStyles, autofillViewStyles];
     const autofillManager = AutofillManager.AutofillManager.AutofillManager.instance();
     const formFilledEvent = autofillManager.getLastFilledAddressForm();
     if (formFilledEvent) {
@@ -140,7 +142,7 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
         SDK.ResourceTreeModel.ResourceTreeModel, SDK.ResourceTreeModel.Events.PrimaryPageChanged,
         this.#onPrimaryPageChanged, this);
 
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #onPrimaryPageChanged(): void {
@@ -148,7 +150,7 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
     this.#filledFields = [];
     this.#matches = [];
     this.#highlightedMatches = [];
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #onAddressFormFilled(
@@ -159,7 +161,7 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
       matches: this.#matches,
     } = data);
     this.#highlightedMatches = [];
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   async #render(): Promise<void> {
@@ -171,6 +173,9 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
       // Disabled until https://crbug.com/1079231 is fixed.
       // clang-format off
       render(html`
+        <style>${Input.checkboxStyles}</style>
+        <style>${autofillViewStyles.cssText}</style>
+        <style>${inspectorCommonStyles.cssText}</style>
         <main>
           <div class="top-left-corner">
             <label class="checkbox-label" title=${i18nString(UIStrings.showTestAddressesInAutofillMenu)}>
@@ -192,9 +197,12 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
             <x-link href=${AUTOFILL_FEEDBACK_URL} class="feedback link" jslog=${VisualLogging.link('feedback').track({click: true})}>${i18nString(UIStrings.sendFeedback)}</x-link>
           </div>
           <div class="placeholder-container" jslog=${VisualLogging.pane('autofill-empty')}>
-            <div class="placeholder">
-              <div>${i18nString(UIStrings.toStartDebugging)}</div>
-              <x-link href=${AUTOFILL_INFO_URL} class="link" jslog=${VisualLogging.link('learn-more').track({click: true})}>${i18nString(UIStrings.learnMore)}</x-link>
+            <div class="empty-state">
+              <span class="empty-state-header">${i18nString(UIStrings.noAutofill)}</span>
+              <div class="empty-state-description">
+                <span>${i18nString(UIStrings.toStartDebugging)}</span>
+                <x-link href=${AUTOFILL_INFO_URL} class="link" jslog=${VisualLogging.link('learn-more').track({click: true})}>${i18nString(UIStrings.learnMore)}</x-link>
+              </div>
             </div>
           </div>
         </main>
@@ -206,6 +214,9 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
+      <style>${Input.checkboxStyles}</style>
+      <style>${autofillViewStyles.cssText}</style>
+      <style>${inspectorCommonStyles.cssText}</style>
       <main>
         <div class="content-container" jslog=${VisualLogging.pane('autofill')}>
           <div class="right-to-left" role="region" aria-label=${i18nString(UIStrings.addressPreview)}>
@@ -311,12 +322,12 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
   #onSpanMouseEnter(startIndex: number): void {
     this.#highlightedMatches =
         this.#matches.filter(match => match.startIndex <= startIndex && match.endIndex > startIndex);
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #onSpanMouseLeave(): void {
     this.#highlightedMatches = [];
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #renderFilledFields(): Lit.LitTemplate {
@@ -353,11 +364,11 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
                       ${field.autofillType}
                       ${field.fillingStrategy === FillingStrategy.AutocompleteAttribute ?
                             html`<devtools-adorner title=${i18nString(UIStrings.autocompleteAttribute)} .data=${{name: field.fillingStrategy}}>
-                              <span slot="content">${i18nString(UIStrings.attr)}</span>
+                              <span>${i18nString(UIStrings.attr)}</span>
                             </devtools-adorner>` :
                         field.fillingStrategy === FillingStrategy.AutofillInferred ?
                             html`<devtools-adorner title=${i18nString(UIStrings.inferredByHeuristics)} .data=${{name: field.fillingStrategy}}>
-                              <span slot="content">${i18nString(UIStrings.heur)}</span>
+                              <span>${i18nString(UIStrings.heur)}</span>
                             </devtools-adorner>` :
                             Lit.nothing}
                   </td>
@@ -373,7 +384,7 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
 
   #onGridRowMouseEnter(rowIndex: number): void {
     this.#highlightedMatches = this.#matches.filter(match => match.filledFieldIndex === rowIndex);
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
 
     const backendNodeId = this.#filledFields[rowIndex].fieldId;
     const target = SDK.FrameManager.FrameManager.instance()
@@ -391,7 +402,7 @@ export class AutofillView extends LegacyWrapper.LegacyWrapper.WrappableComponent
 
   #onGridRowMouseLeave(): void {
     this.#highlightedMatches = [];
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
     SDK.OverlayModel.OverlayModel.hideDOMNodeHighlight();
   }
 }

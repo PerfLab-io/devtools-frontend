@@ -1,6 +1,6 @@
-### [Persistent AI chat history](persistent-chat-history)
-The AI assistance panel now persists your chat history across sessions, so you can view your previous conversations with Gemini.
-### [Classic and modern keyboard navigation in Performance](perf-nav)
-The Performance panel now lets you choose your preferred style of keyboard navigation and shows the corresponding list of shortcuts.
-### [Image delivery insight in Performance](perf-image-delivery)
-The Insights tab in the Performance panel now highlights images whose file size you can optimize.
+### [New performance insights](perf-insights)
+The Performance > Insights tab gets new insights: duplicated JavaScript, modern HTTP, and use efficient cache lifetimes.
+### [Click events to keep them highlighted in Performance](click-to-highlight)
+Click items in Summary, Bottom-up, Call tree, and Event log tables to keep the corresponding events highlighted in the trace and dim the rest.
+### [Filter cookies in Privacy and security](cookies-filter)
+The cookies table in the 'Privacy and security' panel gets a filter, so you can quickly find the cookie you want to inspect.

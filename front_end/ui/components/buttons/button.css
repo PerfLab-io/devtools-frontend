@@ -28,6 +28,7 @@
   display: inline-flex;
   flex-direction: row;
   align-items: center;
+  width: fit-content;
 }
 
 button {
@@ -43,6 +44,7 @@ button {
   cursor: inherit;
   display: inline-flex;
   position: relative;
+  font-family: var(--default-font-family);
   font-size: var(--sys-typescale-body4-size);
   font-weight: var(--ref-typeface-weight-medium);
   line-height: var(--sys-typescale-body4-line-height);
@@ -172,6 +174,10 @@ button {
     border: var(--button-border-size) solid var(--sys-color-tonal-outline);
     background: transparent;
     color: var(--sys-color-primary);
+
+    &.micro {
+      --button-height: var(--sys-size-8);
+    }
 
     devtools-icon {
       color: var(--icon-primary);

@@ -137,10 +137,15 @@ const UIStrings = {
    */
   showCSSDocumentationTooltip: 'Show CSS documentation tooltip',
   /**
-   *@description A context menu item (command) in the Elements panel that copy the styles of
+   * @description A context menu item (command) in the Elements panel that copy the styles of
    * the HTML element.
    */
   copyStyles: 'Copy styles',
+  /**
+   * @description A context menu item (command) in the Elements panel that toggles the view between
+   * the element and a11y trees.
+   */
+  toggleA11yTree: 'Toggle accessibility tree',
   /**
    * @description Title of a setting under the Elements category. Whether to show/hide hide
    * the shadow DOM nodes of HTML elements that are built into the browser (e.g. the <input> element).
@@ -158,7 +163,7 @@ const UIStrings = {
    * @description Command for toggling the eye dropper when the color picker is open
    */
   toggleEyeDropper: 'Toggle eye dropper',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/elements/elements-meta.ts', UIStrings);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
 let loadedElementsModule: (typeof Elements|undefined);
@@ -362,6 +367,24 @@ UI.ActionRegistration.registerActionExtension({
     {
       shortcut: 'Meta+Alt+C',
       platform: UI.ActionRegistration.Platforms.MAC,
+    },
+  ],
+});
+
+UI.ActionRegistration.registerActionExtension({
+  actionId: 'elements.toggle-a11y-tree',
+  category: UI.ActionRegistration.ActionCategory.ELEMENTS,
+  title: i18nLazyString(UIStrings.toggleA11yTree),
+  async loadActionDelegate() {
+    const Elements = await loadElementsModule();
+    return new Elements.ElementsPanel.ElementsActionDelegate();
+  },
+  contextTypes() {
+    return maybeRetrieveContextTypes(Elements => [Elements.ElementsPanel.ElementsPanel]);
+  },
+  bindings: [
+    {
+      shortcut: 'A',
     },
   ],
 });

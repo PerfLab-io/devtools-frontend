@@ -1,6 +1,7 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/request_link_icon/request_link_icon.js';
 
@@ -14,18 +15,10 @@ import * as UI from '../../../ui/legacy/legacy.js';
 import * as Lit from '../../../ui/lit/lit.js';
 import type * as TimelineUtils from '../utils/utils.js';
 
-import NetworkRequestDetailsStylesRaw from './networkRequestDetails.css.js';
-import networkRequestTooltipStylesRaw from './networkRequestTooltip.css.js';
+import networkRequestDetailsStyles from './networkRequestDetails.css.js';
+import networkRequestTooltipStyles from './networkRequestTooltip.css.js';
 import {NetworkRequestTooltip} from './NetworkRequestTooltip.js';
 import {colorForNetworkRequest} from './Utils.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const NetworkRequestDetailsStyles = new CSSStyleSheet();
-NetworkRequestDetailsStyles.replaceSync(NetworkRequestDetailsStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const networkRequestTooltipStyles = new CSSStyleSheet();
-networkRequestTooltipStyles.replaceSync(networkRequestTooltipStylesRaw.cssContent);
 
 const {html} = Lit;
 
@@ -36,6 +29,10 @@ const UIStrings = {
    *@description Text that refers to the network request method
    */
   requestMethod: 'Request method',
+  /**
+   *@description Text that refers to the network request protocol
+   */
+  protocol: 'Protocol',
   /**
    *@description Text to show the priority of an item
    */
@@ -103,8 +100,20 @@ const UIStrings = {
   /**
    * @description Text to refer to a 3rd Party entity.
    */
-  entity: 'Third party',
-};
+  entity: '3rd party',
+  /**
+   * @description Label for a column containing the names of timings (performance metric) taken in the server side application.
+   */
+  serverTiming: 'Server timing',
+  /**
+   * @description Label for a column containing the values of timings (performance metric) taken in the server side application.
+   */
+  time: 'Time',
+  /**
+   * @description Label for a column containing the description of timings (performance metric) taken in the server side application.
+   */
+  description: 'Description',
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/NetworkRequestDetails.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -113,17 +122,14 @@ export class NetworkRequestDetails extends HTMLElement {
 
   #networkRequest: Trace.Types.Events.SyntheticNetworkRequest|null = null;
   #maybeTarget: SDK.Target.Target|null = null;
-  #requestPreviewElements = new WeakMap<Trace.Types.Events.SyntheticNetworkRequest, HTMLImageElement>();
+  #requestPreviewElements = new WeakMap<Trace.Types.Events.SyntheticNetworkRequest, HTMLElement>();
   #linkifier: LegacyComponents.Linkifier.Linkifier;
   #parsedTrace: Trace.Handlers.Types.ParsedTrace|null = null;
   #entityMapper: TimelineUtils.EntityMapper.EntityMapper|null = null;
+  #serverTimings: SDK.ServerTiming.ServerTiming[]|null = null;
   constructor(linkifier: LegacyComponents.Linkifier.Linkifier) {
     super();
     this.#linkifier = linkifier;
-  }
-
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [NetworkRequestDetailsStyles, networkRequestTooltipStyles];
   }
 
   async setData(
@@ -136,6 +142,20 @@ export class NetworkRequestDetails extends HTMLElement {
     this.#networkRequest = networkRequest;
     this.#maybeTarget = maybeTarget;
     this.#entityMapper = entityMapper;
+    this.#serverTimings = null;
+
+    for (const header of networkRequest.args.data.responseHeaders) {
+      const headerName = header.name.toLocaleLowerCase();
+      // Some popular hosting providers like vercel or render get rid of
+      // Server-Timing headers added by users, so as a workaround we
+      // also support server timing headers with the `-test` suffix
+      // while this feature is experimental, to enable easier trials.
+      if (headerName === 'server-timing' || headerName === 'server-timing-test') {
+        header.name = 'server-timing';
+        this.#serverTimings = SDK.ServerTiming.ServerTiming.parseHeaders([header]);
+        break;
+      }
+    }
     await this.#render();
   }
 
@@ -163,6 +183,27 @@ export class NetworkRequestDetails extends HTMLElement {
     `;
   }
 
+  #renderServerTimings(): Lit.LitTemplate[]|Lit.LitTemplate {
+    if (!this.#serverTimings) {
+      return Lit.nothing;
+    }
+    return html`
+      <div class="column-divider"></div>
+      <div class="network-request-details-col server-timings">
+          <div class="server-timing-column-header">${i18nString(UIStrings.serverTiming)}</div>
+          <div class="server-timing-column-header">${i18nString(UIStrings.description)}</div>
+          <div class="server-timing-column-header">${i18nString(UIStrings.time)}</div>
+        ${this.#serverTimings.map(timing => {
+      const classes = timing.metric.startsWith('(c') ? 'synthetic value' : 'value';
+      return html`
+              <div class=${classes}>${timing.metric || '-'}</div>
+              <div class=${classes}>${timing.description || '-'}</div>
+              <div class=${classes}>${timing.value || '-'}</div>
+          `;
+    })}
+      </div>
+    `;
+  }
   #renderURL(): Lit.TemplateResult|null {
     if (!this.#networkRequest) {
       return null;
@@ -195,10 +236,10 @@ export class NetworkRequestDetails extends HTMLElement {
         </devtools-request-link-icon>
       `;
       // clang-format on
-      return html`<div class="network-request-details-row">${urlElement}</div>`;
+      return html`<div class="network-request-details-item">${urlElement}</div>`;
     }
 
-    return html`<div class="network-request-details-row">${linkifiedURL}</div>`;
+    return html`<div class="network-request-details-item">${linkifiedURL}</div>`;
   }
 
   #renderFromCache(): Lit.TemplateResult|null {
@@ -249,33 +290,33 @@ export class NetworkRequestDetails extends HTMLElement {
     }
 
     const hasStackTrace = Trace.Helpers.Trace.stackTraceInEvent(this.#networkRequest) !== null;
-
+    let link: HTMLElement|null = null;
     // If we have a stack trace, that is the most reliable way to get the initiator data and display a link to the source.
     if (hasStackTrace) {
-      const topFrame = Trace.Helpers.Trace.getZeroIndexedStackTraceForEvent(this.#networkRequest)?.at(0) ?? null;
+      const topFrame = Trace.Helpers.Trace.getZeroIndexedStackTraceInEventPayload(this.#networkRequest)?.at(0) ?? null;
       if (topFrame) {
-        const link = this.#linkifier.maybeLinkifyConsoleCallFrame(
+        link = this.#linkifier.maybeLinkifyConsoleCallFrame(
             this.#maybeTarget, topFrame, {tabStop: true, inlineFrameIndex: 0, showColumnNumber: true});
-        if (link) {
-          return this.#renderRow(i18nString(UIStrings.initiatedBy), link);
-        }
       }
     }
     // If we do not, we can see if the network handler found an initiator and try to link by URL
     const initiator = this.#parsedTrace?.NetworkRequests.eventToInitiator.get(this.#networkRequest);
     if (initiator) {
-      const link = this.#linkifier.maybeLinkifyScriptLocation(
+      link = this.#linkifier.maybeLinkifyScriptLocation(
           this.#maybeTarget,
           null,  // this would be the scriptId, but we don't have one. The linkifier will fallback to using the URL.
           initiator.args.data.url as Platform.DevToolsPath.UrlString,
           undefined,  // line number
       );
-      if (link) {
-        return this.#renderRow(i18nString(UIStrings.initiatedBy), link);
-      }
     }
 
-    return null;
+    if (!link) {
+      return null;
+    }
+    return html`
+      <div class="network-request-details-item"><div class="title">${
+        i18nString(UIStrings.initiatedBy)}</div><div class="value">${link}</div></div>
+    `;
   }
 
   #renderBlockingRow(): Lit.TemplateResult|null {
@@ -299,27 +340,29 @@ export class NetworkRequestDetails extends HTMLElement {
   }
 
   async #renderPreviewElement(): Promise<Lit.TemplateResult|null> {
-    if (!this.#networkRequest) {
+    if (!this.#networkRequest || !this.#networkRequest.args.data.url || !this.#maybeTarget) {
       return null;
     }
-    if (!this.#requestPreviewElements.get(this.#networkRequest) && this.#networkRequest.args.data.url &&
-        this.#maybeTarget) {
-      const previewElement =
-          (await LegacyComponents.ImagePreview.ImagePreview.build(
-               this.#maybeTarget, this.#networkRequest.args.data.url as Platform.DevToolsPath.UrlString, false, {
-                 imageAltText: LegacyComponents.ImagePreview.ImagePreview.defaultAltTextForImageURL(
-                     this.#networkRequest.args.data.url as Platform.DevToolsPath.UrlString),
-                 precomputedFeatures: undefined,
-                 align: LegacyComponents.ImagePreview.Align.START,
-                 hideFileData: true,
-               }) as HTMLImageElement);
+    if (!this.#requestPreviewElements.get(this.#networkRequest)) {
+      const previewOpts = {
+        imageAltText: LegacyComponents.ImagePreview.ImagePreview.defaultAltTextForImageURL(
+            this.#networkRequest.args.data.url as Platform.DevToolsPath.UrlString),
+        precomputedFeatures: undefined,
+        align: LegacyComponents.ImagePreview.Align.START,
+        hideFileData: true,
+      };
 
-      this.#requestPreviewElements.set(this.#networkRequest, previewElement);
+      const previewElement = await LegacyComponents.ImagePreview.ImagePreview.build(
+          this.#networkRequest.args.data.url as Platform.DevToolsPath.UrlString, false, previewOpts);
+      previewElement && this.#requestPreviewElements.set(this.#networkRequest, previewElement);
     }
 
     const requestPreviewElement = this.#requestPreviewElements.get(this.#networkRequest);
     if (requestPreviewElement) {
-      return html`<div class="network-request-details-row">${requestPreviewElement}</div>`;
+      return html`
+        <div class="network-request-details-col">${requestPreviewElement}</div>
+        <div class="column-divider"></div>
+      `;
     }
     return null;
   }
@@ -332,27 +375,34 @@ export class NetworkRequestDetails extends HTMLElement {
 
     // clang-format off
     const output = html`
-      ${this.#renderTitle()}
-      ${this.#renderURL()}
-      ${await this.#renderPreviewElement()}
-      <div class="network-request-details-cols">
-        <div class="network-request-details-col">
-          ${this.#renderRow(i18nString(UIStrings.requestMethod), networkData.requestMethod)}
-          ${this.#renderRow(i18nString(UIStrings.priority), NetworkRequestTooltip.renderPriorityValue(this.#networkRequest))}
-          ${this.#renderRow(i18nString(UIStrings.mimeType), networkData.mimeType)}
-          ${this.#renderEncodedDataLength()}
-          ${this.#renderRow(i18nString(UIStrings.decodedBody), i18n.ByteUtilities.bytesToString(this.#networkRequest.args.data.decodedBodyLength))}
-          ${this.#renderBlockingRow()}
-          ${this.#renderFromCache()}
-          ${this.#renderThirdPartyEntity()}
-        </div>
-        <div class="network-request-details-col">
-          <div class="timing-rows">
-            ${NetworkRequestTooltip.renderTimings(this.#networkRequest)}
+      <style>${networkRequestDetailsStyles.cssText}</style>
+      <style>${networkRequestTooltipStyles.cssText}</style>
+      <div class="network-request-details-content">
+        ${this.#renderTitle()}
+        ${this.#renderURL()}
+        <div class="network-request-details-cols">
+          ${await this.#renderPreviewElement()}
+          <div class="network-request-details-col">
+            ${this.#renderRow(i18nString(UIStrings.requestMethod), networkData.requestMethod)}
+            ${this.#renderRow(i18nString(UIStrings.protocol), networkData.protocol)}
+            ${this.#renderRow(i18nString(UIStrings.priority), NetworkRequestTooltip.renderPriorityValue(this.#networkRequest))}
+            ${this.#renderRow(i18nString(UIStrings.mimeType), networkData.mimeType)}
+            ${this.#renderEncodedDataLength()}
+            ${this.#renderRow(i18nString(UIStrings.decodedBody), i18n.ByteUtilities.bytesToString(this.#networkRequest.args.data.decodedBodyLength))}
+            ${this.#renderBlockingRow()}
+            ${this.#renderFromCache()}
+            ${this.#renderThirdPartyEntity()}
           </div>
+          <div class="column-divider"></div>
+          <div class="network-request-details-col">
+            <div class="timing-rows">
+              ${NetworkRequestTooltip.renderTimings(this.#networkRequest)}
+            </div>
+          </div>
+          ${this.#renderServerTimings()}
         </div>
+        ${this.#renderInitiatedBy()}
       </div>
-      ${this.#renderInitiatedBy()}
     `; // The last items are outside the 2 column layout because InitiatedBy can be very wide
     // clang-format on
     Lit.render(output, this.#shadow, {host: this});

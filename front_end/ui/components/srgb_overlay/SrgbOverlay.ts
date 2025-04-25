@@ -1,6 +1,7 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import * as Common from '../../../core/common/common.js';
 import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
@@ -8,9 +9,11 @@ import {html, render} from '../../../ui/lit/lit.js';
 
 import srgbOverlayStylesRaw from './srgbOverlay.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const srgbOverlayStyles = new CSSStyleSheet();
-srgbOverlayStyles.replaceSync(srgbOverlayStylesRaw.cssContent);
+srgbOverlayStyles.replaceSync(srgbOverlayStylesRaw.cssText);
 
 interface SrgbOverlayProps {
   // [0 - 1] corresponding to HSV hue
@@ -42,7 +45,7 @@ export class SrgbOverlay extends HTMLElement {
     ];
   }
 
-  #getLinePoints({hue, width, height}: SrgbOverlayProps): {x: number, y: number}[]|null {
+  #getLinePoints({hue, width, height}: SrgbOverlayProps): Array<{x: number, y: number}>|null {
     if (width === 0 || height === 0) {
       return null;
     }
@@ -77,7 +80,7 @@ export class SrgbOverlay extends HTMLElement {
     return linePoints;
   }
 
-  #closestPointAtHeight(points: {x: number, y: number}[], atHeight: number): {x: number, y: number}|null {
+  #closestPointAtHeight(points: Array<{x: number, y: number}>, atHeight: number): {x: number, y: number}|null {
     let min = Infinity;
     let closestPoint = null;
     for (const point of points) {

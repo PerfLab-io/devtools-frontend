@@ -1,6 +1,7 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../legacy/legacy.js'; // Required for <x-link>.
 
@@ -10,9 +11,11 @@ import * as VisualLogging from '../../visual_logging/visual_logging.js';
 import markdownLinkStylesRaw from './markdownLink.css.js';
 import {getMarkdownLink} from './MarkdownLinksMap.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const markdownLinkStyles = new CSSStyleSheet();
-markdownLinkStyles.replaceSync(markdownLinkStylesRaw.cssContent);
+markdownLinkStyles.replaceSync(markdownLinkStylesRaw.cssText);
 
 export interface MarkdownLinkData {
   key: string;
@@ -27,8 +30,8 @@ export interface MarkdownLinkData {
 export class MarkdownLink extends HTMLElement {
 
   readonly #shadow = this.attachShadow({mode: 'open'});
-  #linkText: string = '';
-  #linkUrl: string = '';
+  #linkText = '';
+  #linkUrl = '';
 
   connectedCallback(): void {
     this.#shadow.adoptedStyleSheets = [markdownLinkStyles];

@@ -1,9 +1,9 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/icon_button/icon_button.js';
-import '../../../ui/components/split_view/split_view.js';
 import './ExtensionView.js';
 import './ControlButton.js';
 import './ReplaySection.js';
@@ -21,6 +21,8 @@ import * as Dialogs from '../../../ui/components/dialogs/dialogs.js';
 import * as Input from '../../../ui/components/input/input.js';
 import type * as Menus from '../../../ui/components/menus/menus.js';
 import * as TextEditor from '../../../ui/components/text_editor/text_editor.js';
+// eslint-disable-next-line rulesdir/es-modules-import
+import inspectorCommonStyles from '../../../ui/legacy/inspectorCommon.css.js';
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 import type * as Converters from '../converters/converters.js';
@@ -29,7 +31,7 @@ import * as Models from '../models/models.js';
 import {PlayRecordingSpeed} from '../models/RecordingPlayer.js';
 import * as Actions from '../recorder-actions/recorder-actions.js';
 
-import recordingViewStylesRaw from './recordingView.css.js';
+import recordingViewStyles from './recordingView.css.js';
 import type {ReplaySectionData, StartReplayEvent} from './ReplaySection.js';
 import {
   type CopyStepEvent,
@@ -37,10 +39,6 @@ import {
   type StepView,
   type StepViewData,
 } from './StepView.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const recordingViewStyles = new CSSStyleSheet();
-recordingViewStyles.replaceSync(recordingViewStylesRaw.cssContent);
 
 const {html} = Lit;
 
@@ -146,7 +144,7 @@ const UIStrings = {
    * @description The title of the button that open current recording in Performance panel.
    */
   performancePanel: 'Performance panel',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings(
     'panels/recorder/components/RecordingView.ts',
     UIStrings,
@@ -314,8 +312,8 @@ export class RecordingView extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
   #replayState: ReplayState = {isPlaying: false, isPausedOnBreakpoint: false};
   #userFlow: Models.Schema.UserFlow|null = null;
-  #isRecording: boolean = false;
-  #recordingTogglingInProgress: boolean = false;
+  #isRecording = false;
+  #recordingTogglingInProgress = false;
   #isTitleInvalid = false;
   #currentStep?: Models.Schema.Step;
   #steps: Models.Schema.Step[] = [];
@@ -324,7 +322,7 @@ export class RecordingView extends HTMLElement {
   #settings?: Models.RecordingSettings.RecordingSettings;
   #recorderSettings?: Models.RecorderSettings.RecorderSettings;
   #lastReplayResult?: Models.RecordingPlayer.ReplayResult;
-  #breakpointIndexes: Set<number> = new Set();
+  #breakpointIndexes = new Set<number>();
   #selectedStep?: Models.Schema.Step|null;
 
   #replaySettingsExpanded = false;
@@ -333,8 +331,8 @@ export class RecordingView extends HTMLElement {
   #extensionConverters: Converters.Converter.Converter[] = [];
   #replayExtensions?: Extensions.ExtensionManager.Extension[];
   #showCodeView = false;
-  #code: string = '';
-  #converterId: string = '';
+  #code = '';
+  #converterId = '';
   #editorState?: CodeMirror.EditorState;
   #sourceMap: PuppeteerReplay.SourceMap|undefined;
   #extensionDescriptor?: PublicExtensions.RecorderPluginManager.ViewDescriptor;
@@ -374,10 +372,6 @@ export class RecordingView extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [
-      recordingViewStyles,
-      Input.textInputStyles,
-    ];
     document.addEventListener('copy', this.#onCopyBound);
     this.#render();
   }
@@ -553,15 +547,18 @@ export class RecordingView extends HTMLElement {
     this.#render();
   }
 
-  #onNetworkConditionsChange(event: Menus.SelectMenu.SelectMenuItemSelectedEvent): void {
-    const preset = networkConditionPresets.find(
-        preset => preset.i18nTitleKey === event.itemValue,
-    );
-    this.dispatchEvent(
-        new NetworkConditionsChanged(
-            preset?.i18nTitleKey === SDK.NetworkManager.NoThrottlingConditions.i18nTitleKey ? undefined : preset,
-            ),
-    );
+  #onNetworkConditionsChange(event: Event): void {
+    const throttlingMenu = event.target;
+    if (throttlingMenu instanceof HTMLSelectElement) {
+      const preset = networkConditionPresets.find(
+          preset => preset.i18nTitleKey === throttlingMenu.value,
+      );
+      this.dispatchEvent(
+          new NetworkConditionsChanged(
+              preset?.i18nTitleKey === SDK.NetworkManager.NoThrottlingConditions.i18nTitleKey ? undefined : preset,
+              ),
+      );
+    }
   }
 
   #onTimeoutInput(event: Event): void {
@@ -745,31 +742,20 @@ export class RecordingView extends HTMLElement {
       replaySettingsFragments.push(html`<div class="editable-setting">
         <label class="wrapping-label" @click=${this.#onSelectMenuLabelClick}>
           ${i18nString(UIStrings.network)}
-          <devtools-select-menu
-            @selectmenuselected=${this.#onNetworkConditionsChange}
-            .disabled=${!this.#steps.find(step => step.type === 'navigate')}
-            .showDivider=${true}
-            .showArrow=${true}
-            .sideButton=${false}
-            .showSelectedItem=${true}
-            .jslogContext=${'network-conditions'}
-            .position=${Dialogs.Dialog.DialogVerticalPosition.BOTTOM}
-            .buttonTitle=${menuButtonTitle}
-          >
-            ${networkConditionPresets.map(condition => {
-              return html`<devtools-menu-item
-                .value=${condition.i18nTitleKey || ''}
-                .selected=${selectedOption === condition.i18nTitleKey}
-                jslog=${VisualLogging.item(Platform.StringUtilities.toKebabCase(condition.i18nTitleKey || ''))}
-              >
-                ${
-                  condition.title instanceof Function
-                    ? condition.title()
-                    : condition.title
-                }
-              </devtools-menu-item>`;
-            })}
-          </devtools-select-menu>
+          <select
+              title=${menuButtonTitle}
+              jslog=${VisualLogging.dropDown('network-conditions').track({change: true})}
+              @change=${this.#onNetworkConditionsChange}>
+        ${networkConditionPresets.map(condition => html`
+          <option jslog=${VisualLogging.item(Platform.StringUtilities.toKebabCase(condition.i18nTitleKey || ''))}
+                  value=${condition.i18nTitleKey || ''} ?selected=${selectedOption === condition.i18nTitleKey}>
+                  ${
+                    condition.title instanceof Function
+                      ? condition.title()
+                      : condition.title
+                  }
+          </option>`)}
+      </select>
         </label>
       </div>`);
       replaySettingsFragments.push(html`<div class="editable-setting">
@@ -869,14 +855,18 @@ export class RecordingView extends HTMLElement {
     const currentConverter = this.#getCurrentConverter();
     const converterFormatName = currentConverter?.getFormatName();
     // clang-format off
-    return !this.#showCodeView
-      ? this.#renderSections()
-      : html`
-        <devtools-split-view>
+    return html`
+        <devtools-split-view
+          direction="auto"
+          sidebar-position="second"
+          sidebar-initial-size="300"
+          sidebar-visibility=${this.#showCodeView ? '' : 'hidden'}
+        >
           <div slot="main">
             ${this.#renderSections()}
           </div>
           <div slot="sidebar" jslog=${VisualLogging.pane('source-code').track({resize: true})}>
+            ${this.#showCodeView ? html`
             <div class="section-toolbar" jslog=${VisualLogging.toolbar()}>
               <devtools-select-menu
                 @selectmenuselected=${this.#onCodeFormatChange}
@@ -923,7 +913,8 @@ export class RecordingView extends HTMLElement {
                 jslog=${VisualLogging.close().track({click: true})}
               ></devtools-button>
             </div>
-            ${this.#renderTextEditor()}
+            ${this.#renderTextEditor()}`
+            : Lit.nothing}
           </div>
         </devtools-split-view>
       `;
@@ -1294,6 +1285,9 @@ export class RecordingView extends HTMLElement {
     // clang-format off
     Lit.render(
       html`
+      <style>${inspectorCommonStyles.cssText}</style>
+      <style>${recordingViewStyles.cssText}</style>
+      <style>${Input.textInputStyles.cssText}</style>
       <div @click=${this.#onWrapperClick} class=${Lit.Directives.classMap(
         classNames,
       )}>

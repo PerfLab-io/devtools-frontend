@@ -17,7 +17,7 @@ export interface AuditResultJSON {
   description: string;
   explanation?: string;
   errorMessage?: string;
-  displayValue?: string|(string|number)[];
+  displayValue?: string|Array<string|number>;
   scoreDisplayMode: string;
   error: boolean;
   score: number|null;
@@ -51,7 +51,8 @@ export interface ReportJSON {
   finalDisplayedUrl: string;
   finalUrl?: string;
   runWarnings?: string[];
-  artifacts: {traces: {defaultPass: {traceEvents: Array<unknown>}}};
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  artifacts: {Trace: {traceEvents: unknown[]}};
   audits: {[x: string]: AuditResultJSON};
   categories: {[x: string]: CategoryJSON};
   categoryGroups: {[x: string]: GroupJSON};
@@ -64,7 +65,8 @@ export interface DetailsJSON {
   displayUnit?: string;
 }
 export interface RunnerResultArtifacts {
-  traces: {defaultPass: {traceEvents: Trace.Types.Events.Event[]}};
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  Trace: {traceEvents: Trace.Types.Events.Event[]};
   settings: {throttlingMethod: string};
 }
 export interface RunnerResult {

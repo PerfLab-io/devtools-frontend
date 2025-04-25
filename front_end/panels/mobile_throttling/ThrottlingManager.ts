@@ -1,6 +1,7 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -97,7 +98,7 @@ const UIStrings = {
    * @description Text to prompt the user to re-run the CPU calibration process.
    */
   recalibrate: 'Recalibrate…',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/mobile_throttling/ThrottlingManager.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 let throttlingManagerInstance: ThrottlingManager;
@@ -256,7 +257,7 @@ export class ThrottlingManager {
   }
 
   createNetworkThrottlingSelector(selectElement: HTMLSelectElement): NetworkThrottlingSelectorWrapper {
-    let options: (SDK.NetworkManager.Conditions|null)[] = [];
+    let options: Array<SDK.NetworkManager.Conditions|null> = [];
     let titles: string[] = [];
     let optionEls: HTMLOptionElement[] = [];
     const selector = new NetworkThrottlingSelector(populate, select, this.customNetworkConditionsSetting);
@@ -268,7 +269,7 @@ export class ThrottlingManager {
                 .context(this.currentNetworkThrottlingConditionsSetting.name)}`);
     selectElement.addEventListener('change', optionSelected, false);
 
-    function populate(groups: NetworkThrottlingConditionsGroup[]): (SDK.NetworkManager.Conditions|null)[] {
+    function populate(groups: NetworkThrottlingConditionsGroup[]): Array<SDK.NetworkManager.Conditions|null> {
       selectElement.removeChildren();
       options = [];
       titles = [];
@@ -404,7 +405,7 @@ export class ThrottlingManager {
     const numericInput =
         new UI.Toolbar.ToolbarItem(UI.UIUtils.createInput('devtools-text-input', 'number', 'hardware-concurrency'));
     numericInput.setTitle(i18nString(UIStrings.hardwareConcurrencySettingLabel));
-    const inputElement = numericInput.element as HTMLInputElement;
+    const inputElement = numericInput.element;
     inputElement.min = '1';
     numericInput.setEnabled(false);
 
@@ -419,7 +420,7 @@ export class ThrottlingManager {
     const warning = new UI.Toolbar.ToolbarItem(icon);
     warning.setTitle(i18nString(UIStrings.excessConcurrency));
 
-    checkbox.checkboxElement.disabled = true;  // Prevent modification while still wiring things up asynchronously below
+    checkbox.disabled = true;  // Prevent modification while still wiring things up asynchronously below
     reset.element.classList.add('concurrency-hidden');
     warning.element.classList.add('concurrency-hidden');
 
@@ -446,9 +447,9 @@ export class ThrottlingManager {
 
       inputElement.value = `${defaultValue}`;
       inputElement.oninput = () => setHardwareConcurrency(Number(inputElement.value));
-      checkbox.checkboxElement.disabled = false;
-      checkbox.checkboxElement.addEventListener('change', () => {
-        this.#hardwareConcurrencyOverrideEnabled = checkbox.checkboxElement.checked;
+      checkbox.disabled = false;
+      checkbox.addEventListener('change', () => {
+        this.#hardwareConcurrencyOverrideEnabled = checkbox.checked;
 
         numericInput.setEnabled(this.hardwareConcurrencyOverrideEnabled);
         setHardwareConcurrency(this.hardwareConcurrencyOverrideEnabled ? Number(inputElement.value) : defaultValue);

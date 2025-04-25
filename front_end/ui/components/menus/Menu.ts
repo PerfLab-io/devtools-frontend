@@ -1,6 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import * as Platform from '../../../core/platform/platform.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
@@ -13,17 +14,15 @@ import menuStylesRaw from './menu.css.js';
 import menuGroupStylesRaw from './menuGroup.css.js';
 import menuItemStylesRaw from './menuItem.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const menuStyles = new CSSStyleSheet();
-menuStyles.replaceSync(menuStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+menuStyles.replaceSync(menuStylesRaw.cssText);
 const menuGroupStyles = new CSSStyleSheet();
-menuGroupStyles.replaceSync(menuGroupStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+menuGroupStyles.replaceSync(menuGroupStylesRaw.cssText);
 const menuItemStyles = new CSSStyleSheet();
-menuItemStyles.replaceSync(menuItemStylesRaw.cssContent);
+menuItemStyles.replaceSync(menuItemStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -71,7 +70,6 @@ const selectedItemCheckmark = new URL('../../../Images/checkmark.svg', import.me
 
 export class Menu extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  readonly #renderBound = this.#render.bind(this);
   #dialog: Dialogs.Dialog.Dialog|null = null;
   #itemIsFocused = false;
   #props: MenuData = {
@@ -90,7 +88,7 @@ export class Menu extends HTMLElement {
 
   set origin(origin: Dialogs.Dialog.DialogOrigin) {
     this.#props.origin = origin;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get open(): boolean {
@@ -104,7 +102,7 @@ export class Menu extends HTMLElement {
     this.#props.open = open;
     this.toggleAttribute('has-open-dialog', this.open);
     void this.#getDialog().setDialogVisible(this.open);
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get position(): Dialogs.Dialog.DialogVerticalPosition {
@@ -113,7 +111,7 @@ export class Menu extends HTMLElement {
 
   set position(position: Dialogs.Dialog.DialogVerticalPosition) {
     this.#props.position = position;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get showDivider(): boolean {
@@ -122,7 +120,7 @@ export class Menu extends HTMLElement {
 
   set showDivider(showDivider: boolean) {
     this.#props.showDivider = showDivider;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get showSelectedItem(): boolean {
@@ -131,7 +129,7 @@ export class Menu extends HTMLElement {
 
   set showSelectedItem(showSelectedItem: boolean) {
     this.#props.showSelectedItem = showSelectedItem;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get horizontalAlignment(): Dialogs.Dialog.DialogHorizontalAlignment {
@@ -140,7 +138,7 @@ export class Menu extends HTMLElement {
 
   set horizontalAlignment(horizontalAlignment: Dialogs.Dialog.DialogHorizontalAlignment) {
     this.#props.horizontalAlignment = horizontalAlignment;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get getConnectorCustomXPosition(): (() => number)|null {
@@ -149,7 +147,7 @@ export class Menu extends HTMLElement {
 
   set getConnectorCustomXPosition(connectorXPosition: (() => number)|null) {
     this.#props.getConnectorCustomXPosition = connectorXPosition;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   connectedCallback(): void {
@@ -430,7 +428,6 @@ interface MenuItemData {
 
 export class MenuItem extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  readonly #renderBound = this.#render.bind(this);
   connectedCallback(): void {
     this.#shadow.adoptedStyleSheets = [menuItemStyles];
     this.tabIndex = 0;
@@ -449,7 +446,7 @@ export class MenuItem extends HTMLElement {
 
   set preventMenuCloseOnSelection(preventMenuCloseOnSelection: boolean) {
     this.#props.preventMenuCloseOnSelection = preventMenuCloseOnSelection;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get value(): MenuItemValue {
@@ -458,7 +455,7 @@ export class MenuItem extends HTMLElement {
 
   set value(value: MenuItemValue) {
     this.#props.value = value;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get selected(): boolean {
@@ -467,7 +464,7 @@ export class MenuItem extends HTMLElement {
 
   set selected(selected: boolean) {
     this.#props.selected = selected;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   get disabled(): boolean {
@@ -476,7 +473,7 @@ export class MenuItem extends HTMLElement {
 
   set disabled(disabled: boolean) {
     this.#props.disabled = disabled;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   async #render(): Promise<void> {
@@ -506,7 +503,6 @@ interface MenuGroupData {
 
 export class MenuGroup extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  readonly #renderBound = this.#render.bind(this);
   connectedCallback(): void {
     this.#shadow.adoptedStyleSheets = [menuGroupStyles];
   }
@@ -521,7 +517,7 @@ export class MenuGroup extends HTMLElement {
 
   set name(name: string|null) {
     this.#props.name = name;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   async #render(): Promise<void> {

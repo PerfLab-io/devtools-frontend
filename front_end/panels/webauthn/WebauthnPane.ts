@@ -1,12 +1,14 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import '../../ui/legacy/legacy.js';
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
+import type * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Protocol from '../../generated/protocol.js';
 import type * as Buttons from '../../ui/components/buttons/buttons.js';
@@ -64,13 +66,13 @@ const UIStrings = {
    */
   credentials: 'Credentials',
   /**
-   *@description Label for the learn more link that is shown before the virtual environment is enabled.
+   *@description Text that shows before the virtual environment is enabled.
    */
-  useWebauthnForPhishingresistant: 'Use WebAuthn for phishing-resistant authentication',
+  noAuthenticator: 'No authenticator set up',
   /**
-   *@description Text that is usually a hyperlink to more documentation
+   *@description That that shows before virtual environment is enabled explaining the panel.
    */
-  learnMore: 'Learn more',
+  useWebauthnForPhishingresistant: 'Use WebAuthn for phishing-resistant authentication.',
   /**
    *@description Title for section of interface that allows user to add a new virtual authenticator.
    */
@@ -147,9 +149,12 @@ const UIStrings = {
    *@example {Authenticator ABCDEF} PH1
    */
   setSAsTheActiveAuthenticator: 'Set {PH1} as the active authenticator',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/webauthn/WebauthnPane.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+
+const WEB_AUTHN_EXPLANATION_URL =
+    'https://developer.chrome.com/docs/devtools/webauthn' as Platform.DevToolsPath.UrlString;
 
 const enum Events {
   EXPORT_CREDENTIAL = 'ExportCredential',
@@ -249,16 +254,13 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
   #authenticatorsView: HTMLElement;
   #topToolbarContainer: HTMLElement|undefined;
   #topToolbar: UI.Toolbar.Toolbar|undefined;
-  #learnMoreView: HTMLElement|undefined;
+  #learnMoreView: UI.EmptyWidget.EmptyWidget|undefined;
   #newAuthenticatorSection: HTMLElement|undefined;
   #newAuthenticatorForm: HTMLElement|undefined;
   #protocolSelect: HTMLSelectElement|undefined;
   transportSelect: HTMLSelectElement|undefined;
-  #residentKeyCheckboxLabel: UI.UIUtils.CheckboxLabel|undefined;
   residentKeyCheckbox: HTMLInputElement|undefined;
-  #userVerificationCheckboxLabel: UI.UIUtils.CheckboxLabel|undefined;
   #userVerificationCheckbox: HTMLInputElement|undefined;
-  #largeBlobCheckboxLabel: UI.UIUtils.CheckboxLabel|undefined;
   largeBlobCheckbox: HTMLInputElement|undefined;
   addAuthenticatorButton: Buttons.Button.Button|undefined;
   #isEnabling?: Promise<void>;
@@ -333,10 +335,8 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
     this.#topToolbar = this.#topToolbarContainer.createChild('devtools-toolbar', 'webauthn-toolbar');
     this.#topToolbar.role = 'presentation';
     const enableCheckboxTitle = i18nString(UIStrings.enableVirtualAuthenticator);
-    this.#enableCheckbox =
-        new UI.Toolbar.ToolbarCheckbox(enableCheckboxTitle, enableCheckboxTitle, this.#handleCheckboxToggle.bind(this));
-    this.#enableCheckbox.inputElement.setAttribute(
-        'jslog', `${VisualLogging.toggle('virtual-authenticators').track({click: true})}`);
+    this.#enableCheckbox = new UI.Toolbar.ToolbarCheckbox(
+        enableCheckboxTitle, enableCheckboxTitle, this.#handleCheckboxToggle.bind(this), 'virtual-authenticators');
     this.#topToolbar.appendToolbarItem(this.#enableCheckbox);
   }
 
@@ -561,16 +561,11 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
   }
 
   #createNewAuthenticatorSection(): void {
-    const learnMoreLink = UI.XLink.XLink.create(
-        'https://developers.google.com/web/updates/2018/05/webauthn', i18nString(UIStrings.learnMore), undefined,
-        undefined, 'learn-more');
-    this.#learnMoreView = this.contentElement.createChild('div', 'learn-more');
-    this.#learnMoreView.appendChild(UI.Fragment.html`
-  <div>
-  ${i18nString(UIStrings.useWebauthnForPhishingresistant)}<br /><br />
-  ${learnMoreLink}
-  </div>
-  `);
+    this.#learnMoreView = new UI.EmptyWidget.EmptyWidget(
+        i18nString(UIStrings.noAuthenticator), i18nString(UIStrings.useWebauthnForPhishingresistant));
+    this.#learnMoreView.element.classList.add('learn-more');
+    this.#learnMoreView.appendLink(WEB_AUTHN_EXPLANATION_URL);
+    this.#learnMoreView.show(this.contentElement);
 
     this.#newAuthenticatorSection = this.contentElement.createChild('div', 'new-authenticator-container');
     const newAuthenticatorTitle =
@@ -608,33 +603,33 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
     UI.ARIAUtils.bindLabelToControl(transportSelectTitle, (this.transportSelect as Element));
     // transportSelect will be populated in updateNewAuthenticatorSectionOptions.
 
-    this.#residentKeyCheckboxLabel =
-        UI.UIUtils.CheckboxLabel.create(i18nString(UIStrings.supportsResidentKeys), false, undefined, 'resident-key');
-    this.#residentKeyCheckboxLabel.textElement.classList.add('authenticator-option-label');
-    residentKeyGroup.appendChild(this.#residentKeyCheckboxLabel.textElement);
-    this.residentKeyCheckbox = this.#residentKeyCheckboxLabel.checkboxElement;
+    const residentKeyCheckboxLabel =
+        UI.UIUtils.createLabel(i18nString(UIStrings.supportsResidentKeys), 'authenticator-option-label');
+    residentKeyCheckboxLabel.setAttribute('jslog', `${VisualLogging.toggle('resident-key').track({change: true})}`);
+    residentKeyGroup.appendChild(residentKeyCheckboxLabel);
+    this.residentKeyCheckbox = residentKeyGroup.createChild('input', 'authenticator-option-checkbox');
+    this.residentKeyCheckbox.type = 'checkbox';
     this.residentKeyCheckbox.checked = false;
-    this.residentKeyCheckbox.classList.add('authenticator-option-checkbox');
-    residentKeyGroup.appendChild(this.#residentKeyCheckboxLabel);
+    UI.ARIAUtils.bindLabelToControl(residentKeyCheckboxLabel, this.residentKeyCheckbox);
 
-    this.#userVerificationCheckboxLabel = UI.UIUtils.CheckboxLabel.create(
-        i18nString(UIStrings.supportsUserVerification), false, undefined, 'user-verification');
-    this.#userVerificationCheckboxLabel.textElement.classList.add('authenticator-option-label');
-    userVerificationGroup.appendChild(this.#userVerificationCheckboxLabel.textElement);
-    this.#userVerificationCheckbox = this.#userVerificationCheckboxLabel.checkboxElement;
+    const userVerificationCheckboxLabel =
+        UI.UIUtils.createLabel(i18nString(UIStrings.supportsUserVerification), 'authenticator-option-label');
+    userVerificationCheckboxLabel.setAttribute(
+        'jslog', `${VisualLogging.toggle('user-verification').track({change: true})}`);
+    userVerificationGroup.appendChild(userVerificationCheckboxLabel);
+    this.#userVerificationCheckbox = userVerificationGroup.createChild('input', 'authenticator-option-checkbox');
+    this.#userVerificationCheckbox.type = 'checkbox';
     this.#userVerificationCheckbox.checked = false;
-    this.#userVerificationCheckbox.classList.add('authenticator-option-checkbox');
-    userVerificationGroup.appendChild(this.#userVerificationCheckboxLabel);
+    UI.ARIAUtils.bindLabelToControl(userVerificationCheckboxLabel, this.#userVerificationCheckbox);
 
-    this.#largeBlobCheckboxLabel =
-        UI.UIUtils.CheckboxLabel.create(i18nString(UIStrings.supportsLargeBlob), false, undefined, 'large-blob');
-    this.#largeBlobCheckboxLabel.textElement.classList.add('authenticator-option-label');
-    largeBlobGroup.appendChild(this.#largeBlobCheckboxLabel.textElement);
-    this.largeBlobCheckbox = this.#largeBlobCheckboxLabel.checkboxElement;
+    const largeBlobCheckboxLabel =
+        UI.UIUtils.createLabel(i18nString(UIStrings.supportsLargeBlob), 'authenticator-option-label');
+    largeBlobCheckboxLabel.setAttribute('jslog', `${VisualLogging.toggle('large-blob').track({change: true})}`);
+    largeBlobGroup.appendChild(largeBlobCheckboxLabel);
+    this.largeBlobCheckbox = largeBlobGroup.createChild('input', 'authenticator-option-checkbox');
+    this.largeBlobCheckbox.type = 'checkbox';
     this.largeBlobCheckbox.checked = false;
-    this.largeBlobCheckbox.classList.add('authenticator-option-checkbox');
-    this.largeBlobCheckbox.name = 'large-blob-checkbox';
-    largeBlobGroup.appendChild(this.#largeBlobCheckboxLabel);
+    UI.ARIAUtils.bindLabelToControl(largeBlobCheckboxLabel, this.largeBlobCheckbox);
 
     this.addAuthenticatorButton = UI.UIUtils.createTextButton(
         i18nString(UIStrings.add), this.#handleAddAuthenticatorButton.bind(this),
@@ -746,6 +741,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
       this.#model.addEventListener(
           SDK.WebAuthnModel.Events.CREDENTIAL_DELETED, this.#deleteCredential.bind(this, authenticatorId));
     }
+    section.createChild('div', 'divider');
 
     return section;
   }
@@ -769,7 +765,7 @@ export class WebauthnPaneImpl extends UI.Widget.VBox implements
       return;
     }
 
-    // @ts-ignore dataGrid node type is indeterminate.
+    // @ts-expect-error dataGrid node type is indeterminate.
     dataGrid.rootNode()
         .children.find((n: DataGrid.DataGrid.DataGridNode<DataGridNode>) => n.data.credentialId === credentialId)
         .remove();

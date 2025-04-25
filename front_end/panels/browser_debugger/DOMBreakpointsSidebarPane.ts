@@ -28,6 +28,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* eslint-disable rulesdir/no-imperative-dom-api */
+
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import type * as Platform from '../../core/platform/platform.js';
@@ -43,7 +45,7 @@ const UIStrings = {
   /**
    *@description Header text to indicate there are no breakpoints
    */
-  noBreakpoints: 'No DOM breakpoints set',
+  noBreakpoints: 'No DOM breakpoints',
   /**
    *@description DOM breakpoints description that shows if no DOM breakpoints are set
    */
@@ -122,7 +124,7 @@ const UIStrings = {
    *@description Screen reader description for setting a DOM breakpoint.
    */
   breakpointSet: 'Breakpoint set',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/browser_debugger/DOMBreakpointsSidebarPane.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
@@ -134,8 +136,8 @@ let domBreakpointsSidebarPaneInstance: DOMBreakpointsSidebarPane;
 
 export class DOMBreakpointsSidebarPane extends UI.Widget.VBox implements
     UI.ContextFlavorListener.ContextFlavorListener, UI.ListControl.ListDelegate<SDK.DOMDebuggerModel.DOMBreakpoint> {
-  elementToCheckboxes: WeakMap<Element, HTMLInputElement>;
-  readonly #emptyElement: UI.EmptyWidget.EmptyWidget;
+  elementToCheckboxes: WeakMap<Element, UI.UIUtils.CheckboxLabel>;
+  readonly #emptyElement: HTMLElement;
   readonly #breakpoints: UI.ListModel.ListModel<SDK.DOMDebuggerModel.DOMBreakpoint>;
   #list: UI.ListControl.ListControl<SDK.DOMDebuggerModel.DOMBreakpoint>;
   #highlightedBreakpoint: SDK.DOMDebuggerModel.DOMBreakpoint|null;
@@ -149,10 +151,12 @@ export class DOMBreakpointsSidebarPane extends UI.Widget.VBox implements
     this.contentElement.setAttribute(
         'jslog', `${VisualLogging.section('sources.dom-breakpoints').track({resize: true})}`);
     this.contentElement.classList.add('dom-breakpoints-container');
-    this.#emptyElement =
+    this.#emptyElement = this.contentElement.createChild('div', 'placeholder');
+    this.#emptyElement.createChild('div', 'gray-info-message').textContent = i18nString(UIStrings.noBreakpoints);
+    const emptyWidget =
         new UI.EmptyWidget.EmptyWidget(UIStrings.noBreakpoints, i18nString(UIStrings.domBreakpointsDescription));
-    this.#emptyElement.appendLink(DOM_BREAKPOINT_DOCUMENTATION_URL);
-    this.#emptyElement.show(this.contentElement);
+    emptyWidget.appendLink(DOM_BREAKPOINT_DOCUMENTATION_URL);
+    emptyWidget.show(this.#emptyElement);
 
     this.#breakpoints = new UI.ListModel.ListModel();
     this.#list = new UI.ListControl.ListControl(this.#breakpoints, this, UI.ListControl.ListMode.NonViewport);
@@ -200,15 +204,14 @@ export class DOMBreakpointsSidebarPane extends UI.Widget.VBox implements
     UI.ARIAUtils.markAsListitem(element);
     element.tabIndex = -1;
 
-    const checkboxLabel = UI.UIUtils.CheckboxLabel.create(/* title */ undefined, item.enabled);
-    const checkboxElement = checkboxLabel.checkboxElement;
-    checkboxElement.addEventListener('click', this.checkboxClicked.bind(this, item), false);
-    checkboxElement.tabIndex = -1;
-    this.elementToCheckboxes.set(element, checkboxElement);
-    element.appendChild(checkboxLabel);
+    const checkbox = UI.UIUtils.CheckboxLabel.create(/* title */ undefined, item.enabled);
+    checkbox.addEventListener('click', this.checkboxClicked.bind(this, item), false);
+    checkbox.tabIndex = -1;
+    this.elementToCheckboxes.set(element, checkbox);
+    element.appendChild(checkbox);
     element.addEventListener('keydown', event => {
       if (event.key === ' ') {
-        checkboxLabel.checkboxElement.click();
+        checkbox.click();
         event.consume(true);
       }
     });
@@ -220,8 +223,8 @@ export class DOMBreakpointsSidebarPane extends UI.Widget.VBox implements
     const breakpointTypeLabel = BreakpointTypeLabels.get(item.type);
     description.textContent = breakpointTypeLabel ? breakpointTypeLabel() : null;
     const breakpointTypeText = breakpointTypeLabel ? breakpointTypeLabel() : '';
-    UI.ARIAUtils.setLabel(checkboxElement, breakpointTypeText);
-    checkboxElement.setAttribute('jslog', `${VisualLogging.toggle().track({click: true})}`);
+    UI.ARIAUtils.setLabel(checkbox, breakpointTypeText);
+    checkbox.setAttribute('jslog', `${VisualLogging.toggle().track({click: true})}`);
     const checkedStateText = item.enabled ? i18nString(UIStrings.checked) : i18nString(UIStrings.unchecked);
     const linkifiedNode = document.createElement('monospace');
     linkifiedNode.style.display = 'block';
@@ -231,7 +234,7 @@ export class DOMBreakpointsSidebarPane extends UI.Widget.VBox implements
           linkifiedNode.appendChild(linkified);
           // Give the checkbox an aria-label as it is required for all form element
           UI.ARIAUtils.setLabel(
-              checkboxElement, i18nString(UIStrings.sS, {PH1: breakpointTypeText, PH2: linkified.deepTextContent()}));
+              checkbox, i18nString(UIStrings.sS, {PH1: breakpointTypeText, PH2: linkified.deepTextContent()}));
           // The parent list element is the one that actually gets focused.
           // Assign it an aria-label with complete information for the screen reader to read out properly
           UI.ARIAUtils.setLabel(
@@ -245,12 +248,12 @@ export class DOMBreakpointsSidebarPane extends UI.Widget.VBox implements
     if (item === this.#highlightedBreakpoint) {
       element.classList.add('breakpoint-hit');
       UI.ARIAUtils.setDescription(element, i18nString(UIStrings.sBreakpointHit, {PH1: checkedStateText}));
-      UI.ARIAUtils.setDescription(checkboxElement, i18nString(UIStrings.breakpointHit));
+      UI.ARIAUtils.setDescription(checkbox, i18nString(UIStrings.breakpointHit));
     } else {
       UI.ARIAUtils.setDescription(element, checkedStateText);
     }
 
-    this.#emptyElement.hideWidget();
+    this.#emptyElement.classList.add('hidden');
     this.#list.element.classList.remove('hidden');
 
     return element;
@@ -269,7 +272,7 @@ export class DOMBreakpointsSidebarPane extends UI.Widget.VBox implements
   }
 
   selectedItemChanged(
-      from: SDK.DOMDebuggerModel.DOMBreakpoint|null, to: SDK.DOMDebuggerModel.DOMBreakpoint|null,
+      _from: SDK.DOMDebuggerModel.DOMBreakpoint|null, _to: SDK.DOMDebuggerModel.DOMBreakpoint|null,
       fromElement: HTMLElement|null, toElement: HTMLElement|null): void {
     if (fromElement) {
       fromElement.tabIndex = -1;
@@ -309,8 +312,8 @@ export class DOMBreakpointsSidebarPane extends UI.Widget.VBox implements
       }
     }
     if (this.#breakpoints.length === 0) {
-      this.#emptyElement.showWidget();
-      this.setDefaultFocusedElement(this.#emptyElement.element);
+      this.#emptyElement.classList.remove('hidden');
+      this.setDefaultFocusedElement(this.#emptyElement);
       this.#list.element.classList.add('hidden');
     } else if (lastIndex >= 0) {
       const breakpointToSelect = this.#breakpoints.at(lastIndex);
@@ -368,7 +371,7 @@ export class DOMBreakpointsSidebarPane extends UI.Widget.VBox implements
       this.#highlightedBreakpoint = null;
       this.#list.refreshItem(oldHighlightedBreakpoint);
     }
-    if (!details || !details.auxData || details.reason !== Protocol.Debugger.PausedEventReason.DOM) {
+    if (!details?.auxData || details.reason !== Protocol.Debugger.PausedEventReason.DOM) {
       return;
     }
 
@@ -402,7 +405,7 @@ const BreakpointTypeLabels = new Map([
 ]);
 
 export class ContextMenuProvider implements UI.ContextMenu.Provider<SDK.DOMModel.DOMNode> {
-  appendApplicableItems(event: Event, contextMenu: UI.ContextMenu.ContextMenu, node: SDK.DOMModel.DOMNode): void {
+  appendApplicableItems(_event: Event, contextMenu: UI.ContextMenu.ContextMenu, node: SDK.DOMModel.DOMNode): void {
     if (node.pseudoType()) {
       return;
     }

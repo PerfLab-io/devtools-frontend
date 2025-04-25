@@ -1,6 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/legacy/legacy.js';
 import '../../../ui/components/icon_button/icon_button.js';
@@ -14,9 +15,11 @@ import * as Extensions from '../extensions/extensions.js';
 
 import extensionViewStylesRaw from './extensionView.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const extensionViewStyles = new CSSStyleSheet();
-extensionViewStyles.replaceSync(extensionViewStylesRaw.cssContent);
+extensionViewStyles.replaceSync(extensionViewStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -29,7 +32,7 @@ const UIStrings = {
    * @description The label that indicates that the content shown is provided by a browser extension.
    */
   extension: 'Content provided by a browser extension',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings(
     'panels/recorder/components/ExtensionView.ts',
     UIStrings,

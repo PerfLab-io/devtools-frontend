@@ -1,6 +1,7 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view, rulesdir/inject-checkbox-styles */
 
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as Platform from '../../../core/platform/platform.js';
@@ -9,11 +10,7 @@ import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
 import {ValueType, valueTypeToLocalizedString} from './ValueInterpreterDisplayUtils.js';
-import valueInterpreterSettingsStylesRaw from './valueInterpreterSettings.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const valueInterpreterSettingsStyles = new CSSStyleSheet();
-valueInterpreterSettingsStyles.replaceSync(valueInterpreterSettingsStylesRaw.cssContent);
+import valueInterpreterSettingsStyles from './valueInterpreterSettings.css.js';
 
 const {render, html} = Lit;
 
@@ -22,7 +19,7 @@ const UIStrings = {
    *@description Name of a group of selectable value types that do not fall under integer and floating point value types, e.g. Pointer32. The group appears name appears under the Value Interpreter Settings.
    */
   otherGroup: 'Other',
-};
+} as const;
 const str_ =
     i18n.i18n.registerUIStrings('panels/linear_memory_inspector/components/ValueInterpreterSettings.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -67,11 +64,7 @@ export class TypeToggleEvent extends Event {
 export class ValueInterpreterSettings extends HTMLElement {
 
   readonly #shadow = this.attachShadow({mode: 'open'});
-  #valueTypes: Set<ValueType> = new Set();
-
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [Input.checkboxStyles, valueInterpreterSettingsStyles];
-  }
+  #valueTypes = new Set<ValueType>();
 
   set data(data: ValueInterpreterSettingsData) {
     this.#valueTypes = data.valueTypes;
@@ -82,6 +75,8 @@ export class ValueInterpreterSettings extends HTMLElement {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
+      <style>${Input.checkboxStyles.cssText}</style>
+      <style>${valueInterpreterSettingsStyles.cssText}</style>
       <div class="settings" jslog=${VisualLogging.pane('settings')}>
        ${[...GROUP_TO_TYPES.keys()].map(group => {
         return html`

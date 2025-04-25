@@ -1,6 +1,7 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import type * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
@@ -10,9 +11,11 @@ import * as VisualLogging from '../../../visual_logging/visual_logging.js';
 
 import colorSwatchStylesRaw from './colorSwatch.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const colorSwatchStyles = new CSSStyleSheet();
-colorSwatchStyles.replaceSync(colorSwatchStylesRaw.cssContent);
+colorSwatchStyles.replaceSync(colorSwatchStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -21,7 +24,7 @@ const UIStrings = {
    *@description Icon element title in Color Swatch of the inline editor in the Styles tab
    */
   shiftclickToChangeColorFormat: 'Shift-click to change color format',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/inline_editor/ColorSwatch.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -48,7 +51,7 @@ export class ColorSwatch extends HTMLElement {
   private readonly shadow = this.attachShadow({mode: 'open'});
   private tooltip: string = i18nString(UIStrings.shiftclickToChangeColorFormat);
   private color: Common.Color.Color|null = null;
-  private readonly: boolean = false;
+  private readonly = false;
 
   constructor(tooltip?: string) {
     super();
@@ -62,10 +65,6 @@ export class ColorSwatch extends HTMLElement {
 
   static isColorSwatch(element: Element): element is ColorSwatch {
     return element.localName === 'devtools-color-swatch';
-  }
-
-  getReadonly(): boolean {
-    return this.readonly;
   }
 
   setReadonly(readonly: boolean): void {

@@ -38,7 +38,7 @@ import * as Platform from '../platform/platform.js';
 import * as Root from '../root/root.js';
 
 import type {CallFrame, ScopeChainEntry} from './DebuggerModel.js';
-import {buildOriginalScopes, decodePastaRanges} from './SourceMapFunctionRanges.js';
+import {buildOriginalScopes, decodePastaRanges, type NamedFunctionRange} from './SourceMapFunctionRanges.js';
 import {decodeScopes, type OriginalScope, type Position as GeneratedPosition} from './SourceMapScopes.js';
 import {SourceMapScopesInfo} from './SourceMapScopesInfo.js';
 
@@ -57,7 +57,7 @@ export interface SourceMapV3Object {
 
   file?: string;
   sourceRoot?: string;
-  sourcesContent?: (string|null)[];
+  sourcesContent?: Array<string|null>;
 
   names?: string[];
   ignoreList?: number[];
@@ -83,13 +83,13 @@ export type SourceMapV3 = SourceMapV3Object|{
   // clang-format off
   version: number,
   file?: string,
-  sections: ({
+  sections: Array<{
     offset: {line: number, column: number},
     map: SourceMapV3Object,
   } | {
     offset: {line: number, column: number},
     url: string,
-  })[],
+  }>,
   // clang-format on
 };
 
@@ -148,6 +148,8 @@ interface SourceInfo {
 }
 
 export class SourceMap {
+  static retainRawSourceMaps = false;
+
   #json: SourceMapV3|null;
   readonly #compiledURLInternal: Platform.DevToolsPath.UrlString;
   readonly #sourceMappingURL: Platform.DevToolsPath.UrlString;
@@ -179,6 +181,35 @@ export class SourceMap {
       }
     }
     this.eachSection(this.parseSources.bind(this));
+  }
+
+  json(): SourceMapV3|null {
+    return this.#json;
+  }
+
+  augmentWithScopes(scriptUrl: Platform.DevToolsPath.UrlString, ranges: NamedFunctionRange[]): void {
+    this.#ensureMappingsProcessed();
+    if (this.#json && this.#json.version > 3) {
+      throw new Error('Only support augmenting source maps up to version 3.');
+    }
+    // Ensure scriptUrl is associated with sourceMap sources
+    const sourceIdx = this.#sourceIndex(scriptUrl);
+    if (sourceIdx >= 0) {
+      if (!this.#scopesInfo) {
+        // First time seeing this sourcemap, create an new empty scopesInfo object
+        this.#scopesInfo = new SourceMapScopesInfo(this, [], []);
+      }
+      if (!this.#scopesInfo.hasOriginalScopes(sourceIdx)) {
+        const originalScopes = buildOriginalScopes(ranges);
+        this.#scopesInfo.addOriginalScopesAtIndex(sourceIdx, originalScopes);
+      }
+    } else {
+      throw new Error(`Could not find sourceURL ${scriptUrl} in sourceMap`);
+    }
+  }
+
+  #sourceIndex(sourceURL: Platform.DevToolsPath.UrlString): number {
+    return this.#sourceInfos.findIndex(info => info.sourceURL === sourceURL);
   }
 
   compiledURL(): Platform.DevToolsPath.UrlString {
@@ -229,7 +260,7 @@ export class SourceMap {
     }
     const mappings = this.mappings();
     const index = Platform.ArrayUtilities.upperBound(
-        mappings, undefined, (unused, entry) => lineNumber - entry.lineNumber || columnNumber - entry.columnNumber);
+        mappings, undefined, (_, entry) => lineNumber - entry.lineNumber || columnNumber - entry.columnNumber);
     return index ? mappings[index - 1] : null;
   }
 
@@ -240,7 +271,7 @@ export class SourceMap {
   }|null {
     const mappings = this.mappings();
     const endIndex = Platform.ArrayUtilities.upperBound(
-        mappings, undefined, (unused, entry) => lineNumber - entry.lineNumber || columnNumber - entry.columnNumber);
+        mappings, undefined, (_, entry) => lineNumber - entry.lineNumber || columnNumber - entry.columnNumber);
     if (!endIndex) {
       // If the line and column are preceding all the entries, then there is nothing to map.
       return null;
@@ -264,8 +295,7 @@ export class SourceMap {
     const startSourceColumn = mappings[startIndex].sourceColumnNumber;
     const endReverseIndex = Platform.ArrayUtilities.upperBound(
         reverseMappings, undefined,
-        (unused, i) =>
-            startSourceLine - mappings[i].sourceLineNumber || startSourceColumn - mappings[i].sourceColumnNumber);
+        (_, i) => startSourceLine - mappings[i].sourceLineNumber || startSourceColumn - mappings[i].sourceColumnNumber);
     if (!endReverseIndex) {
       return null;
     }
@@ -310,7 +340,7 @@ export class SourceMap {
     const reverseMappings = this.reversedMappings(sourceURL);
     const endIndex = Platform.ArrayUtilities.upperBound(
         reverseMappings, undefined,
-        (unused, i) => lineNumber - mappings[i].sourceLineNumber || columnNumber - mappings[i].sourceColumnNumber);
+        (_, i) => lineNumber - mappings[i].sourceLineNumber || columnNumber - mappings[i].sourceColumnNumber);
     let startIndex = endIndex;
     while (startIndex > 0 &&
            mappings[reverseMappings[startIndex - 1]].sourceLineNumber ===
@@ -386,6 +416,9 @@ export class SourceMap {
       this.mappings().sort(SourceMapEntry.compare);
 
       this.#computeReverseMappings(this.#mappingsInternal);
+    }
+
+    if (!SourceMap.retainRawSourceMaps) {
       this.#json = null;
     }
   }
@@ -458,7 +491,7 @@ export class SourceMap {
       }
       const url =
           Common.ParsedURL.ParsedURL.completeURL(this.#baseURL, href) || (href as Platform.DevToolsPath.UrlString);
-      const source = sourceMap.sourcesContent && sourceMap.sourcesContent[i];
+      const source = sourceMap.sourcesContent?.[i];
       const sourceInfo: SourceInfo = {
         sourceURL: url,
         content: source ?? null,
@@ -482,7 +515,7 @@ export class SourceMap {
     let nameIndex = 0;
     const names = map.names ?? [];
     const tokenIter = new TokenIterator(map.mappings);
-    let sourceURL: Platform.DevToolsPath.UrlString = this.#sourceInfos[sourceIndex].sourceURL;
+    let sourceURL: Platform.DevToolsPath.UrlString|undefined = this.#sourceInfos[sourceIndex]?.sourceURL;
 
     while (true) {
       if (tokenIter.peek() === ',') {
@@ -507,7 +540,7 @@ export class SourceMap {
       const sourceIndexDelta = tokenIter.nextVLQ();
       if (sourceIndexDelta) {
         sourceIndex += sourceIndexDelta;
-        sourceURL = this.#sourceInfos[sourceIndex].sourceURL;
+        sourceURL = this.#sourceInfos[sourceIndex]?.sourceURL;
       }
       sourceLineNumber += tokenIter.nextVLQ();
       sourceColumnNumber += tokenIter.nextVLQ();
@@ -541,7 +574,7 @@ export class SourceMap {
     }
   }
 
-  private parseBloombergScopes(map: SourceMapV3Object): (OriginalScope|undefined)[] {
+  private parseBloombergScopes(map: SourceMapV3Object): Array<OriginalScope|undefined> {
     const scopeList = map.x_com_bloomberg_sourcesFunctionMappings;
     if (!scopeList) {
       throw new Error('Cant decode pasta scopes without x_com_bloomberg_sourcesFunctionMappings field');

@@ -1,6 +1,7 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/icon_button/icon_button.js';
 import '../../../ui/components/node_text/node_text.js';
@@ -16,9 +17,11 @@ import elementsBreadcrumbsStylesRaw from './elementsBreadcrumbs.css.js';
 import {crumbsToRender, type UserScrollPosition} from './ElementsBreadcrumbsUtils.js';
 import type {DOMNode} from './Helper.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const elementsBreadcrumbsStyles = new CSSStyleSheet();
-elementsBreadcrumbsStyles.replaceSync(elementsBreadcrumbsStylesRaw.cssContent);
+elementsBreadcrumbsStyles.replaceSync(elementsBreadcrumbsStylesRaw.cssText);
 
 const {html} = Lit;
 
@@ -35,7 +38,7 @@ const UIStrings = {
    * @description A label/tooltip for a button that scrolls the breadcrumbs bar to the right to show more entries.
    */
   scrollRight: 'Scroll right',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/elements/components/ElementsBreadcrumbs.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -58,7 +61,6 @@ export interface ElementsBreadcrumbsData {
 export class ElementsBreadcrumbs extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
   readonly #resizeObserver = new ResizeObserver(() => this.#checkForOverflowOnResize());
-  readonly #renderBound = this.#render.bind(this);
 
   #crumbsData: readonly DOMNode[] = [];
   #selectedDOMNode: Readonly<DOMNode>|null = null;
@@ -75,7 +77,7 @@ export class ElementsBreadcrumbs extends HTMLElement {
     this.#selectedDOMNode = data.selectedNode;
     this.#crumbsData = data.crumbs;
     this.#userHasManuallyScrolled = false;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   disconnectedCallback(): void {
@@ -120,12 +122,10 @@ export class ElementsBreadcrumbs extends HTMLElement {
       if (scrollContainerWidth < crumbWindowWidth) {
         this.#overflowing = false;
       }
-    } else {
       // We currently do not have overflow buttons.
       // If the content won't fit anymore, then rerender with overflow.
-      if (scrollContainerWidth > crumbWindowWidth) {
-        this.#overflowing = true;
-      }
+    } else if (scrollContainerWidth > crumbWindowWidth) {
+      this.#overflowing = true;
     }
     void this.#ensureSelectedNodeIsVisible();
     void this.#updateScrollState(crumbWindow);
@@ -194,13 +194,11 @@ export class ElementsBreadcrumbs extends HTMLElement {
         this.#overflowing = false;
         void this.#render();
       }
-    } else {
       // We currently do not have overflow buttons.
       // If the content won't fit anymore, then rerender with overflow.
-      if (scrollContainerWidth > crumbWindowWidth) {
-        this.#overflowing = true;
-        void this.#render();
-      }
+    } else if (scrollContainerWidth > crumbWindowWidth) {
+      this.#overflowing = true;
+      void this.#render();
     }
   }
 
@@ -293,7 +291,7 @@ export class ElementsBreadcrumbs extends HTMLElement {
         </devtools-icon>
       </button>
       `;
-          // clang-format on
+        // clang-format on
   }
 
   #render(): void {

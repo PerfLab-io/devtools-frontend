@@ -1,6 +1,7 @@
 // Copyright 2022 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/icon_button/icon_button.js';
 
@@ -10,16 +11,18 @@ import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
 import elementsTreeExpandButtonStylesRaw from './elementsTreeExpandButton.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const elementsTreeExpandButtonStyles = new CSSStyleSheet();
-elementsTreeExpandButtonStyles.replaceSync(elementsTreeExpandButtonStylesRaw.cssContent);
+elementsTreeExpandButtonStyles.replaceSync(elementsTreeExpandButtonStylesRaw.cssText);
 
 const UIStrings = {
   /**
    *@description Aria label for a button expanding collapsed subtree
    */
   expand: 'Expand',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/elements/components/ElementsTreeExpandButton.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 

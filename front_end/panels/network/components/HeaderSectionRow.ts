@@ -1,6 +1,7 @@
 // Copyright 2022 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/legacy/legacy.js';
 
@@ -18,9 +19,11 @@ import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 import type {EditableSpan} from './EditableSpan.js';
 import headerSectionRowStylesRaw from './HeaderSectionRow.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const headerSectionRowStyles = new CSSStyleSheet();
-headerSectionRowStyles.replaceSync(headerSectionRowStylesRaw.cssContent);
+headerSectionRowStyles.replaceSync(headerSectionRowStylesRaw.cssText);
 
 const {render, html} = Lit;
 
@@ -61,7 +64,7 @@ const UIStrings = {
    *@description The title of a button which removes a HTTP header override.
    */
   removeOverride: 'Remove this header override',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/network/components/HeaderSectionRow.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -120,7 +123,6 @@ export interface HeaderSectionRowData {
 export class HeaderSectionRow extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
   #header: HeaderDescriptor|null = null;
-  readonly #boundRender = this.#render.bind(this);
   #isHeaderValueEdited = false;
   #isValidHeaderName = true;
 
@@ -133,7 +135,7 @@ export class HeaderSectionRow extends HTMLElement {
     this.#isHeaderValueEdited =
         this.#header.originalValue !== undefined && this.#header.value !== this.#header.originalValue;
     this.#isValidHeaderName = isValidHeaderName(this.#header.name);
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #render(): void {
@@ -203,7 +205,7 @@ export class HeaderSectionRow extends HTMLElement {
               @paste=${this.#onHeaderNamePaste}
               .data=${{value: this.#header.name}}
             ></devtools-editable-span>` :
-            this.#header.name}:
+            this.#header.name}
         </div>
         <div
           class=${headerValueClasses}
@@ -395,7 +397,7 @@ export class HeaderSectionRow extends HTMLElement {
     if (!compareHeaders(headerValue, this.#header.value?.trim())) {
       this.#header.value = headerValue;
       this.dispatchEvent(new HeaderEditedEvent(this.#header.name, headerValue));
-      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
     }
 
     // Clear selection (needed when pressing 'enter' in editable span).
@@ -418,7 +420,7 @@ export class HeaderSectionRow extends HTMLElement {
     } else if (!compareHeaders(headerName, this.#header.name.trim())) {
       this.#header.name = headerName;
       this.dispatchEvent(new HeaderEditedEvent(headerName, this.#header.value || ''));
-      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
     }
 
     // Clear selection (needed when pressing 'enter' in editable span).
@@ -467,7 +469,7 @@ export class HeaderSectionRow extends HTMLElement {
     const isValidName = isValidHeaderName(editable.value);
     if (this.#isValidHeaderName !== isValidName) {
       this.#isValidHeaderName = isValidName;
-      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
     }
   }
 
@@ -480,7 +482,7 @@ export class HeaderSectionRow extends HTMLElement {
       if (this.#header) {
         this.#header.highlight = false;
       }
-      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
     }
   }
 

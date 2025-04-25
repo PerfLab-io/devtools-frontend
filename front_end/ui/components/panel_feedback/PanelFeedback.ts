@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../legacy/legacy.js';
 
@@ -12,9 +13,11 @@ import * as VisualLogging from '../../visual_logging/visual_logging.js';
 
 import panelFeedbackStylesRaw from './panelFeedback.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const panelFeedbackStyles = new CSSStyleSheet();
-panelFeedbackStyles.replaceSync(panelFeedbackStylesRaw.cssContent);
+panelFeedbackStyles.replaceSync(panelFeedbackStylesRaw.cssText);
 
 const UIStrings = {
   /**
@@ -33,7 +36,7 @@ const UIStrings = {
    *@description Title of the section to the quick start video and documentation on experimental panels.
    */
   videoAndDocumentation: 'Video and documentation',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('ui/components/panel_feedback/PanelFeedback.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -48,7 +51,6 @@ export interface PanelFeedbackData {
 }
 export class PanelFeedback extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  readonly #boundRender = this.#render.bind(this);
 
   #props: PanelFeedbackData = {
     feedbackUrl: Platform.DevToolsPath.EmptyUrlString,
@@ -62,7 +64,7 @@ export class PanelFeedback extends HTMLElement {
 
   set data(data: PanelFeedbackData) {
     this.#props = data;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #render(): void {

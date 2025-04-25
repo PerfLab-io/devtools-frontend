@@ -27,7 +27,6 @@ import {reloadDevTools} from '../helpers/cross-tool-helper.js';
 import {
   clickNthChildOfSelectedElementNode,
   focusElementsTree,
-  waitForContentOfSelectedElementsNode,
   waitForCSSPropertyValue,
   waitForElementsStyleSection,
 } from '../helpers/elements-helpers.js';
@@ -70,7 +69,7 @@ describe('The Sources Tab', function() {
   }
 
   it('steps over a source line mapping to a range with several statements', async () => {
-    const {target, frontend} = getBrowserAndPages();
+    const {target} = getBrowserAndPages();
 
     await openSourceCodeEditorForFile('sourcemap-stepping-source.js', 'sourcemap-stepping.html');
     let scriptEvaluation: Promise<unknown>;
@@ -81,7 +80,7 @@ describe('The Sources Tab', function() {
     const stepLocationRegExp = /.*source\.js:13$/;
 
     await step('Run to breakpoint', async () => {
-      await addBreakpointForLine(frontend, 12);
+      await addBreakpointForLine(12);
 
       scriptEvaluation = target.evaluate('singleline();');
 
@@ -103,7 +102,7 @@ describe('The Sources Tab', function() {
   });
 
   it('steps over a source line with mappings to several adjacent target lines', async () => {
-    const {target, frontend} = getBrowserAndPages();
+    const {target} = getBrowserAndPages();
     await openSourceCodeEditorForFile('sourcemap-stepping-source.js', 'sourcemap-stepping.html');
 
     let scriptEvaluation: Promise<unknown>;
@@ -114,7 +113,7 @@ describe('The Sources Tab', function() {
     const stepLocationRegExp = /.*source\.js:5$/;
 
     await step('Run to breakpoint', async () => {
-      await addBreakpointForLine(frontend, 4);
+      await addBreakpointForLine(4);
 
       scriptEvaluation = target.evaluate('multiline();');
 
@@ -136,7 +135,7 @@ describe('The Sources Tab', function() {
   });
 
   it('steps out from a function, with source maps available (crbug/1283188)', async () => {
-    const {target, frontend} = getBrowserAndPages();
+    const {target} = getBrowserAndPages();
     await openSourceCodeEditorForFile('sourcemap-stepping-source.js', 'sourcemap-stepping.html');
 
     let scriptEvaluation: Promise<unknown>;
@@ -147,7 +146,7 @@ describe('The Sources Tab', function() {
     const stepLocationRegExp = /sourcemap-stepping.html:6$/;
 
     await step('Run to breakpoint', async () => {
-      await addBreakpointForLine(frontend, 4);
+      await addBreakpointForLine(4);
 
       scriptEvaluation = target.evaluate('outer();');
 
@@ -229,7 +228,7 @@ describe('The Sources Tab', function() {
 
       const scopeValues = await waitForFunction(async () => {
         const values = await getValuesForScope('Local', 0, 0);
-        return (values && values.includes(unminifiedVariable)) ? values : undefined;
+        return (values?.includes(unminifiedVariable)) ? values : undefined;
       });
       assert.include(scopeValues, unminifiedVariable);
     });
@@ -258,7 +257,7 @@ describe('The Sources Tab', function() {
   });
 
   it('shows unminified identifiers in scopes with minified names clash and nested scopes', async () => {
-    const {target, frontend} = getBrowserAndPages();
+    const {target} = getBrowserAndPages();
     await openSourceCodeEditorForFile('sourcemap-scopes-minified.js', 'sourcemap-scopes-minified.html');
 
     let scriptEvaluation: Promise<unknown>;
@@ -269,7 +268,7 @@ describe('The Sources Tab', function() {
     const innerUnminifiedVariable = 'loop_var: 0';
 
     await step('Run to outer scope breakpoint', async () => {
-      await addBreakpointForLine(frontend, 2);
+      await addBreakpointForLine(2);
 
       scriptEvaluation = target.evaluate('foo(10);');
 
@@ -280,13 +279,13 @@ describe('The Sources Tab', function() {
     await step('Check local scope variable is eventually un-minified', async () => {
       const scopeValues = await waitForFunction(async () => {
         const values = await getValuesForScope('Local', 0, 0);
-        return (values && values.includes(outerUnminifiedVariable)) ? values : undefined;
+        return (values?.includes(outerUnminifiedVariable)) ? values : undefined;
       });
       assert.include(scopeValues, outerUnminifiedVariable);
     });
 
     await step('Resume from outer breakpoint', async () => {
-      await addBreakpointForLine(frontend, 5);
+      await addBreakpointForLine(5);
       await click(RESUME_BUTTON);
       const scriptLocation = await waitForStackTopMatch(breakLocationInnerRegExp);
       assert.match(scriptLocation, breakLocationInnerRegExp);
@@ -295,20 +294,20 @@ describe('The Sources Tab', function() {
     await step('Check local and block scope variables are eventually un-minified', async () => {
       const blockScopeValues = await waitForFunction(async () => {
         const values = await getValuesForScope('Block', 0, 0);
-        return (values && values.includes(innerUnminifiedVariable)) ? values : undefined;
+        return (values?.includes(innerUnminifiedVariable)) ? values : undefined;
       });
       assert.include(blockScopeValues, innerUnminifiedVariable);
 
       const scopeValues = await waitForFunction(async () => {
         const values = await getValuesForScope('Local', 0, 0);
-        return (values && values.includes(outerUnminifiedVariable)) ? values : undefined;
+        return (values?.includes(outerUnminifiedVariable)) ? values : undefined;
       });
       assert.include(scopeValues, outerUnminifiedVariable);
     });
 
     await step('Resume from inner breakpoint', async () => {
-      await removeBreakpointForLine(frontend, 2);
-      await removeBreakpointForLine(frontend, 5);
+      await removeBreakpointForLine(2);
+      await removeBreakpointForLine(5);
       await click(RESUME_BUTTON);
       await scriptEvaluation;
     });
@@ -388,22 +387,20 @@ describe('The Sources Tab', function() {
       });
 
   it('updates decorators for removed breakpoints in case of code-splitting (crbug.com/1251675)', async () => {
-    const {frontend} = getBrowserAndPages();
     await openSourceCodeEditorForFile('sourcemap-disjoint.js', 'sourcemap-disjoint.html');
     assert.deepEqual(await getBreakpointDecorators(), []);
-    await addBreakpointForLine(frontend, 2);
+    await addBreakpointForLine(2);
     assert.deepEqual(await getBreakpointDecorators(), [2]);
-    await removeBreakpointForLine(frontend, 2);
+    await removeBreakpointForLine(2);
     assert.deepEqual(await getBreakpointDecorators(), []);
   });
 
   it('reliably hits breakpoints on worker with source map', async () => {
     await enableExperiment('instrumentation-breakpoints');
-    const {frontend} = getBrowserAndPages();
     await openSourceCodeEditorForFile('sourcemap-stepping-source.js', 'sourcemap-breakpoint.html');
 
     await step('Add a breakpoint at first line of function multiline', async () => {
-      await addBreakpointForLine(frontend, 4);
+      await addBreakpointForLine(4);
     });
 
     await step('Navigate to a different site to refresh devtools and remove back-end state', async () => {
@@ -457,7 +454,7 @@ describe('The Sources Tab', function() {
     await step('Get infobar text', async () => {
       await openFileInEditor('sourcemap-origin.min.js');
       const infobarText = await waitForTextContent(INFOBAR_TEXT);
-      assert.strictEqual(infobarText, 'Source map loaded.');
+      assert.strictEqual(infobarText, 'Source map loaded');
     });
   });
 
@@ -476,7 +473,7 @@ describe('The Sources Tab', function() {
 
     await step('Get infobar text', async () => {
       const infobarText = await waitForTextContent(INFOBAR_TEXT);
-      assert.strictEqual(infobarText, 'Source map loaded.');
+      assert.strictEqual(infobarText, 'Source map loaded');
     });
   });
 
@@ -490,7 +487,7 @@ describe('The Sources Tab', function() {
       await waitFor('.infobar-info');
       const infobarTexts = await getVisibleTextContents(INFOBAR_TEXT);
       assert.deepEqual(
-          infobarTexts, ['This script is on the debugger\'s ignore list', 'Source map skipped for this file.']);
+          infobarTexts, ['This script is on the debugger\'s ignore list', 'Source map skipped for this file']);
     });
   });
 
@@ -509,15 +506,15 @@ describe('The Sources Tab', function() {
 
     await step('Get infobar text', async () => {
       const infobarText = await waitForTextContent(INFOBAR_TEXT);
-      assert.strictEqual(infobarText, 'Source map failed to load.');
+      assert.strictEqual(infobarText, 'Source map failed to load');
     });
   });
 
   describe('can deal with code-splitting', () => {
     it('sets multiple breakpoints in case of code-splitting', async () => {
-      const {target, frontend} = getBrowserAndPages();
+      const {target} = getBrowserAndPages();
       await openSourceCodeEditorForFile('sourcemap-codesplit.ts', 'sourcemap-codesplit.html');
-      await addBreakpointForLine(frontend, 3);
+      await addBreakpointForLine(3);
 
       for (let i = 0; i < 2; ++i) {
         const scriptLocation = await retrieveTopCallFrameScriptLocation(`functions[${i}]();`, target);
@@ -526,13 +523,13 @@ describe('The Sources Tab', function() {
     });
 
     it('restores breakpoints correctly in case of code-splitting (crbug.com/1412033)', async () => {
-      const {target, frontend} = getBrowserAndPages();
+      const {target} = getBrowserAndPages();
 
       // Load the initial setup with only one script pointing to `codesplitting-bar.ts`...
       await openSourceCodeEditorForFile('codesplitting-bar.ts', 'codesplitting.html');
 
       // ...and set a breakpoint inside `bar()`.
-      await addBreakpointForLine(frontend, 2);
+      await addBreakpointForLine(2);
 
       // Now load the second script pointing to `codesplitting-bar.ts`...
       await target.evaluate('addSecond();');
@@ -562,11 +559,11 @@ describe('The Sources Tab', function() {
     });
 
     it('hits breakpoints reliably after reload in case of code-splitting (crbug.com/1490369)', async () => {
-      const {target, frontend} = getBrowserAndPages();
+      const {target} = getBrowserAndPages();
 
       // Set the breakpoint inside `shared()` in `shared.js`.
       await openSourceCodeEditorForFile('shared.js', 'codesplitting-race.html');
-      await addBreakpointForLine(frontend, 2);
+      await addBreakpointForLine(2);
       await waitForFunction(async () => await isBreakpointSet(2));
 
       // Reload the page.
@@ -632,11 +629,11 @@ describe('The Sources Tab', function() {
     });
 
     it('correctly maintains breakpoints from initial bundle to replacement', async () => {
-      const {target, frontend} = getBrowserAndPages();
+      const {target} = getBrowserAndPages();
 
       // Load the "initial bundle" and set a breakpoint on the second line.
       await openSourceCodeEditorForFile('index.js', 'sourcemap-hmr.html');
-      await addBreakpointForLine(frontend, 2);
+      await addBreakpointForLine(2);
 
       // Simulate the hot module replacement for index.js
       await target.evaluate('update();');
@@ -652,7 +649,7 @@ describe('The Sources Tab', function() {
     });
 
     it('correctly maintains breakpoints from replacement to initial bundle (across reloads)', async () => {
-      const {target, frontend} = getBrowserAndPages();
+      const {target} = getBrowserAndPages();
 
       // Load the "initial bundle".
       await openSourceCodeEditorForFile('index.js', 'sourcemap-hmr.html');
@@ -667,7 +664,7 @@ describe('The Sources Tab', function() {
       });
 
       // Set a breakpoint on the second line.
-      await addBreakpointForLine(frontend, 2);
+      await addBreakpointForLine(2);
 
       // Reload the page and re-open (the initial) index.js.
       await reloadPageAndWaitForSourceFile(target, 'index.js');
@@ -701,7 +698,6 @@ describe('The Elements Tab', () => {
     await goToResource('sources/sourcemap-css-inline-relative.html');
     await step('Prepare elements tab', async () => {
       await waitForElementsStyleSection();
-      await waitForContentOfSelectedElementsNode('<body>\u200B');
       await focusElementsTree();
       await clickNthChildOfSelectedElementNode(1);
     });
@@ -713,7 +709,6 @@ describe('The Elements Tab', () => {
     await goToResource('sources/sourcemap-css-dynamic-link.html');
     await step('Prepare elements tab', async () => {
       await waitForElementsStyleSection();
-      await waitForContentOfSelectedElementsNode('<body>\u200B');
       await focusElementsTree();
       await clickNthChildOfSelectedElementNode(1);
     });
@@ -725,7 +720,6 @@ describe('The Elements Tab', () => {
     await goToResource('sources/sourcemap-css-dynamic.html');
     await step('Prepare elements tab', async () => {
       await waitForElementsStyleSection();
-      await waitForContentOfSelectedElementsNode('<body>\u200B');
       await focusElementsTree();
       await clickNthChildOfSelectedElementNode(1);
     });
@@ -737,7 +731,6 @@ describe('The Elements Tab', () => {
     await goToResource('sources/sourcemap-css-dynamic-link.html');
     await step('Prepare elements tab', async () => {
       await waitForElementsStyleSection();
-      await waitForContentOfSelectedElementsNode('<body>\u200B');
       await focusElementsTree();
       await clickNthChildOfSelectedElementNode(1);
     });

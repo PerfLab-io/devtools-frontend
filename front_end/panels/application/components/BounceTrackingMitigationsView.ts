@@ -1,6 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/report_view/report_view.js';
 import '../../../ui/legacy/components/data_grid/data_grid.js';
@@ -14,11 +15,7 @@ import * as LegacyWrapper from '../../../ui/components/legacy_wrapper/legacy_wra
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
-import bounceTrackingMitigationsViewStylesRaw from './bounceTrackingMitigationsView.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const bounceTrackingMitigationsViewStyles = new CSSStyleSheet();
-bounceTrackingMitigationsViewStyles.replaceSync(bounceTrackingMitigationsViewStylesRaw.cssContent);
+import bounceTrackingMitigationsViewStyles from './bounceTrackingMitigationsView.css.js';
 
 const {html} = Lit;
 
@@ -64,7 +61,7 @@ const UIStrings = {
    * @description Text for link to Bounce Tracking Mitigations feature flag entry in the chrome://flags page.
    */
   featureFlag: 'Bounce Tracking Mitigations Feature Flag',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/application/components/BounceTrackingMitigationsView.ts', UIStrings);
 export const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -87,13 +84,13 @@ export class BounceTrackingMitigationsView extends LegacyWrapper.LegacyWrapper.W
   #seenButtonClick = false;
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [bounceTrackingMitigationsViewStyles];
     void this.#render();
   }
 
   async #render(): Promise<void> {
     // clang-format off
     Lit.render(html`
+      <style>${bounceTrackingMitigationsViewStyles.cssText}</style>
       <devtools-report .data=${{reportTitle: i18nString(UIStrings.bounceTrackingMitigationsTitle)}}
                        jslog=${VisualLogging.pane('bounce-tracking-mitigations')}>
         ${await this.#renderMainFrameInformation()}

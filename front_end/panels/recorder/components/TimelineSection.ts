@@ -1,14 +1,17 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import * as Lit from '../../../ui/lit/lit.js';
 
 import timelineSectionStylesRaw from './timelineSection.css.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
+/* eslint-disable rulesdir/no-adopted-style-sheets --
+ * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
+ **/
 const timelineSectionStyles = new CSSStyleSheet();
-timelineSectionStyles.replaceSync(timelineSectionStylesRaw.cssContent);
+timelineSectionStyles.replaceSync(timelineSectionStylesRaw.cssText);
 
 const {html} = Lit;
 

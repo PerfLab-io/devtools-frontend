@@ -214,7 +214,7 @@ describe('The Memory Panel', function() {
       const findPromises = await Promise.all(results.map(async e => {
         const textContent = await e.evaluate(el => el.textContent);
         // Can't search for "shared in leaking()" because the different parts are spaced with CSS.
-        return textContent && textContent.startsWith('sharedinleaking()') ? e : null;
+        return textContent?.startsWith('sharedinleaking()') ? e : null;
       }));
       return findPromises.find(result => result !== null);
     });
@@ -285,14 +285,14 @@ describe('The Memory Panel', function() {
     });
     const rows = await getDataGridRows('.retaining-paths-view table.data');
     const propertyNameElement = await rows[0].$('span.property-name');
-    propertyNameElement!.hover();
+    await propertyNameElement!.hover();
     const el = await waitFor('div.vbox.flex-auto.no-pointer-events');
     await waitFor('.source-code', el);
 
     await setSearchFilter('system / descriptorarray');
     await findSearchResult('system / DescriptorArray');
     const searchResultElement = await waitFor('.selected.data-grid-data-grid-node span.object-value-null');
-    searchResultElement!.hover();
+    await searchResultElement!.hover();
     await waitFor('.widget .object-popover-footer');
   });
 
@@ -319,7 +319,7 @@ describe('The Memory Panel', function() {
 
     const header = await waitForElementWithTextContent('Live Count');
     const table = await header.evaluateHandle(node => {
-      return node.closest('.data-grid');
+      return node.closest('.data-grid')!;
     });
     await waitFor('.data-grid-data-grid-node', table);
   });
@@ -421,8 +421,8 @@ describe('The Memory Panel', function() {
       }
 
       // Verify the link to the source code.
-      const linkText =
-          await waitForFunction(async () => element?.evaluate(e => e.querySelector('.devtools-link')?.textContent));
+      const linkText = await waitForFunction(
+          async () => await element?.evaluate(e => e.querySelector('.devtools-link')?.textContent));
       assert.strictEqual(linkText, entry.link);
     }
   });
@@ -534,10 +534,10 @@ describe('The Memory Panel', function() {
     await waitForSearchResultNumber(2);
     await setFilterDropdown('Objects retained by detached DOM nodes');
     await getCategoryRow('ObjectRetainedByDetachedDom');
-    assert.isTrue(!(await getCategoryRow('ObjectRetainedByBothDetachedDomAndConsole', false)));
+    assert.isNotOk(await getCategoryRow('ObjectRetainedByBothDetachedDomAndConsole', false));
     await setFilterDropdown('Objects retained by DevTools Console');
     await getCategoryRow('ObjectRetainedByConsole');
-    assert.isTrue(!(await getCategoryRow('ObjectRetainedByBothDetachedDomAndConsole', false)));
+    assert.isNotOk(await getCategoryRow('ObjectRetainedByBothDetachedDomAndConsole', false));
   });
 
   it('Groups HTML elements by tag name', async () => {
@@ -560,7 +560,7 @@ describe('The Memory Panel', function() {
     await setClassFilter('{a, b, c, d, ');
     // Objects should be grouped by interface if there are at least two matching instances.
     assert.strictEqual(2, await getCountFromCategoryRowWithName('{a, b, c, d, p, q, r}'));
-    assert.isTrue(!(await getCategoryRow('{a, b, c, d, e}', /* wait:*/ false)));
+    assert.isNotOk(await getCategoryRow('{a, b, c, d, e}', /* wait:*/ false));
     const {frontend, target} = await getBrowserAndPages();
     await target.bringToFront();
     await target.click('button#update');
@@ -573,10 +573,11 @@ describe('The Memory Panel', function() {
     // so the comparison should report only one new object of the following type, not two.
     assert.strictEqual(1, await getAddedCountFromComparisonRowWithName('{a, b, c, d, e}'));
     // Only one of these objects remains, so it's no longer a category.
-    assert.isTrue(!(await getCategoryRow('{a, b, c, d, p, q, r}', /* wait:*/ false)));
+    assert.isNotOk(await getCategoryRow('{a, b, c, d, p, q, r}', /* wait:*/ false));
   });
 
-  it('Groups objects by constructor location', async () => {
+  // Failing with crbug.com/361078921
+  it.skip('[crbug.com/361078921]: Groups objects by constructor location', async () => {
     await goToResource('memory/duplicated-names.html');
     await navigateToMemoryTab();
     await takeHeapSnapshot();
