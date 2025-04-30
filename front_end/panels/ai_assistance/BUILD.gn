@@ -25,6 +25,7 @@ devtools_module("ai_assistance") {
     "components/ChatView.ts",
     "components/MarkdownRendererWithCodeBlock.ts",
     "components/UserActionRow.ts",
+    "standalone.ts",
   ]
 
   deps = [

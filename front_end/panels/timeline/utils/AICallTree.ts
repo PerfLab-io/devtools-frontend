@@ -2,12 +2,25 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import * as Root from '../../../core/root/root.js';
+// import * as Root from '../../../core/root/root.js';
 import * as Trace from '../../../models/trace/trace.js';
 
 import {nameForEntry} from './EntryName.js';
 import {visibleTypes} from './EntryStyles.js';
-import {SourceMapsResolver} from './SourceMapsResolver.js';
+// import {SourceMapsResolver} from './SourceMapsResolver.js';
+import type * as Platform from '../../../core/platform/platform.js';
+
+
+const resolvedURLForEntry = (parsedTrace: Trace.Handlers.Types.ParsedTrace, entry: Trace.Types.Events.Event):
+      Platform.DevToolsPath.UrlString|null => {
+    // If no source mapping was found for an entry's URL, then default
+    // to the URL value contained in the event itself, if any.
+    const url = Trace.Handlers.Helpers.getNonResolvedURL(entry, parsedTrace);
+    if (url) {
+      return url;
+    }
+    return null;
+  }
 
 /** Iterates from a node down through its descendents. If the callback returns true, the loop stops. */
 function depthFirstWalk(
@@ -110,7 +123,8 @@ export class AICallTree {
       return null;
     }
 
-    const allEventsEnabled = Root.Runtime.experiments.isEnabled('timeline-show-all-events');
+    // const allEventsEnabled = Root.Runtime.experiments.isEnabled('timeline-show-all-events');
+    const allEventsEnabled = true;
     const {startTime, endTime} = Trace.Helpers.Timing.eventTimingsMilliSeconds(selectedEvent);
     const selectedEventBounds = Trace.Helpers.Timing.traceWindowFromMicroSeconds(
         Trace.Helpers.Timing.milliToMicro(startTime), Trace.Helpers.Timing.milliToMicro(endTime));
@@ -193,7 +207,8 @@ export class AICallTree {
       throw new Error('Event required');
     }
 
-    const url = SourceMapsResolver.resolvedURLForEntry(parsedTrace, event);
+    // const url = SourceMapsResolver.resolvedURLForEntry(parsedTrace, event);
+    const url = resolvedURLForEntry(parsedTrace, event);
     // Get the index of the URL within allUrls, and push if needed. Set to -1 if there's no URL here.
     const urlIndex = !url ? -1 : allUrls.indexOf(url) === -1 ? allUrls.push(url) - 1 : allUrls.indexOf(url);
     const children = Array.from(node.children().values());

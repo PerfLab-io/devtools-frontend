@@ -1,22 +1,6 @@
-// Copyright 2024 The Chromium Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
-import * as Common from '../../../core/common/common.js';
-import * as Host from '../../../core/host/host.js';
-import * as i18n from '../../../core/i18n/i18n.js';
-import * as Trace from '../../../models/trace/trace.js';
-import * as TimelineUtils from '../../timeline/utils/utils.js';
-import * as PanelUtils from '../../utils/utils.js';
-
-import {
-  AgentType,
-  AiAgent,
-  type ContextResponse,
-  ConversationContext,
-  type RequestOptions,
-  ResponseType,
-} from './AiAgent.js';
+import * as Trace from '../../models/trace/trace.js';
+import { completeURL, nameForEntry } from '../timeline/utils/EntryName.js';
+import * as TimelineUtils from '../timeline/utils/utils.js';
 
 /**
  * Preamble clocks in at ~950 tokens.
@@ -25,7 +9,7 @@ import {
  *
  * Check token length in https://aistudio.google.com/
  */
-const preamble = `You are a performance expert deeply integrated with Chrome DevTools.
+export const preamble = `You are a performance expert deeply integrated with Chrome DevTools.
 You specialize in analyzing web application behavior captured by Chrome DevTools Performance Panel and Chrome tracing.
 You will be provided a text representation of a call tree of native and JavaScript callframes selected by the user from a performance trace's flame chart.
 This tree originates from the root task of a specific callframe.
@@ -113,16 +97,33 @@ It seems like a significant portion of the animation time is spent calculating t
 Perhaps there's room for optimization there. You could investigate whether the calculatePosition function can be made more efficient or if the number of calculations can be reduced.
 `;
 
-/*
-* Strings that don't need to be translated at this time.
-*/
-const UIStringsNotTranslate = {
-  analyzingCallTree: 'Analyzing call tree',
-};
+export abstract class StandaloneConversationContext<T> {
+  abstract getOrigin(): string;
+  abstract getItem(): T;
+  abstract getIcon(): HTMLElement;
+  abstract getTitle(): string;
 
-const lockedString = i18n.i18n.lockedString;
+  isOriginAllowed(agentOrigin: string|undefined): boolean {
+    if (!agentOrigin) {
+      return true;
+    }
+    // Currently does not handle opaque origins because they
+    // are not available to DevTools, instead checks
+    // that serialization of the origin is the same
+    // https://html.spec.whatwg.org/#ascii-serialisation-of-an-origin.
+    return this.getOrigin() === agentOrigin;
+  }
 
-export class CallTreeContext extends ConversationContext<TimelineUtils.AICallTree.AICallTree> {
+  /**
+   * This method is called at the start of `AiAgent.run`.
+   * It will be overridden in subclasses to fetch data related to the context item.
+   */
+  async refresh(): Promise<void> {
+    return;
+  }
+}
+
+export class StandaloneCallTreeContext extends StandaloneConversationContext<TimelineUtils.AICallTree.AICallTree> {
   #callTree: TimelineUtils.AICallTree.AICallTree;
 
   constructor(callTree: TimelineUtils.AICallTree.AICallTree) {
@@ -140,7 +141,8 @@ export class CallTreeContext extends ConversationContext<TimelineUtils.AICallTre
     // about the origin it was served on.
     const nonResolvedURL = Trace.Handlers.Helpers.getNonResolvedURL(selectedEvent, this.#callTree.parsedTrace);
     if (nonResolvedURL) {
-      const origin = Common.ParsedURL.ParsedURL.extractOrigin(nonResolvedURL);
+      const url = completeURL(nonResolvedURL.toString());
+      const origin = url.isValid ? url.securityOrigin() : '';
       if (origin) {  // origin could be the empty string.
         return origin;
       }
@@ -160,13 +162,7 @@ export class CallTreeContext extends ConversationContext<TimelineUtils.AICallTre
   }
 
   override getIcon(): HTMLElement {
-    const iconData = {
-      iconName: 'performance',
-      color: 'var(--sys-color-on-surface-subtle)',
-    };
-    const icon = PanelUtils.PanelUtils.createIconElement(iconData, 'Performance');
-    icon.classList.add('icon');
-    return icon;
+    return document.createElement('div');
   }
 
   override getTitle(): string {
@@ -175,66 +171,6 @@ export class CallTreeContext extends ConversationContext<TimelineUtils.AICallTre
       return 'unknown';
     }
 
-    return TimelineUtils.EntryName.nameForEntry(event);
-  }
-}
-
-/**
- * One agent instance handles one conversation. Create a new agent
- * instance for a new conversation.
- */
-export class PerformanceAgent extends AiAgent<TimelineUtils.AICallTree.AICallTree> {
-  override readonly type = AgentType.PERFORMANCE;
-  readonly preamble = preamble;
-  readonly clientFeature = Host.AidaClient.ClientFeature.CHROME_PERFORMANCE_AGENT;
-  get userTier(): string|undefined {
-    const config = Common.Settings.Settings.instance().getHostConfig();
-    return config.devToolsAiAssistancePerformanceAgent?.userTier;
-  }
-  get options(): RequestOptions {
-    const config = Common.Settings.Settings.instance().getHostConfig();
-    const temperature = config.devToolsAiAssistancePerformanceAgent?.temperature;
-    const modelId = config.devToolsAiAssistancePerformanceAgent?.modelId;
-
-    return {
-      temperature,
-      modelId,
-    };
-  }
-
-  async *
-      handleContextDetails(aiCallTree: ConversationContext<TimelineUtils.AICallTree.AICallTree>|null):
-          AsyncGenerator<ContextResponse, void, void> {
-    yield {
-      type: ResponseType.CONTEXT,
-      title: lockedString(UIStringsNotTranslate.analyzingCallTree),
-      details: [
-        {
-          title: 'Selected call tree',
-          text: aiCallTree?.getItem().serialize() ?? '',
-        },
-      ],
-    };
-  }
-
-  override async enhanceQuery(query: string, aiCallTree: ConversationContext<TimelineUtils.AICallTree.AICallTree>|null):
-      Promise<string> {
-    const treeStr = aiCallTree?.getItem().serialize();
-
-    // Collect the queries from previous messages in this session
-    const prevQueries: string[] = [];
-    for await (const data of this.runFromHistory()) {
-      if (data.type === ResponseType.QUERYING) {
-        prevQueries.push(data.query);
-      }
-    }
-    // If this is a followup chat about the same call tree, don't include the call tree serialization again.
-    // We don't need to repeat it and we'd rather have more the context window space.
-    if (prevQueries.length && treeStr && prevQueries.find(q => q.startsWith(treeStr))) {
-      aiCallTree = null;
-    }
-
-    const perfEnhancementQuery = aiCallTree ? `${treeStr}\n\n# User request\n\n` : '';
-    return `${perfEnhancementQuery}${query}`;
+    return nameForEntry(event);
   }
 }

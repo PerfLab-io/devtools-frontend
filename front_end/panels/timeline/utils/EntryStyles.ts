@@ -5,7 +5,7 @@
 import * as i18n from '../../../core/i18n/i18n.js';
 import type * as Platform from '../../../core/platform/platform.js';
 import * as Trace from '../../../models/trace/trace.js';
-import * as ThemeSupport from '../../../ui/legacy/theme_support/theme_support.js';
+// import * as ThemeSupport from '../../../ui/legacy/theme_support/theme_support.js';
 
 const UIStrings = {
   /**
@@ -585,7 +585,8 @@ export class TimelineCategory {
   }
 
   getComputedColorValue(): string {
-    return ThemeSupport.ThemeSupport.instance().getComputedValue(this.colorInternal);
+    // return ThemeSupport.ThemeSupport.instance().getComputedValue(this.colorInternal);
+    return this.colorInternal;
   }
 
   set hidden(hidden: boolean) {

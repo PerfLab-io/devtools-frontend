@@ -2,11 +2,159 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import * as Common from '../../../core/common/common.js';
+// import * as Common from '../../../core/common/common.js';
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as Trace from '../../../models/trace/trace.js';
 
 import {getEventStyle} from './EntryStyles.js';
+
+// RegExp groups:
+// 1 - scheme, hostname, ?port
+// 2 - scheme (using the RFC3986 grammar)
+// 3 - ?user:password
+// 4 - hostname
+// 5 - ?port
+// 6 - ?path
+// 7 - ?query
+// 8 - ?fragment
+const schemeRegex = /([A-Za-z][A-Za-z0-9+.-]*):\/\//;
+const userRegex = /(?:([A-Za-z0-9\-._~%!$&'()*+,;=:]*)@)?/;
+const hostRegex = /((?:\[::\d?\])|(?:[^\s\/:]*))/;
+const portRegex = /(?::([\d]+))?/;
+const pathRegex = /(\/[^#?]*)?/;
+const queryRegex = /(?:\?([^#]*))?/;
+const fragmentRegex = /(?:#(.*))?/;
+
+const urlRegex = new RegExp(
+    '^(' + schemeRegex.source + userRegex.source + hostRegex.source + portRegex.source + ')' + pathRegex.source +
+    queryRegex.source + fragmentRegex.source + '$');
+
+const trimEndWithMaxLength = (str: string, maxLength: number): string => {
+  if (str.length <= maxLength) {
+    return String(str);
+  }
+  return str.substr(0, maxLength - 1) + '…';
+}
+
+
+export function completeURL(url: string) {
+  let isValid = false;
+  let scheme = '';
+  let user = '';
+  let host = '';
+  let port = '';
+  let path = '';
+  let lastPathComponent = '';
+  let displayNameInternal = '';
+  let dataURLDisplayNameInternal = '';
+  let blobInnerScheme = '';
+  const isBlobUrl = url.startsWith('blob:');
+  const urlToMatch = isBlobUrl ? url.substring(5) : url;
+  const match = urlToMatch.match(urlRegex);
+
+  const domain = (): string => {
+    if (scheme === 'data') {
+      return 'data:';
+    }
+    return host + (port ? ':' + port : '');
+  }
+
+  const securityOrigin = (): string => {
+    if (scheme === 'data') {
+      return 'data:';
+    }
+    const _scheme = isBlobUrl ? blobInnerScheme : scheme;
+    return _scheme + '://' + domain();
+  }
+
+  const dataURLDisplayName = (): string => {
+    if (dataURLDisplayNameInternal) {
+      return dataURLDisplayNameInternal;
+    }
+    if (scheme !== 'data') {
+      return '';
+    }
+    dataURLDisplayNameInternal = trimEndWithMaxLength(url, 20);
+    return dataURLDisplayNameInternal;
+  }
+
+  const displayName = (): string => {
+  if (displayNameInternal) {
+    return displayNameInternal;
+  }
+
+  if (scheme === 'data') {
+    return dataURLDisplayName();
+  }
+  if (isBlobUrl) {
+    return url;
+  }
+  if (scheme === 'about') {
+    return url;
+  }
+
+  displayNameInternal = lastPathComponent;
+  if (!displayNameInternal) {
+    displayNameInternal = (host || '') + '/';
+  }
+  if (displayNameInternal === '/') {
+    displayNameInternal = url;
+  }
+  return displayNameInternal;
+}
+
+  if (match) {
+    isValid = true;
+    if (isBlobUrl) {
+      blobInnerScheme = match[2].toLowerCase();
+      scheme = 'blob';
+    } else {
+      scheme = match[2].toLowerCase();
+    }
+    user = match[3] ?? '';
+    host = match[4] ?? '';
+    port = match[5] ?? '';
+    path = match[6] ?? '/';
+  } else {
+    if (url.startsWith('data:')) {
+      scheme = 'data';
+    }
+    if (url.startsWith('blob:')) {
+      scheme = 'blob';
+    }
+    if (url === 'about:blank') {
+      scheme = 'about';
+    }
+    path = url;
+
+    return {
+      isValid,
+      scheme,
+      user,
+      host,
+      port,
+      displayName: displayName(),
+      securityOrigin,
+    };
+  }
+
+  const lastSlashExceptTrailingIndex = path.lastIndexOf('/', path.length - 2);
+  if (lastSlashExceptTrailingIndex !== -1) {
+    lastPathComponent = path.substring(lastSlashExceptTrailingIndex + 1);
+  } else {
+    lastPathComponent = path;
+  }
+
+  return {
+    isValid,
+    scheme,
+    user,
+    host,
+    port,
+    displayName: displayName(),
+    securityOrigin
+  };
+}
 
 const UIStrings = {
   /**
@@ -81,7 +229,7 @@ export function nameForEntry(
     return i18nString(UIStrings.eventDispatchS, {PH1: entry.args.data.type});
   }
   if (Trace.Types.Events.isSyntheticNetworkRequest(entry)) {
-    const parsedURL = new Common.ParsedURL.ParsedURL(entry.args.data.url);
+    const parsedURL = completeURL(entry.args.data.url);
     const text =
         parsedURL.isValid ? `${parsedURL.displayName} (${parsedURL.host})` : entry.args.data.url || 'Network request';
     return text;

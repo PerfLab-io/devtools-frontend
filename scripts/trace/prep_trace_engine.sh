@@ -21,10 +21,15 @@ rm -rf "$dist"
 mkdir -p "$dist/core"
 mkdir -p "$dist/models"
 mkdir -p "$dist/generated"
+mkdir -p "$dist/panels/timeline/utils"
+mkdir -p "$dist/panels/ai_assistance"
 
 cp -r "$out_dir/gen/front_end/models/trace" "$dist/models/trace"
 cp -r "$out_dir/gen/front_end/models/cpu_profile" "$dist/models/cpu_profile"
 cp -r "$out_dir/gen/front_end/core/platform" "$dist/core/platform"
+cp -r "$out_dir/gen/front_end/panels/timeline/utils" "$dist/panels/timeline"
+cp "$out_dir/gen/front_end/panels/ai_assistance/standalone.js" "$dist/panels/ai_assistance/standalone.js"
+cp "$out_dir/gen/front_end/panels/ai_assistance/standalone.d.ts" "$dist/panels/ai_assistance/standalone.d.ts"
 cp "$out_dir/gen/front_end/generated/protocol.js" "$dist/generated/protocol.js"
 cp "$out_dir/gen/front_end/generated/protocol.d.ts" "$dist/generated/protocol.d.ts"
 cp ./front_end/models/trace/package-template.json "$dist/package.json"
@@ -33,7 +38,7 @@ cp ./front_end/models/trace/package-template.json "$dist/package.json"
 python3 -c "
 from pathlib import Path
 
-for p in Path('$dist/models/trace/insights').rglob('*.js'):
+for p in [*Path('$dist/models/trace/insights').rglob('*.js'), *Path('$dist/panels/timeline/utils').rglob('*.js')]:
     content = p.read_text()
 
     needle = 'import * as i18n'
@@ -50,7 +55,7 @@ for p in Path('$dist/models/trace/insights').rglob('*.js'):
 
     p.write_text(content)
 
-for p in Path('$dist/models').rglob('*.d.ts'):
+for p in [*Path('$dist/models').rglob('*.d.ts'), *Path('$dist/panels/timeline').rglob('*.d.ts')]:
     content = p.read_text()
 
     needle = 'import type * as Common'

@@ -5,16 +5,17 @@
 import type * as Platform from '../../../core/platform/platform.js';
 import * as SDK from '../../../core/sdk/sdk.js';
 import type * as Protocol from '../../../generated/protocol.js';
-import * as Bindings from '../../../models/bindings/bindings.js';
-import * as SourceMapScopes from '../../../models/source_map_scopes/source_map_scopes.js';
+// import * as Bindings from '../../../models/bindings/bindings.js';
+// import * as SourceMapScopes from '../../../models/source_map_scopes/source_map_scopes.js';
 import * as Trace from '../../../models/trace/trace.js';
-import * as Workspace from '../../../models/workspace/workspace.js';
+// import * as Workspace from '../../../models/workspace/workspace.js';
 
 import type * as EntityMapper from './EntityMapper.js';
 
 interface ResolvedCodeLocationData {
   name: string|null;
-  devtoolsLocation: Workspace.UISourceCode.UILocation|null;
+  // devtoolsLocation: Workspace.UISourceCode.UILocation|null;
+  devtoolsLocation: null;
   script: SDK.Script.Script|null;
 }
 export class SourceMappingsUpdated extends Event {
@@ -89,16 +90,16 @@ export class SourceMapsResolver extends EventTarget {
 
   static resolvedURLForEntry(parsedTrace: Trace.Handlers.Types.ParsedTrace, entry: Trace.Types.Events.Event):
       Platform.DevToolsPath.UrlString|null {
-    const resolvedCallFrameURL =
-        SourceMapsResolver.resolvedCodeLocationForEntry(entry)?.devtoolsLocation?.uiSourceCode.url();
-    if (resolvedCallFrameURL) {
-      return resolvedCallFrameURL;
-    }
+    // const resolvedCallFrameURL =
+    //     SourceMapsResolver.resolvedCodeLocationForEntry(entry)?.devtoolsLocation?.uiSourceCode.url();
+    // if (resolvedCallFrameURL) {
+    //   return resolvedCallFrameURL;
+    // }
     // If no source mapping was found for an entry's URL, then default
     // to the URL value contained in the event itself, if any.
     const url = Trace.Handlers.Helpers.getNonResolvedURL(entry, parsedTrace);
     if (url) {
-      return Workspace.Workspace.WorkspaceImpl.instance().uiSourceCodeForURL(url)?.url() ?? url;
+      return url;
     }
     return null;
   }
@@ -172,27 +173,25 @@ export class SourceMapsResolver extends EventTarget {
           continue;
         }
         for (const node of nodes) {
-          const resolvedFunctionName =
-              await SourceMapScopes.NamesResolver.resolveProfileFrameFunctionName(node.callFrame, target);
-          updatedMappings ||= Boolean(resolvedFunctionName);
-          node.setFunctionName(resolvedFunctionName);
+          // const resolvedFunctionName =
+          //     await SourceMapScopes.NamesResolver.resolveProfileFrameFunctionName(node.callFrame, target);
+          // updatedMappings ||= Boolean(resolvedFunctionName);
+          // node.setFunctionName(resolvedFunctionName);
 
           const debuggerModel = target.model(SDK.DebuggerModel.DebuggerModel);
           const script = debuggerModel?.scriptForId(node.scriptId) || null;
           const location = debuggerModel &&
               new SDK.DebuggerModel.Location(
                   debuggerModel, node.callFrame.scriptId, node.callFrame.lineNumber, node.callFrame.columnNumber);
-          const uiLocation = location &&
-              await Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance().rawLocationToUILocation(
-                  location);
+          const uiLocation = location?.id;
           updatedMappings ||= Boolean(uiLocation);
-          if (uiLocation?.uiSourceCode.url() && this.#entityMapper) {
+          if (uiLocation && this.#entityMapper) {
             // Update mappings for the related events of the entity.
-            this.#entityMapper.updateSourceMapEntities(node.callFrame, uiLocation.uiSourceCode.url());
+            this.#entityMapper.updateSourceMapEntities(node.callFrame, uiLocation.name);
           }
 
           SourceMapsResolver.storeResolvedCodeDataForCallFrame(
-              node.callFrame, {name: resolvedFunctionName, devtoolsLocation: uiLocation, script});
+              node.callFrame, {name: null, devtoolsLocation: null, script});
         }
       }
     }

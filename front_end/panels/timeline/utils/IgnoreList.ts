@@ -7,7 +7,7 @@ import type * as Platform from '../../../core/platform/platform.js';
 import * as Bindings from '../../../models/bindings/bindings.js';
 import * as Trace from '../../../models/trace/trace.js';
 
-import {SourceMapsResolver} from './SourceMapsResolver.js';
+// import {SourceMapsResolver} from './SourceMapsResolver.js';
 
 const UIStrings = {
   /**
@@ -35,12 +35,15 @@ function getUrlAndIgnoreListOptions(entry: Trace.Types.Events.SyntheticProfileCa
     {url: Platform.DevToolsPath.UrlString, ignoreListOptions: Bindings.IgnoreListManager.IgnoreListGeneralRules} {
   const rawUrl = entry.callFrame.url as Platform.DevToolsPath.UrlString;
 
-  const sourceMappedData = SourceMapsResolver.resolvedCodeLocationForEntry(entry);
-  const script = sourceMappedData?.script;
-  const uiSourceCode = sourceMappedData?.devtoolsLocation?.uiSourceCode;
-  const resolvedUrl = uiSourceCode?.url();
-  const isKnownThirdParty = uiSourceCode?.isKnownThirdParty();
-  const isContentScript = script?.isContentScript();
+  // const sourceMappedData = SourceMapsResolver.resolvedCodeLocationForEntry(entry);
+  // const script = sourceMappedData?.script;
+  // const uiSourceCode = sourceMappedData?.devtoolsLocation?.uiSourceCode;
+  // const resolvedUrl = uiSourceCode?.url();
+  // const isKnownThirdParty = uiSourceCode?.isKnownThirdParty();
+  // const isContentScript = script?.isContentScript();
+  const resolvedUrl = undefined;
+  const isKnownThirdParty = undefined;
+  const isContentScript = undefined;
   const ignoreListOptions: Bindings.IgnoreListManager.IgnoreListGeneralRules = {isContentScript, isKnownThirdParty};
   const url = resolvedUrl || rawUrl;
   return {url, ignoreListOptions};
