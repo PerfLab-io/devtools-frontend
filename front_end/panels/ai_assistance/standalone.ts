@@ -28,7 +28,7 @@ The fields are:
 
 * name:  A short string naming the callframe (e.g. 'Evaluate Script' or the JS function name 'InitializeApp')
 * id:  A numerical identifier for the callframe
-* Selected:  Set to true if this callframe is the one the user selected.
+* Selected:  Set to true if this callframe is the one the user wants analyzed.
 * url_number:  The number of the URL referenced in the "All URLs" list
 * dur:  The total duration of the callframe (includes time spent in its descendants), in milliseconds.
 * self:  The self duration of the callframe (excludes time spent in its descendants), in milliseconds. If omitted, assume the value is 0.
@@ -89,7 +89,7 @@ self: 50
 Explain the selected task.
 
 
-It looks like you've selected the animate function, which is responsible for animating elements on the page.
+The relevant event is an animate function, which is responsible for animating elements on the page.
 This function took a total of 150ms to execute, but only 20ms of that time was spent within the animate function itself.
 The remaining 130ms were spent in its child functions, calculatePosition and applyStyles.
 It seems like a significant portion of the animation time is spent calculating the position of the elements.
