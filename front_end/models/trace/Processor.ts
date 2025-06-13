@@ -209,7 +209,7 @@ export class TraceProcessor extends EventTarget {
       const event = traceEvents[i];
       for (let j = 0; j < sortedHandlers.length; ++j) {
         const [, handler] = sortedHandlers[j];
-        handler.handleEvent(event);
+        await handler.handleEvent(event);
       }
     }
 

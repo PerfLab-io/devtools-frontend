@@ -115,7 +115,27 @@ export function reset(): void {
   entryToNode.clear();
 }
 
-export function handleEvent(event: Types.Events.Event): void {
+function yieldToMain(): Promise<void> {
+  // Use scheduler.yield if it exists:
+  /* @ts-ignore */
+  // Since I'm exporting this to be used in Node env too
+  // I gotta check if window is defined
+  if (typeof window === 'undefined') {
+    return Promise.resolve();
+  }
+  
+  if (window && 'scheduler' in window && 'yield' in window.scheduler) {
+    /* @ts-ignore */
+    return scheduler.yield();
+  }
+
+  // Fall back to setTimeout:
+  return new Promise(resolve => {
+    setTimeout(resolve, 0);
+  });
+}
+
+export async function handleEvent(event: Types.Events.Event): Promise<void> {
   /**
    * A fake trace event created to support CDP.Profiler.Profiles in the
    * trace engine.
@@ -155,6 +175,7 @@ export function handleEvent(event: Types.Events.Event): void {
     const traceIds = event.args?.data?.cpuProfile?.trace_ids || {};
     const nodes: CPUProfile.CPUProfileDataModel.ExtendedProfileNode[] = [];
     for (const n of nodesAndSamples?.nodes || []) {
+      await yieldToMain();
       const lineNumber = typeof n.callFrame.lineNumber === 'undefined' ? -1 : n.callFrame.lineNumber;
       const columnNumber = typeof n.callFrame.columnNumber === 'undefined' ? -1 : n.callFrame.columnNumber;
 
