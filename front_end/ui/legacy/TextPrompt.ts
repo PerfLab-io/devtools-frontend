@@ -40,7 +40,6 @@ import * as VisualLogging from '../visual_logging/visual_logging.js';
 import * as ARIAUtils from './ARIAUtils.js';
 import {SuggestBox, type SuggestBoxDelegate, type Suggestion} from './SuggestBox.js';
 import textPromptStyles from './textPrompt.css.js';
-import * as ThemeSupport from './theme_support/theme_support.js';
 import {Tooltip} from './Tooltip.js';
 import {ElementFocusRestorer} from './UIUtils.js';
 
@@ -138,7 +137,7 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
     this.boundClearAutocomplete = this.clearAutocomplete.bind(this);
     this.boundOnBlur = this.onBlur.bind(this);
     this.proxyElement = element.ownerDocument.createElement('span');
-    ThemeSupport.ThemeSupport.instance().appendStyle(this.proxyElement, textPromptStyles);
+    Platform.DOMUtilities.appendStyle(this.proxyElement, textPromptStyles);
     this.contentElement = this.proxyElement.createChild('div', 'text-prompt-root');
     this.proxyElement.style.display = this.proxyElementDisplay;
     if (element.parentElement) {
@@ -367,7 +366,7 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
         }
         break;
       case 'Escape':
-        if (this.isSuggestBoxVisible()) {
+        if (this.isSuggestBoxVisible() || this.currentSuggestion) {
           this.clearAutocomplete();
           handled = true;
         }
@@ -471,6 +470,7 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
     if (beforeText !== this.textWithCurrentSuggestion()) {
       this.dispatchEventToListeners(Events.TEXT_CHANGED);
     }
+    this.currentSuggestion = null;
   }
 
   private onBlur(): void {
@@ -724,7 +724,8 @@ export class TextPrompt extends Common.ObjectWrapper.ObjectWrapper<EventTypes> i
     }
   }
 
-  /** -1 if no caret can be found in text prompt
+  /**
+   * -1 if no caret can be found in text prompt
    */
   private getCaretPosition(): number {
     if (!this.element().hasFocus()) {

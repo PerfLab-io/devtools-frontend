@@ -36,7 +36,7 @@ export class StyleEditorWidget extends UI.Widget.VBox {
   #triggerKey: string|undefined;
 
   constructor() {
-    super(true);
+    super({useShadowDom: true});
     this.contentElement.tabIndex = 0;
     this.setDefaultFocusedElement(this.contentElement);
     this.editorContainer = document.createElement('div');
@@ -131,6 +131,7 @@ export class StyleEditorWidget extends UI.Widget.VBox {
       widget.bindContext(pane, section);
       widget.setTriggerKey(triggerKey);
       await widget.render();
+      widget.focus();
       const scrollerElement = triggerButton.enclosingNodeOrSelfWithClass('style-panes-wrapper');
       const onScroll = (): void => {
         popoverHelper.hide(true);

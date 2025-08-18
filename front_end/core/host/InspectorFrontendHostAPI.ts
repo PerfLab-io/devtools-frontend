@@ -138,9 +138,7 @@ export interface SearchCompletedEvent {
 
 export interface DoAidaConversationResult {
   statusCode?: number;
-  headers?: {
-    [x: string]: string,
-  };
+  headers?: Record<string, string>;
   netError?: number;
   netErrorName?: string;
   error?: string;
@@ -148,6 +146,12 @@ export interface DoAidaConversationResult {
 }
 
 export interface AidaClientResult {
+  response?: string;
+  error?: string;
+  detail?: string;
+}
+
+export interface AidaCodeCompleteResult {
   response?: string;
   error?: string;
   detail?: string;
@@ -201,9 +205,16 @@ export interface KeyDownEvent {
 }
 
 export interface SettingAccessEvent {
-  name: string;
-  numericValue?: number;
-  stringValue?: string;
+  name: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  numeric_value?: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  string_value?: number;
+}
+
+export interface FunctionCallEvent {
+  name: number;
+  context?: number;
 }
 
 // While `EventDescriptors` are used to dynamically dispatch host binding events,
@@ -317,9 +328,7 @@ export interface InspectorFrontendHostAPI {
 
   registerPreference(name: string, options: {synced?: boolean}): void;
 
-  getPreferences(callback: (arg0: {
-                   [x: string]: string,
-                 }) => void): void;
+  getPreferences(callback: (arg0: Record<string, string>) => void): void;
 
   getPreference(name: string, callback: (arg0: string) => void): void;
 
@@ -345,6 +354,8 @@ export interface InspectorFrontendHostAPI {
   recordPerformanceHistogram(histogramName: string, duration: number): void;
 
   recordUserMetricsAction(umaName: string): void;
+
+  recordNewBadgeUsage(featureName: string): void;
 
   sendMessageToBackend(message: string): void;
 
@@ -390,6 +401,7 @@ export interface InspectorFrontendHostAPI {
 
   doAidaConversation: (request: string, streamId: number, cb: (result: DoAidaConversationResult) => void) => void;
   registerAidaClientEvent: (request: string, cb: (result: AidaClientResult) => void) => void;
+  aidaCodeComplete: (request: string, cb: (result: AidaCodeCompleteResult) => void) => void;
 
   recordImpression(event: ImpressionEvent): void;
   recordClick(event: ClickEvent): void;
@@ -398,6 +410,7 @@ export interface InspectorFrontendHostAPI {
   recordChange(event: ChangeEvent): void;
   recordKeyDown(event: KeyDownEvent): void;
   recordSettingAccess(event: SettingAccessEvent): void;
+  recordFunctionCall(event: FunctionCallEvent): void;
 }
 
 export interface AcceleratorDescriptor {
@@ -417,12 +430,12 @@ export interface ContextMenuDescriptor {
   subItems?: ContextMenuDescriptor[];
   shortcut?: string;
   jslogContext?: string;
+  /** Setting the featureName requests showing a new badge tied to that feature . */
+  featureName?: string;
 }
 export interface LoadNetworkResourceResult {
   statusCode: number;
-  headers?: {
-    [x: string]: string,
-  };
+  headers?: Record<string, string>;
   netError?: number;
   netErrorName?: string;
   urlValid?: boolean;
@@ -471,7 +484,6 @@ export const enum EnumeratedHistogram {
   // LINT.IfChange(EnumeratedHistogram)
   ActionTaken = 'DevTools.ActionTaken',
   PanelShown = 'DevTools.PanelShown',
-  SidebarPaneShown = 'DevTools.SidebarPaneShown',
   KeyboardShortcutFired = 'DevTools.KeyboardShortcutFired',
   IssueCreated = 'DevTools.IssueCreated',
   IssuesPanelIssueExpanded = 'DevTools.IssuesPanelIssueExpanded',
@@ -504,6 +516,5 @@ export const enum EnumeratedHistogram {
   LighthouseCategoryUsed = 'DevTools.LighthouseCategoryUsed',
   SwatchActivated = 'DevTools.SwatchActivated',
   AnimationPlaybackRateChanged = 'DevTools.AnimationPlaybackRateChanged',
-  AnimationPointDragged = 'DevTools.AnimationPointDragged',
   // LINT.ThenChange(/front_end/devtools_compatibility.js:EnumeratedHistogram)
 }

@@ -3,15 +3,14 @@
 // found in the LICENSE file.
 
 import stylisticPlugin from '@stylistic/eslint-plugin';
-import typescriptPlugin from '@typescript-eslint/eslint-plugin';
-import tsParser from '@typescript-eslint/parser';
-import { defineConfig, globalIgnores } from 'eslint/config';
 import eslintPlugin from 'eslint-plugin-eslint-plugin';
 import importPlugin from 'eslint-plugin-import';
 import jsdocPlugin from 'eslint-plugin-jsdoc';
 import mochaPlugin from 'eslint-plugin-mocha';
+import {defineConfig, globalIgnores} from 'eslint/config';
 import globals from 'globals';
-import { join } from 'path';
+import {join} from 'path';
+import typescriptEslint from 'typescript-eslint';
 
 import rulesdirPlugin from './scripts/eslint_rules/rules-dir.mjs';
 
@@ -26,7 +25,7 @@ export default defineConfig([
     // Don't include third party code
     'third_party/',
 
-    'front_end/diff/diff_match_patch.jD',
+    'front_end/diff/diff_match_patch.js',
     'front_end/models/javascript_metadata/NativeFunctions.js',
     // All of these scripts are auto-generated so don't lint them.
     'front_end/generated/ARIAProperties.js',
@@ -66,7 +65,7 @@ export default defineConfig([
   {
     name: 'JavaScript files',
     plugins: {
-      '@typescript-eslint': typescriptPlugin,
+      '@typescript-eslint': typescriptEslint.plugin,
       '@stylistic': stylisticPlugin,
       '@eslint-plugin': eslintPlugin,
       mocha: mochaPlugin,
@@ -123,7 +122,7 @@ export default defineConfig([
 
       curly: 'error',
       '@stylistic/new-parens': 'error',
-      '@stylistic/func-call-spacing': 'error',
+      '@stylistic/function-call-spacing': 'error',
       '@stylistic/arrow-parens': ['error', 'as-needed'],
       '@stylistic/eol-last': 'error',
       'object-shorthand': ['error', 'properties'],
@@ -252,6 +251,7 @@ export default defineConfig([
       // no-implicit-globals will prevent accidental globals
       'no-implicit-globals': 'off',
       'no-unused-private-class-members': 'error',
+      'no-useless-constructor': 'error',
 
       // Sort imports first
       'import/first': 'error',
@@ -287,10 +287,34 @@ export default defineConfig([
       'rulesdir/no-commented-out-import': 'error',
       'rulesdir/check-license-header': 'error',
       /**
-       * Ensures that JS Doc comments are properly aligned - all the starting
-       * `*` are in the right place.
+       * Enforce some consistency and usefulness of JSDoc comments, to make sure
+       * we actually benefit from them.
        */
       'jsdoc/check-alignment': 'error',
+      'jsdoc/check-tag-names': [
+        'error', {
+          definedTags: [
+            'attribute',  // @attribute is used by lit-analyzer (through web-component-analyzer)
+            'meaning',    // @meaning is used by localization
+          ],
+        }
+      ],
+      'jsdoc/empty-tags': 'error',
+      'jsdoc/multiline-blocks': 'error',
+      'jsdoc/no-bad-blocks': 'error',
+      'jsdoc/no-blank-blocks': [
+        'error',
+        {
+          enableFixer: true,
+        },
+      ],
+      'jsdoc/require-asterisk-prefix': 'error',
+      'jsdoc/require-param-name': 'error',
+      'jsdoc/require-hyphen-before-param-description': [
+        'error',
+        'never',
+      ],
+      'jsdoc/sort-tags': 'error',
     },
   },
   {
@@ -301,7 +325,7 @@ export default defineConfig([
       ecmaVersion: 'latest',
       sourceType: 'module',
 
-      parser: tsParser,
+      parser: typescriptEslint.parser,
       parserOptions: {
         allowAutomaticSingleRunInference: true,
         project: join(
@@ -541,6 +565,11 @@ export default defineConfig([
       'no-array-constructor': 'off',
       '@typescript-eslint/no-array-constructor': 'error',
 
+      '@typescript-eslint/consistent-indexed-object-style': 'error',
+
+      'no-useless-constructor': 'off',
+      '@typescript-eslint/no-useless-constructor': 'error',
+
       'rulesdir/no-underscored-properties': 'error',
       'rulesdir/inline-type-imports': 'error',
 
@@ -558,6 +587,13 @@ export default defineConfig([
           importName: 'Trace',
         },
       ],
+
+      'rulesdir/validate-timing-types': 'error',
+
+      // Disallow redundant (and potentially conflicting) type information
+      // within JSDoc comments.
+      'jsdoc/no-types': 'error',
+      'jsdoc/require-returns-description': 'error',
     },
   },
   {
@@ -607,6 +643,7 @@ export default defineConfig([
       'rulesdir/no-bound-component-methods': 'error',
       'rulesdir/no-adopted-style-sheets': 'error',
       'rulesdir/no-customized-builtin-elements': 'error',
+      'rulesdir/no-deprecated-component-usages': 'error',
       'rulesdir/no-self-closing-custom-element-tagnames': 'error',
       'rulesdir/no-a-tags-in-lit': 'error',
       'rulesdir/check-css-import': 'error',
@@ -627,6 +664,7 @@ export default defineConfig([
         },
       ],
       'rulesdir/enforce-ui-strings-as-const': 'error',
+      'rulesdir/no-new-lit-element-components': 'error',
     },
   },
   {
@@ -656,17 +694,12 @@ export default defineConfig([
     ],
 
     rules: {
-      // errors on it('test') with no body
-      'mocha/no-pending-tests': 'error',
-
       // errors on {describe, it}.only
       'mocha/no-exclusive-tests': 'error',
 
-      'mocha/no-async-describe': 'error',
+      'mocha/no-async-suite': 'error',
       'mocha/no-global-tests': 'error',
       'mocha/no-nested-tests': 'error',
-
-      'mocha/no-identical-title': 'error',
 
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
@@ -692,7 +725,6 @@ export default defineConfig([
       'rulesdir/no-assert-equal-boolean-null-undefined': 'error',
       'rulesdir/no-imperative-dom-api': 'off',
       'rulesdir/no-lit-render-outside-of-view': 'off',
-      'rulesdir/no-screenshot-test-outside-perf-panel': 'error',
       'rulesdir/prefer-assert-instance-of': 'error',
       'rulesdir/prefer-assert-is-ok': 'error',
       'rulesdir/prefer-assert-length-of': 'error',
@@ -700,6 +732,7 @@ export default defineConfig([
       'rulesdir/prefer-sinon-assert': 'error',
       'rulesdir/prefer-url-string': 'error',
       'rulesdir/trace-engine-test-timeouts': 'error',
+      'rulesdir/no-document-body-mutation': 'error',
       'rulesdir/enforce-custom-element-definitions-location': 'off',
     },
 
@@ -708,32 +741,22 @@ export default defineConfig([
         {
           name: 'describeWithDevtoolsExtension',
           type: 'suite',
-          interfaces: ['BDD', 'TDD'],
+          interface: 'BDD',
         },
         {
           name: 'describeWithEnvironment',
           type: 'suite',
-          interfaces: ['BDD', 'TDD'],
+          interface: 'BDD',
         },
         {
           name: 'describeWithLocale',
           type: 'suite',
-          interfaces: ['BDD', 'TDD'],
+          interface: 'BDD',
         },
         {
           name: 'describeWithMockConnection',
           type: 'suite',
-          interfaces: ['BDD', 'TDD'],
-        },
-        {
-          name: 'describeWithRealConnection',
-          type: 'suite',
-          interfaces: ['BDD', 'TDD'],
-        },
-        {
-          name: 'itScreenshot',
-          type: 'testCase',
-          interfaces: ['BDD', 'TDD'],
+          interface: 'BDD',
         },
       ],
     },
@@ -783,7 +806,7 @@ export default defineConfig([
     },
   },
   {
-    name: 'Front end component docs',
+    name: 'Front-end component docs',
     files: ['front_end/ui/components/docs/**/*.ts'],
     rules: {
       // This makes the component doc examples very verbose and doesn't add
@@ -798,14 +821,24 @@ export default defineConfig([
     },
   },
   {
-    name: 'Traces import rule',
-    files: ['front_end/models/trace/handlers/**/*.ts'],
+    name: 'No SDK in models/trace',
+    files: ['front_end/models/trace/**/*.ts'],
+    ignores: ['front_end/models/trace/**/*.test.ts'],
     rules: {
       'rulesdir/no-imports-in-directory': [
         'error',
         {
           bannedImportPaths: [
-            join(import.meta.dirname, 'front_end', 'core', 'sdk', 'sdk.js'),
+            {
+              bannedPath: join(
+                  import.meta.dirname,
+                  'front_end',
+                  'core',
+                  'sdk',
+                  'sdk.js',
+                  ),
+              allowTypeImports: true,
+            },
           ],
         },
       ],

@@ -60,7 +60,7 @@ def eslint_path():
 
 
 def mocha_path():
-    return path.join(node_modules_path(), 'mocha', 'bin', 'mocha')
+    return path.join(node_modules_path(), 'mocha', 'bin', 'mocha.js')
 
 
 def karma_path():
@@ -121,11 +121,6 @@ def package_lock_json_path():
 
 def package_json_path():
     return path.join(devtools_root_path(), 'package.json')
-
-
-def browser_protocol_path():
-    return path.join(third_party_path(), 'blink', 'public',
-                     'devtools_protocol', 'browser_protocol.pdl')
 
 
 def custom_devtools_frontend_path(target):

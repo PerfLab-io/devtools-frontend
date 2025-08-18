@@ -12,7 +12,6 @@ import * as Platform from '../../../core/platform/platform.js';
 import {assertNotNullOrUndefined} from '../../../core/platform/platform.js';
 import * as SDK from '../../../core/sdk/sdk.js';
 import * as Protocol from '../../../generated/protocol.js';
-import * as Bindings from '../../../models/bindings/bindings.js';
 import * as Buttons from '../../../ui/components/buttons/buttons.js';
 // eslint-disable-next-line rulesdir/es-modules-import
 import emptyWidgetStyles from '../../../ui/legacy/emptyWidget.css.js';
@@ -21,82 +20,83 @@ import {html, render} from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
 import * as PreloadingComponents from './components/components.js';
+import {ruleSetTagOrLocationShort} from './components/PreloadingString.js';
 import type * as PreloadingHelper from './helper/helper.js';
 import preloadingViewStyles from './preloadingView.css.js';
 import preloadingViewDropDownStyles from './preloadingViewDropDown.css.js';
 
 const UIStrings = {
   /**
-   *@description DropDown title for filtering preloading attempts by rule set
+   * @description DropDown title for filtering preloading attempts by rule set
    */
   filterFilterByRuleSet: 'Filter by rule set',
   /**
-   *@description DropDown text for filtering preloading attempts by rule set: No filter
+   * @description DropDown text for filtering preloading attempts by rule set: No filter
    */
   filterAllPreloads: 'All speculative loads',
   /**
-   *@description Dropdown subtitle for filtering preloading attempts by rule set
+   * @description Dropdown subtitle for filtering preloading attempts by rule set
    *             when there are no rule sets in the page.
    */
   noRuleSets: 'no rule sets',
   /**
-   *@description Text in grid: Rule set is valid
+   * @description Text in grid: Rule set is valid
    */
   validityValid: 'Valid',
   /**
-   *@description Text in grid: Rule set must be a valid JSON object
+   * @description Text in grid: Rule set must be a valid JSON object
    */
   validityInvalid: 'Invalid',
   /**
-   *@description Text in grid: Rule set contains invalid rules and they are ignored
+   * @description Text in grid: Rule set contains invalid rules and they are ignored
    */
   validitySomeRulesInvalid: 'Some rules invalid',
   /**
-   *@description Text in grid and details: Preloading attempt is not yet triggered.
+   * @description Text in grid and details: Preloading attempt is not yet triggered.
    */
   statusNotTriggered: 'Not triggered',
   /**
-   *@description Text in grid and details: Preloading attempt is eligible but pending.
+   * @description Text in grid and details: Preloading attempt is eligible but pending.
    */
   statusPending: 'Pending',
   /**
-   *@description Text in grid and details: Preloading is running.
+   * @description Text in grid and details: Preloading is running.
    */
   statusRunning: 'Running',
   /**
-   *@description Text in grid and details: Preloading finished and the result is ready for the next navigation.
+   * @description Text in grid and details: Preloading finished and the result is ready for the next navigation.
    */
   statusReady: 'Ready',
   /**
-   *@description Text in grid and details: Ready, then used.
+   * @description Text in grid and details: Ready, then used.
    */
   statusSuccess: 'Success',
   /**
-   *@description Text in grid and details: Preloading failed.
+   * @description Text in grid and details: Preloading failed.
    */
   statusFailure: 'Failure',
   /**
-   *@description Text to pretty print a file
+   * @description Text to pretty print a file
    */
   prettyPrint: 'Pretty print',
   /**
-   *@description Placeholder text if there are no rules to show. https://developer.chrome.com/docs/devtools/application/debugging-speculation-rules
+   * @description Placeholder text if there are no rules to show. https://developer.chrome.com/docs/devtools/application/debugging-speculation-rules
    */
   noRulesDetected: 'No rules detected',
   /**
-   *@description Placeholder text if there are no rules to show. https://developer.chrome.com/docs/devtools/application/debugging-speculation-rules
+   * @description Placeholder text if there are no rules to show. https://developer.chrome.com/docs/devtools/application/debugging-speculation-rules
    */
   rulesDescription: 'On this page you will see the speculation rules used to prefetch and prerender page navigations.',
   /**
-   *@description Placeholder text if there are no speculation attempts for prefetching or prerendering urls. https://developer.chrome.com/docs/devtools/application/debugging-speculation-rules
+   * @description Placeholder text if there are no speculation attempts for prefetching or prerendering urls. https://developer.chrome.com/docs/devtools/application/debugging-speculation-rules
    */
   noPrefetchAttempts: 'No speculation detected',
   /**
-   *@description Placeholder text if there are no speculation attempts for prefetching or prerendering urls. https://developer.chrome.com/docs/devtools/application/debugging-speculation-rules
+   * @description Placeholder text if there are no speculation attempts for prefetching or prerendering urls. https://developer.chrome.com/docs/devtools/application/debugging-speculation-rules
    */
   prefetchDescription: 'On this page you will see details on speculative loads.',
   /**
-   *@description Text for a learn more link
+   * @description Text for a learn more link
    */
   learnMore: 'Learn more',
 } as const;
@@ -161,6 +161,8 @@ class PreloadingUIUtils {
         return i18nString(UIStrings.validityInvalid);
       case Protocol.Preload.RuleSetErrorType.InvalidRulesSkipped:
         return i18nString(UIStrings.validitySomeRulesInvalid);
+      case Protocol.Preload.RuleSetErrorType.InvalidRulesetLevelTag:
+        return i18nString(UIStrings.validitySomeRulesInvalid);
     }
   }
 
@@ -182,16 +184,6 @@ class PreloadingUIUtils {
     const index = id.indexOf('.');
     return index === -1 ? id : id.slice(index + 1);
   }
-
-  // TODO(https://crbug.com/1410709): Move
-  // front_end/panels/application/preloading/components/PreloadingString.ts
-  // to
-  // front_end/panels/application/preloading/helper/PreloadingString.ts
-  // and use PreloadingString.ruleSetLocationShort.
-  static ruleSetLocationShort(ruleSet: Protocol.Preload.RuleSet, pageURL: Platform.DevToolsPath.UrlString): string {
-    const url = ruleSet.url === undefined ? pageURL : ruleSet.url as Platform.DevToolsPath.UrlString;
-    return Bindings.ResourceUtils.displayNameForURL(url);
-  }
 }
 
 function pageURL(): Platform.DevToolsPath.UrlString {
@@ -212,7 +204,7 @@ export class PreloadingRuleSetView extends UI.Widget.VBox {
   private shouldPrettyPrint = Common.Settings.Settings.instance().moduleSetting('auto-pretty-print-minified').get();
 
   constructor(model: SDK.PreloadingModel.PreloadingModel) {
-    super(/* isWebComponent */ true, /* delegatesFocus */ false);
+    super({useShadowDom: true});
     this.registerRequiredCSS(emptyWidgetStyles, preloadingViewStyles);
 
     this.model = model;
@@ -363,10 +355,12 @@ export class PreloadingAttemptView extends UI.Widget.VBox {
   private readonly ruleSetSelector: PreloadingRuleSetSelector;
 
   constructor(model: SDK.PreloadingModel.PreloadingModel) {
-    super(/* isWebComponent */ true, /* delegatesFocus */ false);
+    super({
+      jslog: `${VisualLogging.pane('preloading-speculations')}`,
+      useShadowDom: true,
+    });
     this.registerRequiredCSS(emptyWidgetStyles, preloadingViewStyles);
 
-    this.element.setAttribute('jslog', `${VisualLogging.pane('preloading-speculations')}`);
     this.model = model;
     SDK.TargetManager.TargetManager.instance().addScopeChangeListener(this.onScopeChange.bind(this));
     SDK.TargetManager.TargetManager.instance().addModelListener(
@@ -520,10 +514,12 @@ export class PreloadingSummaryView extends UI.Widget.VBox {
   private readonly usedPreloading = new PreloadingComponents.UsedPreloadingView.UsedPreloadingView();
 
   constructor(model: SDK.PreloadingModel.PreloadingModel) {
-    super(/* isWebComponent */ true, /* delegatesFocus */ false);
+    super({
+      jslog: `${VisualLogging.pane('speculative-loads')}`,
+      useShadowDom: true,
+    });
     this.registerRequiredCSS(emptyWidgetStyles, preloadingViewStyles);
 
-    this.element.setAttribute('jslog', `${VisualLogging.pane('speculative-loads')}`);
     this.model = model;
     SDK.TargetManager.TargetManager.instance().addScopeChangeListener(this.onScopeChange.bind(this));
     SDK.TargetManager.TargetManager.instance().addModelListener(
@@ -676,12 +672,7 @@ class PreloadingRuleSetSelector implements
       return i18n.i18n.lockedString('Internal error');
     }
 
-    // TODO(https://crbug.com/393408589): Use `PreloadingString.ruleSetTagOrLocationShort` to reduce code redundancy.
-    const sourceJson = JSON.parse(ruleSet['sourceText']);
-    if ('tag' in sourceJson) {
-      return '"' + sourceJson['tag'] + '"';
-    }
-    return PreloadingUIUtils.ruleSetLocationShort(ruleSet, pageURL());
+    return ruleSetTagOrLocationShort(ruleSet, pageURL());
   }
 
   subtitleFor(id: Protocol.Preload.RuleSetId|typeof AllRuleSetRootId): string {
@@ -724,7 +715,7 @@ export class PreloadingWarningsView extends UI.Widget.VBox {
   private readonly infobar = new PreloadingComponents.PreloadingDisabledInfobar.PreloadingDisabledInfobar();
 
   constructor() {
-    super(/* isWebComponent */ false, /* delegatesFocus */ false);
+    super();
     this.registerRequiredCSS(emptyWidgetStyles);
   }
 

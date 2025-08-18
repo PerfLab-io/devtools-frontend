@@ -9,48 +9,42 @@ import type * as Protocol from '../../../generated/protocol.js';
 import * as Buttons from '../../../ui/components/buttons/buttons.js';
 import * as Lit from '../../../ui/lit/lit.js';
 
-import sharedStorageMetadataViewStylesRaw from './sharedStorageMetadataView.css.js';
+import sharedStorageMetadataViewStyles from './sharedStorageMetadataView.css.js';
 import {StorageMetadataView} from './StorageMetadataView.js';
-
-/* eslint-disable rulesdir/no-adopted-style-sheets --
- * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
- **/
-const sharedStorageMetadataViewStyles = new CSSStyleSheet();
-sharedStorageMetadataViewStyles.replaceSync(sharedStorageMetadataViewStylesRaw.cssText);
 
 const {html} = Lit;
 
 const UIStrings = {
   /**
-   *@description Text in SharedStorage Metadata View of the Application panel
+   * @description Text in SharedStorage Metadata View of the Application panel
    */
   sharedStorage: 'Shared storage',
   /**
-   *@description The time when the origin most recently created its shared storage database
+   * @description The time when the origin most recently created its shared storage database
    */
   creation: 'Creation Time',
   /**
-   *@description The placeholder text if there is no creation time because the origin is not yet using shared storage.
+   * @description The placeholder text if there is no creation time because the origin is not yet using shared storage.
    */
   notYetCreated: 'Not yet created',
   /**
-   *@description The number of entries currently in the origin's database
+   * @description The number of entries currently in the origin's database
    */
   numEntries: 'Number of Entries',
   /**
-   *@description The number of bits remaining in the origin's shared storage privacy budget
+   * @description The number of bits remaining in the origin's shared storage privacy budget
    */
   entropyBudget: 'Entropy Budget for Fenced Frames',
   /**
-   *@description Hover text for `entropyBudget` giving a more detailed explanation
+   * @description Hover text for `entropyBudget` giving a more detailed explanation
    */
   budgetExplanation: 'Remaining data leakage allowed within a 24-hour period for this origin in bits of entropy',
   /**
-   *@description Label for a button which when clicked causes the budget to be reset to the max.
+   * @description Label for a button which when clicked causes the budget to be reset to the max.
    */
   resetBudget: 'Reset Budget',
   /**
-   *@description The number of bytes used by entries currently in the origin's database
+   * @description The number of bytes used by entries currently in the origin's database
    */
   numBytesUsed: 'Number of Bytes Used',
 } as const;
@@ -81,10 +75,6 @@ export class SharedStorageMetadataView extends StorageMetadataView {
     await this.render();
   }
 
-  connectedCallback(): void {
-    this.getShadow().adoptedStyleSheets = [sharedStorageMetadataViewStyles];
-  }
-
   override getTitle(): string {
     return i18nString(UIStrings.sharedStorage);
   }
@@ -99,6 +89,7 @@ export class SharedStorageMetadataView extends StorageMetadataView {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     return html`
+      <style>${sharedStorageMetadataViewStyles}</style>
       ${await super.renderReportContent()}
       ${this.key(i18nString(UIStrings.creation))}
       ${this.value(this.#renderDateForCreationTime())}

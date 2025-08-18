@@ -35,9 +35,9 @@ import {
 
 const UIStrings = {
   /**
-   *@description Tooltip text that appears when hovering over an invalid address in the address line in the Linear memory inspector
-   *@example {0x00000000} PH1
-   *@example {0x00400000} PH2
+   * @description Tooltip text that appears when hovering over an invalid address in the address line in the Linear memory inspector
+   * @example {0x00000000} PH1
+   * @example {0x00400000} PH2
    */
   addressHasToBeANumberBetweenSAnd: 'Address has to be a number between {PH1} and {PH2}',
 } as const;
@@ -190,7 +190,7 @@ export class LinearMemoryInspector extends HTMLElement {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
-      <style>${linearMemoryInspectorStyles.cssText}</style>
+      <style>${linearMemoryInspectorStyles}</style>
       <div class="view">
         <devtools-linear-memory-inspector-navigator
           .data=${{address: navigatorAddressToShow, valid: navigatorAddressIsValid, mode: this.#currentNavigatorMode, error: errorMsg, canGoBackInHistory, canGoForwardInHistory}}

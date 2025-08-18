@@ -10,11 +10,11 @@ import type * as ReportRenderer from './LighthouseReporterTypes.js';
 
 const UIStrings = {
   /**
-   *@description Title of combo box in audits report selector
+   * @description Title of combo box in audits report selector
    */
   reports: 'Reports',
   /**
-   *@description New report item label in Lighthouse Report Selector
+   * @description New report item label in Lighthouse Report Selector
    */
   newReport: '(new report)',
 } as const;
@@ -31,8 +31,6 @@ export class ReportSelector {
     this.newLighthouseItem = document.createElement('option');
     this.comboBoxInternal = new UI.Toolbar.ToolbarComboBox(
         this.handleChange.bind(this), i18nString(UIStrings.reports), 'lighthouse-report');
-    this.comboBoxInternal.setMaxWidth(180);
-    this.comboBoxInternal.setMinWidth(140);
     this.itemByOptionElement = new Map();
     this.setEmptyState();
   }

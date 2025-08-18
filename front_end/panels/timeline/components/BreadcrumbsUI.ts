@@ -17,12 +17,12 @@ const {render, html} = Lit;
 
 const UIStrings = {
   /**
-   *@description A context menu item in the Minimap Breadcrumb context menu.
+   * @description A context menu item in the Minimap Breadcrumb context menu.
    * This context menu option activates the breadcrumb that the context menu was opened on.
    */
   activateBreadcrumb: 'Activate breadcrumb',
   /**
-   *@description A context menu item in the Minimap Breadcrumb context menu.
+   * @description A context menu item in the Minimap Breadcrumb context menu.
    * This context menu option removed all the child breadcrumbs and activates
    * the breadcrumb that the context menu was opened on.
    */
@@ -132,7 +132,7 @@ export class BreadcrumbsUI extends HTMLElement {
   #render(): void {
     // clang-format off
     const output = html`
-      <style>${breadcrumbsUIStyles.cssText}</style>
+      <style>${breadcrumbsUIStyles}</style>
       ${this.#initialBreadcrumb === null ? Lit.nothing : html`<div class="breadcrumbs" jslog=${VisualLogging.section('breadcrumbs')}>
         ${flattenBreadcrumbs(this.#initialBreadcrumb).map((breadcrumb, index) => this.#renderElement(breadcrumb, index))}
       </div>`}

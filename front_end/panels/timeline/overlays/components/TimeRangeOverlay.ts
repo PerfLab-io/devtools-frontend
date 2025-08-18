@@ -13,7 +13,7 @@ import timeRangeOverlayStyles from './timeRangeOverlay.css.js';
 
 const UIStrings = {
   /**
-   *@description Accessible label used to explain to a user that they are viewing an entry label.
+   * @description Accessible label used to explain to a user that they are viewing an entry label.
    */
   timeRange: 'Time range',
 } as const;
@@ -253,7 +253,7 @@ export class TimeRangeOverlay extends HTMLElement {
     // clang-format off
     render(
         html`
-          <style>${timeRangeOverlayStyles.cssText}</style>
+          <style>${timeRangeOverlayStyles}</style>
           <span class="range-container" role="region" aria-label=${i18nString(UIStrings.timeRange)}>
             <span
              class="label-text"

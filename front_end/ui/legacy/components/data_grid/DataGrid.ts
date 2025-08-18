@@ -39,22 +39,22 @@ import type {DataGridInternalToken} from './DataGridElement.js';
 
 const UIStrings = {
   /**
-   *@description Accessible text label for expandible nodes in datagrids
+   * @description Accessible text label for expandible nodes in datagrids
    */
   expanded: 'expanded',
   /**
-   *@description accessible name for expandible nodes in datagrids
+   * @description accessible name for expandible nodes in datagrids
    */
   collapsed: 'collapsed',
   /**
-   *@description Accessible text for datagrid
-   *@example {Coverage grid} PH1
-   *@example {expanded} PH2
+   * @description Accessible text for datagrid
+   * @example {Coverage grid} PH1
+   * @example {expanded} PH2
    */
   sRowS: '{PH1} Row {PH2}',
   /**
-   *@description Number of rows in a grid
-   *@example {1} PH1
+   * @description Number of rows in a grid
+   * @example {1} PH1
    */
   rowsS: 'Rows: {PH1}',
   /**
@@ -67,54 +67,54 @@ const UIStrings = {
   sSUseTheUpAndDownArrowKeysTo:
       '{PH1} {PH2}, use the up and down arrow keys to navigate and interact with the rows of the table; Use browse mode to read cell by cell.',
   /**
-   *@description A context menu item in the Data Grid of a data grid
+   * @description A context menu item in the Data Grid of a data grid
    */
   sortByString: 'Sort By',
   /**
-   *@description A context menu item in data grids to reset the columns to their default weight
+   * @description A context menu item in data grids to reset the columns to their default weight
    */
   resetColumns: 'Reset Columns',
   /**
-   *@description A context menu item in data grids to list header options.
+   * @description A context menu item in data grids to list header options.
    */
   headerOptions: 'Header Options',
   /**
-   *@description Text to refresh the page
+   * @description Text to refresh the page
    */
   refresh: 'Refresh',
   /**
-   *@description A context menu item in the Data Grid of a data grid
+   * @description A context menu item in the Data Grid of a data grid
    */
   addNew: 'Add new',
   /**
-   *@description A context menu item in the Data Grid of a data grid
-   *@example {pattern} PH1
+   * @description A context menu item in the Data Grid of a data grid
+   * @example {pattern} PH1
    */
   editS: 'Edit "{PH1}"',
   /**
-   *@description Text to delete something
+   * @description Text to delete something
    */
   delete: 'Delete',
   /**
-   *@description Depth of a node in the datagrid
-   *@example {1} PH1
+   * @description Depth of a node in the datagrid
+   * @example {1} PH1
    */
   levelS: 'level {PH1}',
   /**
-   *@description Text exposed to screen readers on checked items.
+   * @description Text exposed to screen readers on checked items.
    */
   checked: 'checked',
   /**
-   *@description Accessible text indicating an empty row is created.
+   * @description Accessible text indicating an empty row is created.
    */
   emptyRowCreated: 'An empty table row has been created. You may double click or use context menu to edit.',
   /**
-   *@description Text for screen reader to announce when focusing on a sortable column in data grid.
-   *@example {ascending} PH1
+   * @description Text for screen reader to announce when focusing on a sortable column in data grid.
+   * @example {ascending} PH1
    */
   enterToSort: 'Column sort state: {PH1}. Press enter to apply sorting filter',
   /**
-   *@description Label for sortable column headers.
+   * @description Label for sortable column headers.
    */
   sortableColumn: 'Sortable column. Press enter to apply sorting filter',
 } as const;
@@ -138,17 +138,13 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
       ((node: any, columnId: string, valueBeforeEditing: any, newText: any, moveDirection?: string) => void)|undefined;
   deleteCallback: ((arg0: any) => void)|undefined;
   refreshCallback: (() => void)|undefined;
-  private dataTableHeaders: {
-    [x: string]: Element,
-  };
+  private dataTableHeaders: Record<string, Element>;
   scrollContainerInternal: Element;
   private dataContainerInternal: Element;
   private readonly dataTable: Element;
   protected inline: boolean;
   private columnsArray: ColumnDescriptor[];
-  columns: {
-    [x: string]: ColumnDescriptor,
-  };
+  columns: Record<string, ColumnDescriptor>;
   visibleColumnsArray: ColumnDescriptor[];
   cellClass: string|null;
   private dataTableHeadInternal: HTMLTableSectionElement;
@@ -382,7 +378,7 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
       }
       const accessibleText =
           expandText ? `${this.selectedNode.nodeAccessibleText}, ${expandText}` : this.selectedNode.nodeAccessibleText;
-      UI.ARIAUtils.alert(accessibleText);
+      UI.ARIAUtils.LiveAnnouncer.alert(accessibleText);
     }
   }
 
@@ -411,7 +407,7 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
       const items = i18nString(UIStrings.rowsS, {PH1: numberOfRows});
       accessibleText = i18nString(UIStrings.sSUseTheUpAndDownArrowKeysTo, {PH1: this.displayName, PH2: items});
     }
-    UI.ARIAUtils.alert(accessibleText);
+    UI.ARIAUtils.LiveAnnouncer.alert(accessibleText);
   }
 
   private innerAddColumn(column: ColumnDescriptor, position?: number): void {
@@ -1012,9 +1008,7 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     if (!this.columnWeightsSetting) {
       return;
     }
-    const weights: {
-      [x: string]: any,
-    } = {};
+    const weights: Record<string, any> = {};
     for (let i = 0; i < this.columnsArray.length; ++i) {
       const column = this.columnsArray[i];
       weights[column.id] = column.weight;
@@ -1035,7 +1029,8 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
   }
 
   private applyColumnWeights(): void {
-    let tableWidth = this.element.offsetWidth - this.cornerWidth;
+    // Subtract 1 to prevent unnecessary overflow in x-axis
+    let tableWidth = this.element.offsetWidth - this.cornerWidth - 1;
     if (tableWidth <= 0) {
       return;
     }
@@ -1054,7 +1049,7 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     }
     let sum = 0;
     let lastOffset = 0;
-    const minColumnWidth = 14;  // px
+    const minColumnWidth = ColumnResizePadding;  // px
 
     for (let i = 0; i < this.visibleColumnsArray.length; ++i) {
       const column = this.visibleColumnsArray[i];
@@ -1139,14 +1134,12 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     if (this.creationNode) {
       this.creationNode.isCreationNode = false;
     }
-    const emptyData: {
-      [x: string]: any,
-    } = {};
+    const emptyData: Record<string, any> = {};
     for (const column in this.columns) {
       emptyData[column] = null;
     }
     this.creationNode = new CreationDataGridNode(emptyData, hasChildren);
-    UI.ARIAUtils.alert(i18nString(UIStrings.emptyRowCreated));
+    UI.ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.emptyRowCreated));
     this.rootNode().appendChild(this.creationNode);
   }
 
@@ -1360,7 +1353,7 @@ export class DataGridImpl<T> extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     cell.classList.add(sortOrder);
     const ariaLabel = this.isSortOrderAscending() ? 'ascending' : 'descending';
     cell.setAttribute('aria-sort', ariaLabel);
-    UI.ARIAUtils.alert(i18nString(UIStrings.enterToSort, {PH1: ariaLabel || ''}));
+    UI.ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.enterToSort, {PH1: ariaLabel || ''}));
 
     this.dispatchEventToListeners(Events.SORTING_CHANGED);
   }
@@ -1713,7 +1706,7 @@ export const enum DataType {
   BOOLEAN = 'Boolean',
 }
 
-export const ColumnResizePadding = 34;
+export const ColumnResizePadding = 30;
 export const CenterResizerOverBorderAdjustment = 3;
 
 export const enum ResizeMethod {
@@ -1722,9 +1715,7 @@ export const enum ResizeMethod {
   LAST = 'last',
 }
 
-export interface DataGridData {
-  [key: string]: any;
-}
+export type DataGridData = Record<string, any>;
 
 export class DataGridNode<T> {
   elementInternal: HTMLElement|null = null;
@@ -2510,11 +2501,7 @@ export class DataGridNode<T> {
 
 export class CreationDataGridNode<T> extends DataGridNode<T> {
   override isCreationNode: boolean;
-  constructor(
-      data?: {
-        [x: string]: any,
-      }|null,
-      hasChildren?: boolean) {
+  constructor(data?: Record<string, any>|null, hasChildren?: boolean) {
     super(data, hasChildren);
     this.isCreationNode = true;
   }
@@ -2523,7 +2510,7 @@ export class CreationDataGridNode<T> extends DataGridNode<T> {
 export class DataGridWidget<T> extends UI.Widget.VBox {
   readonly dataGrid: DataGridImpl<T>;
   constructor(dataGrid: DataGridImpl<T>, element?: HTMLElement) {
-    super(undefined, undefined, element);
+    super(element);
     this.dataGrid = dataGrid;
     this.element.appendChild(dataGrid.element);
     this.setDefaultFocusedElement(dataGrid.element);

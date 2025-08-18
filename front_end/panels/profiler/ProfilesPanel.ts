@@ -54,30 +54,30 @@ import profilesSidebarTreeStyles from './profilesSidebarTree.css.js';
 
 const UIStrings = {
   /**
-   *@description Text in Profiles Panel of a profiler tool
-   *@example {'.js', '.json'} PH1
+   * @description Text in Profiles Panel of a profiler tool
+   * @example {'.js', '.json'} PH1
    */
   cantLoadFileSupportedFile: 'Can’t load file. Supported file extensions: \'\'{PH1}\'\'.',
   /**
-   *@description Text in Profiles Panel of a profiler tool
+   * @description Text in Profiles Panel of a profiler tool
    */
   cantLoadProfileWhileAnother: 'Can’t load profile while another profile is being recorded.',
   /**
-   *@description Text in Profiles Panel of a profiler tool
+   * @description Text in Profiles Panel of a profiler tool
    */
   profileLoadingFailed: 'Profile loading failed',
   /**
-   *@description Text in Profiles Panel of a profiler tool
-   *@example {cannot open file} PH1
+   * @description Text in Profiles Panel of a profiler tool
+   * @example {cannot open file} PH1
    */
   failReason: 'Reason: {PH1}.',
   /**
-   *@description Text in Profiles Panel of a profiler tool
-   *@example {2} PH1
+   * @description Text in Profiles Panel of a profiler tool
+   * @example {2} PH1
    */
   runD: 'Run {PH1}',
   /**
-   *@description Text in Profiles Panel of a profiler tool
+   * @description Text in Profiles Panel of a profiler tool
    */
   profiles: 'Profiles',
 } as const;
@@ -100,9 +100,7 @@ export class ProfilesPanel extends UI.Panel.PanelWithSidebar implements DataDisp
     profile: ProfileHeader,
     view: UI.Widget.Widget,
   }>;
-  typeIdToSidebarSection: {
-    [x: string]: ProfileTypeSidebarSection,
-  };
+  typeIdToSidebarSection: Record<string, ProfileTypeSidebarSection>;
   fileSelectorElement!: HTMLInputElement;
   selectedProfileType?: ProfileType;
   constructor(name: string, profileTypes: ProfileType[], recordingActionId: string) {
@@ -477,9 +475,7 @@ export class ProfilesPanel extends UI.Panel.PanelWithSidebar implements DataDisp
 export class ProfileTypeSidebarSection extends UI.TreeOutline.TreeElement {
   dataDisplayDelegate: DataDisplayDelegate;
   readonly profileTreeElements: ProfileSidebarTreeElement[];
-  profileGroups: {
-    [x: string]: ProfileGroup,
-  };
+  profileGroups: Record<string, ProfileGroup>;
 
   constructor(dataDisplayDelegate: DataDisplayDelegate, profileType: ProfileType) {
     super(profileType.treeItemTitle, true);

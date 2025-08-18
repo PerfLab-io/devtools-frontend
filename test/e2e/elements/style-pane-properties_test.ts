@@ -7,7 +7,6 @@ import type * as puppeteer from 'puppeteer-core';
 
 import {
   $$,
-  assertNotNullOrUndefined,
   click,
   getBrowserAndPages,
   goToHtml,
@@ -171,7 +170,7 @@ describe('The Styles pane', () => {
     await goToHtml(`
        <style>
          body {
-           grid-column-end: 4;
+           grid-column-gap: 4px;
          }
        </style>`);
     await waitForElementsStyleSection();
@@ -179,12 +178,12 @@ describe('The Styles pane', () => {
     await hover('.hint-wrapper');
 
     const infobox = await waitFor(':popover-open');
-    const textContent: string = await infobox.evaluate(e => e.deepTextContent());
+    const textContent: string = await infobox.evaluate(e => e.deepInnerText());
     assert.strictEqual(
-        textContent.replaceAll(/\s+/g, ' ').trim(),
-        'The display: block property prevents grid-column-end from having an effect. Try setting display to something other than block.');
+        textContent,
+        'The display: block property prevents grid-column-gap from having an effect.\nTry setting display to something other than block.');
     await expectVeEvents([veImpressionsUnder(
-        'Panel: elements > Pane: styles > Section: style-properties > Tree > TreeItem: grid-column-end',
+        'Panel: elements > Pane: styles > Section: style-properties > Tree > TreeItem: grid-column-gap',
         [veImpression('Popover', 'elements.css-hint')])]);
   });
 
@@ -205,7 +204,7 @@ describe('The Styles pane', () => {
     await hover('.exclamation-mark');
 
     const infobox = await waitFor(':popover-open');
-    const textContent: string = await infobox.evaluate(e => e.deepTextContent());
+    const textContent: string = await infobox.evaluate(e => e.deepInnerText());
     assert.strictEqual(
         textContent.replaceAll(/\s+/g, ' ').trim(),
         'Invalid property value, expected type "<color>" View registered property');
@@ -225,7 +224,7 @@ describe('The Styles pane', () => {
     await hover('.link-swatch-link', {root: testElementRule});
 
     const infobox = await waitFor('[aria-label="CSS property value: var(--title-color)"] :popover-open');
-    const textContent = await infobox.evaluate(e => e.deepTextContent());
+    const textContent = await infobox.evaluate(e => e.deepInnerText());
     assert.strictEqual(textContent.trim(), 'black');
     await expectVeEvents([veImpressionsUnder(
         'Panel: elements > Pane: styles > Section: style-properties > Tree > TreeItem: color > Value > Link: css-variable',
@@ -244,7 +243,7 @@ describe('The Styles pane', () => {
     await hover('aria/CSS property name: --color');
 
     const infobox = await waitFor('.tree-outline :popover-open');
-    const textContent = await infobox.evaluate(e => e.deepTextContent());
+    const textContent = await infobox.evaluate(e => e.deepInnerText());
     assert.strictEqual(textContent.trim(), 'red');
     await expectVeEvents([veImpressionsUnder(
         'Panel: elements > Pane: styles > Section: style-properties > Tree > TreeItem: custom-property > Key',
@@ -263,7 +262,7 @@ describe('The Styles pane', () => {
     await hover('devtools-color-mix-swatch');
 
     const infobox = await waitFor('[aria-label="CSS property value: color-mix(in srgb, red, blue)"] :popover-open');
-    const textContent = await infobox.evaluate(e => e.deepTextContent());
+    const textContent = await infobox.evaluate(e => e.deepInnerText());
     assert.strictEqual(textContent.trim(), '#800080');
     await expectVeEvents([veImpressionsUnder(
         'Panel: elements > Pane: styles > Section: style-properties > Tree > TreeItem: color > Value',
@@ -282,7 +281,7 @@ describe('The Styles pane', () => {
     await hover('text/1em', {root: await waitForAria('CSS property value: 1em')});
 
     const infobox = await waitFor('[aria-label="CSS property value: 1em"] :popover-open');
-    const textContent = await infobox.evaluate(e => e.deepTextContent());
+    const textContent = await infobox.evaluate(e => e.deepInnerText());
     assert.strictEqual(textContent.trim(), '16px');
     await expectVeEvents([veImpressionsUnder(
         'Panel: elements > Pane: styles > Section: style-properties > Tree > TreeItem: width > Value',
@@ -554,7 +553,7 @@ describe('The Styles pane', () => {
     await click('aria/overrule[role="button"]');
 
     const treeElement = await waitFor('[data-node-key="2: overrule"]');
-    assertNotNullOrUndefined(treeElement);
+    assert.isOk(treeElement);
   });
 
   it('can display inherited CSS highlight pseudo styles', async () => {
@@ -1031,77 +1030,73 @@ describe('The Styles pane', () => {
     assert.deepEqual(inspectedRulesBefore, expectedInspectedRulesBefore);
   });
 
-  // Fails on Mac-arm64
-  it.skipOnPlatforms(
-      ['mac'],
-      '[crbug.com/362505638]:(shows styles from injected user stylesheets for a injected iframe (ported layout test)',
-      async () => {
-        const {target} = getBrowserAndPages();
-        await goToResourceAndWaitForStyleSection('elements/css-inject-stylesheet.html');
-        await prepareElementsTab();
+  it('shows styles from injected user stylesheets for a injected iframe (ported layout test)', async () => {
+    const {target} = getBrowserAndPages();
+    await goToResourceAndWaitForStyleSection('elements/css-inject-stylesheet.html');
+    await prepareElementsTab();
 
-        await target.evaluate(async () => {
-          const iframe = document.createElement('iframe');
-          iframe.src = 'css-inject-stylesheet-iframe-data.html';
-          document.getElementById('main')?.appendChild(iframe);
-        });
+    await target.evaluate(async () => {
+      const iframe = document.createElement('iframe');
+      iframe.src = 'css-inject-stylesheet-iframe-data.html';
+      document.getElementById('main')?.appendChild(iframe);
+    });
 
-        await expandSelectedNodeRecursively();
-        await target.evaluate(async () => {
-          const iframe = document.querySelector('iframe');
-          if (!iframe?.contentDocument) {
-            return;
-          }
-          const style = iframe.contentDocument.createElement('style');
-          style.textContent = '#iframeBody { background: red }';
-          iframe.contentDocument.head.append(style);
-        });
+    await expandSelectedNodeRecursively();
+    await target.evaluate(async () => {
+      const iframe = document.querySelector('iframe');
+      if (!iframe?.contentDocument) {
+        return;
+      }
+      const style = iframe.contentDocument.createElement('style');
+      style.textContent = '#iframeBody { background: red }';
+      iframe.contentDocument.head.append(style);
+    });
 
-        await waitForAndClickTreeElementWithPartialText('id=\u200B"iframeBody"');
-        await waitForStyleRule('#iframeBody');
-        const inspectedRulesAfter = await getDisplayedStyleRulesCompact();
-        const expectedInspectedRulesAfter = [
-          {
-            selectorText: 'element.style',
-            propertyNames: [],
-          },
-          {
-            selectorText: '#iframeBody',
-            propertyNames: [
-              'background',
-              'background-image',
-              'background-position-x',
-              'background-position-y',
-              'background-size',
-              'background-repeat',
-              'background-attachment',
-              'background-origin',
-              'background-clip',
-              'background-color',
-            ],
-          },
-          {
-            selectorText: 'body',
-            propertyNames: [
-              'background',
-              'background-image',
-              'background-position-x',
-              'background-position-y',
-              'background-size',
-              'background-repeat',
-              'background-attachment',
-              'background-origin',
-              'background-clip',
-              'background-color',
-            ],
-          },
-          {
-            selectorText: 'body',
-            propertyNames: ['display', 'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left'],
-          },
-        ];
-        assert.deepEqual(inspectedRulesAfter, expectedInspectedRulesAfter);
-      });
+    await waitForAndClickTreeElementWithPartialText('id=\u200B"iframeBody"');
+    await waitForStyleRule('#iframeBody');
+    const inspectedRulesAfter = await getDisplayedStyleRulesCompact();
+    const expectedInspectedRulesAfter = [
+      {
+        selectorText: 'element.style',
+        propertyNames: [],
+      },
+      {
+        selectorText: '#iframeBody',
+        propertyNames: [
+          'background',
+          'background-image',
+          'background-position-x',
+          'background-position-y',
+          'background-size',
+          'background-repeat',
+          'background-attachment',
+          'background-origin',
+          'background-clip',
+          'background-color',
+        ],
+      },
+      {
+        selectorText: 'body',
+        propertyNames: [
+          'background',
+          'background-image',
+          'background-position-x',
+          'background-position-y',
+          'background-size',
+          'background-repeat',
+          'background-attachment',
+          'background-origin',
+          'background-clip',
+          'background-color',
+        ],
+      },
+      {
+        selectorText: 'body',
+        propertyNames: ['display', 'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left'],
+      },
+    ];
+    assert.deepEqual(inspectedRulesAfter, expectedInspectedRulesAfter);
+  });
 
   it('can parse webkit css region styling (ported layout test)', async () => {
     await goToResourceAndWaitForStyleSection('elements/css-webkit-region.html');

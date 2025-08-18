@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as i18n from '../../core/i18n/i18n.js';
 import * as SDK from '../../core/sdk/sdk.js';
@@ -13,12 +14,12 @@ import * as ApplicationComponents from './components/components.js';
 
 const UIStrings = {
   /**
-   *@description Placeholder text that shows if no report was selected for viewing
+   * @description Placeholder text that shows if no report was selected for viewing
    *report body (https://developers.google.com/web/updates/2018/09/reportingapi#sending).
    */
   noReportSelected: 'No report selected',
   /**
-   *@description Placeholder text instructing the user how to display a Reporting API
+   * @description Placeholder text instructing the user how to display a Reporting API
    *report body (https://developers.google.com/web/updates/2018/09/reportingapi#sending).
    */
   clickToDisplayBody: 'Click on any report to display its body',

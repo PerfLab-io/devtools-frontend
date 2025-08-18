@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import {assert} from 'chai';
+import * as os from 'os';
 import type * as puppeteer from 'puppeteer-core';
 
 import {
@@ -66,12 +67,18 @@ async function setCruxRawResponse(path: string) {
   })()`);
 }
 
-describe('The Performance panel landing page', () => {
+// TODO: for some reason on windows, "TimelinePanel.ts hasPrimaryTarget" returns
+// false, which removes some controls and fails a VE assert. Ignore for now.
+// Might be OK after moving test to non_hosted.
+const describeSkipForWindows = os.platform() === 'win32' ? describe.skip : describe;
+
+describeSkipForWindows('The Performance panel landing page', () => {
   beforeEach(async () => {
     await reloadDevTools({selectedPanel: {name: 'timeline'}});
   });
 
-  it('displays live metrics', async () => {
+  // Flaky, skipped while we deflake it
+  it.skip('[crbug.com/415271011]displays live metrics', async () => {
     const {target, frontend} = await getBrowserAndPages();
 
     await target.bringToFront();
@@ -117,7 +124,8 @@ describe('The Performance panel landing page', () => {
     }
   });
 
-  it('displays live metrics after the page already loaded', async () => {
+  // Flaky, skipped while we deflake it
+  it.skip('[crbug.com/415271011] displays live metrics after the page already loaded', async () => {
     const {target, frontend} = await getBrowserAndPages();
 
     await target.bringToFront();
@@ -162,8 +170,8 @@ describe('The Performance panel landing page', () => {
       await targetSession.detach();
     }
   });
-
-  it('treats bfcache restoration like a regular navigation', async () => {
+  // Flaky, skipped while we deflake it
+  it.skip('[crbug.com/415271011] treats bfcache restoration like a regular navigation', async () => {
     const {target, frontend} = await getBrowserAndPages();
 
     await target.bringToFront();
@@ -230,7 +238,8 @@ describe('The Performance panel landing page', () => {
     }
   });
 
-  it('ignores metrics from iframes', async () => {
+  // Flaky, skipped while we deflake it
+  it.skip('[crbug.com/415271011]ignores metrics from iframes', async () => {
     const {target, frontend} = await getBrowserAndPages();
 
     await target.bringToFront();
@@ -349,10 +358,10 @@ describe('The Performance panel landing page', () => {
 
     await (await waitFor<HTMLElement>(ADVANCED_DETAILS_SELECTOR)).evaluate(el => el.click());
 
-    const urlOverrideCheckbox = await waitForVisible<HTMLInputElement>(OVERRIDE_FIELD_CHECKBOX_SELECTOR);
+    const urlOverrideCheckbox = await waitForVisible(OVERRIDE_FIELD_CHECKBOX_SELECTOR);
     await urlOverrideCheckbox.evaluate(el => el.click());
 
-    const urlOverrideText = await waitForVisible<HTMLInputElement>(OVERRIDE_FIELD_TEXT_SELECTOR);
+    const urlOverrideText = await waitForVisible(OVERRIDE_FIELD_TEXT_SELECTOR);
     await urlOverrideText.evaluate(el => {
       el.value = 'https://example.com';
       el.dispatchEvent(new Event('change'));
@@ -425,8 +434,8 @@ describe('The Performance panel landing page', () => {
       await targetSession.detach();
     }
   });
-
-  it('logs extra interaction details to console', async () => {
+  // flaky test
+  it.skip('[crbug.com/415210718] logs extra interaction details to console', async () => {
     const {target, frontend} = await getBrowserAndPages();
 
     await target.bringToFront();

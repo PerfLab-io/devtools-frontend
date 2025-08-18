@@ -8,9 +8,10 @@ const glob = require('glob');
 const path = require('path');
 const util = require('util');
 const yargs = require('yargs');
+const {hideBin} = require('yargs/helpers');
 const exec = util.promisify(childProcess.exec);
 
-const yargsObject = yargs
+const yargsObject = yargs(hideBin(process.argv))
                         .option('remove-files', {
                           type: 'boolean',
                           desc: 'Set to true to have obsolete goldens removed.',
@@ -20,15 +21,8 @@ const yargsObject = yargs
 
 const shouldRemoveFiles = yargsObject.removeFiles === true;
 const SOURCE_ROOT = path.resolve(__dirname, path.join('..', '..'));
-const interactionTestRoot = path.join(SOURCE_ROOT, 'test', 'interactions');
-
 const unitTestRoot = path.join(SOURCE_ROOT, 'front_end');
-// TODO: update the goldens location once interaction tests are
-// migrated.
-const GOLDENS_LOCATION = path.join(interactionTestRoot, 'goldens');
-
-const interactionTestFiles =
-    glob.sync('**/*_test.ts', {cwd: interactionTestRoot}).map(file => path.join(interactionTestRoot, file));
+const GOLDENS_LOCATION = path.join(SOURCE_ROOT, 'test', 'goldens');
 const unitTestFiles = glob.sync('**/*.test.ts', {cwd: unitTestRoot}).map(file => path.join(unitTestRoot, file));
 
 function findScreenshotsToCheck(folder) {
@@ -64,13 +58,9 @@ function checkGoldensForPlatform(platform) {
 
   for (const golden of goldens) {
     const relativeGoldenPath = path.relative(platformRoot, golden).replace(/\\/g, '/');
-    const interactions = checkFolder(
-        relativeGoldenPath,
-        interactionTestFiles,
-    );
     const units = checkFolder(relativeGoldenPath, unitTestFiles);
 
-    if (!interactions && !units) {
+    if (!units) {
       obsoleteImages.push(path.join(platform, relativeGoldenPath));
     }
   }
@@ -89,7 +79,7 @@ async function run() {
     );
     if (!shouldRemoveFiles) {
       console.log(
-          'Alternatively, run this script with --remove-files to have the script remove these files.',
+          'Alternatively, run this script (scripts/test/check_obsolete_goldens.js) with --remove-files to have the script remove these files.',
       );
     }
 

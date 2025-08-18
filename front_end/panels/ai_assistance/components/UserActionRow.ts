@@ -66,6 +66,10 @@ const UIStringsNotTranslate = {
    * @description The title of the button for scrolling to see previous suggestions
    */
   scrollToPrevious: 'Scroll to previous suggestions',
+  /**
+   * @description The title of the button that copies the AI-generated response to the clipboard.
+   */
+  copyResponse: 'Copy response',
 } as const;
 
 const lockedString = i18n.i18n.lockedString;
@@ -78,7 +82,11 @@ export interface RatingViewInput {
   currentRating?: Host.AidaClient.Rating;
   onRatingClick: (rating: Host.AidaClient.Rating) => void;
   showRateButtons: boolean;
+}
+
+export interface ActionViewInput {
   onReportClick: () => void;
+  onCopyResponseClick: () => void;
 }
 
 export interface SuggestionViewInput {
@@ -96,7 +104,7 @@ export interface FeedbackFormViewInput {
   isSubmitButtonDisabled: boolean;
 }
 
-export type UserActionRowViewInput = RatingViewInput&SuggestionViewInput&FeedbackFormViewInput;
+export type UserActionRowViewInput = RatingViewInput&ActionViewInput&SuggestionViewInput&FeedbackFormViewInput;
 
 export interface ViewOutput {
   suggestionsLeftScrollButtonContainer?: Element;
@@ -108,6 +116,7 @@ export interface UserActionRowWidgetParams {
   showRateButtons: boolean;
   onFeedbackSubmit: (rate: Host.AidaClient.Rating, feedback?: string) => void;
   suggestions?: [string, ...string[]];
+  onCopyResponseClick: () => void;
   onSuggestionClick: (suggestion: string) => void;
   canShowFeedbackForm: boolean;
 }
@@ -115,10 +124,10 @@ export interface UserActionRowWidgetParams {
 export const DEFAULT_VIEW = (input: UserActionRowViewInput, output: ViewOutput, target: HTMLElement): void => {
   // clang-format off
   Lit.render(html`
-    <style>${Input.textInputStyles.cssText}</style>
-    <style>${userActionRowStyles.cssText}</style>
+    <style>${Input.textInputStyles}</style>
+    <style>${userActionRowStyles}</style>
     <div class="ai-assistance-feedback-row">
-      <div class="rate-buttons">
+      <div class="action-buttons">
         ${input.showRateButtons ? html`
           <devtools-button
             .data=${{
@@ -160,6 +169,17 @@ export const DEFAULT_VIEW = (input: UserActionRowViewInput, output: ViewOutput, 
           }
           @click=${input.onReportClick}
         ></devtools-button>
+        <div class="vertical-separator"></div>
+          <devtools-button
+            .data=${{
+              variant: Buttons.Button.Variant.ICON,
+              size: Buttons.Button.Size.SMALL,
+              title: lockedString(UIStringsNotTranslate.copyResponse),
+              iconName: 'copy',
+              jslogContext: 'copy-ai-response',
+            } as Buttons.Button.ButtonData}
+            aria-label=${lockedString(UIStringsNotTranslate.copyResponse)}
+            @click=${input.onCopyResponseClick}></devtools-button>
       </div>
       ${input.suggestions ? html`<div class="suggestions-container">
         <div class="scroll-button-container left hidden" ${ref(element => { output.suggestionsLeftScrollButtonContainer = element; } )}>
@@ -267,6 +287,7 @@ export class UserActionRow extends UI.Widget.Widget implements UserActionRowWidg
   showRateButtons = false;
   onFeedbackSubmit: (rate: Host.AidaClient.Rating, feedback?: string) => void = () => {};
   suggestions: [string, ...string[]]|undefined;
+  onCopyResponseClick: () => void = () => {};
   onSuggestionClick: (suggestion: string) => void = () => {};
   canShowFeedbackForm = false;
 
@@ -278,12 +299,12 @@ export class UserActionRow extends UI.Widget.Widget implements UserActionRowWidg
   #isShowingFeedbackForm = false;
   #isSubmitButtonDisabled = true;
 
-  view: View;
+  #view: View;
   #viewOutput: ViewOutput = {};
 
   constructor(element?: HTMLElement, view?: View) {
-    super(false, false, element);
-    this.view = view ?? DEFAULT_VIEW;
+    super(element);
+    this.#view = view ?? DEFAULT_VIEW;
   }
 
   override wasShown(): void {
@@ -297,11 +318,12 @@ export class UserActionRow extends UI.Widget.Widget implements UserActionRowWidg
   }
 
   override performUpdate(): Promise<void>|void {
-    this.view(
+    this.#view(
         {
           onSuggestionClick: this.onSuggestionClick,
           onRatingClick: this.#handleRateClick.bind(this),
           onReportClick: () => UI.UIUtils.openInNewTab(REPORT_URL),
+          onCopyResponseClick: this.onCopyResponseClick,
           scrollSuggestionsScrollContainer: this.#scrollSuggestionsScrollContainer.bind(this),
           onSuggestionsScrollOrResize: this.#handleSuggestionsScrollOrResize.bind(this),
           onSubmit: this.#handleSubmit.bind(this),
@@ -341,7 +363,7 @@ export class UserActionRow extends UI.Widget.Widget implements UserActionRowWidg
     rightScrollButtonContainer.classList.toggle('hidden', !shouldShowRightButton);
   };
 
-  disconnectedCallback(): void {
+  override willHide(): void {
     this.#suggestionsResizeObserver.disconnect();
   }
 

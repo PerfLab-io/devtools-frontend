@@ -53,19 +53,19 @@ import {CheckboxLabel, LongClickController} from './UIUtils.js';
 
 const UIStrings = {
   /**
-   *@description Announced screen reader message for ToolbarSettingToggle when the setting is toggled on.
+   * @description Announced screen reader message for ToolbarSettingToggle when the setting is toggled on.
    */
   pressed: 'pressed',
   /**
-   *@description Announced screen reader message for ToolbarSettingToggle when the setting is toggled off.
+   * @description Announced screen reader message for ToolbarSettingToggle when the setting is toggled off.
    */
   notPressed: 'not pressed',
   /**
-   *@description Tooltip shown when the user hovers over the clear icon to empty the text input.
+   * @description Tooltip shown when the user hovers over the clear icon to empty the text input.
    */
   clearInput: 'Clear',
   /**
-   *@description Placeholder for filter bars that shows before the user types in a filter keyword.
+   * @description Placeholder for filter bars that shows before the user types in a filter keyword.
    */
   filter: 'Filter',
 } as const;
@@ -75,14 +75,14 @@ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 /**
  * Custom element for toolbars.
  *
- * @attr floating - If present the toolbar is rendered in columns, with a border
+ * @property floating - The `"floating"` attribute is reflected as property.
+ * @property wrappable - The `"wrappable"` attribute is reflected as property.
+ * @attribute floating - If present the toolbar is rendered in columns, with a border
  *                  around it, and a non-transparent background. This is used to
  *                  build vertical toolbars that open with long-click. Defaults
  *                  to `false`.
- * @attr wrappable - If present the toolbar items will wrap to a new row and the
+ * @attribute wrappable - If present the toolbar items will wrap to a new row and the
  *                   toolbar height increases.
- * @prop {boolean} floating - The `"floating"` attribute is reflected as property.
- * @prop {boolean} wrappable - The `"wrappable"` attribute is reflected as property.
  */
 export class Toolbar extends HTMLElement {
   #shadowRoot = this.attachShadow({mode: 'open'});
@@ -92,7 +92,7 @@ export class Toolbar extends HTMLElement {
 
   constructor() {
     super();
-    this.#shadowRoot.createChild('style').textContent = toolbarStyles.cssText;
+    this.#shadowRoot.createChild('style').textContent = toolbarStyles;
     this.#shadowRoot.createChild('slot');
   }
 
@@ -142,7 +142,7 @@ export class Toolbar extends HTMLElement {
   /**
    * Returns whether this toolbar is floating.
    *
-   * @return `true` if the `"floating"` attribute is present on this toolbar,
+   * @returns `true` if the `"floating"` attribute is present on this toolbar,
    *         otherwise `false`.
    */
   get floating(): boolean {
@@ -161,7 +161,7 @@ export class Toolbar extends HTMLElement {
   /**
    * Returns whether this toolbar is wrappable.
    *
-   * @return `true` if the `"wrappable"` attribute is present on this toolbar,
+   * @returns `true` if the `"wrappable"` attribute is present on this toolbar,
    *         otherwise `false`.
    */
   get wrappable(): boolean {
@@ -553,6 +553,14 @@ export class ToolbarItem<T = any, E extends HTMLElement = HTMLElement> extends C
 
   setCompactLayout(_enable: boolean): void {
   }
+
+  setMaxWidth(width: number): void {
+    this.element.style.maxWidth = width + 'px';
+  }
+
+  setMinWidth(width: number): void {
+    this.element.style.minWidth = width + 'px';
+  }
 }
 
 export const enum ToolbarItemWithCompactLayoutEvents {
@@ -850,7 +858,7 @@ export class ToolbarFilter extends ToolbarInput {
   }
 }
 
-class ToolbarInputElement extends HTMLElement {
+export class ToolbarInputElement extends HTMLElement {
   static observedAttributes = ['value'];
 
   item!: ToolbarInput;
@@ -1111,7 +1119,7 @@ export class ToolbarSettingToggle extends ToolbarToggle {
     this.setToggled(toggled);
     const toggleAnnouncement = toggled ? i18nString(UIStrings.pressed) : i18nString(UIStrings.notPressed);
     if (this.willAnnounceState) {
-      ARIAUtils.alert(toggleAnnouncement);
+      ARIAUtils.LiveAnnouncer.alert(toggleAnnouncement);
     }
     this.willAnnounceState = false;
     this.setTitle(this.defaultTitle);
@@ -1218,13 +1226,6 @@ export class ToolbarComboBox extends ToolbarItem<void, HTMLSelectElement> {
     return this.element.selectedIndex;
   }
 
-  setMaxWidth(width: number): void {
-    this.element.style.maxWidth = width + 'px';
-  }
-
-  setMinWidth(width: number): void {
-    this.element.style.minWidth = width + 'px';
-  }
 }
 
 export interface Option {
@@ -1284,6 +1285,9 @@ export class ToolbarSettingComboBox extends ToolbarComboBox {
    * 2. When the value of the select is changed, triggering a change to the setting.
    */
 
+  /**
+   * Runs when the DevTools setting is changed
+   */
   private onDevToolsSettingChanged(): void {
     if (this.muteSettingListener) {
       return;
@@ -1306,20 +1310,27 @@ export class ToolbarSettingComboBox extends ToolbarComboBox {
     this.muteSettingListener = true;
     this.setting.set(option.value);
     this.muteSettingListener = false;
+    // Because we mute the DevTools setting change listener, we need to
+    // manually update the title here.
+    this.setTitle(option.label);
   }
 }
 
 export class ToolbarCheckbox extends ToolbarItem<void> {
+  #checkboxLabel: CheckboxLabel;
   constructor(
       text: Common.UIString.LocalizedString, tooltip?: Common.UIString.LocalizedString,
       listener?: ((arg0: MouseEvent) => void), jslogContext?: string) {
-    super(CheckboxLabel.create(text, undefined, undefined, jslogContext));
+    const checkboxLabel = CheckboxLabel.create(text, undefined, undefined, jslogContext);
+    super(checkboxLabel);
     if (tooltip) {
       Tooltip.install(this.element, tooltip);
     }
     if (listener) {
       this.element.addEventListener('click', listener, false);
     }
+
+    this.#checkboxLabel = checkboxLabel;
   }
 
   checked(): boolean {
@@ -1338,6 +1349,14 @@ export class ToolbarCheckbox extends ToolbarItem<void> {
   setIndeterminate(indeterminate: boolean): void {
     (this.element as CheckboxLabel).indeterminate = indeterminate;
   }
+
+  /**
+   * Sets the user visible text shown alongside the checkbox.
+   * If you want to update the title/aria-label, use setTitle.
+   */
+  setLabelText(content: Common.UIString.LocalizedString): void {
+    this.#checkboxLabel.setLabelText(content);
+  }
 }
 
 export class ToolbarSettingCheckbox extends ToolbarCheckbox {
@@ -1345,7 +1364,7 @@ export class ToolbarSettingCheckbox extends ToolbarCheckbox {
       setting: Common.Settings.Setting<boolean>, tooltip?: Common.UIString.LocalizedString,
       alternateTitle?: Common.UIString.LocalizedString) {
     super(alternateTitle || setting.title(), tooltip, undefined, setting.name);
-    bindCheckbox(this.element, setting);
+    bindCheckbox(this.element as CheckboxLabel, setting);
   }
 }
 
@@ -1382,5 +1401,6 @@ export const enum ToolbarItemLocation {
 declare global {
   interface HTMLElementTagNameMap {
     'devtools-toolbar': Toolbar;
+    'devtools-toolbar-input': ToolbarInputElement;
   }
 }

@@ -40,8 +40,8 @@ import cardStyles from './card.css.js';
  * `;
  * ```
  *
- * @attr heading - The heading text.
- * @prop {String} heading - The `"heading"` attribute is reflect as property.
+ * @property heading - The `"heading"` attribute is reflect as property.
+ * @attribute heading - The heading text.
  */
 export class Card extends HTMLElement {
   static readonly observedAttributes = ['heading'];
@@ -86,7 +86,7 @@ export class Card extends HTMLElement {
   #render(): void {
     render(
         html`
-        <style>${cardStyles.cssText}</style>
+        <style>${cardStyles}</style>
         <div id="card">
           <div id="heading">
             <slot name="heading-prefix"></slot>

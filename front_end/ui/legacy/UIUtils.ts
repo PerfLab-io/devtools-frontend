@@ -36,6 +36,7 @@
 
 import './Toolbar.js';
 
+import type * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
@@ -43,8 +44,11 @@ import * as Root from '../../core/root/root.js';
 import * as TextUtils from '../../models/text_utils/text_utils.js';
 import * as Buttons from '../components/buttons/buttons.js';
 import * as IconButton from '../components/icon_button/icon_button.js';
+import {Directives} from '../lit/lit.js';
 import * as VisualLogging from '../visual_logging/visual_logging.js';
 
+import * as ActionRegistration from './ActionRegistration.js';
+import {ActionRegistry} from './ActionRegistry.js';
 import * as ARIAUtils from './ARIAUtils.js';
 import checkboxTextLabelStyles from './checkboxTextLabel.css.js';
 import confirmDialogStyles from './confirmDialog.css.js';
@@ -55,7 +59,6 @@ import inlineButtonStyles from './inlineButton.css.js';
 import inspectorCommonStyles from './inspectorCommon.css.js';
 import {KeyboardShortcut, Keys} from './KeyboardShortcut.js';
 import smallBubbleStyles from './smallBubble.css.js';
-import * as ThemeSupport from './theme_support/theme_support.js';
 import type {ToolbarButton} from './Toolbar.js';
 import {Tooltip} from './Tooltip.js';
 import type {TreeOutline} from './Treeoutline.js';
@@ -73,49 +76,53 @@ declare global {
 
 const UIStrings = {
   /**
-   *@description label to open link externally
+   * @description label to open link externally
    */
   openInNewTab: 'Open in new tab',
   /**
-   *@description label to copy link address
+   * @description label to copy link address
    */
   copyLinkAddress: 'Copy link address',
   /**
-   *@description label to copy file name
+   * @description label to copy file name
    */
   copyFileName: 'Copy file name',
   /**
-   *@description label for the profiler control button
+   * @description label for the profiler control button
    */
   anotherProfilerIsAlreadyActive: 'Another profiler is already active',
   /**
-   *@description Text in UIUtils
+   * @description Text in UIUtils
    */
   promiseResolvedAsync: 'Promise resolved (async)',
   /**
-   *@description Text in UIUtils
+   * @description Text in UIUtils
    */
   promiseRejectedAsync: 'Promise rejected (async)',
   /**
-   *@description Text for the title of asynchronous function calls group in Call Stack
+   * @description Text for the title of asynchronous function calls group in Call Stack
    */
   asyncCall: 'Async Call',
   /**
-   *@description Text for the name of anonymous functions
+   * @description Text for the name of anonymous functions
    */
   anonymous: '(anonymous)',
   /**
-   *@description Text to close something
+   * @description Text to close something
    */
   close: 'Close',
   /**
-   *@description Text on a button for message dialog
+   * @description Text on a button for message dialog
    */
   ok: 'OK',
   /**
-   *@description Text to cancel something
+   * @description Text to cancel something
    */
   cancel: 'Cancel',
+  /**
+   * @description Text for the new badge appearing next to some menu items
+   */
+  new: 'NEW',
 } as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/UIUtils.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -126,11 +133,11 @@ export const highlightedCurrentSearchResultClassName = 'current-search-result';
 export function installDragHandle(
     element: Element, elementDragStart: ((arg0: MouseEvent) => boolean)|null, elementDrag: (arg0: MouseEvent) => void,
     elementDragEnd: ((arg0: MouseEvent) => void)|null, cursor: string|null, hoverCursor?: string|null,
-    startDelay?: number): void {
+    startDelay?: number, mouseDownPreventDefault = true): void {
   function onMouseDown(event: Event): void {
     const dragHandler = new DragHandler();
-    const dragStart = (): void =>
-        dragHandler.elementDragStart(element, elementDragStart, elementDrag, elementDragEnd, cursor, event);
+    const dragStart = (): void => dragHandler.elementDragStart(
+        element, elementDragStart, elementDrag, elementDragEnd, cursor, event, mouseDownPreventDefault);
     if (startDelay) {
       startTimer = window.setTimeout(dragStart, startDelay);
     } else {
@@ -207,7 +214,7 @@ class DragHandler {
   elementDragStart(
       targetElement: Element, elementDragStart: ((arg0: MouseEvent) => boolean)|null,
       elementDrag: (arg0: MouseEvent) => void|boolean, elementDragEnd: ((arg0: MouseEvent) => void)|null,
-      cursor: string|null, ev: Event): void {
+      cursor: string|null, ev: Event, preventDefault = true): void {
     const event = (ev as MouseEvent);
     // Only drag upon left button. Right will likely cause a context menu. So will ctrl-click on mac.
     if (event.button || (Host.Platform.isMac() && event.ctrlKey)) {
@@ -257,7 +264,10 @@ class DragHandler {
       targetHtmlElement.style.cursor = oldCursor;
       this.restoreCursorAfterDrag = undefined;
     }
-    event.preventDefault();
+
+    if (preventDefault) {
+      event.preventDefault();
+    }
   }
 
   private mouseOutWhileDragging(): void {
@@ -466,7 +476,8 @@ function modifiedHexValue(hexString: string, event: Event): string|null {
   return resultString;
 }
 
-export function modifiedFloatNumber(number: number, event: Event, modifierMultiplier?: number): number|null {
+export function modifiedFloatNumber(
+    number: number, event: Event, modifierMultiplier?: number, range?: {min?: number, max?: number}): number|null {
   const direction = getValueModificationDirection(event);
   if (!direction) {
     return null;
@@ -497,7 +508,13 @@ export function modifiedFloatNumber(number: number, event: Event, modifierMultip
 
   // Make the new number and constrain it to a precision of 6, this matches numbers the engine returns.
   // Use the Number constructor to forget the fixed precision, so 1.100000 will print as 1.1.
-  const result = Number((number + delta).toFixed(6));
+  let result = Number((number + delta).toFixed(6));
+  if (range?.min !== undefined) {
+    result = Math.max(result, range.min);
+  }
+  if (range?.max !== undefined) {
+    result = Math.min(result, range.max);
+  }
   if (!String(result).match(numberRegex)) {
     return null;
   }
@@ -506,7 +523,8 @@ export function modifiedFloatNumber(number: number, event: Event, modifierMultip
 
 export function createReplacementString(
     wordString: string, event: Event,
-    customNumberHandler?: ((arg0: string, arg1: number, arg2: string) => string)): string|null {
+    customNumberHandler?: ((prefix: string, number: number, suffix: string) => string),
+    stepping?: {step?: number, range?: {min?: number, max?: number}}): string|null {
   let prefix;
   let suffix;
   let number;
@@ -524,7 +542,7 @@ export function createReplacementString(
     if (matches?.length) {
       prefix = matches[1];
       suffix = matches[3];
-      number = modifiedFloatNumber(parseFloat(matches[2]), event);
+      number = modifiedFloatNumber(parseFloat(matches[2]), event, stepping?.step, stepping?.range);
       if (number !== null) {
         replacementString =
             customNumberHandler ? customNumberHandler(prefix, number, suffix) : prefix + number + suffix;
@@ -641,7 +659,8 @@ export function addPlatformClass(element: HTMLElement): void {
 }
 
 export function installComponentRootStyles(element: HTMLElement): void {
-  injectCoreStyles(element);
+  Platform.DOMUtilities.appendStyle(element, inspectorCommonStyles);
+  Platform.DOMUtilities.appendStyle(element, Buttons.textButtonStyles);
 
   // Detect overlay scrollbar enable by checking for nonzero scrollbar width.
   if (!Host.Platform.isMac() && measuredScrollbarWidth(element.ownerDocument) === 0) {
@@ -1111,6 +1130,13 @@ export function createTextButton(text: string, clickHandler?: ((arg0: Event) => 
   button.variant = opts?.variant ? opts.variant : Buttons.Button.Variant.OUTLINED;
   if (clickHandler) {
     button.addEventListener('click', clickHandler);
+    button.addEventListener('keydown', (event: KeyboardEvent): void => {
+      if (event.key === 'Enter' || event.key === 'Space') {
+        // Make sure we don't propagate 'Enter' or 'Space' key events to parents,
+        // so that these get turned into 'click' events properly.
+        event.stopImmediatePropagation();
+      }
+    });
   }
   if (opts?.jslogContext) {
     button.setAttribute('jslog', `${VisualLogging.action().track({click: true}).context(opts.jslogContext)}`);
@@ -1224,7 +1250,7 @@ export function createLabel(title: string, className?: string, associatedControl
 }
 
 export function createIconLabel(
-    options: {title?: string, iconName: string, color?: string, width?: '14px'|'20px', height?: '14px'|'20px'}):
+    options: {iconName: string, title?: string, color?: string, width?: '14px'|'20px', height?: '14px'|'20px'}):
     DevToolsIconLabel {
   const element = document.createElement('dt-icon-label');
   if (options.title) {
@@ -1305,7 +1331,7 @@ export function setTitle(element: HTMLElement, title: string): void {
 }
 
 export class CheckboxLabel extends HTMLElement {
-  static readonly observedAttributes = ['checked', 'disabled', 'indeterminate', 'name', 'title'];
+  static readonly observedAttributes = ['checked', 'disabled', 'indeterminate', 'name', 'title', 'aria-label'];
 
   readonly #shadowRoot!: DocumentFragment;
   #checkboxElement!: HTMLInputElement;
@@ -1362,7 +1388,25 @@ export class CheckboxLabel extends HTMLElement {
     } else if (name === 'title') {
       this.#checkboxElement.title = newValue ?? '';
       this.#textElement.title = newValue ?? '';
+    } else if (name === 'aria-label') {
+      this.#checkboxElement.ariaLabel = newValue;
     }
+  }
+
+  getLabelText(): string|null {
+    return this.#textElement.textContent;
+  }
+
+  setLabelText(content: string): void {
+    this.#textElement.textContent = content;
+  }
+
+  override get ariaLabel(): string|null {
+    return this.#checkboxElement.ariaLabel;
+  }
+
+  override set ariaLabel(ariaLabel: string) {
+    this.setAttribute('aria-label', ariaLabel);
   }
 
   get checked(): boolean {
@@ -1387,6 +1431,14 @@ export class CheckboxLabel extends HTMLElement {
 
   get indeterminate(): boolean {
     return this.#checkboxElement.indeterminate;
+  }
+
+  override set title(title: string) {
+    this.setAttribute('title', title);
+  }
+
+  override get title(): string {
+    return this.#checkboxElement.title;
   }
 
   set name(name: string) {
@@ -1488,16 +1540,17 @@ export class DevToolsCloseButton extends HTMLElement {
       this.#button.tabIndex = -1;
     }
   }
+
+  override focus(): void {
+    this.#button.focus();
+  }
 }
 
 customElements.define('dt-close-button', DevToolsCloseButton);
 
 export function bindInput(
-    input: HTMLInputElement, apply: (arg0: string) => void, validate: (arg0: string) => {
-      valid: boolean,
-      errorMessage: (string | undefined),
-    },
-    numeric: boolean, modifierMultiplier?: number): (arg0: string) => void {
+    input: HTMLInputElement, apply: (arg0: string) => void, validate: (arg0: string) => boolean, numeric: boolean,
+    modifierMultiplier?: number): (arg0: string) => void {
   input.addEventListener('change', onChange, false);
   input.addEventListener('input', onInput, false);
   input.addEventListener('keydown', onKeyDown, false);
@@ -1508,7 +1561,7 @@ export function bindInput(
   }
 
   function onChange(): void {
-    const {valid} = validate(input.value);
+    const valid = validate(input.value);
     input.classList.toggle('error-input', !valid);
     if (valid) {
       apply(input.value);
@@ -1517,7 +1570,7 @@ export function bindInput(
 
   function onKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Enter') {
-      const {valid} = validate(input.value);
+      const valid = validate(input.value);
       if (valid) {
         apply(input.value);
       }
@@ -1534,7 +1587,7 @@ export function bindInput(
       return;
     }
     const stringValue = String(value);
-    const {valid} = validate(stringValue);
+    const valid = validate(stringValue);
     if (valid) {
       setValue(stringValue);
     }
@@ -1545,7 +1598,7 @@ export function bindInput(
     if (value === input.value) {
       return;
     }
-    const {valid} = validate(value);
+    const valid = validate(value);
     input.classList.toggle('error-input', !valid);
     input.value = value;
   }
@@ -1631,8 +1684,8 @@ export function loadImage(url: string): Promise<HTMLImageElement|null> {
 
 /**
  * Creates a file selector element.
- * @param callback - the function that will be called with the file the user selected
- * @param accept - optionally used to set the [`accept`](https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/accept) parameter to limit file-types the user can pick.
+ * @param callback the function that will be called with the file the user selected
+ * @param accept optionally used to set the [`accept`](https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/accept) parameter to limit file-types the user can pick.
  */
 export function createFileSelectorElement(callback: (arg0: File) => void, accept?: string): HTMLInputElement {
   const fileSelectorElement = document.createElement('input');
@@ -1910,11 +1963,6 @@ function focusChanged(event: Event): void {
   updateXWidgetfocusWidgetForNode(element);
 }
 
-export function injectCoreStyles(elementOrShadowRoot: Element|ShadowRoot): void {
-  ThemeSupport.ThemeSupport.instance().appendStyle(elementOrShadowRoot, inspectorCommonStyles);
-  ThemeSupport.ThemeSupport.instance().appendStyle(elementOrShadowRoot, Buttons.textButtonStyles);
-}
-
 /**
  * Creates a new shadow DOM tree with the core styles and an optional list of
  * additional styles, and attaches it to the specified `element`.
@@ -1924,24 +1972,21 @@ export function injectCoreStyles(elementOrShadowRoot: Element|ShadowRoot): void 
  * @returns the newly created `ShadowRoot`.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Element/attachShadow
  */
-export function createShadowRootWithCoreStyles(
-    element: Element, options: {cssFile?: Array<{cssText: string}>|{cssText: string}, delegatesFocus?: boolean} = {
-      delegatesFocus: undefined,
-      cssFile: undefined,
-    }): ShadowRoot {
-  const {
-    cssFile,
-    delegatesFocus,
-  } = options;
+export function createShadowRootWithCoreStyles(element: Element, options: {
+  cssFile?: CSSInJS[]|CSSInJS,
+  delegatesFocus?: boolean,
+} = {
+  delegatesFocus: undefined,
+  cssFile: undefined,
+}): ShadowRoot {
+  const {cssFile, delegatesFocus} = options;
 
   const shadowRoot = element.attachShadow({mode: 'open', delegatesFocus});
-  injectCoreStyles(shadowRoot);
+  Platform.DOMUtilities.appendStyle(shadowRoot, inspectorCommonStyles, Buttons.textButtonStyles);
   if (Array.isArray(cssFile)) {
-    for (const cf of cssFile) {
-      ThemeSupport.ThemeSupport.instance().appendStyle(shadowRoot, cf);
-    }
+    Platform.DOMUtilities.appendStyle(shadowRoot, ...cssFile);
   } else if (cssFile) {
-    ThemeSupport.ThemeSupport.instance().appendStyle(shadowRoot, cssFile);
+    Platform.DOMUtilities.appendStyle(shadowRoot, cssFile);
   }
   shadowRoot.addEventListener('focus', focusChanged, true);
   return shadowRoot;
@@ -2002,4 +2047,141 @@ export function openInNewTab(url: URL|string): void {
     }
   }
   Host.InspectorFrontendHost.InspectorFrontendHostInstance.openInNewTab(Platform.DevToolsPath.urlString`${url}`);
+}
+
+export interface PromotionDisplayState {
+  displayCount: number;
+  firstRegistered: number;
+  featureInteractionCount: number;
+}
+
+const MAX_DISPLAY_COUNT = 10;
+// 60 days in ms
+const MAX_DURATION = 60 * 24 * 60 * 60 * 1000;
+const MAX_INTERACTION_COUNT = 2;
+
+export class PromotionManager {
+  static #instance?: PromotionManager;
+
+  static instance(): PromotionManager {
+    if (!PromotionManager.#instance) {
+      PromotionManager.#instance = new PromotionManager();
+    }
+    return PromotionManager.#instance;
+  }
+
+  private getPromotionDisplayState(id: string): PromotionDisplayState|null {
+    const displayStateString = localStorage.getItem(id);
+    return displayStateString ? JSON.parse(displayStateString) : null;
+  }
+
+  private setPromotionDisplayState(id: string, promotionDisplayState: PromotionDisplayState): void {
+    localStorage.setItem(id, JSON.stringify(promotionDisplayState));
+  }
+
+  private registerPromotion(id: string): void {
+    this.setPromotionDisplayState(id, {
+      displayCount: 0,
+      firstRegistered: Date.now(),
+      featureInteractionCount: 0,
+    });
+  }
+
+  private recordPromotionShown(id: string): void {
+    const displayState = this.getPromotionDisplayState(id);
+    if (!displayState) {
+      throw new Error(`Cannot record promotion shown for unregistered promotion ${id}`);
+    }
+    this.setPromotionDisplayState(id, {
+      ...displayState,
+      displayCount: displayState.displayCount + 1,
+    });
+  }
+
+  canShowPromotion(id: string): boolean {
+    const displayState = this.getPromotionDisplayState(id);
+    if (!displayState) {
+      this.registerPromotion(id);
+      return true;
+    }
+    return displayState.displayCount < MAX_DISPLAY_COUNT && Date.now() - displayState.firstRegistered < MAX_DURATION &&
+        displayState.featureInteractionCount < MAX_INTERACTION_COUNT;
+  }
+
+  recordFeatureInteraction(id: string): void {
+    const displayState = this.getPromotionDisplayState(id);
+    if (!displayState) {
+      throw new Error(`Cannot record feature interaction for unregistered promotion ${id}`);
+    }
+    this.setPromotionDisplayState(id, {
+      ...displayState,
+      featureInteractionCount: displayState.featureInteractionCount + 1,
+    });
+  }
+
+  maybeShowPromotion(id: string): boolean {
+    if (this.canShowPromotion(id)) {
+      this.recordPromotionShown(id);
+      return true;
+    }
+    return false;
+  }
+}
+
+/**
+ * Creates a `<div>` element with the localized text NEW.
+ *
+ * The element is automatically styled correctly, as long as the core styles (in particular
+ * `inspectorCommon.css` is injected into the current document / shadow root). The lit
+ * equivalent of calling this method is:
+ *
+ * ```js
+ * const jslog = VisualLogging.badge('new-badge');
+ * html`<div class='new-badge' jsog=${jslog}>i18nString(UIStrings.new)</div>`
+ *
+ * @returns the newly created `HTMLDivElement` for the new badge.
+ */
+export function maybeCreateNewBadge(promotionId: string): HTMLDivElement|undefined {
+  const promotionManager = PromotionManager.instance();
+  if (promotionManager.maybeShowPromotion(promotionId)) {
+    const badge = document.createElement('div');
+    badge.className = 'new-badge';
+    badge.textContent = i18nString(UIStrings.new);
+    badge.setAttribute('jslog', `${VisualLogging.badge('new-badge')}`);
+    return badge;
+  }
+  return undefined;
+}
+
+export function bindToAction(actionName: string): ReturnType<typeof Directives.ref> {
+  const action = ActionRegistry.instance().getAction(actionName);
+
+  let setEnabled: (enabled: boolean) => void;
+  function actionEnabledChanged(event: Common.EventTarget.EventTargetEvent<boolean>): void {
+    setEnabled(event.data);
+  }
+
+  return Directives.ref((e: Element|undefined) => {
+    if (!e || !(e instanceof Buttons.Button.Button)) {
+      action.removeEventListener(ActionRegistration.Events.ENABLED, actionEnabledChanged);
+      return;
+    }
+
+    setEnabled = enabled => {
+      e.disabled = !enabled;
+    };
+
+    action.addEventListener(ActionRegistration.Events.ENABLED, actionEnabledChanged);
+
+    const title = action.title();
+    const iconName = action.icon();
+    const jslogContext = action.id();
+    if (iconName) {
+      e.data = {iconName, jslogContext, title, variant: Buttons.Button.Variant.ICON};
+    } else {
+      e.data = {jslogContext, title, variant: Buttons.Button.Variant.TEXT};
+    }
+    setEnabled(action.enabled());
+    e.onclick = () => action.execute();
+  });
 }

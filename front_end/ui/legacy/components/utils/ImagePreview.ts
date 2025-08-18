@@ -13,12 +13,12 @@ import imagePreviewStyles from './imagePreview.css.js';
 
 const UIStrings = {
   /**
-   *@description Alt text description of an image's source
+   * @description Alt text description of an image's source
    */
   unknownSource: 'unknown source',
   /**
-   *@description Text to indicate the source of an image
-   *@example {example.com} PH1
+   * @description Text to indicate the source of an image
+   * @example {example.com} PH1
    */
   imageFromS: 'Image from {PH1}',
   /**
@@ -115,7 +115,7 @@ export class ImagePreview {
       function buildContent(): void {
         const shadowBoundary = document.createElement('div');
         const shadowRoot = shadowBoundary.attachShadow({mode: 'open'});
-        shadowRoot.createChild('style').textContent = imagePreviewStyles.cssText;
+        shadowRoot.createChild('style').textContent = imagePreviewStyles;
         const container = shadowRoot.createChild('table');
         container.className = 'image-preview-container';
 

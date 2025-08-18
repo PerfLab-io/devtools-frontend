@@ -35,22 +35,21 @@ import * as Platform from '../../../../core/platform/platform.js';
 import * as IconButton from '../../../components/icon_button/icon_button.js';
 import * as VisualLogging from '../../../visual_logging/visual_logging.js';
 import * as UI from '../../legacy.js';
-import * as ThemeSupport from '../../theme_support/theme_support.js';
 
 import overviewGridStyles from './overviewGrid.css.js';
 import {type Calculator, TimelineGrid} from './TimelineGrid.js';
 
 const UIStrings = {
   /**
-   *@description Label for the window for Overview grids
+   * @description Label for the window for Overview grids
    */
   overviewGridWindow: 'Overview grid window',
   /**
-   *@description Label for left window resizer for Overview grids
+   * @description Label for left window resizer for Overview grids
    */
   leftResizer: 'Left Resizer',
   /**
-   *@description Label for right window resizer for Overview grids
+   * @description Label for right window resizer for Overview grids
    */
   rightResizer: 'Right Resizer',
 } as const;
@@ -201,7 +200,7 @@ export class Window extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
 
     this.parentElement.addEventListener('wheel', this.onMouseWheel.bind(this), true);
     this.parentElement.addEventListener('dblclick', this.resizeWindowMaximum.bind(this), true);
-    ThemeSupport.ThemeSupport.instance().appendStyle(this.parentElement, overviewGridStyles);
+    Platform.DOMUtilities.appendStyle(this.parentElement, overviewGridStyles);
 
     this.leftResizeElement = parentElement.createChild('div', 'overview-grid-window-resizer');
     UI.UIUtils.installDragHandle(

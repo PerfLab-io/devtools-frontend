@@ -21,6 +21,7 @@ import {
 
 interface ElementContext {
   selector: string;
+  simpleSelector?: string;
   sourceLocation?: string;
 }
 
@@ -181,33 +182,40 @@ export class ExtensionScope {
       ): string {
     const selectorIndexes = matchedStyles.getMatchingSelectors(styleRule);
     // TODO: Compute the selector when nested selector is present
-    const selectors = styleRule
-                          .selectors
-                          // Filter out only selector that apply rules
-                          .filter((_, index) => selectorIndexes.includes(index))
-                          // Ignore selector that include AI selector name
-                          .filter(value => !value.text.includes(AI_ASSISTANCE_CSS_CLASS_NAME))
-                          // Exclude selector that matches every element
-                          .filter(value => value.text !== '*')
-                          .sort((a, b) => {
-                            if (!a.specificity) {
-                              return -1;
-                            }
+    const selectors =
+        styleRule
+            .selectors
+            // Filter out only selector that apply rules
+            .filter((_, index) => selectorIndexes.includes(index))
+            // Ignore selector that include AI selector name
+            .filter(value => !value.text.includes(AI_ASSISTANCE_CSS_CLASS_NAME))
+            // specific enough this allows having selectors like `div > * > p`
+            .filter(
+                // Disallow star selector ending that targets any arbitrary element
+                value => !value.text.endsWith('*') &&
+                    // Disallow selector that contain star and don't have higher specificity
+                    // Example of disallowed: `div > * > p`
+                    // Example of allowed: `div > * > .header` OR `div > * > #header`
+                    !(value.text.includes('*') && value.specificity?.a === 0 && value.specificity?.b === 0))
+            .sort((a, b) => {
+              if (!a.specificity) {
+                return -1;
+              }
 
-                            if (!b.specificity) {
-                              return 1;
-                            }
+              if (!b.specificity) {
+                return 1;
+              }
 
-                            if (b.specificity.a !== a.specificity.a) {
-                              return b.specificity.a - a.specificity.a;
-                            }
+              if (b.specificity.a !== a.specificity.a) {
+                return b.specificity.a - a.specificity.a;
+              }
 
-                            if (b.specificity.b !== a.specificity.b) {
-                              return b.specificity.b - a.specificity.b;
-                            }
+              if (b.specificity.b !== a.specificity.b) {
+                return b.specificity.b - a.specificity.b;
+              }
 
-                            return b.specificity.b - a.specificity.b;
-                          });
+              return b.specificity.b - a.specificity.b;
+            });
 
     const selector = selectors.at(0);
     if (!selector) {
@@ -239,10 +247,7 @@ export class ExtensionScope {
   }
 
   static getSourceLocation(styleRule: SDK.CSSRule.CSSStyleRule): string|undefined {
-    if (!styleRule.styleSheetId) {
-      return;
-    }
-    const styleSheetHeader = styleRule.cssModel().styleSheetHeaderForId(styleRule.styleSheetId);
+    const styleSheetHeader = styleRule.header;
     if (!styleSheetHeader) {
       return;
     }
@@ -299,6 +304,7 @@ export class ExtensionScope {
 
       return {
         selector,
+        simpleSelector: ExtensionScope.getSelectorForNode(node),
         sourceLocation: ExtensionScope.getSourceLocation(styleRule),
       };
     } catch {
@@ -356,6 +362,7 @@ export class ExtensionScope {
           groupId: this.#agentId,
           sourceLocation: context.sourceLocation,
           selector: context.selector,
+          simpleSelector: context.simpleSelector,
           className: arg.className,
           styles: sanitizedStyles,
         });

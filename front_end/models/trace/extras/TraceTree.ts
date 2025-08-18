@@ -10,13 +10,16 @@ import * as Types from '../types/types.js';
 import type {TraceFilter} from './TraceFilter.js';
 
 export class Node {
+  /** ms */
   totalTime: number;
+  /** ms */
   selfTime: number;
   transferSize: number;
   id: string|symbol;
   /** The first trace event encountered that necessitated the creation of this tree node. */
   event: Types.Events.Event;
-  /** All of the trace events associated with this aggregate node.
+  /**
+   * All of the trace events associated with this aggregate node.
    * Minor: In the case of Event Log (EventsTimelineTreeView), the node is not aggregate and this will only hold 1 event, the same that's in this.event
    */
   events: Types.Events.Event[];
@@ -242,10 +245,6 @@ export class TopDownNode extends Node {
 
     this.childrenInternal = children;
     return children;
-  }
-
-  getRoot(): TopDownRootNode|null {
-    return this.root;
   }
 }
 

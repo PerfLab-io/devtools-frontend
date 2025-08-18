@@ -17,11 +17,11 @@ import type {Widget} from './Widget.js';
 
 const UIStrings = {
   /**
-   *@description Text on a button to close the infobar and never show the infobar in the future
+   * @description Text on a button to close the infobar and never show the infobar in the future
    */
   dontShowAgain: 'Don\'t show again',
   /**
-   *@description Text to close something
+   * @description Text to close something
    */
   close: 'Close',
 } as const;
@@ -72,7 +72,8 @@ export class Infobar {
     this.disableSetting = disableSetting || null;
     if (disableSetting) {
       const disableButton = createTextButton(
-          i18nString(UIStrings.dontShowAgain), this.onDisable.bind(this), {className: 'infobar-button'});
+          i18nString(UIStrings.dontShowAgain), this.onDisable.bind(this),
+          {className: 'infobar-button', jslogContext: 'dont-show-again'});
       this.actionContainer.appendChild(disableButton);
 
       // If we have a disable button, make the other buttons tonal (if not otherwise specified).

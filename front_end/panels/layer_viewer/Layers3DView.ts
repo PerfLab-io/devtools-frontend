@@ -52,32 +52,32 @@ import {Events as TransformControllerEvents, TransformController} from './Transf
 
 const UIStrings = {
   /**
-   *@description Text of a DOM element in DView of the Layers panel
+   * @description Text of a DOM element in DView of the Layers panel
    */
   noLayerInformation: 'No layers detected yet',
   /**
-   *@description Text of a DOM element in DView of the Layers panel that explains the panel
+   * @description Text of a DOM element in DView of the Layers panel that explains the panel
    */
   layerExplanation: 'On this page you will be able to view and inspect document layers.',
   /**
-   *@description Accessibility label for canvas view in Layers tool
+   * @description Accessibility label for canvas view in Layers tool
    */
   dLayersView: '3D Layers View',
   /**
-   *@description Text in DView of the Layers panel
+   * @description Text in DView of the Layers panel
    */
   cantDisplayLayers: 'Can\'t display layers',
   /**
-   *@description Text in DView of the Layers panel
+   * @description Text in DView of the Layers panel
    */
   webglSupportIsDisabledInYour: 'WebGL support is disabled in your browser.',
   /**
-   *@description Text in DView of the Layers panel
-   *@example {about:gpu} PH1
+   * @description Text in DView of the Layers panel
+   * @example {about:gpu} PH1
    */
   checkSForPossibleReasons: 'Check {PH1} for possible reasons.',
   /**
-   *@description Text for a checkbox in the toolbar of the Layers panel to show the area of slow scroll rect
+   * @description Text for a checkbox in the toolbar of the Layers panel to show the area of slow scroll rect
    */
   slowScrollRects: 'Slow scroll rects',
   /**
@@ -87,11 +87,11 @@ const UIStrings = {
    */
   paints: 'Paints',
   /**
-   *@description A context menu item in the DView of the Layers panel
+   * @description A context menu item in the DView of the Layers panel
    */
   resetView: 'Reset View',
   /**
-   *@description A context menu item in the DView of the Layers panel
+   * @description A context menu item in the DView of the Layers panel
    */
   showPaintProfiler: 'Show Paint Profiler',
 } as const;
@@ -116,7 +116,7 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
   private readonly layerViewHost: LayerViewHost;
   private transformController: TransformController;
   private canvasElement: HTMLCanvasElement;
-  private lastSelection: {[x: string]: Selection|null};
+  private lastSelection: Record<string, Selection|null>;
   private layerTree: SDK.LayerTreeBase.LayerTreeBase|null;
   private readonly textureManager: LayerTextureManager;
   private chromeTextures: Array<WebGLTexture|undefined>;
@@ -142,9 +142,11 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
   private mouseDownY?: number;
 
   constructor(layerViewHost: LayerViewHost) {
-    super(true);
+    super({
+      jslog: `${VisualLogging.pane('layers-3d-view')}`,
+      useShadowDom: true,
+    });
     this.registerRequiredCSS(layers3DViewStyles);
-    this.element.setAttribute('jslog', `${VisualLogging.pane('layers-3d-view')}`);
 
     this.contentElement.classList.add('layers-3d-view');
     this.failBanner = new UI.EmptyWidget.EmptyWidget(
@@ -152,7 +154,11 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
 
     this.layerViewHost = layerViewHost;
     this.layerViewHost.registerView(this);
-    this.transformController = new TransformController(this.contentElement);
+    // Install transform controller, but still allow drag events to set focus on the element, which is needed
+    // to correctly listen for keyboard shortcuts.
+    this.transformController =
+        new TransformController(this.contentElement, false, false /* preventDefaultOnMouseDown */);
+
     this.transformController.addEventListener(TransformControllerEvents.TRANSFORM_CHANGED, this.update, this);
 
     this.initToolbar();

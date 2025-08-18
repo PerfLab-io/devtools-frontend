@@ -47,7 +47,7 @@ describe('ConsoleViewMessage', () => {
   });
 });
 
-describeWithMockConnection('ConsoleViewMessage with mock connection', () => {
+describeWithMockConnection('ConsoleViewMessage', () => {
   describe('anchor rendering', () => {
     it('links to the top frame for normal console message', () => {
       const target = createTarget();
@@ -172,7 +172,7 @@ describeWithMockConnection('ConsoleViewMessage with mock connection', () => {
     const IGNORE_LIST_LINK = 'ignore-list-link';
 
     function findStackPreviewContainer(element: HTMLElement) {
-      const outer = element.querySelector('span.stack-preview-container');
+      const outer = element.querySelector('.stack-preview-container');
       assert.isNotNull(outer);
       const inner = outer.shadowRoot;
       assert.isNotNull(inner);

@@ -22,37 +22,38 @@ import {targetForEvent} from './TargetForEvent.js';
 import * as ThirdPartyTreeView from './ThirdPartyTreeView.js';
 import {TimelineRegExp} from './TimelineFilters.js';
 import {rangeForSelection, type TimelineSelection} from './TimelineSelection.js';
+import timelineTreeViewStyles from './timelineTreeView.css.js';
 import {TimelineUIUtils} from './TimelineUIUtils.js';
 import * as Utils from './utils/utils.js';
 
 const UIStrings = {
   /**
-   *@description Text for the performance of something
+   * @description Text for the performance of something
    */
   performance: 'Performance',
   /**
-   *@description Time of a single activity, as opposed to the total time
+   * @description Time of a single activity, as opposed to the total time
    */
   selfTime: 'Self time',
   /**
-   *@description Text for the total time of something
+   * @description Text for the total time of something
    */
   totalTime: 'Total time',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   activity: 'Activity',
   /**
-   *@description Text of a DOM element in Timeline Tree View of the Performance panel
+   * @description Text of a DOM element in Timeline Tree View of the Performance panel
    */
   selectItemForDetails: 'Select item for details.',
   /**
-   *@description Number followed by percent sign
-   *@example {20} PH1
+   * @description Number followed by percent sign
+   * @example {20} PH1
    */
   percentPlaceholder: '{PH1} %',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   chromeExtensionsOverhead: '[`Chrome` extensions overhead]',
   /**
@@ -62,47 +63,47 @@ const UIStrings = {
    */
   vRuntime: '[`V8` Runtime]',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   unattributed: '[unattributed]',
   /**
-   *@description Text that refers to one or a group of webpages
+   * @description Text that refers to one or a group of webpages
    */
   page: 'Page',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   noGrouping: 'No grouping',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   groupByActivity: 'Group by activity',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   groupByCategory: 'Group by category',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   groupByDomain: 'Group by domain',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   groupByFrame: 'Group by frame',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   groupBySubdomain: 'Group by subdomain',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   groupByUrl: 'Group by URL',
   /**
-   *@description Text in Timeline Tree View of the Performance panel
+   * @description Text in Timeline Tree View of the Performance panel
    */
   groupByThirdParties: 'Group by Third Parties',
   /**
-   *@description Aria-label for grouping combo box in Timeline Details View
+   * @description Aria-label for grouping combo box in Timeline Details View
    */
   groupBy: 'Group by',
   /**
@@ -129,15 +130,15 @@ const UIStrings = {
    */
   heaviestStackHidden: 'Heaviest stack sidebar hidden',
   /**
-   *@description Data grid name for Timeline Stack data grids
+   * @description Data grid name for Timeline Stack data grids
    */
   timelineStack: 'Timeline stack',
   /**
-  /*@description Text to search by matching case of the input button
+   * /*@description Text to search by matching case of the input button
    */
   matchCase: 'Match case',
   /**
-   *@description Text for searching with regular expression button
+   * @description Text for searching with regular expression button
    */
   useRegularExpression: 'Use regular expression',
   /**
@@ -207,6 +208,7 @@ export class TimelineTreeView extends
     super();
     this.#selectedEvents = null;
     this.element.classList.add('timeline-tree-view');
+    this.registerRequiredCSS(timelineTreeViewStyles);
 
     this.searchResults = [];
   }
@@ -571,7 +573,7 @@ export class TimelineTreeView extends
     if (selectedNode && this.showDetailsForNode(selectedNode)) {
       return;
     }
-    const banner = this.detailsView.element.createChild('div', 'full-widget-dimmed-banner');
+    const banner = this.detailsView.element.createChild('div', 'empty-state');
     UI.UIUtils.createTextChild(banner, i18nString(UIStrings.selectItemForDetails));
   }
 

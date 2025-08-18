@@ -78,19 +78,19 @@ import {
 
 const UIStrings = {
   /**
-   *@description Text in Network Log View of the Network panel
+   * @description Text in Network Log View of the Network panel
    */
   invertFilter: 'Invert',
   /**
-   *@description Tooltip for the 'invert' checkbox in the Network panel.
+   * @description Tooltip for the 'invert' checkbox in the Network panel.
    */
   invertsFilter: 'Inverts the search filter',
   /**
-   *@description Text in Network Log View of the Network panel
+   * @description Text in Network Log View of the Network panel
    */
   hideDataUrls: 'Hide data URLs',
   /**
-   *@description Data urlfilter ui element title in Network Log View of the Network panel
+   * @description Data urlfilter ui element title in Network Log View of the Network panel
    */
   hidesDataAndBlobUrls: 'Hide \'data:\' and \'blob:\' URLs',
   /**
@@ -102,98 +102,106 @@ const UIStrings = {
    */
   hideChromeExtension: 'Hide \'chrome-extension://\' URLs',
   /**
-   *@description Aria accessible name in Network Log View of the Network panel
+   * @description Aria accessible name in Network Log View of the Network panel
    */
   requestTypesToInclude: 'Request types to include',
   /**
-   *@description Label for a checkbox in the Network panel. When checked, only requests with
+   * @description Label for a checkbox in the Network panel. When checked, only requests with
    *             blocked response cookies are shown.
    */
   hasBlockedCookies: 'Blocked response cookies',
   /**
-   *@description Tooltip for a checkbox in the Network panel. The response to a network request may include a
+   * @description Tooltip for a checkbox in the Network panel. The response to a network request may include a
    *             cookie (https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies). Such response cookies can
    *             be malformed or otherwise invalid and the browser may choose to ignore or not accept invalid cookies.
    */
   onlyShowRequestsWithBlockedCookies: 'Show only requests with blocked response cookies',
   /**
-   *@description Label for a filter in the Network panel
+   * @description Label for a filter in the Network panel
    */
   blockedRequests: 'Blocked requests',
   /**
-   *@description Tooltip for a filter in the Network panel
+   * @description Tooltip for a filter in the Network panel
    */
   onlyShowBlockedRequests: 'Show only blocked requests',
   /**
-   *@description Label for a filter in the Network panel
+   * @description Label for a filter in the Network panel
    */
   thirdParty: '3rd-party requests',
   /**
-   *@description Tooltip for a filter in the Network panel
+   * @description Tooltip for a filter in the Network panel
    */
   onlyShowThirdPartyRequests: 'Show only requests with origin different from page origin',
   /**
-   *@description Text that appears when user drag and drop something (for example, a file) in Network Log View of the Network panel
+   * @description Label for a filter in the Network panel
+   */
+  ippRequests: 'IP Protected requests',
+  /**
+   * @description Tooltip for a filter in the Network panel
+   */
+  onlyShowIPProtectedRequests: '(Incognito Only) Show only requests sent to IP Protection proxies',
+  /**
+   * @description Text that appears when user drag and drop something (for example, a file) in Network Log View of the Network panel
    */
   dropHarFilesHere: 'Drop HAR files here',
   /**
-   *@description Recording text content in Network Log View of the Network panel
+   * @description Recording text content in Network Log View of the Network panel
    */
   recordingNetworkActivity: 'Currently recording network activity',
   /**
-   *@description Shown in the Network Log View of the Network panel when the user has not yet
+   * @description Shown in the Network Log View of the Network panel when the user has not yet
    *             recorded any network activity. This is an instruction to the user to reload the page in order to
    *             show network activity in the current UI.
-   *@example {Reload page} PH1
-   *@example {Ctrl + R} PH2
+   * @example {Reload page} PH1
+   * @example {Ctrl + R} PH2
    */
   performARequestOrHitSToRecordThe:
-      'Perform a request or reload the page by using the "{PH1}" button or by hitting {PH2}.',
+      'Perform a request or reload the page by using the "{PH1}" button or by pressing {PH2}.',
   /**
-   *@description Shown in the Network Log View of the Network panel when the user has not yet
+   * @description Shown in the Network Log View of the Network panel when the user has not yet
    * recorded any network activity. This is an instruction to the user to start recording in order to
    * show network activity in the current UI.
    * @example {Start recording} PH1
    * @example {Ctrl + E} PH2
    */
   recordToDisplayNetworkActivity:
-      'Record network log to display network activity by using the "{PH1}" button or by hitting {PH2}.',
+      'Record network log to display network activity by using the "{PH1}" button or by pressing {PH2}.',
   /**
-   *@description Label of a button in the Network Log View of the Network panel.
+   * @description Label of a button in the Network Log View of the Network panel.
    */
   reloadPage: 'Reload page',
   /**
-   *@description Label of a button in the Network Log View of the Network panel.
+   * @description Label of a button in the Network Log View of the Network panel.
    */
   startRecording: 'Start recording',
   /**
-   *@description Shown in the Network Log View of the Network panel when the user has not yet
+   * @description Shown in the Network Log View of the Network panel when the user has not yet
    *             recorded any network activity.
    */
   noNetworkActivityRecorded: 'No network activity recorded',
   /**
-   *@description Text to announce to screen readers that network data is available.
+   * @description Text to announce to screen readers that network data is available.
    */
   networkDataAvailable: 'Network Data Available',
   /**
-   *@description Text in Network Log View of the Network panel
-   *@example {3} PH1
-   *@example {5} PH2
+   * @description Text in Network Log View of the Network panel
+   * @example {3} PH1
+   * @example {5} PH2
    */
   sSRequests: '{PH1} / {PH2} requests',
   /**
-   *@description Message in the summary toolbar at the bottom of the Network log that shows the compressed size of the
+   * @description Message in the summary toolbar at the bottom of the Network log that shows the compressed size of the
    * resources transferred during a selected time frame over the compressed size of all resources transferred during
    * the whole network log.
-   *@example {5 B} PH1
-   *@example {10 B} PH2
+   * @example {5 B} PH1
+   * @example {10 B} PH2
    */
   sSTransferred: '{PH1} / {PH2} transferred',
   /**
-   *@description Message in a tooltip that shows the compressed size of the resources transferred during a selected
+   * @description Message in a tooltip that shows the compressed size of the resources transferred during a selected
    * time frame over the compressed size of all resources transferred during the whole network log.
-   *@example {10} PH1
-   *@example {15} PH2
+   * @example {10} PH1
+   * @example {15} PH2
    */
   sBSBTransferredOverNetwork: '{PH1} B / {PH2} B transferred over network',
   /**
@@ -205,75 +213,75 @@ const UIStrings = {
    */
   sSResources: '{PH1} / {PH2} resources',
   /**
-   *@description Text in Network Log View of the Network panel
-   *@example {40} PH1
-   *@example {50} PH2
+   * @description Text in Network Log View of the Network panel
+   * @example {40} PH1
+   * @example {50} PH2
    */
   sBSBResourcesLoadedByThePage: '{PH1} B / {PH2} B resources loaded by the page',
   /**
-   *@description Text in Network Log View of the Network panel
-   *@example {6} PH1
+   * @description Text in Network Log View of the Network panel
+   * @example {6} PH1
    */
   sRequests: '{PH1} requests',
   /**
-   *@description Message in the summary toolbar at the bottom of the Network log that shows the compressed size of
+   * @description Message in the summary toolbar at the bottom of the Network log that shows the compressed size of
    * all resources transferred over network during a network activity log.
-   *@example {4 B} PH1
+   * @example {4 B} PH1
    */
   sTransferred: '{PH1} transferred',
   /**
-   *@description Message in a tooltip that shows the compressed size of all resources transferred over network during
+   * @description Message in a tooltip that shows the compressed size of all resources transferred over network during
    * a network activity log.
-   *@example {4} PH1
+   * @example {4} PH1
    */
   sBTransferredOverNetwork: '{PH1} B transferred over network',
   /**
-   *@description Text in Network Log View of the Network panel
-   *@example {4} PH1
+   * @description Text in Network Log View of the Network panel
+   * @example {4} PH1
    */
   sResources: '{PH1} resources',
   /**
-   *@description Text in Network Log View of the Network panel
-   *@example {10} PH1
+   * @description Text in Network Log View of the Network panel
+   * @example {10} PH1
    */
   sBResourcesLoadedByThePage: '{PH1} B resources loaded by the page',
   /**
-   *@description Text in Network Log View of the Network panel
-   *@example {120ms} PH1
+   * @description Text in Network Log View of the Network panel
+   * @example {120ms} PH1
    */
   finishS: 'Finish: {PH1}',
   /**
-   *@description Text in Network Log View of the Network panel
-   *@example {3000ms} PH1
+   * @description Text in Network Log View of the Network panel
+   * @example {3000ms} PH1
    */
   domcontentloadedS: 'DOMContentLoaded: {PH1}',
   /**
-   *@description Text in Network Log View of the Network panel
-   *@example {40ms} PH1
+   * @description Text in Network Log View of the Network panel
+   * @example {40ms} PH1
    */
   loadS: 'Load: {PH1}',
   /**
-   *@description Text for copying
+   * @description Text for copying
    */
   copy: 'Copy',
   /**
-   *@description A context menu command in the Network panel, for copying the URL of the selected request to the clipboard.
+   * @description A context menu command in the Network panel, for copying the URL of the selected request to the clipboard.
    */
   copyURL: 'Copy URL',
   /**
-   *@description Text in Network Log View of the Network panel
+   * @description Text in Network Log View of the Network panel
    */
   copyRequestHeaders: 'Copy request headers',
   /**
-   *@description Text in Network Log View of the Network panel
+   * @description Text in Network Log View of the Network panel
    */
   copyResponseHeaders: 'Copy response headers',
   /**
-   *@description Text in Network Log View of the Network panel
+   * @description Text in Network Log View of the Network panel
    */
   copyResponse: 'Copy response',
   /**
-   *@description Text in Network Log View of the Network panel
+   * @description Text in Network Log View of the Network panel
    */
   copyStacktrace: 'Copy stack trace',
   /**
@@ -282,7 +290,7 @@ const UIStrings = {
    */
   copyAsPowershell: 'Copy as `PowerShell`',
   /**
-   *@description A context menu command in the Network panel, for copying to the clipboard. 'fetch'
+   * @description A context menu command in the Network panel, for copying to the clipboard. 'fetch'
    * refers to the format the data will be copied as, which is compatible with the fetch web API.
    */
   copyAsFetch: 'Copy as `fetch`',
@@ -294,100 +302,100 @@ const UIStrings = {
    */
   copyAsNodejsFetch: 'Copy as `fetch` (`Node.js`)',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with cURL (a program, not
    *translatable).
    */
   copyAsCurlCmd: 'Copy as `cURL` (`cmd`)',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with a Bash script.
    */
   copyAsCurlBash: 'Copy as `cURL` (`bash`)',
   /**
-   *@description A context menu command in the Network panel, for copying the URLs of all requestes to the clipboard.
+   * @description A context menu command in the Network panel, for copying the URLs of all requestes to the clipboard.
    */
   copyAllURLs: 'Copy all URLs',
   /**
-   *@description A context menu command in the Network panel, for copying the URLs of all requestes
-   (after applying the Network filter) to the clipboard.
+   * @description A context menu command in the Network panel, for copying the URLs of all requestes
+   * (after applying the Network filter) to the clipboard.
    */
   copyAllListedURLs: 'Copy all listed URLs',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with a PowerShell script to
    *represent all network requests.
    */
   copyAllAsPowershell: 'Copy all as `PowerShell`',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with a PowerShell script to
    *represent all network requests (after applying the Network filter).
    */
   copyAllListedAsPowershell: 'Copy all listed as `PowerShell`',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with a 'fetch' command (fetch
    *should not be translated) to represent all network requests.
    */
   copyAllAsFetch: 'Copy all as `fetch`',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with a 'fetch' command (fetch
    *should not be translated) to represent all network requests (after applying the Network filter).
    */
   copyAllListedAsFetch: 'Copy all listed as `fetch`',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with a Node.js 'fetch' command
    *(fetch and Node.js should not be translated) to represent all network requests.
    */
   copyAllAsNodejsFetch: 'Copy all as `fetch` (`Node.js`)',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with a Node.js 'fetch' command
    *(fetch and Node.js should not be translated) to represent all network requests (after applying
    *the Network filter).
    */
   copyAllListedAsNodejsFetch: 'Copy all listed as `fetch` (`Node.js`)',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with cURL (a program, not
    *translatable) to represent all network requests.
    */
   copyAllAsCurlCmd: 'Copy all as `cURL` (`cmd`)',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with cURL (a program, not
    *translatable) to represent all network requests (after applying the Network filter).
    */
   copyAllListedAsCurlCmd: 'Copy all listed as `cURL` (`cmd`)',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with a Bash script to represent
    *all network requests.
    */
   copyAllAsCurlBash: 'Copy all as `cURL` (`bash`)',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with a Bash script to represent
    *all network requests (after applying the Network filter).
    */
   copyAllListedAsCurlBash: 'Copy all listed as `cURL` (`bash`)',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with cURL (a program, not
    *translatable).
    */
   copyAsCurl: 'Copy as `cURL`',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with cURL (a program, not
    *translatable) to represent all network requests.
    */
   copyAllAsCurl: 'Copy all as `cURL`',
   /**
-   *@description Text in Network Log View of the Network panel. An action that copies a command to
+   * @description Text in Network Log View of the Network panel. An action that copies a command to
    *the clipboard. It will copy the command in the format compatible with cURL (a program, not
    *translatable) to represent all network requests (after applying the Network filter).
    */
@@ -421,40 +429,40 @@ const UIStrings = {
    */
   copyAllListedAsHarWithSensitiveData: 'Copy all listed as `HAR` (with sensitive data)',
   /**
-   *@description A context menu item in the Network Log View of the Network panel
+   * @description A context menu item in the Network Log View of the Network panel
    */
   clearBrowserCache: 'Clear browser cache',
   /**
-   *@description A context menu item in the Network Log View of the Network panel
+   * @description A context menu item in the Network Log View of the Network panel
    */
   clearBrowserCookies: 'Clear browser cookies',
   /**
-   *@description A context menu item in the Network Log View of the Network panel
+   * @description A context menu item in the Network Log View of the Network panel
    */
   blockRequestUrl: 'Block request URL',
   /**
-   *@description A context menu item in the Network Log View of the Network panel
-   *@example {example.com} PH1
+   * @description A context menu item in the Network Log View of the Network panel
+   * @example {example.com} PH1
    */
   unblockS: 'Unblock {PH1}',
   /**
-   *@description A context menu item in the Network Log View of the Network panel
+   * @description A context menu item in the Network Log View of the Network panel
    */
   blockRequestDomain: 'Block request domain',
   /**
-   *@description Text to replay an XHR request
+   * @description Text to replay an XHR request
    */
   replayXhr: 'Replay XHR',
   /**
-   *@description Text in Network Log View of the Network panel
+   * @description Text in Network Log View of the Network panel
    */
   areYouSureYouWantToClearBrowser: 'Are you sure you want to clear browser cache?',
   /**
-   *@description Text in Network Log View of the Network panel
+   * @description Text in Network Log View of the Network panel
    */
   areYouSureYouWantToClearBrowserCookies: 'Are you sure you want to clear browser cookies?',
   /**
-   *@description A context menu item in the Network Log View of the Network panel
+   * @description A context menu item in the Network Log View of the Network panel
    * for creating a header override
    */
   overrideHeaders: 'Override headers',
@@ -466,6 +474,26 @@ const UIStrings = {
    * @description Text for the Show only/Hide requests dropdown button of the filterbar
    */
   moreFilters: 'More filters',
+  /**
+   * @description Text of a context menu item to redirect to the AI assistance panel and to start a chat.
+   */
+  startAChat: 'Start a chat',
+  /**
+   * @description Context menu item in Network panel to explain the purpose of a request via AI.
+   */
+  explainPurpose: 'Explain purpose',
+  /**
+   * @description Context menu item in Network panel to explain why a request is slow via AI.
+   */
+  explainSlowness: 'Explain slowness',
+  /**
+   * @description Context menu item in Network panel to explain why a request is failing via AI.
+   */
+  explainFailures: 'Explain failures',
+  /**
+   * @description Context menu item in Network panel to assess security headers of a request via AI.
+   */
+  assessSecurityHeaders: 'Assess security headers',
 } as const;
 const str_ = i18n.i18n.registerUIStrings('panels/network/NetworkLogView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -483,9 +511,9 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
   private readonly networkShowBlockedCookiesOnlySetting: Common.Settings.Setting<boolean>;
   private readonly networkOnlyBlockedRequestsSetting: Common.Settings.Setting<boolean>;
   private readonly networkOnlyThirdPartySetting: Common.Settings.Setting<boolean>;
-  private readonly networkResourceTypeFiltersSetting: Common.Settings.Setting<{[key: string]: boolean}>;
+  private readonly networkResourceTypeFiltersSetting: Common.Settings.Setting<Record<string, boolean>>;
   private readonly networkShowOptionsToGenerateHarWithSensitiveData: Common.Settings.Setting<boolean>;
-  private rawRowHeight: number;
+  private readonly networkOnlyIPProtectedRequestsSetting: Common.Settings.Setting<boolean>;
   private readonly progressBarContainer: Element;
   private readonly networkLogLargeRowsSetting: Common.Settings.Setting<boolean>;
   private rowHeightInternal: number;
@@ -509,12 +537,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
   private activeGroupLookup: GroupLookupInterface|null;
   private readonly textFilterUI: UI.FilterBar.TextFilterUI;
   private readonly invertFilterUI: UI.FilterBar.CheckboxFilterUI;
-  private readonly dataURLFilterUI: UI.FilterBar.CheckboxFilterUI|undefined;
   private readonly moreFiltersDropDownUI: MoreFiltersDropDownUI|undefined;
-  private readonly onlyBlockedResponseCookiesFilterUI: UI.FilterBar.CheckboxFilterUI|undefined;
-  private readonly onlyBlockedRequestsUI: UI.FilterBar.CheckboxFilterUI|undefined;
-  private readonly onlyThirdPartyFilterUI: UI.FilterBar.CheckboxFilterUI|undefined;
-  private readonly hideChromeExtensionsUI: UI.FilterBar.CheckboxFilterUI|undefined;
   private readonly resourceCategoryFilterUI: UI.FilterBar.NamedBitSetFilterUI;
   private readonly filterParser: TextUtils.TextUtils.FilterParser;
   private readonly suggestionBuilder: UI.FilterSuggestionBuilder.FilterSuggestionBuilder;
@@ -522,6 +545,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
   private readonly summaryToolbarInternal: UI.Toolbar.Toolbar;
   private readonly filterBar: UI.FilterBar.FilterBar;
   private readonly textFilterSetting: Common.Settings.Setting<string>;
+  private networkRequestToNode: WeakMap<SDK.NetworkRequest.NetworkRequest, NetworkRequestNode>;
 
   constructor(
       filterBar: UI.FilterBar.FilterBar, progressBarContainer: Element,
@@ -533,6 +557,8 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     this.element.id = 'network-container';
     this.element.classList.add('no-node-selected');
 
+    this.networkRequestToNode = new WeakMap();
+
     this.networkInvertFilterSetting = Common.Settings.Settings.instance().createSetting('network-invert-filter', false);
     this.networkHideDataURLSetting = Common.Settings.Settings.instance().createSetting('network-hide-data-url', false);
     this.networkHideChromeExtensions =
@@ -543,21 +569,20 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
         Common.Settings.Settings.instance().createSetting('network-only-blocked-requests', false);
     this.networkOnlyThirdPartySetting =
         Common.Settings.Settings.instance().createSetting('network-only-third-party-setting', false);
+    this.networkOnlyIPProtectedRequestsSetting =
+        Common.Settings.Settings.instance().createSetting('network-only-ip-protected-requests', false);
     this.networkResourceTypeFiltersSetting =
         Common.Settings.Settings.instance().createSetting('network-resource-type-filters', {});
     this.networkShowOptionsToGenerateHarWithSensitiveData = Common.Settings.Settings.instance().createSetting(
         'network.show-options-to-generate-har-with-sensitive-data', false);
 
-    this.rawRowHeight = 0;
     this.progressBarContainer = progressBarContainer;
     this.networkLogLargeRowsSetting = networkLogLargeRowsSetting;
     this.networkLogLargeRowsSetting.addChangeListener(updateRowHeight.bind(this), this);
 
     function updateRowHeight(this: NetworkLogView): void {
-      this.rawRowHeight = Boolean(this.networkLogLargeRowsSetting.get()) ? 41 : 21;
-      this.rowHeightInternal = this.computeRowHeight();
+      this.rowHeightInternal = Boolean(this.networkLogLargeRowsSetting.get()) ? 41 : 21;
     }
-    this.rawRowHeight = 0;
     this.rowHeightInternal = 0;
     updateRowHeight.call(this);
 
@@ -611,65 +636,16 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
                                                                      jslogContext:
                                                                          Platform.StringUtilities.toKebabCase(key),
                                                                    }));
+    this.moreFiltersDropDownUI = new MoreFiltersDropDownUI();
+    this.moreFiltersDropDownUI.addEventListener(UI.FilterBar.FilterUIEvents.FILTER_CHANGED, this.filterChanged, this);
+    filterBar.addFilter(this.moreFiltersDropDownUI);
 
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.NETWORK_PANEL_FILTER_BAR_REDESIGN)) {
-      this.moreFiltersDropDownUI = new MoreFiltersDropDownUI();
-      this.moreFiltersDropDownUI.addEventListener(UI.FilterBar.FilterUIEvents.FILTER_CHANGED, this.filterChanged, this);
-      filterBar.addFilter(this.moreFiltersDropDownUI);
-
-      this.resourceCategoryFilterUI =
-          new UI.FilterBar.NamedBitSetFilterUI(filterItems, this.networkResourceTypeFiltersSetting);
-      UI.ARIAUtils.setLabel(this.resourceCategoryFilterUI.element(), i18nString(UIStrings.requestTypesToInclude));
-      this.resourceCategoryFilterUI.addEventListener(
-          UI.FilterBar.FilterUIEvents.FILTER_CHANGED, this.filterChanged.bind(this), this);
-      filterBar.addFilter(this.resourceCategoryFilterUI);
-    } else {
-      this.dataURLFilterUI = new UI.FilterBar.CheckboxFilterUI(
-          i18nString(UIStrings.hideDataUrls), true, this.networkHideDataURLSetting, 'hide-data-urls');
-      this.dataURLFilterUI.addEventListener(
-          UI.FilterBar.FilterUIEvents.FILTER_CHANGED, this.filterChanged.bind(this), this);
-      UI.Tooltip.Tooltip.install(this.dataURLFilterUI.element(), i18nString(UIStrings.hidesDataAndBlobUrls));
-      filterBar.addFilter(this.dataURLFilterUI);
-
-      this.hideChromeExtensionsUI = new UI.FilterBar.CheckboxFilterUI(
-          i18nString(UIStrings.chromeExtensions), true, this.networkHideChromeExtensions, 'hide-extension-urls');
-      this.hideChromeExtensionsUI.addEventListener(
-          UI.FilterBar.FilterUIEvents.FILTER_CHANGED, this.filterChanged.bind(this), this);
-      UI.Tooltip.Tooltip.install(this.hideChromeExtensionsUI.element(), i18nString(UIStrings.hideChromeExtension));
-      filterBar.addFilter(this.hideChromeExtensionsUI);
-
-      this.resourceCategoryFilterUI =
-          new UI.FilterBar.NamedBitSetFilterUI(filterItems, this.networkResourceTypeFiltersSetting);
-      UI.ARIAUtils.setLabel(this.resourceCategoryFilterUI.element(), i18nString(UIStrings.requestTypesToInclude));
-      this.resourceCategoryFilterUI.addEventListener(
-          UI.FilterBar.FilterUIEvents.FILTER_CHANGED, this.filterChanged.bind(this), this);
-      filterBar.addFilter(this.resourceCategoryFilterUI);
-
-      this.onlyBlockedResponseCookiesFilterUI = new UI.FilterBar.CheckboxFilterUI(
-          i18nString(UIStrings.hasBlockedCookies), true, this.networkShowBlockedCookiesOnlySetting,
-          'only-show-blocked-cookies');
-      this.onlyBlockedResponseCookiesFilterUI.addEventListener(
-          UI.FilterBar.FilterUIEvents.FILTER_CHANGED, this.filterChanged.bind(this), this);
-      UI.Tooltip.Tooltip.install(
-          this.onlyBlockedResponseCookiesFilterUI.element(), i18nString(UIStrings.onlyShowRequestsWithBlockedCookies));
-      filterBar.addFilter(this.onlyBlockedResponseCookiesFilterUI);
-
-      this.onlyBlockedRequestsUI = new UI.FilterBar.CheckboxFilterUI(
-          i18nString(UIStrings.blockedRequests), true, this.networkOnlyBlockedRequestsSetting,
-          'only-show-blocked-requests');
-      this.onlyBlockedRequestsUI.addEventListener(
-          UI.FilterBar.FilterUIEvents.FILTER_CHANGED, this.filterChanged.bind(this), this);
-      UI.Tooltip.Tooltip.install(this.onlyBlockedRequestsUI.element(), i18nString(UIStrings.onlyShowBlockedRequests));
-      filterBar.addFilter(this.onlyBlockedRequestsUI);
-
-      this.onlyThirdPartyFilterUI = new UI.FilterBar.CheckboxFilterUI(
-          i18nString(UIStrings.thirdParty), true, this.networkOnlyThirdPartySetting, 'only-show-third-party');
-      this.onlyThirdPartyFilterUI.addEventListener(
-          UI.FilterBar.FilterUIEvents.FILTER_CHANGED, this.filterChanged.bind(this), this);
-      UI.Tooltip.Tooltip.install(
-          this.onlyThirdPartyFilterUI.element(), i18nString(UIStrings.onlyShowThirdPartyRequests));
-      filterBar.addFilter(this.onlyThirdPartyFilterUI);
-    }
+    this.resourceCategoryFilterUI =
+        new UI.FilterBar.NamedBitSetFilterUI(filterItems, this.networkResourceTypeFiltersSetting);
+    UI.ARIAUtils.setLabel(this.resourceCategoryFilterUI.element(), i18nString(UIStrings.requestTypesToInclude));
+    this.resourceCategoryFilterUI.addEventListener(
+        UI.FilterBar.FilterUIEvents.FILTER_CHANGED, this.filterChanged.bind(this), this);
+    filterBar.addFilter(this.resourceCategoryFilterUI);
 
     this.filterParser = new TextUtils.TextUtils.FilterParser(searchKeys);
     this.suggestionBuilder =
@@ -712,10 +688,6 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     if (this.textFilterSetting.get()) {
       this.textFilterUI.setValue(this.textFilterSetting.get());
     }
-  }
-
-  getMoreFiltersDropdown(): MoreFiltersDropDownUI|undefined {
-    return this.moreFiltersDropDownUI;
   }
 
   private updateGroupByFrame(): void {
@@ -785,6 +757,10 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
 
   private static requestResponseHeaderFilter(value: string, request: SDK.NetworkRequest.NetworkRequest): boolean {
     return request.responseHeaderValue(value) !== undefined;
+  }
+
+  private static requestRequestHeaderFilter(headerName: string, request: SDK.NetworkRequest.NetworkRequest): boolean {
+    return request.requestHeaders().some(header => header.name.toLowerCase() === headerName.toLowerCase());
   }
 
   private static requestResponseHeaderSetCookieFilter(value: string, request: SDK.NetworkRequest.NetworkRequest):
@@ -979,12 +955,8 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     this.invalidateAllItems();
   }
 
-  private computeRowHeight(): number {
-    return this.rawRowHeight;
-  }
-
   nodeForRequest(request: SDK.NetworkRequest.NetworkRequest): NetworkRequestNode|null {
-    return networkRequestToNode.get(request) || null;
+    return this.networkRequestToNode.get(request) || null;
   }
 
   headerHeight(): number {
@@ -1085,6 +1057,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     this.textFilterSetting.set(this.textFilterUI.value());
     this.moreFiltersDropDownUI?.updateActiveFiltersCount();
     this.moreFiltersDropDownUI?.updateTooltip();
+    this.columnsInternal.filterChanged();
   }
 
   async resetFilter(): Promise<void> {
@@ -1112,8 +1085,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
 
     this.recordingHint = new UI.EmptyWidget.EmptyWidget(header, shortcutTitle ? description : '');
     this.recordingHint.element.classList.add('network-status-pane');
-    this.recordingHint.appendLink(
-        'https://developer.chrome.com/docs/devtools/network/' as Platform.DevToolsPath.UrlString);
+    this.recordingHint.link = 'https://developer.chrome.com/docs/devtools/network/' as Platform.DevToolsPath.UrlString;
     if (shortcutTitle && action) {
       const button = UI.UIUtils.createTextButton(buttonText, () => action.execute(), {
         jslogContext: actionName,
@@ -1132,7 +1104,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
       this.recordingHint.detach();
       this.recordingHint = null;
     }
-    UI.ARIAUtils.alert(i18nString(UIStrings.networkDataAvailable));
+    UI.ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.networkDataAvailable));
   }
 
   private setHidden(value: boolean): void {
@@ -1239,7 +1211,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
 
     let nodeCount = 0;
     for (const request of Logs.NetworkLog.NetworkLog.instance().requests()) {
-      const node = networkRequestToNode.get(request);
+      const node = this.networkRequestToNode.get(request);
       if (!node) {
         continue;
       }
@@ -1432,10 +1404,6 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     this.columnsInternal.willHide();
   }
 
-  override onResize(): void {
-    this.rowHeightInternal = this.computeRowHeight();
-  }
-
   flatNodesList(): NetworkNode[] {
     const rootNode =
         (this.dataGrid.rootNode() as
@@ -1509,7 +1477,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     while (this.staleRequests.size) {
       const request = this.staleRequests.values().next().value as SDK.NetworkRequest.NetworkRequest;
       this.staleRequests.delete(request);
-      let node = networkRequestToNode.get(request);
+      let node = this.networkRequestToNode.get(request);
       if (!node) {
         node = this.createNodeForRequest(request);
       }
@@ -1609,6 +1577,8 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     this.mainRequestLoadTime = -1;
     this.mainRequestDOMContentLoadedTime = -1;
 
+    this.networkRequestToNode = new WeakMap();
+
     this.dataGrid.rootNode().removeChildren();
     this.updateSummaryBar();
     this.scheduleRefresh();
@@ -1617,25 +1587,18 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
   // TODO(crbug.com/1477668)
   setTextFilterValue(filterString: string): void {
     this.textFilterUI.setValue(filterString);
-    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.NETWORK_PANEL_FILTER_BAR_REDESIGN)) {
-      this.networkHideDataURLSetting.set(false);
-      this.networkShowBlockedCookiesOnlySetting.set(false);
-      this.networkOnlyBlockedRequestsSetting.set(false);
-      this.networkOnlyThirdPartySetting.set(false);
-      this.networkHideChromeExtensions.set(false);
-    } else {
-      this.dataURLFilterUI?.setChecked(false);
-      this.onlyBlockedResponseCookiesFilterUI?.setChecked(false);
-      this.onlyBlockedRequestsUI?.setChecked(false);
-      this.onlyThirdPartyFilterUI?.setChecked(false);
-      this.hideChromeExtensionsUI?.setChecked(false);
-    }
+    this.networkHideDataURLSetting.set(false);
+    this.networkShowBlockedCookiesOnlySetting.set(false);
+    this.networkOnlyBlockedRequestsSetting.set(false);
+    this.networkOnlyThirdPartySetting.set(false);
+    this.networkHideChromeExtensions.set(false);
+    this.networkOnlyIPProtectedRequestsSetting.set(false);
     this.resourceCategoryFilterUI.reset();
   }
 
   private createNodeForRequest(request: SDK.NetworkRequest.NetworkRequest): NetworkRequestNode {
     const node = new NetworkRequestNode(this, request);
-    networkRequestToNode.set(request, node);
+    this.networkRequestToNode.set(request, node);
     filteredNetworkRequests.add(node);
 
     for (let redirect = request.redirectSource(); redirect; redirect = redirect.redirectSource()) {
@@ -1662,7 +1625,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
       void {
     const {request} = event.data;
     this.staleRequests.delete(request);
-    const node = networkRequestToNode.get(request);
+    const node = this.networkRequestToNode.get(request);
     if (node) {
       this.removeNodeAndMaybeAncestors(node);
     }
@@ -1709,6 +1672,10 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
       }
     }
 
+    for (const header of request.requestHeaders()) {
+      this.suggestionBuilder.addItem(NetworkForward.UIFilter.FilterType.HasRequestHeader, header.name);
+    }
+
     for (const cookie of request.responseCookies) {
       this.suggestionBuilder.addItem(NetworkForward.UIFilter.FilterType.SetCookieDomain, cookie.domain());
       this.suggestionBuilder.addItem(NetworkForward.UIFilter.FilterType.SetCookieName, cookie.name());
@@ -1740,11 +1707,41 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     const filtered = this.filterBar.hasActiveFilter();
     const copyMenu = contextMenu.clipboardSection().appendSubMenuItem(i18nString(UIStrings.copy), false, 'copy');
     if (request) {
-      if (UI.ActionRegistry.ActionRegistry.instance().hasAction('drjones.network-panel-context')) {
+      const openAiAssistanceId = 'drjones.network-panel-context';
+      if (UI.ActionRegistry.ActionRegistry.instance().hasAction(openAiAssistanceId)) {
+        function appendSubmenuPromptAction(
+            submenu: UI.ContextMenu.SubMenu, action: UI.ActionRegistration.Action,
+            label: Common.UIString.LocalizedString, prompt: string, jslogContext: string): void {
+          submenu.defaultSection().appendItem(
+              label, () => action.execute({prompt}), {disabled: !action.enabled(), jslogContext});
+        }
+
         UI.Context.Context.instance().setFlavor(SDK.NetworkRequest.NetworkRequest, request);
-        contextMenu.footerSection().appendAction(
-            'drjones.network-panel-context',
-        );
+        if (Root.Runtime.hostConfig.devToolsAiSubmenuPrompts?.enabled) {
+          const action = UI.ActionRegistry.ActionRegistry.instance().getAction(openAiAssistanceId);
+          const submenu = contextMenu.footerSection().appendSubMenuItem(
+              action.title(), false, openAiAssistanceId,
+              Root.Runtime.hostConfig.devToolsAiAssistanceNetworkAgent?.featureName);
+          submenu.defaultSection().appendAction(openAiAssistanceId, i18nString(UIStrings.startAChat));
+          appendSubmenuPromptAction(
+              submenu, action, i18nString(UIStrings.explainPurpose), 'What is the purpose of this request?',
+              openAiAssistanceId + '.purpose');
+          appendSubmenuPromptAction(
+              submenu, action, i18nString(UIStrings.explainSlowness), 'Why is this request taking so long?',
+              openAiAssistanceId + '.slowness');
+          appendSubmenuPromptAction(
+              submenu, action, i18nString(UIStrings.explainFailures), 'Why is the request failing?',
+              openAiAssistanceId + '.failures');
+          appendSubmenuPromptAction(
+              submenu, action, i18nString(UIStrings.assessSecurityHeaders), 'Are there any security headers present?',
+              openAiAssistanceId + '.security');
+        } else if (Root.Runtime.hostConfig.devToolsAiDebugWithAi?.enabled) {
+          contextMenu.footerSection().appendAction(
+              openAiAssistanceId, undefined, false, undefined,
+              Root.Runtime.hostConfig.devToolsAiAssistanceNetworkAgent?.featureName);
+        } else {
+          contextMenu.footerSection().appendAction(openAiAssistanceId);
+        }
       }
       copyMenu.defaultSection().appendItem(
           i18nString(UIStrings.copyURL),
@@ -1985,15 +1982,15 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
   async #handleCreateResponseHeaderOverrideClick(request: SDK.NetworkRequest.NetworkRequest): Promise<void> {
     const requestLocation =
         NetworkForward.UIRequestLocation.UIRequestLocation.responseHeaderMatch(request, {name: '', value: ''});
-    const networkPersistanceManager = Persistence.NetworkPersistenceManager.NetworkPersistenceManager.instance();
-    if (networkPersistanceManager.project()) {
+    const networkPersistenceManager = Persistence.NetworkPersistenceManager.NetworkPersistenceManager.instance();
+    if (networkPersistenceManager.project()) {
       Common.Settings.Settings.instance().moduleSetting('persistence-network-overrides-enabled').set(true);
-      await networkPersistanceManager.getOrCreateHeadersUISourceCodeFromUrl(request.url());
+      await networkPersistenceManager.getOrCreateHeadersUISourceCodeFromUrl(request.url());
       await Common.Revealer.reveal(requestLocation);
     } else {  // If folder for local overrides has not been provided yet
       UI.InspectorView.InspectorView.instance().displaySelectOverrideFolderInfobar(async () => {
         await Sources.SourcesNavigator.OverridesNavigatorView.instance().setupNewWorkspace();
-        await networkPersistanceManager.getOrCreateHeadersUISourceCodeFromUrl(request.url());
+        await networkPersistenceManager.getOrCreateHeadersUISourceCodeFromUrl(request.url());
         await Common.Revealer.reveal(requestLocation);
       });
     }
@@ -2019,22 +2016,17 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     if (!this.resourceCategoryFilterUI.accept(categoryName)) {
       return false;
     }
-    const [hideDataURL, blockedCookies, blockedRequests, thirdParty, hideExtensionURL] =
-        Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.NETWORK_PANEL_FILTER_BAR_REDESIGN) ?
-        [
-          this.networkHideDataURLSetting.get(),
-          this.networkShowBlockedCookiesOnlySetting.get(),
-          this.networkOnlyBlockedRequestsSetting.get(),
-          this.networkOnlyThirdPartySetting.get(),
-          this.networkHideChromeExtensions.get(),
-        ] :
-        [
-          this.dataURLFilterUI?.checked(),
-          this.onlyBlockedResponseCookiesFilterUI?.checked(),
-          this.onlyBlockedRequestsUI?.checked(),
-          this.onlyThirdPartyFilterUI?.checked(),
-          this.hideChromeExtensionsUI?.checked(),
-        ];
+    const [hideDataURL, blockedCookies, blockedRequests, thirdParty, hideExtensionURL, ippRequests] = [
+      this.networkHideDataURLSetting.get(),
+      this.networkShowBlockedCookiesOnlySetting.get(),
+      this.networkOnlyBlockedRequestsSetting.get(),
+      this.networkOnlyThirdPartySetting.get(),
+      this.networkHideChromeExtensions.get(),
+      // TODO(crbug.com/425645896): Remove this guard once IP Protection is fully launched.
+      Root.Runtime.hostConfig.devToolsIpProtectionInDevTools?.enabled ?
+          this.networkOnlyIPProtectedRequestsSetting.get() :
+          false,
+    ];
 
     if (hideDataURL && (request.parsedURL.isDataURL() || request.parsedURL.isBlobURL())) {
       return false;
@@ -2050,6 +2042,12 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     }
     if (hideExtensionURL && request.scheme === 'chrome-extension') {
       return false;
+    }
+    // TODO(crbug.com/425645896): Remove this guard once IP Protection is fully launched.
+    if (Root.Runtime.hostConfig.devToolsIpProtectionInDevTools?.enabled) {
+      if (ippRequests && !request.isIpProtectionUsed()) {
+        return false;
+      }
     }
     for (let i = 0; i < this.filters.length; ++i) {
       if (!this.filters[i](request)) {
@@ -2108,6 +2106,9 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
 
       case NetworkForward.UIFilter.FilterType.ResponseHeaderValueSetCookie:
         return NetworkLogView.requestResponseHeaderSetCookieFilter.bind(null, value);
+
+      case NetworkForward.UIFilter.FilterType.HasRequestHeader:
+        return NetworkLogView.requestRequestHeaderFilter.bind(null, value);
 
       case NetworkForward.UIFilter.FilterType.Is:
         if (value.toLowerCase() === NetworkForward.UIFilter.IsFilterType.RUNNING) {
@@ -2203,7 +2204,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
 
   private reveal(request: SDK.NetworkRequest.NetworkRequest): NetworkRequestNode|null {
     this.removeAllNodeHighlights();
-    const node = networkRequestToNode.get(request);
+    const node = this.networkRequestToNode.get(request);
     if (!node?.dataGrid) {
       return null;
     }
@@ -2324,14 +2325,11 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
 
     const referrer = referrerHeader ? referrerHeader.value : void 0;
 
-    const referrerPolicy = request.referrerPolicy() || void 0;
-
     const requestBody = await request.requestFormData();
 
     const fetchOptions: RequestInit = {
       headers: Object.keys(headers).length ? headers : void 0,
       referrer,
-      referrerPolicy,
       body: requestBody,
       method: request.requestMethod,
       mode: 'cors',
@@ -2349,10 +2347,6 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
       if (referrer) {
         delete fetchOptions.referrer;
         extraHeaders['Referer'] = referrer;
-      }
-      if (referrer) {
-        delete fetchOptions.referrerPolicy;
-        extraHeaders['Referrer-Policy'] = referrerPolicy as string;
       }
       if (Object.keys(extraHeaders).length) {
         fetchOptions.headers = {
@@ -2416,7 +2410,8 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
               .replace(/"/g, '\\"')
               .replace(/[^a-zA-Z0-9\s_\-:=+~'\/.',?;()*`]/g, '^$&')
               .replace(/%(?=[a-zA-Z0-9_])/g, '%^')
-              .replace(/\r?\n/g, '^\n\n') +
+              .replace(/[^\S \r\n]/g, '^$&')
+              .replace(/\r?\n|\r/g, '^\n\n') +
           encapsChars;
     }
 
@@ -2626,7 +2621,6 @@ export function computeStackTraceText(stackTrace: Protocol.Runtime.StackTrace): 
 }
 
 const filteredNetworkRequests = new WeakSet<NetworkRequestNode>();
-const networkRequestToNode = new WeakMap<SDK.NetworkRequest.NetworkRequest, NetworkRequestNode>();
 
 export function isRequestFilteredOut(request: NetworkRequestNode): boolean {
   return filteredNetworkRequests.has(request);
@@ -2664,6 +2658,7 @@ export class MoreFiltersDropDownUI extends Common.ObjectWrapper.ObjectWrapper<UI
   private networkShowBlockedCookiesOnlySetting: Common.Settings.Setting<boolean>;
   private networkOnlyBlockedRequestsSetting: Common.Settings.Setting<boolean>;
   private networkOnlyThirdPartySetting: Common.Settings.Setting<boolean>;
+  private networkOnlyIPProtectedRequestsSetting: Common.Settings.Setting<boolean>;
   private activeFiltersCount: HTMLElement;
   private activeFiltersCountAdorner: Adorners.Adorner.Adorner;
 
@@ -2679,6 +2674,8 @@ export class MoreFiltersDropDownUI extends Common.ObjectWrapper.ObjectWrapper<UI
         Common.Settings.Settings.instance().createSetting('network-only-blocked-requests', false);
     this.networkOnlyThirdPartySetting =
         Common.Settings.Settings.instance().createSetting('network-only-third-party-setting', false);
+    this.networkOnlyIPProtectedRequestsSetting =
+        Common.Settings.Settings.instance().createSetting('network-only-ip-protected-requests', false);
 
     this.filterElement = document.createElement('div');
     this.filterElement.setAttribute('aria-label', 'Show only/hide requests dropdown');
@@ -2715,6 +2712,10 @@ export class MoreFiltersDropDownUI extends Common.ObjectWrapper.ObjectWrapper<UI
     this.networkShowBlockedCookiesOnlySetting.addChangeListener(this.#onSettingChanged.bind(this));
     this.networkOnlyBlockedRequestsSetting.addChangeListener(this.#onSettingChanged.bind(this));
     this.networkOnlyThirdPartySetting.addChangeListener(this.#onSettingChanged.bind(this));
+    // TODO(crbug.com/425645896): Remove this guard once IP Protection is fully launched.
+    if (Root.Runtime.hostConfig.devToolsIpProtectionInDevTools?.enabled) {
+      this.networkOnlyIPProtectedRequestsSetting.addChangeListener(this.#onSettingChanged.bind(this));
+    }
 
     contextMenu.defaultSection().appendCheckboxItem(
         i18nString(UIStrings.hideDataUrls),
@@ -2746,6 +2747,18 @@ export class MoreFiltersDropDownUI extends Common.ObjectWrapper.ObjectWrapper<UI
           tooltip: i18nString(UIStrings.onlyShowBlockedRequests),
           jslogContext: 'only-blocked-requests',
         });
+    // Disable this filter if in regular browsing, as IP Protection is only available in incognito mode.
+    // TODO(crbug.com/425645896): Remove this guard once IP Protection is fully launched.
+    if (Root.Runtime.hostConfig.devToolsIpProtectionInDevTools?.enabled) {
+      contextMenu.defaultSection().appendCheckboxItem(
+          i18nString(UIStrings.ippRequests),
+          () => this.networkOnlyIPProtectedRequestsSetting.set(!this.networkOnlyIPProtectedRequestsSetting.get()), {
+            checked: this.networkOnlyIPProtectedRequestsSetting.get(),
+            disabled: !Root.Runtime.hostConfig.isOffTheRecord,
+            tooltip: i18nString(UIStrings.onlyShowIPProtectedRequests),
+            jslogContext: 'only-ip-protected-requests',
+          });
+    }
     contextMenu.defaultSection().appendCheckboxItem(
         i18nString(UIStrings.thirdParty),
         () => this.networkOnlyThirdPartySetting.set(!this.networkOnlyThirdPartySetting.get()), {
@@ -2762,6 +2775,10 @@ export class MoreFiltersDropDownUI extends Common.ObjectWrapper.ObjectWrapper<UI
       ...this.networkShowBlockedCookiesOnlySetting.get() ? [i18nString(UIStrings.hasBlockedCookies)] : [],
       ...this.networkOnlyBlockedRequestsSetting.get() ? [i18nString(UIStrings.blockedRequests)] : [],
       ...this.networkOnlyThirdPartySetting.get() ? [i18nString(UIStrings.thirdParty)] : [],
+      ...Root.Runtime.hostConfig.devToolsIpProtectionInDevTools?.enabled &&
+              this.networkOnlyIPProtectedRequestsSetting.get() ?
+          [i18nString(UIStrings.ippRequests)] :
+          [],
     ];
     return filters;
   }

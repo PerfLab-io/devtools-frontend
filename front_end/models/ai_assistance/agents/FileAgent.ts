@@ -6,6 +6,7 @@ import * as Host from '../../../core/host/host.js';
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as Root from '../../../core/root/root.js';
 import * as PanelUtils from '../../../panels/utils/utils.js';
+import type {TemplateResult} from '../../../ui/lit/lit.js';
 import type * as Workspace from '../../workspace/workspace.js';
 import {FileFormatter} from '../data_formatters/FileFormatter.js';
 
@@ -68,7 +69,7 @@ MDN Web Docs: JavaScript Functions: https://developer.mozilla.org/en-US/docs/Web
 */
 const UIStringsNotTranslate = {
   /**
-   *@description Title for thinking step of File agent.
+   * @description Title for thinking step of File agent.
    */
   analyzingFile: 'Analyzing file',
 } as const;
@@ -91,10 +92,8 @@ export class FileContext extends ConversationContext<Workspace.UISourceCode.UISo
     return this.#file;
   }
 
-  override getIcon(): HTMLElement {
-    // TODO(b/412597172): Remove programmatically setting `width` and `height` here
-    // and make it controllable via CSS `width` and `height`.
-    return PanelUtils.PanelUtils.getIconForSourceFile(this.#file, {width: 14, height: 14});
+  override getIcon(): TemplateResult {
+    return PanelUtils.PanelUtils.getIconForSourceFile(this.#file);
   }
 
   override getTitle(): string {

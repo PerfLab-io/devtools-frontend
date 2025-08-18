@@ -13,7 +13,7 @@ import hideIssuesMenuStyles from './hideIssuesMenu.css.js';
 
 const UIStrings = {
   /**
-   *@description Title for the tooltip of the (3 dots) Hide Issues menu icon.
+   * @description Title for the tooltip of the (3 dots) Hide Issues menu icon.
    */
   tooltipTitle: 'Hide issues',
 } as const;
@@ -49,16 +49,25 @@ export class HideIssuesMenu extends HTMLElement {
     void contextMenu.show();
   }
 
+  onKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' || event.key === 'Space') {
+      // Make sure we don't propagate 'Enter' or 'Space' key events to parents,
+      // so that these get turned into 'click' events properly.
+      event.stopImmediatePropagation();
+    }
+  }
+
   #render(): void {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
-    <style>${hideIssuesMenuStyles.cssText}</style>
+    <style>${hideIssuesMenuStyles}</style>
     <devtools-button
       .data=${{variant: Buttons.Button.Variant.ICON,iconName: 'dots-vertical', title: i18nString(UIStrings.tooltipTitle)} as Buttons.Button.ButtonData}
       .jslogContext=${'hide-issues'}
       class="hide-issues-menu-btn"
-      @click=${this.onMenuOpen}></devtools-button>
+      @click=${this.onMenuOpen}
+      @keydown=${this.onKeydown}></devtools-button>
     `, this.#shadow, {host: this});
   }
 }

@@ -6,11 +6,17 @@ import("../../../scripts/build/ninja/devtools_entrypoint.gni")
 import("../../../scripts/build/ninja/devtools_module.gni")
 
 devtools_module("tracing") {
-  sources = [ "PerformanceTracing.ts" ]
+  sources = [
+    "ExternalRequests.ts",
+    "PerformanceTracing.ts",
+    "TracingManager.ts",
+  ]
 
   deps = [
-    "../../../front_end/core/sdk:bundle",
+    "../../core/sdk:bundle",
+    "../../generated",
     "../../models/trace:bundle",
+    "../../panels/timeline/utils:bundle",
   ]
 }
 
@@ -20,4 +26,19 @@ devtools_entrypoint("bundle") {
   deps = [ ":tracing" ]
 
   visibility = [ "*" ]
+}
+
+ts_library("unittests") {
+  testonly = true
+
+  sources = [
+    "ExternalRequests.test.ts",
+    "TracingManager.test.ts",
+  ]
+
+  deps = [
+    ":bundle",
+    "../../models/trace:bundle",
+    "../../testing",
+  ]
 }

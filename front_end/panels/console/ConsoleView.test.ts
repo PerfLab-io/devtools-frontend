@@ -9,8 +9,9 @@ import * as Root from '../../core/root/root.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Protocol from '../../generated/protocol.js';
 import * as IssuesManager from '../../models/issues_manager/issues_manager.js';
+import * as TextUtils from '../../models/text_utils/text_utils.js';
 import {findMenuItemWithLabel, getContextMenuForElement} from '../../testing/ContextMenuHelpers.js';
-import {dispatchPasteEvent} from '../../testing/DOMHelpers.js';
+import {dispatchPasteEvent, renderElementIntoDOM} from '../../testing/DOMHelpers.js';
 import {createTarget, registerNoopActions} from '../../testing/EnvironmentHelpers.js';
 import {expectCall, expectCalled} from '../../testing/ExpectStubCall.js';
 import {stubFileManager} from '../../testing/FileManagerHelpers.js';
@@ -35,10 +36,7 @@ describeWithMockConnection('ConsoleView', () => {
   it('adds a title to every checkbox label in the settings view', async () => {
     const consoleSettingsCheckboxes =
         consoleView.element.querySelector('devtools-toolbar')!.querySelectorAll('devtools-checkbox');
-    if (!consoleSettingsCheckboxes) {
-      assert.fail('No checkbox found in console settings');
-      return;
-    }
+    assert.isOk(consoleSettingsCheckboxes, 'No checkbox found in console settings');
     for (const checkbox of consoleSettingsCheckboxes) {
       assert.isTrue(checkbox.shadowRoot?.querySelector('.devtools-checkbox-text')?.hasAttribute('title'));
     }
@@ -68,7 +66,7 @@ describeWithMockConnection('ConsoleView', () => {
     assert.exists(messagesElement);
 
     const contextMenu = getContextMenuForElement(messagesElement);
-    const saveAsItem = findMenuItemWithLabel(contextMenu.saveSection(), 'Save as...');
+    const saveAsItem = findMenuItemWithLabel(contextMenu.saveSection(), 'Save as…');
     assert.exists(saveAsItem);
 
     const TIMESTAMP = 42;
@@ -79,7 +77,8 @@ describeWithMockConnection('ConsoleView', () => {
     const fileManager = stubFileManager();
     const fileManagerCloseCall = expectCall(fileManager.close);
     contextMenu.invokeHandler(saveAsItem.id());
-    assert.isTrue(fileManager.save.calledOnceWith(FILENAME, '', true, false));
+    assert.isTrue(fileManager.save.calledOnceWith(
+        FILENAME, TextUtils.ContentData.EMPTY_TEXT_CONTENT_DATA, /* forceSaveAs=*/ true));
     await fileManagerCloseCall;
     assert.isTrue(fileManager.append.calledOnceWith(FILENAME, sinon.match('message 1\nmessage 2\n')));
   });
@@ -123,7 +122,7 @@ describeWithMockConnection('ConsoleView', () => {
       target = createTarget();
       SDK.TargetManager.TargetManager.instance().setScopeTarget(inScope ? target : null);
       consoleView.markAsRoot();
-      consoleView.show(document.body);
+      renderElementIntoDOM(consoleView);
     });
 
     it('adds messages', async () => {
@@ -162,7 +161,7 @@ describeWithMockConnection('ConsoleView', () => {
     SDK.TargetManager.TargetManager.instance().setScopeTarget(target);
     const anotherTarget = createTarget();
     consoleView.markAsRoot();
-    consoleView.show(document.body);
+    renderElementIntoDOM(consoleView);
 
     const consoleModel = target.model(SDK.ConsoleModel.ConsoleModel);
     assert.exists(consoleModel);
@@ -190,7 +189,7 @@ describeWithMockConnection('ConsoleView', () => {
       target = createTarget();
       SDK.TargetManager.TargetManager.instance().setScopeTarget(target);
       consoleView.markAsRoot();
-      consoleView.show(document.body);
+      renderElementIntoDOM(consoleView);
     });
 
     it('shows', async () => {
@@ -202,7 +201,7 @@ describeWithMockConnection('ConsoleView', () => {
       dispatchPasteEvent(messagesElement, {clipboardData: dt, bubbles: true});
       assert.strictEqual(
           Common.Console.Console.instance().messages()[0].text,
-          'Warning: Don’t paste code into the DevTools Console that you don’t understand or haven’t reviewed yourself. This could allow attackers to steal your identity or take control of your computer. Please type ‘allow pasting’ below and hit Enter to allow pasting.');
+          'Warning: Don’t paste code into the DevTools Console that you don’t understand or haven’t reviewed yourself. This could allow attackers to steal your identity or take control of your computer. Please type ‘allow pasting’ below and press Enter to allow pasting.');
     });
 
     it('is turned off when console history reaches a length of 5', async () => {
@@ -244,7 +243,7 @@ describeWithMockConnection('ConsoleView', () => {
     const target = createTarget();
     SDK.TargetManager.TargetManager.instance().setScopeTarget(target);
     consoleView.markAsRoot();
-    consoleView.show(document.body);
+    renderElementIntoDOM(consoleView);
 
     const consoleModel = target.model(SDK.ConsoleModel.ConsoleModel);
     assert.exists(consoleModel);
@@ -270,7 +269,7 @@ describeWithMockConnection('ConsoleView', () => {
     sinon.assert.calledOnce(spy);
 
     // Continues updating the issue counter
-    consoleView.show(document.body);
+    renderElementIntoDOM(consoleView);
     issuesManager.dispatchEventToListeners(IssuesManager.IssuesManager.Events.ISSUES_COUNT_UPDATED);
     sinon.assert.calledTwice(spy);
   });

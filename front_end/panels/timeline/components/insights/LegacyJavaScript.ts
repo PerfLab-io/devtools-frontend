@@ -7,14 +7,11 @@ import './Table.js';
 import * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as SDK from '../../../../core/sdk/sdk.js';
-import type * as Protocol from '../../../../generated/protocol.js';
 import * as Bindings from '../../../../models/bindings/bindings.js';
 import type {
   LegacyJavaScriptInsightModel, PatternMatchResult} from '../../../../models/trace/insights/LegacyJavaScript.js';
 import * as Trace from '../../../../models/trace/trace.js';
-import type * as Workspace from '../../../../models/workspace/workspace.js';
 import * as Lit from '../../../../ui/lit/lit.js';
-import type * as Overlays from '../../overlays/overlays.js';
 
 import {BaseInsightComponent} from './BaseInsightComponent.js';
 import {scriptRef} from './ScriptRef.js';
@@ -32,19 +29,8 @@ export class LegacyJavaScript extends BaseInsightComponent<LegacyJavaScriptInsig
     return this.model?.metricSavings?.FCP ?? null;
   }
 
-  override createOverlays(): Overlays.Overlays.TimelineOverlay[] {
-    if (!this.model) {
-      return [];
-    }
-
-    const requests = [...this.model.legacyJavaScriptResults.keys()].map(script => script.request).filter(e => !!e);
-    return requests.map(request => {
-      return {
-        type: 'ENTRY_OUTLINE',
-        entry: request,
-        outlineReason: 'ERROR',
-      };
-    });
+  protected override hasAskAiSupport(): boolean {
+    return true;
   }
 
   async #revealLocation(script: Trace.Handlers.ModelHandlers.Scripts.Script, match: PatternMatchResult): Promise<void> {
@@ -58,23 +44,13 @@ export class LegacyJavaScript extends BaseInsightComponent<LegacyJavaScriptInsig
       return;
     }
 
-    const createUiLocation =
-        async(scriptId: Protocol.Runtime.ScriptId): Promise<Workspace.UISourceCode.UILocation|null> => {
-      const location = new SDK.DebuggerModel.Location(debuggerModel, scriptId, match.line, match.column);
-      if (!location) {
-        return null;
-      }
+    const location = new SDK.DebuggerModel.Location(debuggerModel, script.scriptId, match.line, match.column);
+    if (!location) {
+      return;
+    }
 
-      return await Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance().rawLocationToUILocation(
-          location);
-    };
-
-    // TODO(cjamcl): type confusion ... When loaded as an enhanced trace, the
-    // debugger model's script map is somehow using numbers for keys. Must cast to
-    // number so it actually works.
-    const uiLocation = await createUiLocation(script.scriptId) ??
-        await createUiLocation(Number(script.scriptId) as unknown as Protocol.Runtime.ScriptId);
-
+    const uiLocation =
+        await Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance().rawLocationToUILocation(location);
     await Common.Revealer.reveal(uiLocation);
   }
 
@@ -85,7 +61,7 @@ export class LegacyJavaScript extends BaseInsightComponent<LegacyJavaScriptInsig
 
     const rows: TableDataRow[] =
         [...this.model.legacyJavaScriptResults.entries()].slice(0, 10).map(([script, result]) => {
-          const overlays: Overlays.Overlays.TimelineOverlay[] = [];
+          const overlays: Trace.Types.Overlays.Overlay[] = [];
           if (script.request) {
             overlays.push({
               type: 'ENTRY_OUTLINE',

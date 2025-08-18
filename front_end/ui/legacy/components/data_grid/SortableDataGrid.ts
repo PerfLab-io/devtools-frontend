@@ -96,6 +96,9 @@ export class SortableDataGrid<T> extends ViewportDataGrid<SortableDataGridNode<T
 
       let columnIsNumeric = true;
       for (let i = 0; i < nodes.length; i++) {
+        if (nodes[i].isCreationNode) {
+          continue;
+        }
         const value = nodes[i].data[sortColumnId];
         if (isNaN(value instanceof Node ? value.textContent : value)) {
           columnIsNumeric = false;
@@ -124,10 +127,6 @@ export class SortableDataGrid<T> extends ViewportDataGrid<SortableDataGridNode<T
 }
 
 export class SortableDataGridNode<T> extends ViewportDataGridNode<SortableDataGridNode<T>> {
-  constructor(data?: DataGridData|null, hasChildren?: boolean) {
-    super(data, hasChildren);
-  }
-
   insertChildOrdered(node: SortableDataGridNode<T>): void {
     const dataGrid = (this.dataGrid as SortableDataGrid<T>| null);
     if (dataGrid) {

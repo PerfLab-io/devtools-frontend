@@ -178,6 +178,7 @@ export const enum VisualLoggingTrackName {
   THREAD_POOL = 'thread.pool',
   THREAD_OTHER = 'thread.other',
   EXTENSION = 'extension',
+  ANGULAR_TRACK = 'angular-track',
   NETWORK = 'network',
 }
 
@@ -571,19 +572,6 @@ export class CompatibilityTracksAppender {
       result.set(appender.processId(), existing);
     }
     return result;
-  }
-
-  /**
-   * Sets the visible tracks internally
-   * @param visibleTracks set with the names of the visible track
-   * appenders. If undefined, all tracks are set to be visible.
-   */
-  setVisibleTracks(visibleTracks?: Set<TrackAppenderName>): void {
-    if (!visibleTracks) {
-      this.#visibleTrackNames = new Set([...TrackNames]);
-      return;
-    }
-    this.#visibleTrackNames = visibleTracks;
   }
 
   getDrawOverride(event: Trace.Types.Events.Event, level: number): DrawOverride|undefined {

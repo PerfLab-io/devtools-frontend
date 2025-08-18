@@ -44,39 +44,39 @@ import screencastViewStyles from './screencastView.css.js';
 
 const UIStrings = {
   /**
-   *@description Accessible alt text for the screencast canvas rendering of the debug target webpage
+   * @description Accessible alt text for the screencast canvas rendering of the debug target webpage
    */
   screencastViewOfDebugTarget: 'Screencast view of debug target',
   /**
-   *@description Glass pane element text content in Screencast View of the Remote Devices tab when toggling screencast
+   * @description Glass pane element text content in Screencast View of the Remote Devices tab when toggling screencast
    */
   theTabIsInactive: 'The tab is inactive',
   /**
-   *@description Glass pane element text content in Screencast View of the Remote Devices tab when toggling screencast
+   * @description Glass pane element text content in Screencast View of the Remote Devices tab when toggling screencast
    */
   profilingInProgress: 'Profiling in progress',
   /**
-   *@description Accessible text for the screencast back button
+   * @description Accessible text for the screencast back button
    */
   back: 'back',
   /**
-   *@description Accessible text for the screencast forward button
+   * @description Accessible text for the screencast forward button
    */
   forward: 'forward',
   /**
-   *@description Accessible text for the screencast reload button
+   * @description Accessible text for the screencast reload button
    */
   reload: 'reload',
   /**
-   *@description Accessible text for the address bar in screencast view
+   * @description Accessible text for the address bar in screencast view
    */
   addressBar: 'Address bar',
   /**
-   *@description Accessible text for the touch emulation button.
+   * @description Accessible text for the touch emulation button.
    */
   touchInput: 'Use touch',
   /**
-   *@description Accessible text for the mouse emulation button.
+   * @description Accessible text for the mouse emulation button.
    */
   mouseInput: 'Use mouse',
 } as const;
@@ -95,7 +95,7 @@ export class ScreencastView extends UI.Widget.VBox implements SDK.OverlayModel.H
   private resourceTreeModel: SDK.ResourceTreeModel.ResourceTreeModel|null;
   private networkManager: SDK.NetworkManager.NetworkManager|null;
   private readonly inputModel: InputModel|null;
-  private shortcuts: {[x: number]: (arg0?: Event|undefined) => boolean};
+  private shortcuts: Record<number, (arg0?: Event|undefined) => boolean>;
   private scrollOffsetX: number;
   private scrollOffsetY: number;
   private screenZoom: number;
@@ -127,7 +127,6 @@ export class ScreencastView extends UI.Widget.VBox implements SDK.OverlayModel.H
   private inspectModeConfig?: Protocol.Overlay.HighlightConfig|null;
   private navigationBar?: HTMLElement;
   private navigationReload?: HTMLElement;
-  // @ts-expect-error keep local reference
   private navigationProgressBar?: ProgressTracker;
   private touchInputToggle?: HTMLButtonElement;
   private mouseInputToggle?: HTMLButtonElement;
@@ -149,9 +148,7 @@ export class ScreencastView extends UI.Widget.VBox implements SDK.OverlayModel.H
 
     this.setMinimumSize(150, 150);
 
-    this.shortcuts = {} as {
-      [x: number]: (arg0?: Event|undefined) => boolean,
-    };
+    this.shortcuts = {};
     this.scrollOffsetX = 0;
     this.scrollOffsetY = 0;
     this.screenZoom = 1;

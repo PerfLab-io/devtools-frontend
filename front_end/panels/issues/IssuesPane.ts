@@ -192,10 +192,11 @@ export class IssuesPane extends UI.Widget.VBox {
   #issueViewUpdatePromise: Promise<void> = Promise.resolve();
 
   constructor() {
-    super(true);
+    super({
+      jslog: `${VisualLogging.panel('issues')}`,
+      useShadowDom: true,
+    });
     this.registerRequiredCSS(issuesPaneStyles);
-
-    this.element.setAttribute('jslog', `${VisualLogging.panel('issues')}`);
 
     this.contentElement.classList.add('issues-pane');
 
@@ -217,7 +218,7 @@ export class IssuesPane extends UI.Widget.VBox {
     this.#issuesTree.appendChild(this.#hiddenIssuesRow);
 
     this.#noIssuesMessageDiv = new UI.EmptyWidget.EmptyWidget('', i18nString(UIStrings.issuesPanelDescription));
-    this.#noIssuesMessageDiv.appendLink(ISSUES_PANEL_EXPLANATION_URL);
+    this.#noIssuesMessageDiv.link = ISSUES_PANEL_EXPLANATION_URL;
     this.#noIssuesMessageDiv.show(this.contentElement);
 
     this.#issuesManager = IssuesManager.IssuesManager.IssuesManager.instance();
@@ -459,7 +460,9 @@ export class IssuesPane extends UI.Widget.VBox {
         this.setDefaultFocusedElement(this.#showThirdPartyCheckbox.element);
       }
       // We alreay know that issesCount is zero here.
-      const hasOnlyThirdPartyIssues = this.#issuesManager.numberOfAllStoredIssues() > 0;
+      const hasOnlyThirdPartyIssues =
+          this.#issuesManager.numberOfAllStoredIssues() - this.#issuesManager.numberOfThirdPartyCookiePhaseoutIssues() >
+          0;
       this.#noIssuesMessageDiv.header =
           hasOnlyThirdPartyIssues ? i18nString(UIStrings.onlyThirdpartyCookieIssues) : i18nString(UIStrings.noIssues);
       this.#noIssuesMessageDiv.showWidget();

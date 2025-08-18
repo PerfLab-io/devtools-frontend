@@ -15,9 +15,9 @@ import {Capability, type Target} from './Target.js';
 
 const UIStrings = {
   /**
-   *@description Text in Service Worker Cache Model
-   *@example {https://cache} PH1
-   *@example {error message} PH2
+   * @description Text in Service Worker Cache Model
+   * @example {https://cache} PH1
+   * @example {error message} PH2
    */
   serviceworkercacheagentError: '`ServiceWorkerCacheAgent` error deleting cache entry {PH1} in cache: {PH2}',
 } as const;
@@ -287,6 +287,10 @@ export class ServiceWorkerCacheModel extends SDKModel<EventTypes> implements Pro
   sharedStorageAccessed(_event: Protocol.Storage.SharedStorageAccessedEvent): void {
   }
 
+  sharedStorageWorkletOperationExecutionFinished(
+      _event: Protocol.Storage.SharedStorageWorkletOperationExecutionFinishedEvent): void {
+  }
+
   storageBucketCreatedOrUpdated(_event: Protocol.Storage.StorageBucketCreatedOrUpdatedEvent): void {
   }
 
@@ -298,6 +302,13 @@ export class ServiceWorkerCacheModel extends SDKModel<EventTypes> implements Pro
   }
 
   attributionReportingSourceRegistered(_event: Protocol.Storage.AttributionReportingSourceRegisteredEvent): void {
+  }
+
+  attributionReportingReportSent(_event: Protocol.Storage.AttributionReportingReportSentEvent): void {
+  }
+
+  attributionReportingVerboseDebugReportSent(_event: Protocol.Storage.AttributionReportingVerboseDebugReportSentEvent):
+      void {
   }
 }
 

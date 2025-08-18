@@ -14,15 +14,15 @@ import surveyLinkStyles from './surveyLink.css.js';
 
 const UIStrings = {
   /**
-   *@description Text shown when the link to open a survey is clicked but the survey has not yet appeared
+   * @description Text shown when the link to open a survey is clicked but the survey has not yet appeared
    */
   openingSurvey: 'Opening survey …',
   /**
-   *@description Text displayed instead of the survey link after the survey link is clicked, if the survey was shown successfully
+   * @description Text displayed instead of the survey link after the survey link is clicked, if the survey was shown successfully
    */
   thankYouForYourFeedback: 'Thank you for your feedback',
   /**
-   *@description Text displayed instead of the survey link after the survey link is clicked, if the survey was not shown successfully
+   * @description Text displayed instead of the survey link after the survey link is clicked, if the survey was not shown successfully
    */
   anErrorOccurredWithTheSurvey: 'An error occurred with the survey',
 } as const;
@@ -117,14 +117,19 @@ export class SurveyLink extends HTMLElement {
     const ariaDisabled = this.#state !== State.SHOW_LINK;
 
     // clang-format off
-
     const output = html`
-      <style>${surveyLinkStyles.cssText}</style>
-      <button class="link ${linkState}" tabindex=${ariaDisabled ? '-1' : '0'} .disabled=${ariaDisabled} aria-disabled=${ariaDisabled} @click=${this.#sendSurvey}>
-        <devtools-icon class="link-icon" .data=${{iconName: 'review', color: 'var(--sys-color-primary)', width: 'var(--issue-link-icon-size, 16px)', height: 'var(--issue-link-icon-size, 16px)'}}></devtools-icon><!--
-      -->${linkText}
-      </button>
-    `;
+      <style>${surveyLinkStyles}</style>
+      <button
+          class="link ${linkState}" tabindex=${ariaDisabled ? '-1' : '0'}
+          .disabled=${ariaDisabled} aria-disabled=${ariaDisabled} @click=${this.#sendSurvey}>
+        <devtools-icon class="link-icon" .data=${{
+            iconName: 'review',
+            color: 'var(--sys-color-primary)',
+            width: 'var(--issue-link-icon-size, 16px)',
+            height: 'var(--issue-link-icon-size, 16px)'}}>
+        </devtools-icon>
+        ${linkText}
+      </button>`;
     // clang-format on
     render(output, this.#shadow, {host: this});
   }

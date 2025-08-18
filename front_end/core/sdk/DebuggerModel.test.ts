@@ -21,7 +21,7 @@ const {urlString} = Platform.DevToolsPath;
 const SCRIPT_ID_ONE = '1' as Protocol.Runtime.ScriptId;
 const SCRIPT_ID_TWO = '2' as Protocol.Runtime.ScriptId;
 
-describeWithMockConnection('DebuggerModel with mock connection', () => {
+describeWithMockConnection('DebuggerModel', () => {
   describe('breakpoint activation', () => {
     beforeEach(() => {
       // Dummy handlers for unblocking target suspension.
@@ -233,7 +233,7 @@ describeWithMockConnection('DebuggerModel with mock connection', () => {
       const scriptUrl = urlString`https://script-host/script.js`;
       const script = new SDK.Script.Script(
           debuggerModel, SCRIPT_ID_ONE, scriptUrl, 0, 0, 0, 0, 0, '', false, false, undefined, false, 0, null, null,
-          null, null, null, null);
+          null, null, null, null, null);
       const scopeTypes: Protocol.Debugger.ScopeType[] = [
         Protocol.Debugger.ScopeType.Global,
         Protocol.Debugger.ScopeType.Local,
@@ -275,17 +275,20 @@ describeWithMockConnection('DebuggerModel with mock connection', () => {
   describe('pause', () => {
     let target: SDK.Target.Target;
     let backend: MockProtocolBackend;
-    let debuggerWorkspaceBinding: Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding;
 
     beforeEach(() => {
       target = createTarget({id: 'main' as Protocol.Target.TargetID, name: 'main', type: SDK.Target.Type.FRAME});
       const targetManager = target.targetManager();
       const workspace = Workspace.Workspace.WorkspaceImpl.instance();
       const resourceMapping = new Bindings.ResourceMapping.ResourceMapping(targetManager, workspace);
-      debuggerWorkspaceBinding = Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance(
-          {forceNew: false, resourceMapping, targetManager});
+      const ignoreListManager = Workspace.IgnoreListManager.IgnoreListManager.instance({forceNew: true});
+      Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance({
+        forceNew: true,
+        resourceMapping,
+        targetManager,
+        ignoreListManager,
+      });
       backend = new MockProtocolBackend();
-      Bindings.IgnoreListManager.IgnoreListManager.instance({forceNew: false, debuggerWorkspaceBinding});
     });
 
     it('with empty call frame list will invoke plain step-into', async () => {

@@ -45,6 +45,7 @@ import * as Workspace from '../../models/workspace/workspace.js';
 import * as CodeMirror from '../../third_party/codemirror.next/codemirror.next.js';
 import * as Buttons from '../../ui/components/buttons/buttons.js';
 import * as TextEditor from '../../ui/components/text_editor/text_editor.js';
+import * as Tooltips from '../../ui/components/tooltips/tooltips.js';
 import * as ObjectUI from '../../ui/legacy/components/object_ui/object_ui.js';
 import * as SourceFrame from '../../ui/legacy/components/source_frame/source_frame.js';
 import * as UI from '../../ui/legacy/legacy.js';
@@ -52,7 +53,7 @@ import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
 import {AddDebugInfoURLDialog} from './AddSourceMapURLDialog.js';
 import {BreakpointEditDialog} from './BreakpointEditDialog.js';
-import * as SourceComponents from './components/components.js';
+import {BreakpointsSidebarController} from './BreakpointsView.js';
 import {Plugin} from './Plugin.js';
 import {SourcesPanel} from './SourcesPanel.js';
 
@@ -60,117 +61,117 @@ const {EMPTY_BREAKPOINT_CONDITION, NEVER_PAUSE_HERE_CONDITION} = Breakpoints.Bre
 
 const UIStrings = {
   /**
-   *@description Text in Debugger Plugin of the Sources panel
+   * @description Text in Debugger Plugin of the Sources panel
    */
   thisScriptIsOnTheDebuggersIgnore: 'This script is on the debugger\'s ignore list',
   /**
-   *@description Text to stop preventing the debugger from stepping into library code
+   * @description Text to stop preventing the debugger from stepping into library code
    */
   removeFromIgnoreList: 'Remove from ignore list',
   /**
-   *@description Text of a button in the Sources panel Debugger Plugin to configure ignore listing in Settings
+   * @description Text of a button in the Sources panel Debugger Plugin to configure ignore listing in Settings
    */
   configure: 'Configure',
   /**
-   *@description Text to add a breakpoint
+   * @description Text to add a breakpoint
    */
   addBreakpoint: 'Add breakpoint',
   /**
-   *@description A context menu item in the Debugger Plugin of the Sources panel
+   * @description A context menu item in the Debugger Plugin of the Sources panel
    */
   addConditionalBreakpoint: 'Add conditional breakpoint…',
   /**
-   *@description A context menu item in the Debugger Plugin of the Sources panel
+   * @description A context menu item in the Debugger Plugin of the Sources panel
    */
   addLogpoint: 'Add logpoint…',
   /**
-   *@description A context menu item in the Debugger Plugin of the Sources panel
+   * @description A context menu item in the Debugger Plugin of the Sources panel
    */
   neverPauseHere: 'Never pause here',
   /**
-   *@description Context menu command to delete/remove a breakpoint that the user
+   * @description Context menu command to delete/remove a breakpoint that the user
    *has set. One line of code can have multiple breakpoints. Always >= 1 breakpoint.
    */
   removeBreakpoint: '{n, plural, =1 {Remove breakpoint} other {Remove all breakpoints in line}}',
   /**
-   *@description A context menu item in the Debugger Plugin of the Sources panel
+   * @description A context menu item in the Debugger Plugin of the Sources panel
    */
   editBreakpoint: 'Edit breakpoint…',
   /**
-   *@description Context menu command to disable (but not delete) a breakpoint
+   * @description Context menu command to disable (but not delete) a breakpoint
    *that the user has set. One line of code can have multiple breakpoints. Always
    *>= 1 breakpoint.
    */
   disableBreakpoint: '{n, plural, =1 {Disable breakpoint} other {Disable all breakpoints in line}}',
   /**
-   *@description Context menu command to enable a breakpoint that the user has
+   * @description Context menu command to enable a breakpoint that the user has
    *set. One line of code can have multiple breakpoints. Always >= 1 breakpoint.
    */
   enableBreakpoint: '{n, plural, =1 {Enable breakpoint} other {Enable all breakpoints in line}}',
   /**
-   *@description Text in Debugger Plugin of the Sources panel
+   * @description Text in Debugger Plugin of the Sources panel
    */
   addSourceMap: 'Add source map…',
   /**
-   *@description Text in Debugger Plugin of the Sources panel
+   * @description Text in Debugger Plugin of the Sources panel
    */
   addWasmDebugInfo: 'Add DWARF debug info…',
   /**
-   *@description Text in Debugger Plugin of the Sources panel
+   * @description Text in Debugger Plugin of the Sources panel
    */
   sourceMapLoaded: 'Source map loaded',
   /**
-   *@description Title of the Filtered List WidgetProvider of Quick Open
-   *@example {Ctrl+P Ctrl+O} PH1
+   * @description Title of the Filtered List WidgetProvider of Quick Open
+   * @example {Ctrl+P Ctrl+O} PH1
    */
   associatedFilesAreAvailable: 'Associated files are available via file tree or {PH1}.',
   /**
-   *@description Text in Debugger Plugin of the Sources panel
+   * @description Text in Debugger Plugin of the Sources panel
    */
   associatedFilesShouldBeAdded:
       'Associated files should be added to the file tree. You can debug these resolved source files as regular JavaScript files.',
   /**
-   *@description Text in Debugger Plugin of the Sources panel
+   * @description Text in Debugger Plugin of the Sources panel
    */
   theDebuggerWillSkipStepping: 'The debugger will skip stepping through this script, and will not stop on exceptions.',
   /**
-   *@description Text in Debugger Plugin of the Sources panel
+   * @description Text in Debugger Plugin of the Sources panel
    */
   sourceMapSkipped: 'Source map skipped for this file',
   /**
-   *@description Text in Debugger Plugin of the Sources panel
+   * @description Text in Debugger Plugin of the Sources panel
    */
   sourceMapFailed: 'Source map failed to load',
   /**
-   *@description Text in Debugger Plugin of the Sources panel
+   * @description Text in Debugger Plugin of the Sources panel
    */
   debuggingPowerReduced: 'DevTools can\'t show authored sources, but you can debug the deployed code.',
   /**
-   *@description Text in Debugger Plugin of the Sources panel
+   * @description Text in Debugger Plugin of the Sources panel
    */
   reloadForSourceMap: 'To enable again, make sure the file isn\'t on the ignore list and reload.',
   /**
-   *@description Text in Debugger Plugin of the Sources panel
-   *@example {http://site.com/lib.js.map} PH1
-   *@example {HTTP error: status code 404, net::ERR_UNKNOWN_URL_SCHEME} PH2
+   * @description Text in Debugger Plugin of the Sources panel
+   * @example {http://site.com/lib.js.map} PH1
+   * @example {HTTP error: status code 404, net::ERR_UNKNOWN_URL_SCHEME} PH2
    */
   errorLoading: 'Error loading url {PH1}: {PH2}',
   /**
-   *@description Error message that is displayed in UI when a file needed for debugging information for a call frame is missing
-   *@example {src/myapp.debug.wasm.dwp} PH1
+   * @description Error message that is displayed in UI when a file needed for debugging information for a call frame is missing
+   * @example {src/myapp.debug.wasm.dwp} PH1
    */
   debugFileNotFound: 'Failed to load debug file "{PH1}".',
   /**
-   *@description Error message that is displayed when no debug info could be loaded
-   *@example {app.wasm} PH1
+   * @description Error message that is displayed when no debug info could be loaded
+   * @example {app.wasm} PH1
    */
   debugInfoNotFound: 'Failed to load any debug info for {PH1}',
   /**
-   *@description Text of a button to open up details on a request when no debug info could be loaded
+   * @description Text of a button to open up details on a request when no debug info could be loaded
    */
   showRequest: 'Show request',
   /**
-   *@description Tooltip text that shows on hovering over a button to see more details on a request
+   * @description Tooltip text that shows on hovering over a button to see more details on a request
    */
   openDeveloperResources: 'Opens the request in the Developer resource panel',
 } as const;
@@ -270,7 +271,7 @@ export class DebuggerPlugin extends Plugin {
         SDK.PageResourceLoader.Events.UPDATE, this.showSourceMapInfobarIfNeeded.bind(this), this);
 
     this.ignoreListCallback = this.showIgnoreListInfobarIfNeeded.bind(this);
-    Bindings.IgnoreListManager.IgnoreListManager.instance().addChangeListener(this.ignoreListCallback);
+    Workspace.IgnoreListManager.IgnoreListManager.instance().addChangeListener(this.ignoreListCallback);
 
     UI.Context.Context.instance().addFlavorChangeListener(SDK.DebuggerModel.CallFrame, this.callFrameChanged, this);
     this.liveLocationPool = new Bindings.LiveLocation.LiveLocationPool();
@@ -411,7 +412,7 @@ export class DebuggerPlugin extends Plugin {
       return;
     }
 
-    if (!Bindings.IgnoreListManager.IgnoreListManager.instance().isUserOrSourceMapIgnoreListedUISourceCode(
+    if (!Workspace.IgnoreListManager.IgnoreListManager.instance().isUserOrSourceMapIgnoreListedUISourceCode(
             uiSourceCode)) {
       this.hideIgnoreListInfobar();
       return;
@@ -422,7 +423,7 @@ export class DebuggerPlugin extends Plugin {
     }
 
     function unIgnoreList(): void {
-      Bindings.IgnoreListManager.IgnoreListManager.instance().unIgnoreListUISourceCode(uiSourceCode);
+      Workspace.IgnoreListManager.IgnoreListManager.instance().unIgnoreListUISourceCode(uiSourceCode);
     }
 
     const infobar = new UI.Infobar.Infobar(
@@ -586,7 +587,7 @@ export class DebuggerPlugin extends Plugin {
 
     if (this.uiSourceCode.project().type() === Workspace.Workspace.projectTypes.Network &&
         Common.Settings.Settings.instance().moduleSetting('js-source-maps-enabled').get() &&
-        !Bindings.IgnoreListManager.IgnoreListManager.instance().isUserIgnoreListedURL(this.uiSourceCode.url())) {
+        !Workspace.IgnoreListManager.IgnoreListManager.instance().isUserIgnoreListedURL(this.uiSourceCode.url())) {
       if (this.scriptFileForDebuggerModel.size) {
         const scriptFile: Bindings.ResourceScriptMapping.ResourceScriptFile =
             this.scriptFileForDebuggerModel.values().next().value as Bindings.ResourceScriptMapping.ResourceScriptFile;
@@ -893,12 +894,10 @@ export class DebuggerPlugin extends Plugin {
       dialog.detach();
       editor.dispatch({effects: compartment.reconfigure([])});
       if (!result.committed) {
-        SourceComponents.BreakpointsView.BreakpointsSidebarController.instance().breakpointEditFinished(
-            breakpoint, false);
+        BreakpointsSidebarController.instance().breakpointEditFinished(breakpoint, false);
         return;
       }
-      SourceComponents.BreakpointsView.BreakpointsSidebarController.instance().breakpointEditFinished(
-          breakpoint, oldCondition !== result.condition);
+      BreakpointsSidebarController.instance().breakpointEditFinished(breakpoint, oldCondition !== result.condition);
       if (breakpoint) {
         breakpoint.setCondition(result.condition, result.isLogpoint);
       } else if (location) {
@@ -1274,7 +1273,7 @@ export class DebuggerPlugin extends Plugin {
       } else if (main.condition()) {
         gutterClass += ' cm-breakpoint-conditional';
       }
-      gutterMarkers.push((new BreakpointGutterMarker(gutterClass, lineStart)).range(lineStart));
+      gutterMarkers.push((new BreakpointGutterMarker(gutterClass, lineStart, main.condition())).range(lineStart));
     }
 
     const addPossibleBreakpoints = (line: CodeMirror.Line, locations: Workspace.UISourceCode.UILocation[]): void => {
@@ -1740,7 +1739,7 @@ export class DebuggerPlugin extends Plugin {
     this.uiSourceCode.removeEventListener(
         Workspace.UISourceCode.Events.WorkingCopyCommitted, this.workingCopyCommitted, this);
 
-    Bindings.IgnoreListManager.IgnoreListManager.instance().removeChangeListener(this.ignoreListCallback);
+    Workspace.IgnoreListManager.IgnoreListManager.instance().removeChangeListener(this.ignoreListCallback);
 
     debuggerPluginForUISourceCode.delete(this.uiSourceCode);
     super.dispose();
@@ -1783,8 +1782,7 @@ export class BreakpointLocationRevealer implements
     if (debuggerPlugin) {
       debuggerPlugin.editBreakpointLocation(breakpointLocation);
     } else {
-      SourceComponents.BreakpointsView.BreakpointsSidebarController.instance().breakpointEditFinished(
-          breakpointLocation.breakpoint, false);
+      BreakpointsSidebarController.instance().breakpointEditFinished(breakpointLocation.breakpoint, false);
     }
   }
 }
@@ -1827,7 +1825,9 @@ function muteGutterMarkers(markers: CodeMirror.RangeSet<CodeMirror.GutterMarker>
     if (!/cm-breakpoint-disabled/.test(className)) {
       className += ' cm-breakpoint-disabled';
     }
-    newMarkers.push(new BreakpointGutterMarker(className, from).range(from));
+    newMarkers.push(new BreakpointGutterMarker(
+                        className, from, marker instanceof BreakpointGutterMarker ? marker.condition : undefined)
+                        .range(from));
   });
   return CodeMirror.RangeSet.of(newMarkers, false);
 }
@@ -1903,11 +1903,16 @@ class BreakpointInlineMarker extends CodeMirror.WidgetType {
 }
 
 class BreakpointGutterMarker extends CodeMirror.GutterMarker {
+  static nextTooltipId = 0;
   readonly #position: number;
+  readonly condition: Breakpoints.BreakpointManager.UserCondition|undefined;
 
-  constructor(override readonly elementClass: string, position: number) {
+  constructor(
+      override readonly elementClass: string, position: number,
+      condition?: Breakpoints.BreakpointManager.UserCondition) {
     super();
     this.#position = position;
+    this.condition = condition;
   }
 
   override eq(other: BreakpointGutterMarker): boolean {
@@ -1920,7 +1925,21 @@ class BreakpointGutterMarker extends CodeMirror.GutterMarker {
     const line = view.state.doc.lineAt(this.#position).number;
     const formatNumber = view.state.facet(SourceFrame.SourceFrame.LINE_NUMBER_FORMATTER);
     div.textContent = formatNumber(line, view.state);
-    return div;
+    if (!this.condition) {
+      return div;
+    }
+    const container = document.createElement('div');
+    const id = `cm-breakpoint-tooltip-${BreakpointGutterMarker.nextTooltipId++}`;
+    div.setAttribute('aria-details', id);
+    container.appendChild(div);
+    const tooltip = new Tooltips.Tooltip.Tooltip({
+      id,
+      anchor: div,
+      jslogContext: 'breakpoint-tooltip',
+    });
+    tooltip.append(this.condition);
+    container.appendChild(tooltip);
+    return container;
   }
 }
 

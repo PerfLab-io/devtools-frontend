@@ -24,7 +24,7 @@ export const UIStrings = {
    * This is displayed after a user expands the section to see more. No character length limits.
    */
   description: '3rd party code can significantly impact load performance. ' +
-      '[Reduce and defer loading of 3rd party code](https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/loading-third-party-javascript/) to prioritize your page\'s content.',
+      '[Reduce and defer loading of 3rd party code](https://web.dev/articles/optimizing-content-efficiency-loading-third-party-javascript/) to prioritize your page\'s content.',
   /** Label for a table column that displays the name of a third-party provider. */
   columnThirdParty: '3rd party',
   /** Label for a column in a data table; entries will be the download size of a web resource in kilobytes. */
@@ -42,7 +42,8 @@ export const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export type ThirdPartiesInsightModel = InsightModel<typeof UIStrings, {
   /** The entity for this navigation's URL. Any other entity is from a third party. */
-  firstPartyEntity?: Extras.ThirdParties.Entity, entitySummaries: Extras.ThirdParties.EntitySummary[],
+  entitySummaries: Extras.ThirdParties.EntitySummary[],
+  firstPartyEntity?: Extras.ThirdParties.Entity,
 }>;
 
 function getRelatedEvents(
@@ -86,4 +87,40 @@ export function generateInsight(
     firstPartyEntity,
     entitySummaries,
   });
+}
+
+export function createOverlaysForSummary(summary: Extras.ThirdParties.EntitySummary): Types.Overlays.Overlay[] {
+  const overlays = [];
+  for (const event of summary.relatedEvents) {
+    // The events found for a third party can be vast, as they gather every
+    // single main thread task along with everything else on the page. If the
+    // main thread is busy with large icicles, we can easily create tens of
+    // thousands of overlays. Therefore, only create overlays for events of at least 1ms.
+    if (event.dur === undefined || event.dur < 1_000) {
+      continue;
+    }
+
+    const overlay: Types.Overlays.Overlay = {
+      type: 'ENTRY_OUTLINE',
+      entry: event,
+      outlineReason: 'INFO',
+    };
+    overlays.push(overlay);
+  }
+  return overlays;
+}
+
+export function createOverlays(model: ThirdPartiesInsightModel): Types.Overlays.Overlay[] {
+  const overlays: Types.Overlays.Overlay[] = [];
+  const summaries = model.entitySummaries ?? [];
+  for (const summary of summaries) {
+    if (summary.entity === model.firstPartyEntity) {
+      continue;
+    }
+
+    const summaryOverlays = createOverlaysForSummary(summary);
+    overlays.push(...summaryOverlays);
+  }
+
+  return overlays;
 }

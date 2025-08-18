@@ -162,7 +162,9 @@ describeWithMockConnection('IssueAggregator', () => {
       assert.strictEqual(aggregatedIssue.getKind(), IssuesManager.Issue.IssueKind.PAGE_ERROR);
     });
   });
+});
 
+describeWithMockConnection('IssueAggregator', () => {
   it('aggregates heavy ad issues correctly', () => {
     const model = createModel();
     const details1 = {
@@ -235,7 +237,7 @@ describeWithMockConnection('IssueAggregator', () => {
   });
 });
 
-describeWithMockConnection('IssueAggregator with fake setting', () => {
+describeWithMockConnection('IssueAggregator', () => {
   let hideIssueByCodeSetting: Common.Settings.Setting<IssuesManager.IssuesManager.HideIssueMenuSetting>;
   let showThirdPartyIssuesSetting: Common.Settings.Setting<boolean>;
   let issuesManager: IssuesManager.IssuesManager.IssuesManager;
@@ -360,8 +362,10 @@ describeWithMockConnection('IssueAggregator with fake setting', () => {
   });
 });
 
-describeWithMockConnection('IssueAggregator with mitigation cookie issues', () => {
-  function getTestMitigationCookieIssue(warningReason: Protocol.Audits.CookieWarningReason): IssuesManager.Issue.Issue {
+describeWithMockConnection('IssueAggregator', () => {
+  function getTestCookieIssue(
+      warningReason?: Protocol.Audits.CookieWarningReason,
+      exclusionReason?: Protocol.Audits.CookieExclusionReason): IssuesManager.Issue.Issue {
     return IssuesManager.IssuesManager.createIssuesFromProtocolIssue(model, {
       code: Protocol.Audits.InspectorIssueCode.CookieIssue,
       details: {
@@ -371,8 +375,8 @@ describeWithMockConnection('IssueAggregator with mitigation cookie issues', () =
             path: '/',
             domain: 'a.test',
           },
-          cookieExclusionReasons: [],
-          cookieWarningReasons: [warningReason],
+          cookieExclusionReasons: exclusionReason ? [exclusionReason] : [],
+          cookieWarningReasons: warningReason ? [warningReason] : [],
           operation: Protocol.Audits.CookieOperation.ReadCookie,
           cookieUrl: 'a.test',
         },
@@ -390,22 +394,34 @@ describeWithMockConnection('IssueAggregator with mitigation cookie issues', () =
     model = target.model(SDK.IssuesModel.IssuesModel) as SDK.IssuesModel.IssuesModel;
   });
 
-  it('should not aggregate mitigation related cookie issues', async () => {
+  it('should not aggregate third-party cookie phaseout or mitigation related issues', async () => {
     // Preexisting issues should not be added
+    issuesManager.addIssue(model, getTestCookieIssue(Protocol.Audits.CookieWarningReason.WarnDeprecationTrialMetadata));
     issuesManager.addIssue(
-        model, getTestMitigationCookieIssue(Protocol.Audits.CookieWarningReason.WarnDeprecationTrialMetadata));
+        model, getTestCookieIssue(Protocol.Audits.CookieWarningReason.WarnThirdPartyCookieHeuristic));
+    issuesManager.addIssue(model, getTestCookieIssue(Protocol.Audits.CookieWarningReason.WarnThirdPartyPhaseout));
     issuesManager.addIssue(
-        model, getTestMitigationCookieIssue(Protocol.Audits.CookieWarningReason.WarnThirdPartyCookieHeuristic));
+        model, getTestCookieIssue(undefined, Protocol.Audits.CookieExclusionReason.ExcludeThirdPartyPhaseout));
 
     const aggregator = new Issues.IssueAggregator.IssueAggregator(issuesManager);
 
     // Issues added after aggregator creation should not exist either
+    issuesManager.addIssue(model, getTestCookieIssue(Protocol.Audits.CookieWarningReason.WarnDeprecationTrialMetadata));
     issuesManager.addIssue(
-        model, getTestMitigationCookieIssue(Protocol.Audits.CookieWarningReason.WarnDeprecationTrialMetadata));
+        model, getTestCookieIssue(Protocol.Audits.CookieWarningReason.WarnThirdPartyCookieHeuristic));
+    issuesManager.addIssue(model, getTestCookieIssue(Protocol.Audits.CookieWarningReason.WarnThirdPartyPhaseout));
     issuesManager.addIssue(
-        model, getTestMitigationCookieIssue(Protocol.Audits.CookieWarningReason.WarnThirdPartyCookieHeuristic));
+        model, getTestCookieIssue(undefined, Protocol.Audits.CookieExclusionReason.ExcludeThirdPartyPhaseout));
 
     assert.strictEqual(aggregator.numberOfAggregatedIssues(), 0);
+    assert.strictEqual(aggregator.numberOfHiddenAggregatedIssues(), 0);
+
+    // But other cookie issues should get aggregated
+    issuesManager.addIssue(model, getTestCookieIssue(Protocol.Audits.CookieWarningReason.WarnDomainNonASCII));
+    issuesManager.addIssue(
+        model, getTestCookieIssue(undefined, Protocol.Audits.CookieExclusionReason.ExcludeDomainNonASCII));
+
+    assert.strictEqual(aggregator.numberOfAggregatedIssues(), 2);
     assert.strictEqual(aggregator.numberOfHiddenAggregatedIssues(), 0);
   });
 });

@@ -23,19 +23,19 @@ const {live, classMap, repeat} = Directives;
 
 const UIStrings = {
   /**
-   *@description The title of a button that deletes a parameter.
+   * @description The title of a button that deletes a parameter.
    */
   deleteParameter: 'Delete parameter',
   /**
-   *@description The title of a button that adds a parameter.
+   * @description The title of a button that adds a parameter.
    */
   addParameter: 'Add a parameter',
   /**
-   *@description The title of a button that reset the value of a paremeters to its default value.
+   * @description The title of a button that reset the value of a parameters to its default value.
    */
   resetDefaultValue: 'Reset to default value',
   /**
-   *@description The title of a button to add custom key/value pairs to object parameters with no keys defined
+   * @description The title of a button to add custom key/value pairs to object parameters with no keys defined
    */
   addCustomProperty: 'Add custom property',
   /**
@@ -104,7 +104,7 @@ export type Parameter = ArrayParameter|NumberParameter|StringParameter|BooleanPa
 
 export interface Command {
   command: string;
-  parameters: {[x: string]: unknown};
+  parameters: Record<string, unknown>;
   targetId?: string;
 }
 
@@ -130,11 +130,11 @@ interface ViewInput {
   onParameterValueBlur: (event: Event) => void;
 }
 
-export type View = (input: ViewInput, output: object, targer: HTMLElement) => void;
+export type View = (input: ViewInput, output: object, target: HTMLElement) => void;
 
 const splitDescription = (description: string): [string, string] => {
   // If the description is too long we make the UI a bit better by highlighting the first sentence
-  // which contains the most informations.
+  // which contains the most information.
   // The number 150 has been chosen arbitrarily
   if (description.length > 150) {
     const [firstSentence, restOfDescription] = description.split('.');
@@ -178,7 +178,7 @@ export class JSONEditor extends Common.ObjectWrapper.eventMixin<EventTypes, type
   #view: View;
 
   constructor(element: HTMLElement, view = DEFAULT_VIEW) {
-    super(/* useShadowDom=*/ true, undefined, element);
+    super(element, {useShadowDom: true});
     this.#view = view;
     this.registerRequiredCSS(editorWidgetStyles);
   }
@@ -280,7 +280,7 @@ export class JSONEditor extends Common.ObjectWrapper.eventMixin<EventTypes, type
     }
   }
 
-  getParameters(): {[key: string]: unknown} {
+  getParameters(): Record<string, unknown> {
     const formatParameterValue = (parameter: Parameter): unknown => {
       if (parameter.value === undefined) {
         return;
@@ -293,7 +293,7 @@ export class JSONEditor extends Common.ObjectWrapper.eventMixin<EventTypes, type
           return Boolean(parameter.value);
         }
         case ParameterType.OBJECT: {
-          const nestedParameters: {[key: string]: unknown} = {};
+          const nestedParameters: Record<string, unknown> = {};
           for (const subParameter of parameter.value) {
             const formattedValue = formatParameterValue(subParameter);
             if (formattedValue !== undefined) {
@@ -318,7 +318,7 @@ export class JSONEditor extends Common.ObjectWrapper.eventMixin<EventTypes, type
       }
     };
 
-    const formattedParameters: {[key: string]: unknown} = {};
+    const formattedParameters: Record<string, unknown> = {};
     for (const parameter of this.parameters) {
       formattedParameters[parameter.name] = formatParameterValue(parameter);
     }
@@ -328,7 +328,7 @@ export class JSONEditor extends Common.ObjectWrapper.eventMixin<EventTypes, type
              optional: true,
              value: this.parameters,
              description: '',
-           }) as {[key: string]: unknown};
+           }) as Record<string, unknown>;
   }
 
   // Displays a command entered in the input bar inside the editor
@@ -706,7 +706,32 @@ export class JSONEditor extends Common.ObjectWrapper.eventMixin<EventTypes, type
       this.command = event.target.value;
     }
     this.populateParametersForCommandWithDefaultValues();
+    const target = event.target as HTMLElement;
+    await this.updateComplete;
+    this.#focusNextElement(target);
   };
+
+  /**
+   * When devtools-suggestion-input closes, it blurs itself resulting in
+   * the focus shifting to the overall DevTools window.
+   *
+   * This method focuses on the next focusable element (button or input)
+   * so that the focus remains in the Editor and Ctrl + Shift works.
+   */
+  #focusNextElement(target: HTMLElement): void {
+    // FIXME: can we do this via view output?
+    const elements =
+        this.contentElement.querySelectorAll('devtools-suggestion-input,.add-button') as NodeListOf<HTMLElement>;
+    const element = [...elements].findIndex(value => value === target.shadowRoot?.host);
+    if (element >= 0 && element + 1 < elements.length) {
+      elements[element + 1].focus();
+    } else {
+      (this.contentElement.querySelector('devtools-button[jslogcontext="protocol-monitor.send-command"]') as
+           HTMLElement |
+       undefined)
+          ?.focus();
+    }
+  }
 
   #createNestedParameter(type: Parameter, name: string): Parameter {
     if (type.type === ParameterType.OBJECT) {
@@ -978,7 +1003,7 @@ function renderTargetSelectorRow(input: ViewInput): Lit.TemplateResult|undefined
 function renderInlineButton(opts: {
   title: string,
   iconName: string,
-  classMap: {[name: string]: string|boolean|number},
+  classMap: Record<string, string|boolean|number>,
   onClick: (event: MouseEvent) => void,
   jslogContext: string,
 }): Lit.TemplateResult|undefined {
@@ -996,15 +1021,7 @@ function renderInlineButton(opts: {
 }
 
 function renderWarningIcon(): Lit.TemplateResult|undefined {
-  return html`<devtools-icon
-    .data=${{
-    iconName: 'warning-filled', color: 'var(--icon-warning)', width: '14px', height: '14px',
-  }
-  }
-    class=${classMap({
-    'warning-icon': true,
-  })}
-  >
+  return html`<devtools-icon name='warning-filled' class='warning-icon small'>
   </devtools-icon>`;
 }
 
@@ -1210,15 +1227,15 @@ function renderParameters(
 export const DEFAULT_VIEW: View = (input, _output, target) => {
   // clang-format off
   render(html`
-    <div jslog=${VisualLogging.pane('command-editor').track({resize: true})}>
-      <div class="wrapper" @keydown=${input.onKeydown}>
+    <div class="wrapper" @keydown=${input.onKeydown} jslog=${VisualLogging.pane('command-editor').track({resize: true})}>
+      <div class="editor-wrapper">
         ${renderTargetSelectorRow(input)}
         <div class="row attribute padded">
           <div class="command">command<span class="separator">:</span></div>
           <devtools-suggestion-input
             .options=${[...input.metadataByCommand.keys()]}
             .value=${input.command}
-            .placeholder=${'Enter your command...'}
+            .placeholder=${'Enter your command…'}
             .suggestionFilter=${suggestionFilter}
             .jslogContext=${'command'}
             @blur=${input.onCommandInputBlur}
@@ -1245,6 +1262,6 @@ export const DEFAULT_VIEW: View = (input, _output, target) => {
                         .variant=${Buttons.Button.Variant.PRIMARY_TOOLBAR}
                         @click=${input.onCommandSend}></devtools-button>
       </devtools-toolbar>
-    </div>`, target, {host: input});
+    </div>`, target);
   // clang-format on
 };

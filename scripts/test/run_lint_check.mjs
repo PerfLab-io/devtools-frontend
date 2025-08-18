@@ -32,9 +32,10 @@ const flags = yargs(hideBin(process.argv))
       'Disable cache validations during debugging, useful for custom rule creation/debugging.',
   })
   .usage('$0 [<files...>]', 'Run the linter on the provided files', yargs => {
-    yargs.positional('files', {
+    return yargs.positional('files', {
       describe: 'File(s), glob(s), or directories',
-      type: 'array',
+      type: 'string',
+      array: true,
       default: [
         'front_end',
         'inspector_overlay',
@@ -148,7 +149,7 @@ async function runStylelint(files) {
  * The configuration for the `lit-analyzer` is parsed from the options for
  * the "ts-lit-plugin" from the toplevel `tsconfig.json` file.
  *
- * @param {string[]} files the input files to analyze.
+ * @param files the input files to analyze.
  */
 async function runLitAnalyzer(files) {
   debugLogging('[lint]: Running LitAnalyzer...');
@@ -169,12 +170,7 @@ async function runLitAnalyzer(files) {
     return tsLitPluginOptions;
   };
 
-  const { rules } = readLitAnalyzerConfigFromCompilerOptions();
-  /**
-   *
-   * @param {string[]} subsetFiles
-   * @returns {{output: string, error: string, status:boolean}}
-   */
+  const {rules} = readLitAnalyzerConfigFromCompilerOptions();
   const getLitAnalyzerResult = async subsetFiles => {
     const args = [
       litAnalyzerExecutablePath(),
@@ -190,7 +186,6 @@ async function runLitAnalyzer(files) {
 
     return await new Promise(resolve => {
       const litAnalyzerProcess = spawn(nodePath(), args, {
-        encoding: 'utf-8',
         cwd: devtoolsRootPath(),
       });
 
@@ -218,6 +213,9 @@ async function runLitAnalyzer(files) {
       return [filesToSplit];
     }
 
+    /**
+     * @type {string[][]}
+     */
     const splitFiles = [[]];
     let index = 0;
     for (const file of filesToSplit) {
@@ -252,11 +250,6 @@ async function runLitAnalyzer(files) {
 }
 
 const DEVTOOLS_ROOT_DIR = resolve(import.meta.dirname, '..', '..');
-/**
- *
- * @param {string} path
- * @returns {boolean}
- */
 function shouldIgnoreFile(path) {
   const resolvedPath = resolve(path);
   const relativePath = relative(DEVTOOLS_ROOT_DIR, resolvedPath);
@@ -282,7 +275,7 @@ async function runEslintRulesTypeCheck(_files) {
   );
   const args = [tscPath, '-b', tsConfigEslintRules];
   /**
-   * @returns {Promise<{output: string, error: string, status:boolean}>}
+   * @returns
    */
   async function runTypeCheck() {
     const result = {
@@ -293,7 +286,6 @@ async function runEslintRulesTypeCheck(_files) {
 
     return await new Promise(resolve => {
       const tscProcess = spawn(nodePath(), args, {
-        encoding: 'utf-8',
         cwd: devtoolsRootPath(),
       });
 
@@ -328,9 +320,10 @@ async function runEslintRulesTypeCheck(_files) {
 }
 
 async function run() {
+  const files = Array.isArray(flags.files) ? flags.files : [flags.files];
   const scripts = [];
   const styles = [];
-  for (const path of sync(flags.files, {
+  for (const path of sync(files, {
     expandDirectories: { extensions: ['css', 'mjs', 'js', 'ts'] },
     gitignore: true,
   })) {

@@ -45,7 +45,7 @@ import {type RevealPosition, SourceFrameImpl, type SourceFrameOptions} from './S
 
 const UIStrings = {
   /**
-   *@description Text to find an item
+   * @description Text to find an item
    */
   find: 'Find',
 } as const;
@@ -101,8 +101,8 @@ export class ResourceSourceFrame extends SourceFrameImpl {
 export class SearchableContainer extends UI.Widget.VBox {
   private readonly sourceFrame: ResourceSourceFrame;
 
-  constructor(resource: TextUtils.ContentProvider.ContentProvider, contentType: string) {
-    super(true);
+  constructor(resource: TextUtils.ContentProvider.ContentProvider, contentType: string, element?: HTMLElement) {
+    super(element, {useShadowDom: true});
     this.registerRequiredCSS(resourceSourceFrameStyles);
     const simpleContentType = Common.ResourceType.ResourceType.simplifyContentType(contentType);
     const sourceFrame = new ResourceSourceFrame(resource, simpleContentType);

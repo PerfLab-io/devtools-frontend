@@ -16,23 +16,28 @@ export type Entity = typeof ThirdPartyWeb.ThirdPartyWeb.entities[number]&{
 export interface EntityMappings {
   createdEntityCache: Map<string, Entity>;
   entityByEvent: Map<Types.Events.Event, Entity>;
-  /**
-   * This holds the entities that had to be created, because they were not found using the
-   * ThirdPartyWeb database.
-   */
   eventsByEntity: Map<Entity, Types.Events.Event[]>;
+  entityByUrlCache: Map<string, Entity>;
 }
 
-export function getEntityForEvent(event: Types.Events.Event, entityCache: Map<string, Entity>): Entity|undefined {
+export function getEntityForEvent(event: Types.Events.Event, entityMappings: EntityMappings): Entity|undefined {
   const url = getNonResolvedURL(event);
   if (!url) {
     return;
   }
-  return getEntityForUrl(url, entityCache);
+  return getEntityForUrl(url, entityMappings);
 }
 
-export function getEntityForUrl(url: string, entityCache: Map<string, Entity>): Entity|undefined {
-  return ThirdPartyWeb.ThirdPartyWeb.getEntity(url) ?? makeUpEntity(entityCache, url);
+export function getEntityForUrl(url: string, entityMappings: EntityMappings): Entity|undefined {
+  const cachedByUrl = entityMappings.entityByUrlCache.get(url);
+  if (cachedByUrl) {
+    return cachedByUrl;
+  }
+  const entity = ThirdPartyWeb.ThirdPartyWeb.getEntity(url) ?? makeUpEntity(entityMappings.createdEntityCache, url);
+  if (entity) {
+    entityMappings.entityByUrlCache.set(url, entity);
+  }
+  return entity;
 }
 
 export function getNonResolvedURL(
@@ -43,6 +48,10 @@ export function getNonResolvedURL(
 
   if (Types.Events.isSyntheticNetworkRequest(entry)) {
     return entry.args.data.url as Platform.DevToolsPath.UrlString;
+  }
+
+  if (Types.Events.isParseAuthorStyleSheetEvent(entry) && entry.args) {
+    return entry.args.data.stylesheetUrl as Platform.DevToolsPath.UrlString;
   }
 
   if (entry.args?.data?.stackTrace && entry.args.data.stackTrace.length > 0) {
@@ -155,14 +164,14 @@ function makeUpChromeExtensionEntity(entityCache: Map<string, Entity>, url: stri
 }
 
 export function addEventToEntityMapping(event: Types.Events.Event, entityMappings: EntityMappings): void {
-  const entity = getEntityForEvent(event, entityMappings.createdEntityCache);
-  if (!entity) {
-    return;
-  }
-
   // As we share the entityMappings between Network and Renderer... We can have ResourceSendRequest events passed in here
   // that were already mapped in Network. So, to avoid mapping twice, we always check that we didn't yet.
   if (entityMappings.entityByEvent.has(event)) {
+    return;
+  }
+
+  const entity = getEntityForEvent(event, entityMappings);
+  if (!entity) {
     return;
   }
 
@@ -179,7 +188,7 @@ export function addEventToEntityMapping(event: Types.Events.Event, entityMapping
 export function addNetworkRequestToEntityMapping(
     networkRequest: Types.Events.SyntheticNetworkRequest, entityMappings: EntityMappings,
     requestTraceEvents: TraceEventsForNetworkRequest): void {
-  const entity = getEntityForEvent(networkRequest, entityMappings.createdEntityCache);
+  const entity = getEntityForEvent(networkRequest, entityMappings);
   if (!entity) {
     return;
   }

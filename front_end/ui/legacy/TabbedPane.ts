@@ -51,32 +51,32 @@ import {Events as ZoomManagerEvents, ZoomManager} from './ZoomManager.js';
 
 const UIStrings = {
   /**
-   *@description The aria label for the button to open more tabs at the right tabbed pane in Elements tools
+   * @description The aria label for the button to open more tabs at the right tabbed pane in Elements tools
    */
   moreTabs: 'More tabs',
   /**
-   *@description Text in Tabbed Pane
-   *@example {tab} PH1
+   * @description Text in Tabbed Pane
+   * @example {tab} PH1
    */
   closeS: 'Close {PH1}',
   /**
-   *@description Text to close something
+   * @description Text to close something
    */
   close: 'Close',
   /**
-   *@description Text on a menu option to close other drawers when right click on a drawer title
+   * @description Text on a menu option to close other drawers when right click on a drawer title
    */
   closeOthers: 'Close others',
   /**
-   *@description Text on a menu option to close the drawer to the right when right click on a drawer title
+   * @description Text on a menu option to close the drawer to the right when right click on a drawer title
    */
   closeTabsToTheRight: 'Close tabs to the right',
   /**
-   *@description Text on a menu option to close all the drawers except Console when right click on a drawer title
+   * @description Text on a menu option to close all the drawers except Console when right click on a drawer title
    */
   closeAll: 'Close all',
   /**
-   *@description Indicates that a tab contains a preview feature (i.e., a beta / experimental feature).
+   * @description Indicates that a tab contains a preview feature (i.e., a beta / experimental feature).
    */
   previewFeature: 'Preview feature',
   /**
@@ -114,15 +114,14 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
   private focusedPlaceholderElement?: Element;
   private placeholderContainerElement?: HTMLElement;
   private lastSelectedOverflowTab?: TabbedPaneTab;
-  private overflowDisabled?: boolean;
   private measuredDropDownButtonWidth?: number;
   private leftToolbarInternal?: Toolbar;
   private rightToolbarInternal?: Toolbar;
   allowTabReorder?: boolean;
   private automaticReorder?: boolean;
 
-  constructor() {
-    super(true);
+  constructor(element?: HTMLElement) {
+    super(element, {useShadowDom: true});
     this.registerRequiredCSS(tabbedPaneStyles);
     this.element.classList.add('tabbed-pane');
     this.contentElement.classList.add('tabbed-pane-shadow');
@@ -533,6 +532,11 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
       this.selectTab(effectiveTab.id);
     }
     this.updateTabElements();
+    this.dispatchEventToListeners(Events.PaneVisibilityChanged, {isVisible: true});
+  }
+
+  override wasHidden(): void {
+    this.dispatchEventToListeners(Events.PaneVisibilityChanged, {isVisible: false});
   }
 
   makeTabSlider(): void {
@@ -721,10 +725,6 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
     return numTabsShown;
   }
 
-  disableOverflowMenu(): void {
-    this.overflowDisabled = true;
-  }
-
   private updateTabsDropDown(): void {
     const tabsToShowIndexes =
         this.tabsToShowIndexes(this.tabs, this.tabsHistory, this.totalWidth(), this.measuredDropDownButtonWidth || 0);
@@ -746,9 +746,7 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
       }
     }
 
-    if (!this.overflowDisabled) {
-      this.maybeShowDropDown(tabsToShowIndexes.length !== this.tabs.length);
-    }
+    this.maybeShowDropDown(tabsToShowIndexes.length !== this.tabs.length);
   }
 
   private maybeShowDropDown(hasMoreTabs: boolean): void {
@@ -760,7 +758,7 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
   }
 
   private measureDropDownButton(): void {
-    if (this.overflowDisabled || this.measuredDropDownButtonWidth) {
+    if (this.measuredDropDownButtonWidth) {
       return;
     }
     this.dropDownButton.classList.add('measuring');
@@ -1025,6 +1023,7 @@ export enum Events {
   TabSelected = 'TabSelected',
   TabClosed = 'TabClosed',
   TabOrderChanged = 'TabOrderChanged',
+  PaneVisibilityChanged = 'PaneVisibilityChanged',
   /* eslint-enable @typescript-eslint/naming-convention */
 }
 
@@ -1033,6 +1032,7 @@ export interface EventTypes {
   [Events.TabSelected]: EventData;
   [Events.TabClosed]: EventData;
   [Events.TabOrderChanged]: EventData;
+  [Events.PaneVisibilityChanged]: {isVisible: boolean};
 }
 
 export class TabbedPaneTab {
@@ -1243,6 +1243,7 @@ export class TabbedPaneTab {
       tabElement.classList.add('measuring');
     } else {
       tabElement.addEventListener('click', this.tabClicked.bind(this), false);
+      tabElement.addEventListener('keydown', this.tabKeyDown.bind(this), false);
       tabElement.addEventListener('auxclick', this.tabClicked.bind(this), false);
       tabElement.addEventListener('mousedown', this.tabMouseDown.bind(this), false);
       tabElement.addEventListener('mouseup', this.tabMouseUp.bind(this), false);
@@ -1280,9 +1281,8 @@ export class TabbedPaneTab {
     closeIcon.data = {
       iconName: 'experiment',
       color: 'var(--override-tabbed-pane-preview-icon-color)',
-      height: '14px',
-      width: '14px',
     };
+    previewIcon.classList.add('small');
     previewIcon.appendChild(closeIcon);
     previewIcon.setAttribute('title', i18nString(UIStrings.previewFeature));
     previewIcon.setAttribute('aria-label', i18nString(UIStrings.previewFeature));
@@ -1292,6 +1292,19 @@ export class TabbedPaneTab {
   private isCloseIconClicked(element: HTMLElement): boolean {
     return element?.classList.contains('tabbed-pane-close-button') ||
         element?.parentElement?.classList.contains('tabbed-pane-close-button') || false;
+  }
+
+  private tabKeyDown(ev: Event): void {
+    const event = ev as KeyboardEvent;
+    switch (event.key) {
+      case 'Enter':
+      case ' ':
+        if (this.isCloseIconClicked(event.target as HTMLElement)) {
+          this.closeTabs([this.id]);
+          ev.consume(true);
+          return;
+        }
+    }
   }
 
   private tabClicked(event: MouseEvent): void {

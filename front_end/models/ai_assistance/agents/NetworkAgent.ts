@@ -7,6 +7,7 @@ import * as i18n from '../../../core/i18n/i18n.js';
 import * as Root from '../../../core/root/root.js';
 import type * as SDK from '../../../core/sdk/sdk.js';
 import * as PanelUtils from '../../../panels/utils/utils.js';
+import type {TemplateResult} from '../../../ui/lit/lit.js';
 import {NetworkRequestFormatter} from '../data_formatters/NetworkRequestFormatter.js';
 
 import {
@@ -61,31 +62,31 @@ This request aims to retrieve a list of products matching the search query "lapt
 */
 const UIStringsNotTranslate = {
   /**
-   *@description Title for thinking step of Network agent.
+   * @description Title for thinking step of Network agent.
    */
   analyzingNetworkData: 'Analyzing network data',
   /**
-   *@description Heading text for the block that shows the network request details.
+   * @description Heading text for the block that shows the network request details.
    */
   request: 'Request',
   /**
-   *@description Heading text for the block that shows the network response details.
+   * @description Heading text for the block that shows the network response details.
    */
   response: 'Response',
   /**
-   *@description Prefix text for request URL.
+   * @description Prefix text for request URL.
    */
   requestUrl: 'Request URL',
   /**
-   *@description Title text for request timing details.
+   * @description Title text for request timing details.
    */
   timing: 'Timing',
   /**
-   *@description Prefix text for response status.
+   * @description Prefix text for response status.
    */
   responseStatus: 'Response Status',
   /**
-   *@description Title text for request initiator chain.
+   * @description Title text for request initiator chain.
    */
   requestInitiatorChain: 'Request initiator chain',
 } as const;
@@ -108,7 +109,7 @@ export class RequestContext extends ConversationContext<SDK.NetworkRequest.Netwo
     return this.#request;
   }
 
-  override getIcon(): HTMLElement {
+  override getIcon(): TemplateResult {
     return PanelUtils.PanelUtils.getIconForNetworkRequest(this.#request);
   }
 

@@ -53,35 +53,35 @@ import settingsScreenStyles from './settingsScreen.css.js';
 const UIStrings = {
 
   /**
-   *@description Card header in Experiments settings tab that list all available unstable experiments that can be turned on or off.
+   * @description Card header in Experiments settings tab that list all available unstable experiments that can be turned on or off.
    */
   unstableExperiments: 'Unstable experiments',
   /**
-   *@description Name of the Settings view
+   * @description Name of the Settings view
    */
   settings: 'Settings',
   /**
-   *@description Text for keyboard shortcuts
+   * @description Text for keyboard shortcuts
    */
   shortcuts: 'Shortcuts',
   /**
-   *@description Text of button in Settings Screen of the Settings
+   * @description Text of button in Settings Screen of the Settings
    */
   restoreDefaultsAndReload: 'Restore defaults and reload',
   /**
-   *@description Card header in Experiments settings tab that list all available stable experiments that can be turned on or off.
+   * @description Card header in Experiments settings tab that list all available stable experiments that can be turned on or off.
    */
   experiments: 'Experiments',
   /**
-   *@description Message shown in the experiments panel to warn users about any possible unstable features.
+   * @description Message shown in the experiments panel to warn users about any possible unstable features.
    */
   theseExperimentsCouldBeUnstable: 'Warning: These experiments could be unstable or unreliable.',
   /**
-   *@description Message text content in Settings Screen of the Settings
+   * @description Message text content in Settings Screen of the Settings
    */
   theseExperimentsAreParticularly: 'Warning: These experiments are particularly unstable. Enable at your own risk.',
   /**
-   *@description Message to display if a setting change requires a reload of DevTools
+   * @description Message to display if a setting change requires a reload of DevTools
    */
   oneOrMoreSettingsHaveChanged: 'One or more settings have changed which requires a reload to take effect',
   /**
@@ -90,15 +90,15 @@ const UIStrings = {
    */
   noResults: 'No experiments match the filter',
   /**
-   *@description Text that is usually a hyperlink to more documentation
+   * @description Text that is usually a hyperlink to more documentation
    */
   learnMore: 'Learn more',
   /**
-   *@description Text that is usually a hyperlink to a feedback form
+   * @description Text that is usually a hyperlink to a feedback form
    */
   sendFeedback: 'Send feedback',
   /**
-   *@description Placeholder text in search bar
+   * @description Placeholder text in search bar
    */
   searchExperiments: 'Search experiments',
 } as const;
@@ -120,7 +120,7 @@ export class SettingsScreen extends UI.Widget.VBox implements UI.View.ViewLocati
   private reportTabOnReveal: boolean;
 
   private constructor() {
-    super(true);
+    super({useShadowDom: true});
     this.registerRequiredCSS(settingsScreenStyles);
 
     this.contentElement.classList.add('settings-window-main');
@@ -181,6 +181,7 @@ export class SettingsScreen extends UI.Widget.VBox implements UI.View.ViewLocati
     dialog.setEscapeKeyCallback(settingsScreen.onEscapeKeyPressed.bind(settingsScreen));
     dialog.setMarginBehavior(UI.GlassPane.MarginBehavior.NO_MARGIN);
     dialog.show();
+    dialog.contentElement.focus();
 
     return settingsScreen;
   }
@@ -240,29 +241,23 @@ export class SettingsScreen extends UI.Widget.VBox implements UI.View.ViewLocati
   }
 }
 
-abstract class SettingsTab extends UI.Widget.VBox {
-  containerElement: HTMLElement;
-  constructor(id?: string) {
-    super();
-    this.element.classList.add('settings-tab-container');
-    if (id) {
-      this.element.id = id;
-    }
-    this.containerElement =
-        this.contentElement.createChild('div', 'settings-card-container-wrapper').createChild('div');
-  }
-
-  abstract highlightObject(_object: Object): void;
+interface SettingsTab {
+  highlightObject(object: Object): void;
 }
 
-export class GenericSettingsTab extends SettingsTab {
+export class GenericSettingsTab extends UI.Widget.VBox implements SettingsTab {
   private readonly syncSection = new PanelComponents.SyncSection.SyncSection();
   private readonly settingToControl = new Map<Common.Settings.Setting<unknown>, HTMLElement>();
+  private readonly containerElement: HTMLElement;
+  #updateSyncSectionTimerId = -1;
 
   constructor() {
-    super('preferences-tab-content');
+    super({jslog: `${VisualLogging.pane('preferences')}`});
+    this.element.classList.add('settings-tab-container');
+    this.element.id = 'preferences-tab-content';
+    this.containerElement =
+        this.contentElement.createChild('div', 'settings-card-container-wrapper').createChild('div');
 
-    this.element.setAttribute('jslog', `${VisualLogging.pane('preferences')}`);
     this.containerElement.classList.add('settings-multicolumn-card-container');
 
     // AI, GRID, MOBILE, EMULATION, and RENDERING are intentionally excluded from this list.
@@ -327,16 +322,27 @@ export class GenericSettingsTab extends SettingsTab {
   }
 
   override willHide(): void {
+    if (this.#updateSyncSectionTimerId > 0) {
+      window.clearTimeout(this.#updateSyncSectionTimerId);
+      this.#updateSyncSectionTimerId = -1;
+    }
     super.willHide();
     UI.Context.Context.instance().setFlavor(GenericSettingsTab, null);
   }
 
   private updateSyncSection(): void {
+    if (this.#updateSyncSectionTimerId > 0) {
+      window.clearTimeout(this.#updateSyncSectionTimerId);
+      this.#updateSyncSectionTimerId = -1;
+    }
     Host.InspectorFrontendHost.InspectorFrontendHostInstance.getSyncInformation(syncInfo => {
       this.syncSection.data = {
         syncInfo,
         syncSetting: Common.Settings.moduleSetting('sync-preferences') as Common.Settings.Setting<boolean>,
       };
+      if (!syncInfo.isSyncActive || !syncInfo.arePreferencesSynced) {
+        this.#updateSyncSectionTimerId = window.setTimeout(this.updateSyncSection.bind(this), 500);
+      }
     });
   }
 
@@ -394,15 +400,19 @@ export class GenericSettingsTab extends SettingsTab {
   }
 }
 
-export class ExperimentsSettingsTab extends SettingsTab {
+export class ExperimentsSettingsTab extends UI.Widget.VBox implements SettingsTab {
   #experimentsSection: Cards.Card.Card|undefined;
   #unstableExperimentsSection: Cards.Card.Card|undefined;
   private readonly experimentToControl = new Map<Root.Runtime.Experiment, HTMLElement>();
+  private readonly containerElement: HTMLElement;
 
   constructor() {
-    super('experiments-tab-content');
+    super({jslog: `${VisualLogging.pane('experiments')}`});
+    this.element.classList.add('settings-tab-container');
+    this.element.id = 'experiments-tab-content';
+    this.containerElement =
+        this.contentElement.createChild('div', 'settings-card-container-wrapper').createChild('div');
     this.containerElement.classList.add('settings-card-container');
-    this.element.setAttribute('jslog', `${VisualLogging.pane('experiments')}`);
 
     const filterSection = this.containerElement.createChild('div');
     filterSection.classList.add('experiments-filter');
@@ -462,7 +472,7 @@ export class ExperimentsSettingsTab extends SettingsTab {
     if (!stableExperiments.length && !unstableExperiments.length) {
       const warning = document.createElement('span');
       warning.textContent = i18nString(UIStrings.noResults);
-      UI.ARIAUtils.alert(warning.textContent);
+      UI.ARIAUtils.LiveAnnouncer.alert(warning.textContent);
       this.#experimentsSection = createSettingsCard(i18nString(UIStrings.experiments), warning);
       this.containerElement.appendChild(this.#experimentsSection);
     }
@@ -603,7 +613,7 @@ export class Revealer implements Common.Revealer.Revealer<Root.Runtime.Experimen
         Host.InspectorFrontendHost.InspectorFrontendHostInstance.bringToFront();
         await SettingsScreen.showSettingsScreen({name: id});
         const widget = await view.widget();
-        if (widget instanceof SettingsTab) {
+        if ('highlightObject' in widget && typeof widget.highlightObject === 'function') {
           widget.highlightObject(object);
         }
         return;

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type * as Common from '../../core/common/common.js';
+import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import type * as Platform from '../../core/platform/platform.js';
 import type * as TextUtils from '../text_utils/text_utils.js';
@@ -45,8 +45,16 @@ export enum PlatformFileSystemType {
   WORKSPACE_PROJECT = 'workspace-project',
 }
 
-export class PlatformFileSystem {
-  private readonly pathInternal: Platform.DevToolsPath.UrlString;
+export const enum Events {
+  FILE_SYSTEM_ERROR = 'file-system-error',
+}
+
+interface EventTypes {
+  [Events.FILE_SYSTEM_ERROR]: string;
+}
+
+export class PlatformFileSystem extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
+  readonly #path: Platform.DevToolsPath.UrlString;
   #type: PlatformFileSystemType;
   /**
    * True if the filesystem was automatically discovered (see
@@ -55,7 +63,8 @@ export class PlatformFileSystem {
   readonly automatic: boolean;
 
   constructor(path: Platform.DevToolsPath.UrlString, type: PlatformFileSystemType, automatic: boolean) {
-    this.pathInternal = path;
+    super();
+    this.#path = path;
     this.#type = type;
     this.automatic = automatic;
   }
@@ -73,7 +82,7 @@ export class PlatformFileSystem {
   }
 
   path(): Platform.DevToolsPath.UrlString {
-    return this.pathInternal;
+    return this.#path;
   }
 
   embedderPath(): Platform.DevToolsPath.RawPathString {

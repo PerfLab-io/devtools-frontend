@@ -1,6 +1,7 @@
 // Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import '../../ui/legacy/legacy.js';
 import '../../ui/legacy/components/data_grid/data_grid.js';
@@ -14,8 +15,6 @@ import * as Bindings from '../../models/bindings/bindings.js';
 import * as TextUtils from '../../models/text_utils/text_utils.js';
 import * as Buttons from '../../ui/components/buttons/buttons.js';
 import * as SourceFrame from '../../ui/legacy/components/source_frame/source_frame.js';
-// eslint-disable-next-line rulesdir/es-modules-import
-import inspectorCommonStyles from '../../ui/legacy/inspectorCommon.css.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import {Directives, html, render} from '../../ui/lit/lit.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
@@ -27,7 +26,7 @@ const {styleMap} = Directives;
 const {widgetConfig, widgetRef} = UI.Widget;
 const UIStrings = {
   /**
-   *@description Text for one or a group of functions
+   * @description Text for one or a group of functions
    */
   method: 'Method',
   /**
@@ -41,65 +40,65 @@ const UIStrings = {
    */
   request: 'Request',
   /**
-   *@description Title of a cell content in protocol monitor. A Network response refers to the act of acknowledging a
-  network request. Should not be confused with answer.
+   * @description Title of a cell content in protocol monitor. A Network response refers to the act of acknowledging a
+   * network request. Should not be confused with answer.
    */
   response: 'Response',
   /**
-   *@description Text for timestamps of items
+   * @description Text for timestamps of items
    */
   timestamp: 'Timestamp',
   /**
-   *@description Title of a cell content in protocol monitor. It describes the time between sending a request and receiving a response.
+   * @description Title of a cell content in protocol monitor. It describes the time between sending a request and receiving a response.
    */
   elapsedTime: 'Elapsed time',
   /**
-   *@description Text in Protocol Monitor of the Protocol Monitor tab
+   * @description Text in Protocol Monitor of the Protocol Monitor tab
    */
   target: 'Target',
   /**
-   *@description Text to record a series of actions for analysis
+   * @description Text to record a series of actions for analysis
    */
   record: 'Record',
   /**
-   *@description Text to clear everything
+   * @description Text to clear everything
    */
   clearAll: 'Clear all',
   /**
-   *@description Text to filter result items
+   * @description Text to filter result items
    */
   filter: 'Filter',
   /**
-   *@description Text for the documentation of something
+   * @description Text for the documentation of something
    */
   documentation: 'Documentation',
   /**
-   *@description Text to open the CDP editor with the selected command
+   * @description Text to open the CDP editor with the selected command
    */
   editAndResend: 'Edit and resend',
   /**
-   *@description Cell text content in Protocol Monitor of the Protocol Monitor tab
-   *@example {30} PH1
+   * @description Cell text content in Protocol Monitor of the Protocol Monitor tab
+   * @example {30} PH1
    */
   sMs: '{PH1} ms',
   /**
-   *@description Text in Protocol Monitor of the Protocol Monitor tab
+   * @description Text in Protocol Monitor of the Protocol Monitor tab
    */
   noMessageSelected: 'No message selected',
   /**
-   *@description Text in Protocol Monitor of the Protocol Monitor tab if no message is selected
+   * @description Text in Protocol Monitor of the Protocol Monitor tab if no message is selected
    */
   selectAMessageToView: 'Select a message to see its details',
   /**
-   *@description Text in Protocol Monitor for the save button
+   * @description Text in Protocol Monitor for the save button
    */
   save: 'Save',
   /**
-   *@description Text in Protocol Monitor to describe the sessions column
+   * @description Text in Protocol Monitor to describe the sessions column
    */
   session: 'Session',
   /**
-   *@description A placeholder for an input in Protocol Monitor. The input accepts commands that are sent to the backend on Enter. CDP stands for Chrome DevTools Protocol.
+   * @description A placeholder for an input in Protocol Monitor. The input accepts commands that are sent to the backend on Enter. CDP stands for Chrome DevTools Protocol.
    */
   sendRawCDPCommand: 'Send a raw `CDP` command',
   /**
@@ -144,9 +143,9 @@ const enumsByName = ProtocolClient.InspectorBackend.inspectorBackend.enumMap as 
 export interface Message {
   id?: number;
   method: string;
-  error?: Object;
-  result?: Object;
-  params?: Object;
+  error?: Record<string, unknown>;
+  result?: Record<string, unknown>;
+  params?: Record<string, unknown>;
   requestTime: number;
   elapsedTime?: number;
   sessionId?: string;
@@ -162,9 +161,7 @@ export interface LogMessage {
 
 export interface ProtocolDomain {
   readonly domain: string;
-  readonly metadata: {
-    [commandName: string]: {parameters: Parameter[], description: string, replyArgs: string[]},
-  };
+  readonly metadata: Record<string, {parameters: Parameter[], description: string, replyArgs: string[]}>;
 }
 
 export interface ViewInput {
@@ -200,14 +197,14 @@ export type View = (input: ViewInput, output: ViewOutput, target: HTMLElement) =
 export const DEFAULT_VIEW: View = (input, output, target) => {
   // clang-format off
     render(html`
-        <style>${inspectorCommonStyles.cssText}</style>
-        <style>${protocolMonitorStyles.cssText}</style>
+        <style>${UI.inspectorCommonStyles}</style>
+        <style>${protocolMonitorStyles}</style>
         <devtools-split-view name="protocol-monitor-split-container"
                              direction="column"
                              sidebar-initial-size="400"
                              sidebar-visibility=${input.sidebarVisible ? 'visible' : 'hidden'}
                              @change=${input.onSplitChange}>
-          <div slot="main" class="vbox">
+          <div slot="main" class="vbox protocol-monitor-main">
             <devtools-toolbar class="protocol-monitor-toolbar"
                                jslog=${VisualLogging.toolbar('top')}>
                <devtools-button title=${i18nString(UIStrings.record)}
@@ -240,7 +237,8 @@ export const DEFAULT_VIEW: View = (input, output, target) => {
                 </datalist>
               </devtools-toolbar-input>
             </devtools-toolbar>
-            <devtools-split-view direction="column" sidebar-position="second" name="protocol-monitor-panel-split" sidebar-initial-size="250">
+            <devtools-split-view direction="column" sidebar-position="second"
+                                 name="protocol-monitor-panel-split" sidebar-initial-size="250">
               <devtools-data-grid
                   striped
                   slot="main"
@@ -249,14 +247,30 @@ export const DEFAULT_VIEW: View = (input, output, target) => {
                   .filters=${input.parseFilter(input.filter)}>
                 <table>
                     <tr>
-                      <th id="type" sortable style="text-align: center" hideable weight="1">${i18nString(UIStrings.type)}</th>
-                      <th id="method" weight="5">${i18nString(UIStrings.method)}</th>
-                      <th id="request" hideable weight="5">${i18nString(UIStrings.request)}</th>
-                      <th id="response" hideable weight="5">${i18nString(UIStrings.response)}</th>
-                      <th id="elapsed-time" sortable hideable weight="2">${i18nString(UIStrings.elapsedTime)}</th>
-                      <th id="timestamp" sortable hideable weight="5">${i18nString(UIStrings.timestamp)}</th>
-                      <th id="target" sortable hideable weight="5">${i18nString(UIStrings.target)}</th>
-                      <th id="session" sortable hideable weight="5">${i18nString(UIStrings.session)}</th>
+                      <th id="type" sortable style="text-align: center" hideable weight="1">
+                        ${i18nString(UIStrings.type)}
+                      </th>
+                      <th id="method" weight="5">
+                        ${i18nString(UIStrings.method)}
+                      </th>
+                      <th id="request" hideable weight="5">
+                        ${i18nString(UIStrings.request)}
+                      </th>
+                      <th id="response" hideable weight="5">
+                        ${i18nString(UIStrings.response)}
+                      </th>
+                      <th id="elapsed-time" sortable hideable weight="2">
+                        ${i18nString(UIStrings.elapsedTime)}
+                      </th>
+                      <th id="timestamp" sortable hideable weight="5">
+                        ${i18nString(UIStrings.timestamp)}
+                      </th>
+                      <th id="target" sortable hideable weight="5">
+                        ${i18nString(UIStrings.target)}
+                      </th>
+                      <th id="session" sortable hideable weight="5">
+                        ${i18nString(UIStrings.session)}
+                      </th>
                     </tr>
                     ${
             input.messages.map(
@@ -340,8 +354,7 @@ export const DEFAULT_VIEW: View = (input, output, target) => {
               ${widgetRef(JSONEditor, e => {output.editorWidget = e;})}>
           </devtools-widget>
         </devtools-split-view>`,
-        target,
-        {host: input}
+        target
     );
   // clang-format on
 };
@@ -478,7 +491,7 @@ export class ProtocolMonitorImpl extends UI.Panel.Panel {
       if (!this.#selectedMessage) {
         return;
       }
-      const parameters = this.#selectedMessage.params as {[x: string]: unknown};
+      const parameters = this.#selectedMessage.params as Record<string, unknown>;
       const targetId = this.#selectedMessage.target?.id() || '';
       const command = message.method;
       this.#command = JSON.stringify({command, parameters});
@@ -536,6 +549,7 @@ export class ProtocolMonitorImpl extends UI.Panel.Panel {
   private setRecording(recording: boolean): void {
     const test = ProtocolClient.InspectorBackend.test;
     if (recording) {
+      // @ts-expect-error
       test.onMessageSent = this.messageSent.bind(this);
       // @ts-expect-error
       test.onMessageReceived = this.messageReceived.bind(this);
@@ -566,14 +580,14 @@ export class ProtocolMonitorImpl extends UI.Panel.Panel {
       sessionId: message.sessionId,
       target: (target ?? undefined) as SDK.Target.Target | undefined,
       requestTime: Date.now() - this.startTime,
-      result: message.params as Object,
+      result: message.params,
     });
 
     this.requestUpdate();
   }
 
   private messageSent(
-      message: {domain: string, method: string, params: Object, id: number, sessionId?: string},
+      message: {domain: string, method: string, params: Record<string, unknown>, id: number, sessionId?: string},
       target: ProtocolClient.InspectorBackend.TargetBase|null): void {
     const messageRecord = {
       method: message.method,
@@ -648,12 +662,12 @@ export class CommandAutocompleteSuggestionProvider {
 
 export class InfoWidget extends UI.Widget.VBox {
   private readonly tabbedPane: UI.TabbedPane.TabbedPane;
-  request: {[x: string]: unknown}|undefined;
-  response: {[x: string]: unknown}|undefined;
+  request: Record<string, unknown>|undefined;
+  response: Record<string, unknown>|undefined;
   type: 'sent'|'received'|undefined;
   selectedTab: 'request'|'response'|undefined;
   constructor(element: HTMLElement) {
-    super(undefined, undefined, element);
+    super(element);
     this.tabbedPane = new UI.TabbedPane.TabbedPane();
     this.tabbedPane.appendTab('request', i18nString(UIStrings.request), new UI.Widget.Widget());
     this.tabbedPane.appendTab('response', i18nString(UIStrings.response), new UI.Widget.Widget());
@@ -689,7 +703,7 @@ export class InfoWidget extends UI.Widget.VBox {
   }
 }
 
-export function parseCommandInput(input: string): {command: string, parameters: {[paramName: string]: unknown}} {
+export function parseCommandInput(input: string): {command: string, parameters: Record<string, unknown>} {
   // If input cannot be parsed as json, we assume it's the command name
   // for a command without parameters. Otherwise, we expect an object
   // with "command"/"method"/"cmd" and "parameters"/"params"/"args"/"arguments" attributes.

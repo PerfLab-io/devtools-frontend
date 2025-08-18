@@ -1,7 +1,6 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-/* eslint-disable rulesdir/no-imperative-dom-api */
 /* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/spinners/spinners.js';
@@ -147,12 +146,13 @@ const UIStrings = {
    */
   timedOut: 'Generating a response took too long. Please try again.',
   /**
-   *@description Text informing the user that AI assistance is not available in Incognito mode or Guest mode.
+   * @description Text informing the user that AI assistance is not available in Incognito mode or Guest mode.
    */
   notAvailableInIncognitoMode: 'AI assistance is not available in Incognito mode or Guest mode',
 } as const;
 const str_ = i18n.i18n.registerUIStrings('panels/explain/components/ConsoleInsight.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+const i18nTemplate = Lit.i18nTemplate.bind(undefined, str_);
 
 const {render, html, Directives} = Lit;
 
@@ -165,7 +165,7 @@ export class CloseEvent extends Event {
 }
 
 type PublicPromptBuilder = Pick<PromptBuilder, 'buildPrompt'|'getSearchQuery'>;
-type PublicAidaClient = Pick<Host.AidaClient.AidaClient, 'fetch'|'registerClientEvent'>;
+type PublicAidaClient = Pick<Host.AidaClient.AidaClient, 'doConversation'|'registerClientEvent'>;
 
 function localizeType(sourceType: SourceType): string {
   switch (sourceType) {
@@ -211,7 +211,7 @@ type StateData = {
   completed: boolean,
   directCitationUrls: string[],
   timedOut?: boolean,
-}&Host.AidaClient.AidaResponse|{
+}&Host.AidaClient.DoConversationResponse|{
   type: State.ERROR,
   error: string,
 }|{
@@ -527,7 +527,7 @@ export class ConsoleInsight extends HTMLElement {
     await this.#generateInsight();
   }
 
-  #insertCitations(explanation: string, metadata: Host.AidaClient.AidaResponseMetadata):
+  #insertCitations(explanation: string, metadata: Host.AidaClient.ResponseMetadata):
       {explanationWithCitations: string, directCitationUrls: string[]} {
     const directCitationUrls: string[] = [];
     if (!this.#isSearchRagResponse(metadata) || !metadata.attributionMetadata) {
@@ -557,12 +557,36 @@ export class ConsoleInsight extends HTMLElement {
     return {explanationWithCitations, directCitationUrls};
   }
 
+  #modifyTokensToHandleCitationsInCode(tokens: Marked.Marked.TokensList): void {
+    for (const token of tokens) {
+      if (token.type === 'code') {
+        // Find and remove '[^number]' from within code block
+        const matches: String[]|null = token.text.match(/\[\^\d+\]/g);
+        token.text = token.text.replace(/\[\^\d+\]/g, '');
+        // And add as a citation for the whole code block
+        if (matches?.length) {
+          const citations = matches.map(match => {
+            const index = parseInt(match.slice(2, -1), 10);
+            return {
+              index,
+              clickHandler: this.#citationClickHandler.bind(this, index),
+            };
+          });
+          (token as MarkdownView.MarkdownView.CodeTokenWithCitation).citations = citations;
+        }
+      }
+    }
+  }
+
   async #generateInsight(): Promise<void> {
     try {
       for await (const {sources, isPageReloadRecommended, explanation, metadata, completed} of this.#getInsight()) {
         const {explanationWithCitations, directCitationUrls} = this.#insertCitations(explanation, metadata);
         const tokens = this.#validateMarkdown(explanationWithCitations);
         const valid = tokens !== false;
+        if (valid) {
+          this.#modifyTokensToHandleCitationsInCode(tokens);
+        }
         this.#transitionTo({
           type: State.INSIGHT,
           tokens: valid ? tokens : [],
@@ -608,11 +632,11 @@ export class ConsoleInsight extends HTMLElement {
 
   async *
       #getInsight(): AsyncGenerator<
-          {sources: Source[], isPageReloadRecommended: boolean}&Host.AidaClient.AidaResponse, void, void> {
+          {sources: Source[], isPageReloadRecommended: boolean}&Host.AidaClient.DoConversationResponse, void, void> {
     const {prompt, sources, isPageReloadRecommended} = await this.#promptBuilder.buildPrompt();
     try {
-      for await (
-          const response of this.#aidaClient.fetch(Host.AidaClient.AidaClient.buildConsoleInsightsRequest(prompt))) {
+      for await (const response of this.#aidaClient.doConversation(
+          Host.AidaClient.AidaClient.buildConsoleInsightsRequest(prompt))) {
         yield {sources, isPageReloadRecommended, ...response};
       }
     } catch (err) {
@@ -737,7 +761,7 @@ export class ConsoleInsight extends HTMLElement {
     // clang-format on
   }
 
-  #isSearchRagResponse(metadata: Host.AidaClient.AidaResponseMetadata): boolean {
+  #isSearchRagResponse(metadata: Host.AidaClient.ResponseMetadata): boolean {
     return Boolean(metadata.factualityMetadata?.facts.length);
   }
 
@@ -809,8 +833,7 @@ export class ConsoleInsight extends HTMLElement {
                 } as IconButton.Icon.IconData}>
                 </devtools-icon>
               </div>
-              <div>The console message, associated stack trace, related source code, and the associated network headers are sent to Google to generate explanations.
-                ${noLogging
+              <div>The console message, associated stack trace, related source code, and the associated network headers are sent to Google to generate explanations. ${noLogging
                   ? 'The content you submit and that is generated by this feature will not be used to improve Google’s AI models.'
                   : 'This data may be seen by human reviewers to improve this feature. Avoid sharing sensitive or personal information.'}
               </div>
@@ -822,18 +845,17 @@ export class ConsoleInsight extends HTMLElement {
                 } as IconButton.Icon.IconData}>
                 </devtools-icon>
               </div>
-              <div>Use of this feature is subject to the
-                <x-link
+              <div>Use of this feature is subject to the <x-link
                   href=${TERMS_OF_SERVICE_URL}
                   class="link"
-                  jslog=${VisualLogging.link('terms-of-service.console-insights').track({click: true})}
-                >Google Terms of Service</x-link>
-                and
-                <x-link
+                  jslog=${VisualLogging.link('terms-of-service.console-insights').track({click: true})}>
+                Google Terms of Service
+                </x-link> and <x-link
                   href=${PRIVACY_POLICY_URL}
                   class="link"
-                  jslog=${VisualLogging.link('privacy-policy.console-insights').track({click: true})}
-                >Google Privacy Policy</x-link>
+                  jslog=${VisualLogging.link('privacy-policy.console-insights').track({click: true})}>
+                Google Privacy Policy
+                </x-link>
               </div>
               <div>
                 <devtools-icon .data=${{
@@ -854,15 +876,14 @@ export class ConsoleInsight extends HTMLElement {
           </main>
         `;
       case State.SETTING_IS_NOT_TRUE: {
-        const settingsLink = document.createElement('button');
-        settingsLink.textContent = i18nString(UIStrings.settingsLink);
-        settingsLink.classList.add('link');
-        UI.ARIAUtils.markAsLink(settingsLink);
-        settingsLink.addEventListener('click', () => {
-          Host.userMetrics.actionTaken(Host.UserMetrics.Action.InsightsOptInTeaserSettingsLinkClicked);
-          void UI.ViewManager.ViewManager.instance().showView('chrome-ai');
-        });
-        settingsLink.setAttribute('jslog', `${VisualLogging.action('open-ai-settings').track({click: true})}`);
+        const settingsLink = html`<button
+            class="link" role="link"
+            jslog=${VisualLogging.action('open-ai-settings').track({click: true})}
+            @click=${() => {
+              Host.userMetrics.actionTaken(Host.UserMetrics.Action.InsightsOptInTeaserSettingsLinkClicked);
+              void UI.ViewManager.ViewManager.instance().showView('chrome-ai');
+            }}
+          >${i18nString(UIStrings.settingsLink)}</button>`;
 
         return html`<main class="opt-in-teaser" jslog=${jslog}>
           <div class="badge">
@@ -874,8 +895,8 @@ export class ConsoleInsight extends HTMLElement {
             </devtools-icon>
           </div>
           <div>
-            ${i18n.i18n.getFormatLocalizedString(str_, UIStrings.turnOnInSettings, {PH1: settingsLink})}
-            ${this.#renderLearnMoreAboutInsights()}
+            ${i18nTemplate(UIStrings.turnOnInSettings, {PH1: settingsLink})} ${
+            this.#renderLearnMoreAboutInsights()}
           </div>
         </main>`;
       }
@@ -900,21 +921,21 @@ export class ConsoleInsight extends HTMLElement {
 
     // clang-format off
     return html`<span>
-      AI tools may generate inaccurate info that doesn't represent Google's views.
-      ${noLogging
+      AI tools may generate inaccurate info that doesn't represent Google's views. ${noLogging
         ? 'The content you submit and that is generated by this feature will not be used to improve Google’s AI models.'
-        : 'Data sent to Google may be seen by human reviewers to improve this feature.'}
-      <button class="link" role="link" @click=${() => UI.ViewManager.ViewManager.instance().showView('chrome-ai')}
-        jslog=${VisualLogging.action('open-ai-settings').track({click: true})}
-      >Open settings</button>
-      or
-      <x-link href=${LEARN_MORE_URL} class="link" jslog=${VisualLogging.link('learn-more').track({click: true})}>learn more</x-link>
+        : 'Data sent to Google may be seen by human reviewers to improve this feature.'
+      } <button class="link" role="link" @click=${() => UI.ViewManager.ViewManager.instance().showView('chrome-ai')}
+                jslog=${VisualLogging.action('open-ai-settings').track({click: true})}>
+        Open settings
+      </button> or <x-link href=${LEARN_MORE_URL}
+          class="link" jslog=${VisualLogging.link('learn-more').track({click: true})}>
+        learn more
+      </x-link>
     </span>`;
     // clang-format on
   }
 
   #renderFooter(): Lit.LitTemplate {
-    const showThumbsUpDownButtons = !(Root.Runtime.hostConfig.aidaAvailability?.disallowLogging ?? true);
     const disclaimer = this.#renderDisclaimer();
     // clang-format off
     switch (this.#state.type) {
@@ -990,44 +1011,42 @@ export class ConsoleInsight extends HTMLElement {
         </div>
         <div class="filler"></div>
         <div class="rating">
-          ${showThumbsUpDownButtons ? html`
-            <devtools-button
-              data-rating=${'true'}
-              .data=${
-                {
-                  variant: Buttons.Button.Variant.ICON_TOGGLE,
-                  size: Buttons.Button.Size.SMALL,
-                  iconName: 'thumb-up',
-                  toggledIconName: 'thumb-up',
-                  toggleOnClick: false,
-                  toggleType: Buttons.Button.ToggleType.PRIMARY,
-                  disabled: this.#selectedRating !== undefined,
-                  toggled: this.#selectedRating === true,
-                  title: i18nString(UIStrings.goodResponse),
-                  jslogContext: 'thumbs-up',
-                } as Buttons.Button.ButtonData
-              }
-              @click=${this.#onRating}
-            ></devtools-button>
-            <devtools-button
-              data-rating=${'false'}
-              .data=${
-                {
-                  variant: Buttons.Button.Variant.ICON_TOGGLE,
-                  size: Buttons.Button.Size.SMALL,
-                  iconName: 'thumb-down',
-                  toggledIconName: 'thumb-down',
-                  toggleOnClick: false,
-                  toggleType: Buttons.Button.ToggleType.PRIMARY,
-                  disabled: this.#selectedRating !== undefined,
-                  toggled: this.#selectedRating === false,
-                  title: i18nString(UIStrings.badResponse),
-                  jslogContext: 'thumbs-down',
-                } as Buttons.Button.ButtonData
-              }
-              @click=${this.#onRating}
-            ></devtools-button>
-          ` : Lit.nothing}
+          <devtools-button
+            data-rating=${'true'}
+            .data=${
+              {
+                variant: Buttons.Button.Variant.ICON_TOGGLE,
+                size: Buttons.Button.Size.SMALL,
+                iconName: 'thumb-up',
+                toggledIconName: 'thumb-up',
+                toggleOnClick: false,
+                toggleType: Buttons.Button.ToggleType.PRIMARY,
+                disabled: this.#selectedRating !== undefined,
+                toggled: this.#selectedRating === true,
+                title: i18nString(UIStrings.goodResponse),
+                jslogContext: 'thumbs-up',
+              } as Buttons.Button.ButtonData
+            }
+            @click=${this.#onRating}
+          ></devtools-button>
+          <devtools-button
+            data-rating=${'false'}
+            .data=${
+              {
+                variant: Buttons.Button.Variant.ICON_TOGGLE,
+                size: Buttons.Button.Size.SMALL,
+                iconName: 'thumb-down',
+                toggledIconName: 'thumb-down',
+                toggleOnClick: false,
+                toggleType: Buttons.Button.ToggleType.PRIMARY,
+                disabled: this.#selectedRating !== undefined,
+                toggled: this.#selectedRating === false,
+                title: i18nString(UIStrings.badResponse),
+                jslogContext: 'thumbs-down',
+              } as Buttons.Button.ButtonData
+            }
+            @click=${this.#onRating}
+          ></devtools-button>
           <devtools-button
             .data=${
               {
@@ -1122,8 +1141,8 @@ export class ConsoleInsight extends HTMLElement {
   #render(): void {
     // clang-format off
     render(html`
-      <style>${styles.cssText}</style>
-      <style>${Input.checkboxStyles.cssText}</style>
+      <style>${styles}</style>
+      <style>${Input.checkboxStyles}</style>
       <div class="wrapper" jslog=${VisualLogging.pane('console-insights').track({resize: true})}>
         <div class="animation-wrapper">
           ${this.#renderHeader()}
@@ -1147,18 +1166,14 @@ class ConsoleInsightSourcesList extends HTMLElement {
   #sources: Source[] = [];
   #isPageReloadRecommended = false;
 
-  constructor() {
-    super();
-  }
-
   #render(): void {
     // clang-format off
      render(html`
-      <style>${listStyles.cssText}</style>
-      <style>${Input.checkboxStyles.cssText}</style>
+      <style>${listStyles}</style>
+      <style>${Input.checkboxStyles}</style>
       <ul>
         ${Directives.repeat(this.#sources, item => item.value, item => {
-          return html`<li><x-link class="link" title="${localizeType(item.type)} ${i18nString(UIStrings.opensInNewTab)}" href="data:text/plain,${encodeURIComponent(item.value)}" jslog=${VisualLogging.link('source-' + item.type).track({click: true})}>
+          return html`<li><x-link class="link" title="${localizeType(item.type)} ${i18nString(UIStrings.opensInNewTab)}" href="data:text/plain;charset=utf-8,${encodeURIComponent(item.value)}" jslog=${VisualLogging.link('source-' + item.type).track({click: true})}>
             <devtools-icon name="open-externally"></devtools-icon>
             ${localizeType(item.type)}
           </x-link></li>`;

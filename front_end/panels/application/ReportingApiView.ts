@@ -15,14 +15,14 @@ import {ReportingApiReportsView} from './ReportingApiReportsView.js';
 
 const UIStrings = {
   /**
-   *@description Placeholder text that shows if no report or endpoint was detected.
+   * @description Placeholder text that shows if no report or endpoint was detected.
    *             A report contains information on issues or events that were encountered by a web browser.
    *             An endpoint is a URL where the report is sent to.
    *             (https://developer.chrome.com/docs/capabilities/web-apis/reporting-api)
    */
   noReportOrEndpoint: 'No report or endpoint',
   /**
-   *@description Placeholder text that shows if no report or endpoint was detected.
+   * @description Placeholder text that shows if no report or endpoint was detected.
    *             A report contains information on issues or events that were encountered by a web browser.
    *             An endpoint is a URL where the report is sent to.
    *             (https://developer.chrome.com/docs/capabilities/web-apis/reporting-api)
@@ -50,7 +50,7 @@ export class ReportingApiView extends UI.SplitWidget.SplitWidget {
     const networkManager = mainTarget?.model(SDK.NetworkManager.NetworkManager);
     this.#emptyWidget = new UI.EmptyWidget.EmptyWidget(
         i18nString(UIStrings.noReportOrEndpoint), i18nString(UIStrings.reportingApiDescription));
-    this.#emptyWidget.appendLink(REPORTING_API_EXPLANATION_URL);
+    this.#emptyWidget.link = REPORTING_API_EXPLANATION_URL;
     this.setMainWidget(this.#emptyWidget);
     if (networkManager) {
       networkManager.addEventListener(

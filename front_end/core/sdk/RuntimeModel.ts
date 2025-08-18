@@ -95,7 +95,8 @@ export class RuntimeModel extends SDKModel<EventTypes> {
     this.#executionContextComparatorInternal = comparator;
   }
 
-  /** comparator
+  /**
+   * comparator
    */
   executionContextComparator(): (arg0: ExecutionContext, arg1: ExecutionContext) => number {
     return this.#executionContextComparatorInternal;
@@ -749,7 +750,6 @@ export interface EvaluationOptions {
 
 export interface CallFunctionOptions {
   functionDeclaration: string;
-  includeCommandLineAPI?: boolean;
   returnByValue?: boolean;
   throwOnSideEffect?: boolean;
   allowUnsafeEvalBlockedByCSP?: boolean;

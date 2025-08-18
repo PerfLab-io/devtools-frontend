@@ -30,19 +30,19 @@ import {SelectWorkspaceDialog} from './SelectWorkspaceDialog.js';
 */
 const UIStringsNotTranslate = {
   /**
-   *@description Text displayed for showing patch widget view.
+   * @description Text displayed for showing patch widget view.
    */
   unsavedChanges: 'Unsaved changes',
   /**
-   *@description Loading text displayed as a summary title when the patch suggestion is getting loaded
+   * @description Loading text displayed as a summary title when the patch suggestion is getting loaded
    */
   applyingToWorkspace: 'Applying to workspace…',
   /**
-   *@description Button text for staging changes to workspace.
+   * @description Button text for staging changes to workspace.
    */
   applyToWorkspace: 'Apply to workspace',
   /**
-   *@description Button text to change the selected workspace
+   * @description Button text to change the selected workspace
    */
   change: 'Change',
   /**
@@ -51,58 +51,58 @@ const UIStringsNotTranslate = {
    */
   changeRootFolder: 'Change project root folder',
   /**
-   *@description Button text to cancel applying to workspace
+   * @description Button text to cancel applying to workspace
    */
   cancel: 'Cancel',
   /**
-   *@description Button text to discard the suggested changes and not save them to file system
+   * @description Button text to discard the suggested changes and not save them to file system
    */
   discard: 'Discard',
   /**
-   *@description Button text to save all the suggested changes to file system
+   * @description Button text to save all the suggested changes to file system
    */
   saveAll: 'Save all',
   /**
-   *@description Header text after the user saved the changes to the disk.
+   * @description Header text after the user saved the changes to the disk.
    */
   savedToDisk: 'Saved to disk',
   /**
-   *@description Disclaimer text shown for using code snippets with caution
+   * @description Disclaimer text shown for using code snippets with caution
    */
   codeDisclaimer: 'Use code snippets with caution',
   /**
-   *@description Tooltip text for the info icon beside the "Apply to workspace" button
+   * @description Tooltip text for the info icon beside the "Apply to workspace" button
    */
   applyToWorkspaceTooltip: 'Source code from the selected folder is sent to Google to generate code suggestions.',
   /**
-   *@description Tooltip text for the info icon beside the "Apply to workspace" button when enterprise logging is off
+   * @description Tooltip text for the info icon beside the "Apply to workspace" button when enterprise logging is off
    */
   applyToWorkspaceTooltipNoLogging:
       'Source code from the selected folder is sent to Google to generate code suggestions. This data will not be used to improve Google’s AI models.',
   /**
-   *@description The footer disclaimer that links to more information
+   * @description The footer disclaimer that links to more information
    * about the AI feature. Same text as in ChatView.
    */
   learnMore: 'Learn about AI in DevTools',
   /**
-   *@description Header text for the AI-powered code suggestions disclaimer dialog.
+   * @description Header text for the AI-powered code suggestions disclaimer dialog.
    */
   freDisclaimerHeader: 'Get AI-powered code suggestions for your workspace',
   /**
-   *@description First disclaimer item text for the fre dialog.
+   * @description First disclaimer item text for the fre dialog.
    */
   freDisclaimerTextAiWontAlwaysGetItRight: 'This feature uses AI and won’t always get it right',
   /**
-   *@description Second disclaimer item text for the fre dialog.
+   * @description Second disclaimer item text for the fre dialog.
    */
   freDisclaimerTextPrivacy: 'Source code from the selected folder is sent to Google to generate code suggestions',
   /**
-   *@description Second disclaimer item text for the fre dialog when enterprise logging is off.
+   * @description Second disclaimer item text for the fre dialog when enterprise logging is off.
    */
   freDisclaimerTextPrivacyNoLogging:
       'Source code from the selected folder is sent to Google to generate code suggestions. This data will not be used to improve Google’s AI models.',
   /**
-   *@description Third disclaimer item text for the fre dialog.
+   * @description Third disclaimer item text for the fre dialog.
    */
   freDisclaimerTextUseWithCaution: 'Use generated code snippets with caution',
   /**
@@ -155,7 +155,7 @@ enum SelectedProjectType {
   /**
    * The selected project is a disconnected automatic workspace project
    */
-  AUTOMATIC_DISCONNECTED = 'automaticDisconncted',
+  AUTOMATIC_DISCONNECTED = 'automaticDisconnected',
   /**
    * The selected project is a connected automatic workspace project
    */
@@ -217,7 +217,7 @@ export class PatchWidget extends UI.Widget.Widget {
   constructor(element?: HTMLElement, view?: View, opts?: {
     aidaClient: Host.AidaClient.AidaClient,
   }) {
-    super(false, false, element);
+    super(element);
     this.#aidaClient = opts?.aidaClient ?? new Host.AidaClient.AidaClient();
     this.#noLogging = Root.Runtime.hostConfig.aidaAvailability?.enterprisePolicyValue ===
         Root.Runtime.GenAiEnterprisePolicyValue.ALLOW_WITHOUT_LOGGING;
@@ -239,7 +239,7 @@ export class PatchWidget extends UI.Widget.Widget {
         return html`<x-link
           class="link"
           title="${UIStringsNotTranslate.viewUploadedFiles} ${UIStringsNotTranslate.opensInNewTab}"
-          href="data:text/plain,${encodeURIComponent(input.sources)}"
+          href="data:text/plain;charset=utf-8,${encodeURIComponent(input.sources)}"
           jslog=${VisualLogging.link('files-used-in-patching').track({click: true})}>
           ${UIStringsNotTranslate.viewUploadedFiles}
         </x-link>`;
@@ -682,6 +682,15 @@ export class PatchWidget extends UI.Widget.Widget {
     }
   }
 
+  /**
+   * The modified files excluding inspector stylesheets
+   */
+  get #modifiedFiles(): Workspace.UISourceCode.UISourceCode[] {
+    return this.#workspaceDiff.modifiedUISourceCodes().filter(modifiedUISourceCode => {
+      return !modifiedUISourceCode.url().startsWith('inspector://');
+    });
+  }
+
   async #applyPatchAndUpdateUI(): Promise<void> {
     const changeSummary = this.changeSummary;
     if (!changeSummary) {
@@ -695,7 +704,21 @@ export class PatchWidget extends UI.Widget.Widget {
     if (response && 'rpcId' in response && response.rpcId) {
       this.#rpcId = response.rpcId;
     }
-    if (response?.type === AiAssistanceModel.ResponseType.ANSWER) {
+
+    // Determines if applying the patch resulted in any actual file changes in the workspace.
+    // This is crucial because the agent might return an answer (e.g., an explanation)
+    // without making any code modifications (i.e., no `writeFile` calls).
+    // If no files were modified, we avoid transitioning to a success state,
+    // which would otherwise lead to an empty and potentially confusing diff view.
+    //
+    // Note: The `hasChanges` check below is based on `modifiedUISourceCodes()`, which reflects
+    // *all* current modifications in the workspace. It does not differentiate between
+    // changes made by this specific AI patch operation versus pre-existing changes
+    // made by the user. Consequently, if the AI patch itself makes no changes but the
+    // user already had other modified files, the widget will still transition to the
+    // success state (displaying all current workspace modifications).
+    const hasChanges = this.#modifiedFiles.length > 0;
+    if (response?.type === AiAssistanceModel.ResponseType.ANSWER && hasChanges) {
       this.#patchSuggestionState = PatchSuggestionState.SUCCESS;
     } else if (
         response?.type === AiAssistanceModel.ResponseType.ERROR &&
@@ -718,9 +741,9 @@ ${processedFiles.map(filename => `* ${filename}`).join('\n')}`;
   }
 
   #onDiscard(): void {
-    this.#workspaceDiff.modifiedUISourceCodes().forEach(modifiedUISourceCode => {
+    for (const modifiedUISourceCode of this.#modifiedFiles) {
       modifiedUISourceCode.resetWorkingCopy();
-    });
+    }
 
     this.#patchSuggestionState = PatchSuggestionState.INITIAL;
     this.#patchSources = undefined;
@@ -733,11 +756,9 @@ ${processedFiles.map(filename => `* ${filename}`).join('\n')}`;
   }
 
   #onSaveAll(): void {
-    this.#workspaceDiff.modifiedUISourceCodes().forEach(modifiedUISourceCode => {
-      if (!modifiedUISourceCode.url().startsWith('inspector://')) {
-        modifiedUISourceCode.commitWorkingCopy();
-      }
-    });
+    for (const modifiedUISourceCode of this.#modifiedFiles) {
+      modifiedUISourceCode.commitWorkingCopy();
+    }
     void this.changeManager?.stashChanges().then(() => {
       this.changeManager?.dropStashedChanges();
     });

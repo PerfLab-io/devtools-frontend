@@ -76,14 +76,14 @@ export class SplitWidget extends Common.ObjectWrapper.eventMixin<EventTypes, typ
   private shouldSaveShowMode: boolean;
   private savedVerticalMainSize: number|null;
   private savedHorizontalMainSize: number|null;
-  private showModeInternal: string;
-  private savedShowMode: string;
+  private showModeInternal: ShowMode;
+  private savedShowMode: ShowMode;
   private autoAdjustOrientation: boolean;
 
   constructor(
       isVertical: boolean, secondIsSidebar: boolean, settingName?: string, defaultSidebarWidth?: number,
       defaultSidebarHeight?: number, constraintsInDip?: boolean, element?: SplitWidgetElement) {
-    super(true, undefined, element);
+    super(element, {useShadowDom: true});
     this.element.classList.add('split-widget');
     this.registerRequiredCSS(splitWidgetStyles);
 
@@ -454,6 +454,11 @@ export class SplitWidget extends Common.ObjectWrapper.eventMixin<EventTypes, typ
     return ZoomManager.instance().dipToCSS(sizeDIP);
   }
 
+  totalSize(): number {
+    const sizeDIP = Math.max(0, this.totalSizeDIP());
+    return ZoomManager.instance().dipToCSS(sizeDIP);
+  }
+
   /**
    * Returns total size in DIP.
    */
@@ -466,7 +471,7 @@ export class SplitWidget extends Common.ObjectWrapper.eventMixin<EventTypes, typ
     return ZoomManager.instance().cssToDIP(this.totalSizeCSS);
   }
 
-  private updateShowMode(showMode: string): void {
+  private updateShowMode(showMode: ShowMode): void {
     this.showModeInternal = showMode;
     this.saveShowModeToSettings();
     this.updateShowHideSidebarButton();
@@ -888,11 +893,11 @@ export class SplitWidget extends Common.ObjectWrapper.eventMixin<EventTypes, typ
   toggleSidebar(): boolean {
     if (this.showModeInternal !== ShowMode.BOTH) {
       this.showBoth(true);
-      ARIAUtils.alert(this.shownSidebarString);
+      ARIAUtils.LiveAnnouncer.alert(this.shownSidebarString);
       return true;
     }
     this.hideSidebar(true);
-    ARIAUtils.alert(this.hiddenSidebarString);
+    ARIAUtils.LiveAnnouncer.alert(this.hiddenSidebarString);
     return false;
   }
 
@@ -928,6 +933,9 @@ export class SplitWidgetElement extends WidgetElement<SplitWidget> {
     const widget = new SplitWidget(
         vertical, secondIsSidebar, settingName, defaultSidebarWidth, defaultSidebarHeight,
         /* constraintsInDip=*/ false, this);
+    if (this.getAttribute('sidebar-initial-size') === 'minimized') {
+      widget.setSidebarMinimized(true);
+    }
     if (autoAdjustOrientation) {
       widget.setAutoAdjustOrientation(true);
     }
@@ -982,7 +990,7 @@ export interface EventTypes {
 
 const MinPadding = 20;
 export interface SettingForOrientation {
-  showMode: string;
+  showMode: ShowMode;
   size: number;
 }
 

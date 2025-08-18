@@ -60,8 +60,9 @@ export class DevToolsFrontendTab {
     // We also use a unique ID per DevTools frontend instance, to avoid the same issue with other
     // frontend instances.
     const id = DevToolsFrontendTab.tabCounter++;
+
     const frontendUrl = `https://i${id}.devtools-frontend.test:${testServerPort}/${devToolsAppURL}?ws=localhost:${
-        getDebugPort(browser)}/devtools/page/${targetId}&targetType=tab&veLogging=true`;
+        getDebugPort(browser)}/devtools/page/${targetId}&targetType=tab`;
 
     const frontend = await browser.newPage();
     installPageErrorHandlers(frontend);
@@ -83,7 +84,7 @@ export class DevToolsFrontendTab {
       // which is controlled via localStorage, hence we need to restart test logging here
       // This can be called after a page fails to load DevTools so make it conditional
       // @ts-expect-error
-      globalThis?.setVeDebugLoggingEnabled(true, 'Test');
+      globalThis?.setVeDebugLoggingEnabled?.(true, 'Test');
     });
     await this.reload();
   }

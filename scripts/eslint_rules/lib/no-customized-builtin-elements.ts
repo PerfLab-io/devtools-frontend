@@ -3,15 +3,12 @@
 // found in the LICENSE file.
 
 /**
- * @fileoverview Disallow customized built-in elements.
- *
+ * @file Disallow customized built-in elements.
  * Cusomized built-in elements are not supported in Safari and will likely never
  * be supported in Safari ever, which has already caused problems for example
  * for http://trace.cafe (https://crbug.com/379694205).
- *
  * Customized built-in elemens are also incompatible with the Vision for the
  * Chrome DevTools UI Engineering.
- *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements
  * @see https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/is
  * @see http://go/chrome-devtools:ui-engineering-proposal
@@ -107,7 +104,7 @@ export default createRule<[], MessageIds>({
           BUILTIN_ELEMENT_REGEXP.test(superNode.property.name));
     }
 
-    function reportError(node: Node, messageId: MessageIds, data?: {[key: string]: string}): void {
+    function reportError(node: Node, messageId: MessageIds, data?: Record<string, string>): void {
       context.report({
         node,
         messageId,

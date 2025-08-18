@@ -1,7 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-/* eslint-disable rulesdir/no-lit-render-outside-of-view, rulesdir/inject-checkbox-styles */
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import './SettingDeprecationWarning.js';
 
@@ -19,7 +19,7 @@ const {html, Directives: {ifDefined}} = Lit;
 
 const UIStrings = {
   /**
-   *@description Text that is usually a hyperlink to more documentation
+   * @description Text that is usually a hyperlink to more documentation
    */
   learnMore: 'Learn more',
 } as const;
@@ -105,8 +105,8 @@ export class SettingCheckbox extends HTMLElement {
         Lit.nothing;
     Lit.render(
         html`
-      <style>${Input.checkboxStyles.cssText}</style>
-      <style>${settingCheckboxStyles.cssText}</style>
+      <style>${Input.checkboxStyles}</style>
+      <style>${settingCheckboxStyles}</style>
       <p>
         <label title=${title}>
           <input

@@ -4,21 +4,22 @@
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
+import type * as Platform from '../../core/platform/platform.js';
 import type * as Root from '../../core/root/root.js';
 import * as Console from '../../panels/console/console.js';
 import * as UI from '../../ui/legacy/legacy.js';
 
 const UIStrings = {
   /**
-   *@description Message to offer insights for a console error message
+   * @description Message to offer insights for a console error message
    */
   explainThisError: 'Understand this error',
   /**
-   *@description Message to offer insights for a console warning message
+   * @description Message to offer insights for a console warning message
    */
   explainThisWarning: 'Understand this warning',
   /**
-   *@description Message to offer insights for a console message
+   * @description Message to offer insights for a console message
    */
   explainThisMessage: 'Understand this message',
   /**
@@ -105,7 +106,7 @@ Common.Settings.registerSettingExtension({
   reloadRequired: false,
   condition: config => isFeatureEnabled(config),
   disabledCondition: config => {
-    const reasons = [];
+    const reasons: Platform.UIString.LocalizedString[] = [];
     if (isGeoRestricted(config)) {
       reasons.push(i18nString(UIStrings.geoRestricted));
     }
@@ -131,7 +132,7 @@ for (const action of actions) {
       return new Explain.ActionDelegate();
     },
     condition: config => {
-        return isFeatureEnabled(config) && !isPolicyRestricted(config);
+      return isFeatureEnabled(config) && !isPolicyRestricted(config) && !isGeoRestricted(config);
     },
   });
 }

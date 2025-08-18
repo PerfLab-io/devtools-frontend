@@ -7,9 +7,7 @@ import '../../../ui/legacy/components/data_grid/data_grid.js';
 
 import * as i18n from '../../../core/i18n/i18n.js';
 import type * as Protocol from '../../../generated/protocol.js';
-// inspectorCommonStyles is imported for the empty state styling that is used for the start view
-// eslint-disable-next-line rulesdir/es-modules-import
-import inspectorCommonStyles from '../../../ui/legacy/inspectorCommon.css.js';
+import * as UI from '../../../ui/legacy/legacy.js';
 import * as Lit from '../../../ui/lit/lit.js';
 
 import interestGroupAccessGridStyles from './interestGroupAccessGrid.css.js';
@@ -18,45 +16,45 @@ const {html} = Lit;
 
 const UIStrings = {
   /**
-   *@description Hover text for an info icon in the Interest Group Event panel
+   * @description Hover text for an info icon in the Interest Group Event panel
    * An interest group is an ad targeting group stored on the browser that can
    * be used to show a certain set of advertisements in the future as the
    * outcome of a FLEDGE auction.
    */
   allInterestGroupStorageEvents: 'All interest group storage events.',
   /**
-   *@description Text in InterestGroupStorage Items View of the Application panel
+   * @description Text in InterestGroupStorage Items View of the Application panel
    * Date and time of an Interest Group storage event in a locale-
    * dependent format.
    */
   eventTime: 'Event Time',
   /**
-   *@description Text in InterestGroupStorage Items View of the Application panel
+   * @description Text in InterestGroupStorage Items View of the Application panel
    * Type of interest group event such as 'join', 'bid', 'win', or 'leave'.
    */
   eventType: 'Access Type',
   /**
-   *@description Text in InterestGroupStorage Items View of the Application panel
+   * @description Text in InterestGroupStorage Items View of the Application panel
    * Owner of the interest group. The origin that controls the
    * content of information associated with the interest group such as which
    * ads get displayed.
    */
   groupOwner: 'Owner',
   /**
-   *@description Text in InterestGroupStorage Items View of the Application panel
+   * @description Text in InterestGroupStorage Items View of the Application panel
    * Name of the interest group. The name is unique per-owner and identifies the
    * interest group.
    */
   groupName: 'Name',
   /**
-   *@description Text shown when no interest groups are detected.
+   * @description Text shown when no interest groups are detected.
    * An interest group is an ad targeting group stored on the browser that can
    * be used to show a certain set of advertisements in the future as the
    * outcome of a FLEDGE auction.
    */
   noEvents: 'No interest group events detected',
   /**
-   *@description Text shown when no interest groups are detected and explains what this page is about.
+   * @description Text shown when no interest groups are detected and explains what this page is about.
    * An interest group is an ad targeting group stored on the browser that can
    * be used to show a certain set of advertisements in the future as the
    * outcome of a FLEDGE auction.
@@ -83,8 +81,8 @@ export class InterestGroupAccessGrid extends HTMLElement {
   #render(): void {
     // clang-format off
     Lit.render(html`
-      <style>${interestGroupAccessGridStyles.cssText}</style>
-      <style>${inspectorCommonStyles.cssText}</style>
+      <style>${interestGroupAccessGridStyles}</style>
+      <style>${UI.inspectorCommonStyles}</style>
       ${this.#datastores.length === 0 ?
         html`
           <div class="empty-state">

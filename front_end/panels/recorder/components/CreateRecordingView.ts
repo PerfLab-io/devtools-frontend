@@ -1,7 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-/* eslint-disable rulesdir/no-lit-render-outside-of-view, rulesdir/inject-checkbox-styles */
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/legacy/legacy.js';
 import '../../../ui/components/icon_button/icon_button.js';
@@ -82,7 +82,7 @@ const UIStrings = {
   selectorTypeXPath: 'XPath',
   /**
    * @description The label for the input that allows specifying selector types
-   * that should be used during the recordering.
+   * that should be used during the recording.
    */
   selectorTypes: 'Selector types to record',
   /**
@@ -258,9 +258,9 @@ export class CreateRecordingView extends HTMLElement {
     // clang-format off
     Lit.render(
       html`
-        <style>${createRecordingViewStyles.cssText}</style>
-        <style>${Input.textInputStyles.cssText}</style>
-        <style>${Input.checkboxStyles.cssText}</style>
+        <style>${createRecordingViewStyles}</style>
+        <style>${Input.textInputStyles}</style>
+        <style>${Input.checkboxStyles}</style>
         <div class="wrapper">
           <div class="header-wrapper">
             <h1>${i18nString(UIStrings.createRecording)}</h1>

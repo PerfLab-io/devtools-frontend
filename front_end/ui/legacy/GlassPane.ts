@@ -8,12 +8,13 @@ import {deepElementFromEvent, measuredScrollbarWidth} from './UIUtils.js';
 import {Widget} from './Widget.js';
 
 export class GlassPane {
-  private readonly widgetInternal = new Widget(true);
+  private readonly widgetInternal;
 
   element: typeof Widget.prototype.element;
   contentElement: typeof Widget.prototype.contentElement;
   private readonly onMouseDownBound: (event: Event) => void;
   private onClickOutsideCallback: ((arg0: Event) => void)|null = null;
+  #onHideCallback: (() => void)|null = null;
   private maxSize: Size|null = null;
   private positionX: number|null = null;
   private positionY: number|null = null;
@@ -24,12 +25,10 @@ export class GlassPane {
   #ignoreLeftMargin = false;
 
   constructor(jslog?: string) {
+    this.widgetInternal = new Widget({jslog, useShadowDom: true});
     this.widgetInternal.markAsRoot();
     this.element = this.widgetInternal.element;
     this.contentElement = this.widgetInternal.contentElement;
-    if (jslog) {
-      this.contentElement.setAttribute('jslog', jslog);
-    }
 
     this.registerRequiredCSS(glassPaneStyles);
     this.setPointerEventsBehavior(PointerEventsBehavior.PIERCE_GLASS_PANE);
@@ -45,7 +44,7 @@ export class GlassPane {
     return this.widgetInternal.isShowing();
   }
 
-  registerRequiredCSS(...cssFiles: Array<{cssText: string}>): void {
+  registerRequiredCSS(...cssFiles: Array<string&{_tag: 'CSS-in-JS'}>): void {
     this.widgetInternal.registerRequiredCSS(...cssFiles);
   }
 
@@ -66,6 +65,10 @@ export class GlassPane {
 
   setOutsideClickCallback(callback: ((arg0: Event) => void)|null): void {
     this.onClickOutsideCallback = callback;
+  }
+
+  setOnHideCallback(cb: () => void): void {
+    this.#onHideCallback = cb;
   }
 
   setMaxContentSize(size: Size|null): void {
@@ -124,6 +127,9 @@ export class GlassPane {
     this.element.ownerDocument.body.removeEventListener('mousedown', this.onMouseDownBound, true);
     this.element.ownerDocument.body.removeEventListener('pointerdown', this.onMouseDownBound, true);
     this.widgetInternal.detach();
+    if (this.#onHideCallback) {
+      this.#onHideCallback();
+    }
   }
 
   private onMouseDown(event: Event): void {

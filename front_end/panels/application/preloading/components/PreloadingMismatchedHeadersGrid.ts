@@ -15,19 +15,19 @@ import preloadingGridStyles from './preloadingGrid.css.js';
 
 const UIStrings = {
   /**
-   *@description The name of the HTTP request header.
+   * @description The name of the HTTP request header.
    */
   headerName: 'Header name',
   /**
-   *@description The value of the HTTP request header in initial navigation.
+   * @description The value of the HTTP request header in initial navigation.
    */
   initialNavigationValue: 'Value in initial navigation',
   /**
-   *@description The value of the HTTP request header in activation navigation.
+   * @description The value of the HTTP request header in activation navigation.
    */
   activationNavigationValue: 'Value in activation navigation',
   /**
-   *@description The string to indicate the value of the header is missing.
+   * @description The string to indicate the value of the header is missing.
    */
   missing: '(missing)',
 } as const;
@@ -60,7 +60,7 @@ export class PreloadingMismatchedHeadersGrid extends LegacyWrapper.LegacyWrapper
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
       render(html`
-        <style>${preloadingGridStyles.cssText}</style>
+        <style>${preloadingGridStyles}</style>
         <div class="preloading-container">
           <devtools-data-grid striped inline>
             <table>

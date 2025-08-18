@@ -7,6 +7,7 @@ import {mockAidaClient} from '../../../testing/AiAssistanceHelpers.js';
 import {
   describeWithEnvironment,
 } from '../../../testing/EnvironmentHelpers.js';
+import {html, type TemplateResult} from '../../../ui/lit/lit.js';
 import * as AiAssistance from '../ai_assistance.js';
 
 const {AiAgent, ResponseType, ConversationContext, ErrorType} = AiAssistance;
@@ -21,8 +22,8 @@ function mockConversationContext(): AiAssistance.ConversationContext<unknown> {
       return null;
     }
 
-    override getIcon(): HTMLElement {
-      return document.createElement('span');
+    override getIcon(): TemplateResult {
+      return html`<span></span>`;
     }
 
     override getTitle(): string {
@@ -133,6 +134,27 @@ describeWithEnvironment('AiAgent', () => {
       });
       const request = agent.buildRequest({text: 'test input'}, Host.AidaClient.Role.USER);
       assert.strictEqual(request.metadata?.string_session_id, 'sessionId');
+    });
+
+    it('builds a request with preamble features in version', async () => {
+      const features = ['test'];
+      class MockWithFeatures extends AiAgentMock {
+        override preambleFeatures(): string[] {
+          return features;
+        }
+      }
+      const agent = new MockWithFeatures({
+        aidaClient: mockAidaClient(),
+      });
+      {
+        const request = agent.buildRequest({text: 'test input'}, Host.AidaClient.Role.USER);
+        assert.include(request.metadata.client_version, '+test');
+      }
+      features.push('2test');
+      {
+        const request = agent.buildRequest({text: 'test input'}, Host.AidaClient.Role.USER);
+        assert.include(request.metadata.client_version, '+test+2test');
+      }
     });
 
     it('builds a request with preamble if user tier is TESTERS', async () => {
@@ -331,7 +353,7 @@ describeWithEnvironment('AiAgent', () => {
       });
     });
 
-    it('should yield unknown error when aidaFetch does not return anything', async () => {
+    it('should yield unknown error when aida doConversation does not return anything', async () => {
       const agent = new AiAgentMock({
         aidaClient: mockAidaClient([]),
       });
@@ -359,7 +381,7 @@ describeWithEnvironment('AiAgent', () => {
   describe('ConversationContext', () => {
     function getTestContext(origin: string) {
       class TestContext extends ConversationContext<undefined> {
-        override getIcon(): HTMLElement {
+        override getIcon(): TemplateResult {
           throw new Error('Method not implemented.');
         }
         override getTitle(): string {

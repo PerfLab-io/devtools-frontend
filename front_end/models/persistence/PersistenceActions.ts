@@ -1,7 +1,6 @@
 // Copyright (c) 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -10,7 +9,7 @@ import type * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as Bindings from '../bindings/bindings.js';
-import type * as TextUtils from '../text_utils/text_utils.js';
+import * as TextUtils from '../text_utils/text_utils.js';
 import * as Workspace from '../workspace/workspace.js';
 
 import {NetworkPersistenceManager} from './NetworkPersistenceManager.js';
@@ -18,35 +17,40 @@ import {PersistenceImpl} from './PersistenceImpl.js';
 
 const UIStrings = {
   /**
-   *@description Text to save content as a specific file type
+   * @description Text to save content as a specific file type
    */
-  saveAs: 'Save as...',
+  saveAs: 'Save as…',
   /**
-   *@description Context menu item for saving an image
+   * @description Context menu item for saving an image
    */
   saveImage: 'Save image',
   /**
-   *@description Context menu item for showing all overridden files
+   * @description Context menu item for showing all overridden files
    */
   showOverrides: 'Show all overrides',
   /**
-   *@description A context menu item in the Persistence Actions of the Workspace settings in Settings
+   * @description A context menu item in the Persistence Actions of the Workspace settings in Settings
    */
   overrideContent: 'Override content',
   /**
-   *@description A context menu item in the Persistence Actions of the Workspace settings in Settings
+   * @description A context menu item in the Persistence Actions of the Workspace settings in Settings
    */
   openInContainingFolder: 'Open in containing folder',
   /**
-   *@description A message in a confirmation dialog in the Persistence Actions
+   * @description A message in a confirmation dialog in the Persistence Actions
    * @example {bundle.min.js} PH1
    */
   overrideSourceMappedFileWarning: 'Override ‘{PH1}’ instead?',
   /**
-   *@description A message in a confirmation dialog to explain why the action is failed in the Persistence Actions
+   * @description A message in a confirmation dialog to explain why the action is failed in the Persistence Actions
    * @example {index.ts} PH1
    */
   overrideSourceMappedFileExplanation: '‘{PH1}’ is a source mapped file and cannot be overridden.',
+  /**
+   * @description An error message shown in the DevTools console after the user clicked "Save as" in
+   * the context menu of a page resource.
+   */
+  saveFailed: 'Failed to save file to disk.',
   /**
    * @description An error message shown in the DevTools console after the user clicked "Save as" in
    * the context menu of a WebAssembly file.
@@ -67,28 +71,35 @@ export class ContextMenuProvider implements
         (contentProvider).commitWorkingCopy();
       }
       const url = contentProvider.contentURL();
-      let content: TextUtils.ContentProvider.DeferredContent;
+      let contentData: TextUtils.ContentData.ContentData;
       const maybeScript = getScript(contentProvider);
       if (maybeScript?.isWasm()) {
         try {
-          const byteCode = await maybeScript.getWasmBytecode();
-          const base64 = await Common.Base64.encode(byteCode);
-          content = {isEncoded: true, content: base64};
+          const base64 = await maybeScript.getWasmBytecode().then(Common.Base64.encode);
+          contentData = new TextUtils.ContentData.ContentData(base64, /* isBase64=*/ true, 'application/wasm');
         } catch (e) {
           console.error(`Unable to convert WASM byte code for ${url} to base64. Not saving to disk`, e.stack);
           Common.Console.Console.instance().error(i18nString(UIStrings.saveWasmFailed), /* show=*/ false);
           return;
         }
       } else {
-        content = await contentProvider.requestContent();
+        const contentDataOrError = await contentProvider.requestContentData();
+        if (TextUtils.ContentData.ContentData.isError(contentDataOrError)) {
+          console.error(`Failed to retrieve content for ${url}: ${contentDataOrError}`);
+          Common.Console.Console.instance().error(i18nString(UIStrings.saveFailed), /* show=*/ false);
+          return;
+        }
+        contentData = contentDataOrError;
       }
-      await Workspace.FileManager.FileManager.instance().save(url, content.content ?? '', true, content.isEncoded);
+      await Workspace.FileManager.FileManager.instance().save(url, contentData, /* forceSaveAs=*/ true);
       Workspace.FileManager.FileManager.instance().close(url);
     }
 
     async function saveImage(): Promise<void> {
       const targetObject = contentProvider as SDK.Resource.Resource;
-      const content = (await targetObject.requestContent()).content || '';
+      const contentDataOrError = await targetObject.requestContentData();
+      const content = TextUtils.ContentData.ContentData.textOr(contentDataOrError, '');
+      /* eslint-disable-next-line rulesdir/no-imperative-dom-api */
       const link = document.createElement('a');
       link.download = targetObject.displayName;
       link.href = 'data:' + targetObject.mimeType + ';base64,' + content;

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 /**
- * @fileoverview A library to associate class members with their parent class.
+ * @file A library to associate class members with their parent class.
  */
 
 import type {TSESLint, TSESTree} from '@typescript-eslint/utils';
@@ -42,7 +42,10 @@ export class ClassMember {
       classMembers.set(memberName, classMember);
     }
     if (node.parent?.type === 'AssignmentExpression') {
-      classMember.initializer = node;
+      classMember.initializer = node.parent.right;
+      if (classMember.initializer?.type === 'TSAsExpression') {
+        classMember.initializer = classMember.initializer.expression;
+      }
     } else {
       classMember.references.add(node);
     }

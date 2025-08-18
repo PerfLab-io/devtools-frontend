@@ -1,6 +1,7 @@
 // Copyright 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -44,11 +45,8 @@ export class OpenFileQuickOpen extends FilteredUISourceCodeListProvider {
 
     const iconElement = new IconButton.Icon.Icon();
     const iconData = PanelUtils.iconDataForResourceType(this.itemContentTypeAt(itemIndex));
-    iconElement.data = {
-      ...iconData,
-      width: '18px',
-      height: '18px',
-    };
+    iconElement.data = iconData;
+    iconElement.classList.add('large');
     titleElement.parentElement?.parentElement?.insertBefore(iconElement, titleElement.parentElement);
   }
 

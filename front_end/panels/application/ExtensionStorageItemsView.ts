@@ -44,11 +44,11 @@ import {KeyValueStorageItemsView, type View as KeyValueStorageItemsViewFunction}
 
 const UIStrings = {
   /**
-   *@description Name for the "Extension Storage Items" table that shows the content of the extension Storage.
+   * @description Name for the "Extension Storage Items" table that shows the content of the extension Storage.
    */
   extensionStorageItems: 'Extension Storage Items',
   /**
-   *@description Text for announcing that the "Extension Storage Items" table was cleared, that is, all
+   * @description Text for announcing that the "Extension Storage Items" table was cleared, that is, all
    * entries were deleted.
    */
   extensionStorageItemsCleared: 'Extension Storage Items cleared',
@@ -144,7 +144,7 @@ export class ExtensionStorageItemsView extends KeyValueStorageItemsView {
     }
 
     this.itemsCleared();
-    UI.ARIAUtils.alert(i18nString(UIStrings.extensionStorageItemsCleared));
+    UI.ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.extensionStorageItemsCleared));
   }
 
   override deleteSelectedItem(): void {
@@ -160,13 +160,13 @@ export class ExtensionStorageItemsView extends KeyValueStorageItemsView {
 
   async #refreshItems(): Promise<void> {
     const items = await this.#extensionStorage.getItems();
-    if (!items) {
+    if (!items || !this.toolbar) {
       return;
     }
-    const filteredItems = this.filter(
-        Object.entries(items).map(
-            ([key, value]) => ({key, value: typeof value === 'string' ? value : JSON.stringify(value)})),
-        item => `${item.key} ${item.value}`);
+    const filteredItems =
+        Object.entries(items)
+            .map(([key, value]) => ({key, value: typeof value === 'string' ? value : JSON.stringify(value)}))
+            .filter(item => this.toolbar?.filterRegex?.test(`${item.key} ${item.value}`) ?? true);
     this.showItems(filteredItems);
     this.extensionStorageItemsDispatcher.dispatchEventToListeners(
         ExtensionStorageItemsDispatcher.Events.ITEMS_REFRESHED);

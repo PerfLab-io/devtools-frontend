@@ -216,6 +216,10 @@ export class TraceProcessor extends EventTarget {
     options.logger?.end('parse:handleEvent');
 
     // Finalize.
+    const finalizeOptions: Handlers.Types.FinalizeOptions = {
+      ...options,
+      allTraceEvents: traceEvents,
+    };
     for (let i = 0; i < sortedHandlers.length; i++) {
       const [name, handler] = sortedHandlers[i];
       if (handler.finalize) {
@@ -223,7 +227,7 @@ export class TraceProcessor extends EventTarget {
         // Yield to the UI because finalize() calls can be expensive
         // TODO(jacktfranklin): consider using `scheduler.yield()` or `scheduler.postTask(() => {}, {priority: 'user-blocking'})`
         await new Promise(resolve => setTimeout(resolve, 0));
-        await handler.finalize(options);
+        await handler.finalize(finalizeOptions);
         options.logger?.end(`parse:${name}:finalize`);
       }
       const percent = calculateProgress(i / sortedHandlers.length, ProgressPhase.FINALIZE);
@@ -343,7 +347,7 @@ export class TraceProcessor extends EventTarget {
       totalBlockingTime: tbtResult,
     };
 
-    return {graph, simulator, metrics};
+    return {requests, graph, simulator, metrics};
   }
 
   /**
@@ -354,8 +358,8 @@ export class TraceProcessor extends EventTarget {
     // The initial order of the insights is alphabetical, based on `front_end/models/trace/insights/Models.ts`.
     // The order here provides a baseline that groups insights in a more logical way.
     const baselineOrder: Record<keyof Insights.Types.InsightModels, null> = {
-      InteractionToNextPaint: null,
-      LCPPhases: null,
+      INPBreakdown: null,
+      LCPBreakdown: null,
       LCPDiscovery: null,
       CLSCulprits: null,
       RenderBlocking: null,
@@ -379,14 +383,14 @@ export class TraceProcessor extends EventTarget {
 
     // Normalize the estimated savings to a single number, weighted by its relative impact
     // to the page experience based on the same scoring curve that Lighthouse uses.
-    const observedLcpMicro = Insights.Common.getLCP(this.#insights, insightSet.id)?.value;
+    const observedLcpMicro = Insights.Common.getLCP(insightSet)?.value;
     const observedLcp = observedLcpMicro ? Helpers.Timing.microToMilli(observedLcpMicro) : Types.Timing.Milli(0);
-    const observedCls = Insights.Common.getCLS(this.#insights, insightSet.id).value;
+    const observedCls = Insights.Common.getCLS(insightSet).value;
 
     // INP is special - if users did not interact with the page, we'll have no INP, but we should still
     // be able to prioritize insights based on this metric. When we observe no interaction, instead use
     // a default value for the baseline INP.
-    const observedInpMicro = Insights.Common.getINP(this.#insights, insightSet.id)?.value;
+    const observedInpMicro = Insights.Common.getINP(insightSet)?.value;
     const observedInp = observedInpMicro ? Helpers.Timing.microToMilli(observedInpMicro) : Types.Timing.Milli(200);
 
     const observedLcpScore =
@@ -461,24 +465,49 @@ export class TraceProcessor extends EventTarget {
       urlString = parsedTrace.Meta.finalDisplayUrlByNavigationId.get('') ?? parsedTrace.Meta.mainFrameURL;
     }
 
-    const model = {} as Insights.Types.InsightSet['model'];
+    const insightSetModel = {} as Insights.Types.InsightSet['model'];
 
     for (const [name, insight] of Object.entries(TraceProcessor.getInsightRunners())) {
-      let insightResult;
+      let model: Insights.Types.InsightModel|Error;
       try {
         options.logger?.start(`insights:${name}`);
-        insightResult = insight.generateInsight(parsedTrace, context);
-        insightResult.frameId = context.frameId;
+        model = insight.generateInsight(parsedTrace, context);
+        model.frameId = context.frameId;
         const navId = context.navigation?.args.data?.navigationId;
         if (navId) {
-          insightResult.navigationId = navId;
+          model.navigationId = navId;
         }
+        model.createOverlays = () => {
+          // @ts-expect-error: model is a union of all possible insight model types.
+          return insight.createOverlays(model);
+        };
       } catch (err) {
-        insightResult = err;
+        model = err;
       } finally {
         options.logger?.end(`insights:${name}`);
       }
-      Object.assign(model, {[name]: insightResult});
+      Object.assign(insightSetModel, {[name]: model});
+    }
+
+    // We may choose to exclude the insightSet if it's trivial. Trivial means:
+    //   1. There's no navigation (it's an initial trace period)
+    //   2. The duration is short.
+    //   3. All the insights are passing (aka no insights to show the user)
+    //   4. It has no metrics to report (apart from a CLS of 0, which is default)
+    // Generally, these cases are the short time ranges before a page reload starts.
+    const isNavigation = id === Types.Events.NO_NAVIGATION;
+    const trivialThreshold = Helpers.Timing.milliToMicro(Types.Timing.Milli(5000));
+    const everyInsightPasses = Object.values(insightSetModel)
+                                   .filter(model => !(model instanceof Error))
+                                   .every(model => model.state === 'pass');
+
+    const noLcp = !insightSetModel.LCPBreakdown.lcpEvent;
+    const noInp = !insightSetModel.INPBreakdown.longestInteractionEvent;
+    const noLayoutShifts = insightSetModel.CLSCulprits.shifts?.size === 0;
+    const shouldExclude = isNavigation && context.bounds.range < trivialThreshold && everyInsightPasses && noLcp &&
+        noInp && noLayoutShifts;
+    if (shouldExclude) {
+      return;
     }
 
     let url;
@@ -496,7 +525,7 @@ export class TraceProcessor extends EventTarget {
       navigation,
       frameId: context.frameId,
       bounds: context.bounds,
-      model,
+      model: insightSetModel,
     };
     if (!this.#insights) {
       this.#insights = new Map();
@@ -541,24 +570,12 @@ export class TraceProcessor extends EventTarget {
         Helpers.Timing.traceWindowFromMicroSeconds(parsedTrace.Meta.traceBounds.min, navigations[0].ts) :
         parsedTrace.Meta.traceBounds;
 
-    // Define threshold for considering the pre-navigation period significant enough to analyze.
-    // When using "Record and reload" option, it typically takes ~5ms. So use 50ms to be safe.
-    const threshold = Helpers.Timing.milliToMicro(50 as Types.Timing.Milli);
-
-    // Compute insights if either:
-    // 1. There are no navigations (we analyze the whole trace).
-    // 2. There are navigations, AND the initial period before the first navigation is longer than the threshold.
-    const shouldComputeInsights = navigations.length === 0 || bounds.range > threshold;
-
-    // If navigations exist but the initial period is below the threshold, we intentionally do nothing for this portion of the trace.
-    if (shouldComputeInsights) {
-      const context: Insights.Types.InsightSetContext = {
-        bounds,
-        frameId: parsedTrace.Meta.mainFrameId,
-        // No navigation or lantern context applies to this initial/no-navigation period.
-      };
-      this.#computeInsightSet(parsedTrace, context, options);
-    }
+    const context: Insights.Types.InsightSetContext = {
+      bounds,
+      frameId: parsedTrace.Meta.mainFrameId,
+      // No navigation or lantern context applies to this initial/no-navigation period.
+    };
+    this.#computeInsightSet(parsedTrace, context, options);
   }
 
   /**
@@ -621,7 +638,7 @@ export class TraceProcessor extends EventTarget {
  * @returns A map from trace event handler name to trace event handler whose entries
  * iterate in such a way that each handler is visited after its dependencies.
  */
-export function sortHandlers(traceHandlers: Partial<{[key in Handlers.Types.HandlerName]: Handlers.Types.Handler}>):
+export function sortHandlers(traceHandlers: Partial<Record<Handlers.Types.HandlerName, Handlers.Types.Handler>>):
     Map<Handlers.Types.HandlerName, Handlers.Types.Handler> {
   const sortedMap = new Map<Handlers.Types.HandlerName, Handlers.Types.Handler>();
   const visited = new Set<Handlers.Types.HandlerName>();

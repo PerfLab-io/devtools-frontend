@@ -11,29 +11,23 @@ import * as ComponentHelpers from '../../components/helpers/helpers.js';
 import {html, render} from '../../lit/lit.js';
 import * as VisualLogging from '../../visual_logging/visual_logging.js';
 
-import panelFeedbackStylesRaw from './panelFeedback.css.js';
-
-/* eslint-disable rulesdir/no-adopted-style-sheets --
- * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
- **/
-const panelFeedbackStyles = new CSSStyleSheet();
-panelFeedbackStyles.replaceSync(panelFeedbackStylesRaw.cssText);
+import panelFeedbackStyles from './panelFeedback.css.js';
 
 const UIStrings = {
   /**
-   *@description Introduction sentence to convey the feature is being actively worked on and we are looking for feedback.
+   * @description Introduction sentence to convey the feature is being actively worked on and we are looking for feedback.
    */
   previewText: 'Our team is actively working on this feature and we would love to know what you think.',
   /**
-   *@description Link text the user can click to provide feedback to the team.
+   * @description Link text the user can click to provide feedback to the team.
    */
   previewTextFeedbackLink: 'Send us your feedback.',
   /**
-   *@description Title of the UI section that shows the user that this feature is in preview. Used as the main heading. Not a verb.
+   * @description Title of the UI section that shows the user that this feature is in preview. Used as the main heading. Not a verb.
    */
   previewFeature: 'Preview feature',
   /**
-   *@description Title of the section to the quick start video and documentation on experimental panels.
+   * @description Title of the section to the quick start video and documentation on experimental panels.
    */
   videoAndDocumentation: 'Video and documentation',
 } as const;
@@ -58,10 +52,6 @@ export class PanelFeedback extends HTMLElement {
     quickStartLinkText: '',
   };
 
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [panelFeedbackStyles];
-  }
-
   set data(data: PanelFeedbackData) {
     this.#props = data;
     void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
@@ -74,6 +64,7 @@ export class PanelFeedback extends HTMLElement {
 
     // clang-format off
     render(html`
+      <style>${panelFeedbackStyles}</style>
       <div class="preview">
         <h2 class="flex">
           <devtools-icon .data=${{

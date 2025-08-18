@@ -13,6 +13,12 @@ export namespace Chrome {
       readonly url: string;
       readonly type: string;
 
+      /**
+       * For WASM resources the content of the `build_id` custom section. For JavaScript resources the
+       * `debugId` magic comment.
+       */
+      readonly buildId?: string;
+
       getContent(callback: (content: string, encoding: string) => unknown): void;
       setContent(content: string, commit: boolean, callback?: (error?: Object) => unknown): void;
       /**
@@ -88,6 +94,9 @@ export namespace Chrome {
 
       create(title: string, iconPath: string, pagePath: string, callback?: (panel: ExtensionPanel) => unknown): void;
       openResource(url: string, lineNumber: number, columnNumber?: number, callback?: () => unknown): void;
+
+      setOpenResourceHandler(
+          callback?: (resource: Resource, lineNumber: number, columnNumber: number) => void, scheme?: string): void;
 
       /**
        * Fired when the theme changes in DevTools.

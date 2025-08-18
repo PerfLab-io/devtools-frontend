@@ -12,9 +12,6 @@ import type * as Protocol from '../../../generated/protocol.js';
 import * as Buttons from '../../../ui/components/buttons/buttons.js';
 import * as LegacyWrapper from '../../../ui/components/legacy_wrapper/legacy_wrapper.js';
 import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
-// inspectorCommonStyles is imported for the empty state styling that is used for the start view
-// eslint-disable-next-line rulesdir/es-modules-import
-import inspectorCommonStyles from '../../../ui/legacy/inspectorCommon.css.js';
 import * as UI from '../../../ui/legacy/legacy.js';
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
@@ -28,15 +25,15 @@ const {html} = Lit;
 
 const UIStrings = {
   /**
-   *@description Text for the issuer of an item
+   * @description Text for the issuer of an item
    */
   issuer: 'Issuer',
   /**
-   *@description Column header for Trust Token table
+   * @description Column header for Trust Token table
    */
   storedTokenCount: 'Stored token count',
   /**
-   *@description Hover text for an info icon in the Private State Token panel
+   * @description Hover text for an info icon in the Private State Token panel
    */
   allStoredTrustTokensAvailableIn: 'All stored private state tokens available in this browser instance.',
   /**
@@ -99,8 +96,8 @@ export class TrustTokensView extends LegacyWrapper.LegacyWrapper.WrappableCompon
     await RenderCoordinator.write('Render TrustTokensView', () => {
       // clang-format off
       Lit.render(html`
-        <style>${trustTokensViewStyles.cssText}</style>
-        <style>${inspectorCommonStyles.cssText}</style>
+        <style>${trustTokensViewStyles}</style>
+        <style>${UI.inspectorCommonStyles}</style>
         ${this.#renderGridOrNoDataMessage(tokens)}
       `, this.#shadow, {host: this});
       // clang-format on

@@ -179,9 +179,9 @@ export class Settings {
 
   /**
    * Get setting via key, and create a new setting if the requested setting does not exist.
-   * @param {string} key kebab-case string ID
-   * @param {T} defaultValue
-   * @param {SettingStorageType=} storageType If not specified, SettingStorageType.GLOBAL is used.
+   * @param key kebab-case string ID
+   * @param defaultValue
+   * @param storageType If not specified, SettingStorageType.GLOBAL is used.
    */
   createSetting<T>(key: string, defaultValue: T, storageType?: SettingStorageType): Setting<T> {
     const storage = this.storageFromType(storageType);
@@ -306,11 +306,8 @@ export class SettingsStorage {
 
   dumpSizes(): void {
     Console.instance().log('Ten largest settings: ');
-
-    const sizes: {
-      [x: string]: number,
-      // @ts-expect-error __proto__ optimization
-    } = {__proto__: null};
+    // @ts-expect-error __proto__ optimization
+    const sizes: Record<string, number> = {__proto__: null};
     for (const key in this.object) {
       sizes[key] = this.object[key].length;
     }
@@ -425,7 +422,7 @@ export class Setting<V> {
     return this.#disabled || false;
   }
 
-  disabledReasons(): string[] {
+  disabledReasons(): Platform.UIString.LocalizedString[] {
     if (this.#registration?.disabledCondition) {
       const result = this.#registration.disabledCondition(Root.Runtime.hostConfig);
       if (result.disabled) {
@@ -441,11 +438,14 @@ export class Setting<V> {
   }
 
   #maybeLogAccess(value: V): void {
-    const valueToLog = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ?
-        value :
-        this.#serializer?.stringify(value);
-    if (valueToLog !== undefined && this.#logSettingAccess) {
-      void this.#logSettingAccess(this.name, valueToLog);
+    try {
+      const valueToLog = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ?
+          value :
+          this.#serializer?.stringify(value);
+      if (valueToLog !== undefined && this.#logSettingAccess) {
+        void this.#logSettingAccess(this.name, valueToLog);
+      }
+    } catch {
     }
   }
 
@@ -674,7 +674,7 @@ export class VersionController {
   static readonly SYNCED_VERSION_SETTING_NAME = 'syncedInspectorVersion';
   static readonly LOCAL_VERSION_SETTING_NAME = 'localInspectorVersion';
 
-  static readonly CURRENT_VERSION = 38;
+  static readonly CURRENT_VERSION = 40;
 
   readonly #globalVersionSetting: Setting<number>;
   readonly #syncedVersionSetting: Setting<number>;
@@ -751,9 +751,7 @@ export class VersionController {
   }
 
   updateVersionFrom4To5(): void {
-    const settingNames: {
-      [x: string]: string,
-    } = {
+    const settingNames: Record<string, string> = {
       FileSystemViewSidebarWidth: 'fileSystemViewSplitViewState',
       elementsSidebarWidth: 'elementsPanelSplitViewState',
       StylesPaneSplitRatio: 'stylesPaneSplitViewState',
@@ -805,9 +803,7 @@ export class VersionController {
   }
 
   updateVersionFrom5To6(): void {
-    const settingNames: {
-      [x: string]: string,
-    } = {
+    const settingNames: Record<string, string> = {
       debuggerSidebarHidden: 'sourcesPanelSplitViewState',
       navigatorHidden: 'sourcesPanelNavigatorSplitViewState',
       'WebInspector.Drawer.showOnLoad': 'Inspector.drawerSplitViewState',
@@ -918,11 +914,8 @@ export class VersionController {
     const newList = [];
     for (let i = 0; i < list.length; ++i) {
       const value = list[i];
-      const device: {
-        // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        [x: string]: any,
-      } = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const device: Record<string, any> = {};
       device['title'] = value['title'];
       device['type'] = 'unknown';
       device['user-agent'] = value['userAgent'];
@@ -967,9 +960,7 @@ export class VersionController {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const setting = Settings.instance().createLocalSetting<any>('workspaceExcludedFolders', {});
     const oldValue = setting.get();
-    const newValue: {
-      [x: string]: string[],
-    } = {};
+    const newValue: Record<string, string[]> = {};
     for (const fileSystemPath in oldValue) {
       newValue[fileSystemPath] = [];
       for (const entry of oldValue[fileSystemPath]) {
@@ -1015,9 +1006,7 @@ export class VersionController {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const setting = Settings.instance().createLocalSetting<any>('workspaceExcludedFolders', {});
     const oldValue = setting.get();
-    const newValue: {
-      [x: string]: string,
-    } = {};
+    const newValue: Record<string, string> = {};
     for (const oldKey in oldValue) {
       let newKey = oldKey.replace(/\\/g, '/');
       if (!newKey.startsWith('file://')) {
@@ -1041,11 +1030,9 @@ export class VersionController {
     visibleColumns.name = true;
     visibleColumns.timeline = true;
 
-    const configs: {
-      [x: string]: {
-        visible: number,
-      },
-    } = {};
+    const configs: Record<string, {
+      visible: number,
+    }> = {};
     for (const columnId in visibleColumns) {
       if (!visibleColumns.hasOwnProperty(columnId)) {
         continue;
@@ -1066,9 +1053,7 @@ export class VersionController {
 
   updateVersionFrom20To21(): void {
     const networkColumns = Settings.instance().createSetting('networkLogColumns', {});
-    const columns = (networkColumns.get() as {
-      [x: string]: string,
-    });
+    const columns = (networkColumns.get() as Record<string, string>);
     delete columns['timeline'];
     delete columns['waterfall'];
     networkColumns.set(columns);
@@ -1340,6 +1325,127 @@ export class VersionController {
     }
   }
 
+  updateVersionFrom38To39(): void {
+    const PREFERRED_NETWORK_COND = 'preferred-network-condition';
+    // crrev.com/c/5582013 renamed "Slow 3G" to "3G" and "Fast 3G" => "Slow 4G".
+    // Any users with the old values need to have them moved to avoid breaking DevTools.
+    // Note: we load the raw value via the globalStorage here because
+    // `createSetting` creates if it is not present, and we do not want that;
+    // we only want to update existing, old values.
+    const setting = Settings.instance().globalStorage.get(PREFERRED_NETWORK_COND);
+    if (!setting) {
+      return;
+    }
+    try {
+      const networkSetting = JSON.parse(setting) as unknown as {
+        // Can't use SDK type here as it creates a common<>sdk circular
+        // dep. This type is not exhaustive but contains the fields we
+        // need.
+        title: string,
+        i18nTitleKey?: string,
+      };
+      if (networkSetting.title === 'Slow 3G') {
+        networkSetting.title = '3G';
+        networkSetting.i18nTitleKey = '3G';
+        Settings.instance().globalStorage.set(PREFERRED_NETWORK_COND, JSON.stringify(networkSetting));
+      } else if (networkSetting.title === 'Fast 3G') {
+        networkSetting.title = 'Slow 4G';
+        networkSetting.i18nTitleKey = 'Slow 4G';
+        Settings.instance().globalStorage.set(PREFERRED_NETWORK_COND, JSON.stringify(networkSetting));
+      }
+    } catch {
+      // If parsing the setting threw, it's in some invalid state, so remove it.
+      Settings.instance().globalStorage.remove(PREFERRED_NETWORK_COND);
+    }
+  }
+
+  /**
+   * There are two related migrations here for handling network throttling persistence:
+   * 1. Go through all user custom throttling conditions and add a `key` property.
+   * 2. If the user has a 'preferred-network-condition' setting, take the value
+   *    of that and set the right key for the new 'active-network-condition-key'
+   *    setting. Then, remove the now-obsolete 'preferred-network-condition'
+   *    setting.
+   */
+  updateVersionFrom39To40(): void {
+    const hasCustomNetworkConditionsSetting = (): boolean => {
+      try {
+        // this will error if it does not exist
+        moduleSetting('custom-network-conditions');
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    if (hasCustomNetworkConditionsSetting()) {
+      /**
+       * We added keys to custom network throttling conditions in M140, so we
+       * need to go through any existing profiles the user has and add the key to
+       * them.
+       * We can't use the SDK.NetworkManager.Condition here as it would be a
+       * circular dependency. All that matters is that these conditions are
+       * objects, and we need to set the right key on each one. The actual keys &
+       * values in the object are not important.
+       */
+      const conditionsSetting = moduleSetting('custom-network-conditions') as Setting<Array<{key?: string}>>;
+      const customConditions = conditionsSetting.get();
+      if (customConditions?.length > 0) {
+        customConditions.forEach((condition, i) => {
+          // This could be run multiple times, make sure that we don't override any
+          // existing keys.
+          if (condition.key) {
+            return;
+          }
+          // The format of this key is important: see
+          // SDK.NetworkManager.UserDefinedThrottlingConditionKey
+          condition.key = `USER_CUSTOM_SETTING_${i + 1}`;
+        });
+        conditionsSetting.set(customConditions);
+      }
+    }
+
+    // Additionally, we need to make sure we persist the right throttling for
+    // users who have a preferred-network-condition set.
+    const PREFERRED_NETWORK_COND_SETTING = 'preferred-network-condition';
+    // We shipped a change to how we persist network throttling conditions and
+    // added a `key` property rather than rely on any user visible string which
+    // is more likely to change. This migration step tries to update the
+    // setting for users, or removes it if we fail, so they start fresh next
+    // time they load DevTools.
+    const setting = Settings.instance().globalStorage.get(PREFERRED_NETWORK_COND_SETTING);
+    if (!setting) {
+      return;
+    }
+    // The keys here are the UI Strings as of July 2025 (shipped in M139).
+    // This migration shipped in M140. The values are the values of the
+    // `PredefinedThrottlingConditionKey` in SDK.NetworkManager.
+    const UI_STRING_TO_NEW_KEY = {
+      'Fast 4G': 'SPEED_FAST_4G',
+      'Slow 4G': 'SPEED_SLOW_4G',
+      '3G': 'SPEED_3G',
+      'No throttling': 'NO_THROTTLING',
+      Offline: 'OFFLINE'
+    };
+    try {
+      const networkSetting = JSON.parse(setting) as unknown as {
+        // Can't use SDK type here as it creates a common<>sdk circular
+        // dep. We only rely on the i18nTitleKey.
+        i18nTitleKey?: string,
+      };
+      if (networkSetting.i18nTitleKey && UI_STRING_TO_NEW_KEY.hasOwnProperty(networkSetting.i18nTitleKey)) {
+        const key = UI_STRING_TO_NEW_KEY[networkSetting.i18nTitleKey as keyof typeof UI_STRING_TO_NEW_KEY];
+
+        // The second argument is the default value, so it's important that we
+        // set this to the default, and then update it to the new key.
+        const newSetting = Settings.instance().createSetting('active-network-condition-key', 'NO_THROTTLING');
+        newSetting.set(key);
+      }
+    } finally {
+      // This setting is now not used, so we can remove it.
+      Settings.instance().globalStorage.remove(PREFERRED_NETWORK_COND_SETTING);
+    }
+  }
+
   /*
    * Any new migration should be added before this comment.
    *
@@ -1390,13 +1496,17 @@ export class VersionController {
 export const enum SettingStorageType {
   /** Persists with the active Chrome profile but also syncs the settings across devices via Chrome Sync. */
   SYNCED = 'Synced',
-  /** Persists with the active Chrome profile, but not synchronized to other devices.
-   * The default SettingStorageType of createSetting(). */
+  /**
+   * Persists with the active Chrome profile, but not synchronized to other devices.
+   * The default SettingStorageType of createSetting().
+   */
   GLOBAL = 'Global',
   /** Uses Window.localStorage. Not recommended, legacy. */
   LOCAL = 'Local',
-  /** Session storage dies when DevTools window closes. Useful for atypical conditions that should be reverted when the
-   * user is done with their task. (eg Emulation modes, Debug overlays). These are also not carried into/out of incognito */
+  /**
+   * Session storage dies when DevTools window closes. Useful for atypical conditions that should be reverted when the
+   * user is done with their task. (eg Emulation modes, Debug overlays). These are also not carried into/out of incognito
+   */
   SESSION = 'Session',
 }
 

@@ -158,12 +158,8 @@ export class TimespanBreakdownOverlay extends HTMLElement {
       <div class="timespan-breakdown-overlay-section">
         <div class="timespan-breakdown-overlay-label">
         ${section.showDuration ?
-          html`
-            <span class="duration-text">${i18n.TimeUtilities.formatMicroSecondsAsMillisFixed(section.bounds.range)}</span>
-          ` : Lit.nothing}
-          <span class="section-label-text">
-            ${section.label}
-          </span>
+          html`<span class="duration-text">${i18n.TimeUtilities.formatMicroSecondsAsMillisFixed(section.bounds.range)}</span> ` : Lit.nothing}
+          <span class="section-label-text">${section.label}</span>
         </div>
       </div>`;
     // clang-format on
@@ -175,7 +171,7 @@ export class TimespanBreakdownOverlay extends HTMLElement {
       this.classList.toggle('even-number-of-sections', this.#sections.length % 2 === 0);
     }
     Lit.render(
-        html`<style>${timespanBreakdownOverlayStyles.cssText}</style>
+        html`<style>${timespanBreakdownOverlayStyles}</style>
              ${this.#sections?.map(this.#renderSection)}`,
         this.#shadow, {host: this});
     this.checkSectionLabelPositioning();

@@ -15,7 +15,7 @@ import entriesLinkOverlayStyles from './entriesLinkOverlay.css.js';
 
 const UIStrings = {
   /**
-   *@description Accessible label used to explain to a user that they are viewing an arrow representing a link between two entries.
+   * @description Accessible label used to explain to a user that they are viewing an arrow representing a link between two entries.
    */
   diagram: 'Links between entries',
 } as const;
@@ -327,7 +327,7 @@ export class EntriesLinkOverlay extends HTMLElement {
     // clang-format off
     render(
         html`
-          <style>${entriesLinkOverlayStyles.cssText}</style>
+          <style>${entriesLinkOverlayStyles}</style>
           <svg class="connectorContainer" width="100%" height="100%" role="region" aria-label=${i18nString(UIStrings.diagram)}>
             <defs>
               <linearGradient

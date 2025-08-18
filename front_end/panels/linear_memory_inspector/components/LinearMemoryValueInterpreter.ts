@@ -10,8 +10,7 @@ import './ValueInterpreterSettings.js';
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as Platform from '../../../core/platform/platform.js';
 import * as Buttons from '../../../ui/components/buttons/buttons.js';
-// eslint-disable-next-line rulesdir/es-modules-import
-import inspectorCommonStyles from '../../../ui/legacy/inspectorCommon.css.js';
+import * as UI from '../../../ui/legacy/legacy.js';
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
@@ -21,12 +20,12 @@ import type {TypeToggleEvent} from './ValueInterpreterSettings.js';
 
 const UIStrings = {
   /**
-   *@description Tooltip text that appears when hovering over the gear button to open and close settings in the Linear memory inspector. These settings
+   * @description Tooltip text that appears when hovering over the gear button to open and close settings in the Linear memory inspector. These settings
    *             allow the user to change the value type to view, such as 32-bit Integer, or 32-bit Float.
    */
   toggleValueTypeSettings: 'Toggle value type settings',
   /**
-   *@description Tooltip text that appears when hovering over the 'Little Endian' or 'Big Endian' setting in the Linear memory inspector.
+   * @description Tooltip text that appears when hovering over the 'Little Endian' or 'Big Endian' setting in the Linear memory inspector.
    */
   changeEndianness: 'Change `Endianness`',
 } as const;
@@ -86,8 +85,8 @@ export class LinearMemoryValueInterpreter extends HTMLElement {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
-      <style>${inspectorCommonStyles.cssText}</style>
-      <style>${linearMemoryValueInterpreterStyles.cssText}</style>
+      <style>${UI.inspectorCommonStyles}</style>
+      <style>${linearMemoryValueInterpreterStyles}</style>
       <div class="value-interpreter">
         <div class="settings-toolbar">
           ${this.#renderEndiannessSetting()}

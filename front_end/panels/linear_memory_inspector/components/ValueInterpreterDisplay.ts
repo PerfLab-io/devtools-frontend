@@ -6,8 +6,7 @@
 import '../../../ui/components/icon_button/icon_button.js';
 
 import * as i18n from '../../../core/i18n/i18n.js';
-// eslint-disable-next-line rulesdir/es-modules-import
-import inspectorCommonStyles from '../../../ui/legacy/inspectorCommon.css.js';
+import * as UI from '../../../ui/legacy/legacy.js';
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
@@ -27,24 +26,24 @@ import {
 
 const UIStrings = {
   /**
-   *@description Tooltip text that appears when hovering over an unsigned interpretation of the memory under the Value Interpreter
+   * @description Tooltip text that appears when hovering over an unsigned interpretation of the memory under the Value Interpreter
    */
   unsignedValue: '`Unsigned` value',
   /**
-   *@description Tooltip text that appears when hovering over the element to change value type modes of under the Value Interpreter. Value type modes
+   * @description Tooltip text that appears when hovering over the element to change value type modes of under the Value Interpreter. Value type modes
    *             are different ways of viewing a certain value, e.g.: 10 (decimal) can be 0xa in hexadecimal mode, or 12 in octal mode.
    */
   changeValueTypeMode: 'Change mode',
   /**
-   *@description Tooltip text that appears when hovering over a signed interpretation of the memory under the Value Interpreter
+   * @description Tooltip text that appears when hovering over a signed interpretation of the memory under the Value Interpreter
    */
   signedValue: '`Signed` value',
   /**
-   *@description Tooltip text that appears when hovering over a 'jump-to-address' button that is next to a pointer (32-bit or 64-bit) under the Value Interpreter
+   * @description Tooltip text that appears when hovering over a 'jump-to-address' button that is next to a pointer (32-bit or 64-bit) under the Value Interpreter
    */
   jumpToPointer: 'Jump to address',
   /**
-   *@description Tooltip text that appears when hovering over a 'jump-to-address' button that is next to a pointer (32-bit or 64-bit) with an invalid address under the Value Interpreter.
+   * @description Tooltip text that appears when hovering over a 'jump-to-address' button that is next to a pointer (32-bit or 64-bit) with an invalid address under the Value Interpreter.
    */
   addressOutOfRange: 'Address out of memory range',
 
@@ -89,17 +88,12 @@ export class JumpToPointerAddressEvent extends Event {
 }
 
 export class ValueInterpreterDisplay extends HTMLElement {
-
   readonly #shadow = this.attachShadow({mode: 'open'});
   #endianness = Endianness.LITTLE;
   #buffer = new ArrayBuffer(0);
   #valueTypes = new Set<ValueType>();
   #valueTypeModeConfig: Map<ValueType, ValueTypeMode> = getDefaultValueTypeMapping();
   #memoryLength = 0;
-
-  constructor() {
-    super();
-  }
 
   set data(data: ValueDisplayData) {
     this.#buffer = data.buffer;
@@ -122,8 +116,8 @@ export class ValueInterpreterDisplay extends HTMLElement {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
-      <style>${inspectorCommonStyles.cssText}</style>
-      <style>${valueInterpreterDisplayStyles.cssText}</style>
+      <style>${UI.inspectorCommonStyles}</style>
+      <style>${valueInterpreterDisplayStyles}</style>
       <div class="value-types">
         ${SORTED_VALUE_TYPES.map(type => this.#valueTypes.has(type) ? this.#showValue(type) : '')}
       </div>

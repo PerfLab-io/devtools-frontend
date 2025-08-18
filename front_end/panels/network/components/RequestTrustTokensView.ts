@@ -14,51 +14,45 @@ import * as LegacyWrapper from '../../../ui/components/legacy_wrapper/legacy_wra
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
-import requestTrustTokensViewStylesRaw from './RequestTrustTokensView.css.js';
-
-/* eslint-disable rulesdir/no-adopted-style-sheets --
- * TODO(crbug.com/391381439): Fully migrate off of Constructable Stylesheets.
- **/
-const requestTrustTokensViewStyles = new CSSStyleSheet();
-requestTrustTokensViewStyles.replaceSync(requestTrustTokensViewStylesRaw.cssText);
+import requestTrustTokensViewStyles from './RequestTrustTokensView.css.js';
 
 const {html} = Lit;
 
 const UIStrings = {
   /**
-   *@description Section heading in the Trust Token tab
+   * @description Section heading in the Trust Token tab
    */
   parameters: 'Parameters',
   /**
-   *@description Text that refers to some types
+   * @description Text that refers to some types
    */
   type: 'Type',
   /**
-   *@description Label for a Trust Token parameter
+   * @description Label for a Trust Token parameter
    */
   refreshPolicy: 'Refresh policy',
   /**
-   *@description Label for a list if origins in the Trust Token tab
+   * @description Label for a list if origins in the Trust Token tab
    */
   issuers: 'Issuers',
   /**
-   *@description Label for a report field in the Network panel
+   * @description Label for a report field in the Network panel
    */
   topLevelOrigin: 'Top level origin',
   /**
-   *@description Text for the issuer of an item
+   * @description Text for the issuer of an item
    */
   issuer: 'Issuer',
   /**
-   *@description Heading of a report section in the Network panel
+   * @description Heading of a report section in the Network panel
    */
   result: 'Result',
   /**
-   *@description Text for the status of something
+   * @description Text for the status of something
    */
   status: 'Status',
   /**
-   *@description Label for a field in the Network panel
+   * @description Label for a field in the Network panel
    */
   numberOfIssuedTokens: 'Number of issued tokens',
   /**
@@ -67,41 +61,41 @@ const UIStrings = {
    */
   success: 'Success',
   /**
-   *@description Text in the network panel for an error status
+   * @description Text in the network panel for an error status
    */
   failure: 'Failure',
   /**
-   *@description Detailed text for a success status in the Network panel
+   * @description Detailed text for a success status in the Network panel
    */
   theOperationsResultWasServedFrom: 'The operations result was served from cache.',
   /**
-   *@description Detailed text for a success status in the Network panel
+   * @description Detailed text for a success status in the Network panel
    */
   theOperationWasFulfilledLocally: 'The operation was fulfilled locally, no request was sent.',
   /**
-   *@description Text for an error status in the Network panel
+   * @description Text for an error status in the Network panel
    */
   theKeysForThisPSTIssuerAreUnavailable:
       'The keys for this PST issuer are unavailable. The issuer may need to be registered via the Chrome registration process.',
   /**
-   *@description Text for an error status in the Network panel
+   * @description Text for an error status in the Network panel
    */
   aClientprovidedArgumentWas: 'A client-provided argument was malformed or otherwise invalid.',
   /**
-   *@description Text for an error status in the Network panel
+   * @description Text for an error status in the Network panel
    */
   eitherNoInputsForThisOperation:
       'Either no inputs for this operation are available or the output exceeds the operations quota.',
   /**
-   *@description Text for an error status in the Network panel
+   * @description Text for an error status in the Network panel
    */
   theServersResponseWasMalformedOr: 'The servers response was malformed or otherwise invalid.',
   /**
-   *@description Text for an error status in the Network panel
+   * @description Text for an error status in the Network panel
    */
   theOperationFailedForAnUnknown: 'The operation failed for an unknown reason.',
   /**
-   *@description Text for an error status in the Network panel
+   * @description Text for an error status in the Network panel
    */
   perSiteLimit: 'Per-site issuer limit reached.',
 } as const;
@@ -126,10 +120,6 @@ export class RequestTrustTokensView extends LegacyWrapper.LegacyWrapper.Wrappabl
     this.#request.removeEventListener(SDK.NetworkRequest.Events.TRUST_TOKEN_RESULT_ADDED, this.render, this);
   }
 
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [requestTrustTokensViewStyles];
-  }
-
   override async render(): Promise<void> {
     if (!this.#request) {
       throw new Error('Trying to render a Trust Token report without providing data');
@@ -137,7 +127,9 @@ export class RequestTrustTokensView extends LegacyWrapper.LegacyWrapper.Wrappabl
 
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
-    Lit.render(html`<devtools-report>
+    Lit.render(html`
+      <style>${requestTrustTokensViewStyles}</style>
+      <devtools-report>
         ${this.#renderParameterSection()}
         ${this.#renderResultSection()}
       </devtools-report>

@@ -1,11 +1,12 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-/* eslint-disable rulesdir/no-lit-render-outside-of-view, rulesdir/inject-checkbox-styles */
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
+
+import '../../../ui/legacy/legacy.js';
 
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as Platform from '../../../core/platform/platform.js';
-import * as Input from '../../../ui/components/input/input.js';
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
@@ -16,7 +17,7 @@ const {render, html} = Lit;
 
 const UIStrings = {
   /**
-   *@description Name of a group of selectable value types that do not fall under integer and floating point value types, e.g. Pointer32. The group appears name appears under the Value Interpreter Settings.
+   * @description Name of a group of selectable value types that do not fall under integer and floating point value types, e.g. Pointer32. The group appears name appears under the Value Interpreter Settings.
    */
   otherGroup: 'Other',
 } as const;
@@ -75,8 +76,7 @@ export class ValueInterpreterSettings extends HTMLElement {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
-      <style>${Input.checkboxStyles.cssText}</style>
-      <style>${valueInterpreterSettingsStyles.cssText}</style>
+      <style>${valueInterpreterSettingsStyles}</style>
       <div class="settings" jslog=${VisualLogging.pane('settings')}>
        ${[...GROUP_TO_TYPES.keys()].map(group => {
         return html`
@@ -97,10 +97,11 @@ export class ValueInterpreterSettings extends HTMLElement {
     return html`
       ${types.map(type => {
         return html`
-          <label class="type-label" title=${valueTypeToLocalizedString(type)}>
-            <input data-input="true" type="checkbox" .checked=${this.#valueTypes.has(type)} @change=${(e: Event) => this.#onTypeToggle(type, e)} jslog=${VisualLogging.toggle().track({change: true}).context(Platform.StringUtilities.toKebabCase(type))}>
-            <span data-title="true">${valueTypeToLocalizedString(type)}</span>
-          </label>
+            <devtools-checkbox
+              title=${valueTypeToLocalizedString(type)}
+              ?checked=${this.#valueTypes.has(type)}
+              @change=${(e: Event) => this.#onTypeToggle(type, e)} jslog=${VisualLogging.toggle().track({change: true}).context(Platform.StringUtilities.toKebabCase(type))}
+              >${valueTypeToLocalizedString(type)}</devtools-checkbox>
      `;})}`;
   }
 

@@ -15,15 +15,15 @@ import issueCounterStyles from './issueCounter.css.js';
 
 const UIStrings = {
   /**
-   *@description Label for link to Issues tab, specifying how many issues there are.
+   * @description Label for link to Issues tab, specifying how many issues there are.
    */
   pageErrors: '{issueCount, plural, =1 {# page error} other {# page errors}}',
   /**
-   *@description Label for link to Issues tab, specifying how many issues there are.
+   * @description Label for link to Issues tab, specifying how many issues there are.
    */
   breakingChanges: '{issueCount, plural, =1 {# breaking change} other {# breaking changes}}',
   /**
-   *@description Label for link to Issues tab, specifying how many issues there are.
+   * @description Label for link to Issues tab, specifying how many issues there are.
    */
   possibleImprovements: '{issueCount, plural, =1 {# possible improvement} other {# possible improvements}}',
 } as const;
@@ -33,11 +33,11 @@ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export function getIssueKindIconData(issueKind: IssuesManager.Issue.IssueKind): IconButton.Icon.IconWithName {
   switch (issueKind) {
     case IssuesManager.Issue.IssueKind.PAGE_ERROR:
-      return {iconName: 'issue-cross-filled', color: 'var(--icon-error)', width: '20px', height: '20px'};
+      return {iconName: 'issue-cross-filled', color: 'var(--icon-error)'};
     case IssuesManager.Issue.IssueKind.BREAKING_CHANGE:
-      return {iconName: 'issue-exclamation-filled', color: 'var(--icon-warning)', width: '20px', height: '20px'};
+      return {iconName: 'issue-exclamation-filled', color: 'var(--icon-warning)'};
     case IssuesManager.Issue.IssueKind.IMPROVEMENT:
-      return {iconName: 'issue-text-filled', color: 'var(--icon-info)', width: '20px', height: '20px'};
+      return {iconName: 'issue-text-filled', color: 'var(--icon-info)'};
   }
 }
 
@@ -202,7 +202,7 @@ export class IssueCounter extends HTMLElement {
     };
     render(
         html`
-        <style>${issueCounterStyles.cssText}</style>
+        <style>${issueCounterStyles}</style>
         <icon-button .data=${data} .accessibleName=${this.#accessibleName}></icon-button>
         `,
         this.#shadow, {host: this});

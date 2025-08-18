@@ -6,16 +6,74 @@ import childProcess from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {performance} from 'node:perf_hooks';
-import util from 'node:util';
 
 import {
   autoninjaPyPath,
   gnPyPath,
+  isInChromiumDirectory,
   rootPath,
   vpython3ExecutablePath,
 } from './devtools_paths.js';
 
-const execFile = util.promisify(childProcess.execFile);
+/**
+ * Errors returned from `spawn()` will have additional `stderr` and `stdout`
+ * properties, similar to what we'd get from `child_process.execFile()`.
+ */
+class SpawnError extends Error {
+  /**
+   * Constructor for errors generated from `spawn()`.
+   *
+   * @param {string} message The actual error message.
+   * @param {string} stderr The child process' error output.
+   * @param {string} stdout The child process' regular output.
+   */
+  constructor(message, stderr, stdout) {
+    super(message);
+    this.stderr = stderr;
+    this.stdout = stdout;
+  }
+}
+
+/**
+ * Promisified wrapper around `child_process.spawn()`.
+ *
+ * In addition to forwarding the `options` to `child_process.spawn()`, it'll also
+ * set the `shell` option to `true`, to ensure that on Windows we can correctly
+ * invoke `.bat` files (necessary for the Python3 wrapper script).
+ *
+ * @param {string} command The command to run.
+ * @param {Array<string>} args List of string arguments to pass to the `command`.
+ * @param {Object} options Passed directly to `child_process.spawn()`.
+ * @returns {Promise<{stdout: string, stderr: string}>}
+ */
+function spawn(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = childProcess.spawn(command, args, {...options, shell: true});
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', data => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on('data', data => {
+      stderr += data.toString();
+    });
+
+    child.on('exit', (code, signal) => {
+      if (signal) {
+        reject(new SpawnError(`Process terminated due to signal ${signal}`, stderr, stdout));
+      } else if (code) {
+        reject(new SpawnError(`Process exited with code ${code}`, stderr, stdout));
+      } else {
+        resolve({stdout, stderr});
+      }
+    });
+
+    child.on('error', reject);
+  });
+}
 
 /**
  * Representation of the feature set that is configured for Chrome. This
@@ -32,7 +90,7 @@ export class FeatureSet {
   /**
    * Disables the given `feature`.
    *
-   * @param {string} feature the name of the feature to disable.
+   * @param feature the name of the feature to disable.
    */
   disable(feature) {
     this.#disabled.add(feature);
@@ -47,8 +105,8 @@ export class FeatureSet {
    * ```
    * The parameters are additive.
    *
-   * @param {string} feature the name of the feature to enable.
-   * @param {object} parameters the additional parameters to pass to it, in
+   * @param feature the name of the feature to enable.
+   * @param parameters the additional parameters to pass to it, in
    *                            the form of key/value pairs.
    */
   enable(feature, parameters = {}) {
@@ -131,17 +189,17 @@ export class FeatureSet {
 /**
  * Constructs a human readable error message for the given build `error`.
  *
- * @param {Error} error the `Error` from the failed `autoninja` invocation.
- * @param {string} outDir the absolute path to the `target` out directory.
- * @param {string} target the targe relative to `//out`.
- * @return {string} the human readable error message.
+ * @param error the `Error` from the failed `autoninja` invocation.
+ * @param outDir the absolute path to the `target` out directory.
+ * @param target the target relative to `//out`.
+ * @returns the human readable error message.
  */
 function buildErrorMessageForNinja(error, outDir, target) {
   const {message, stderr, stdout} = error;
   if (stderr) {
     // Anything that went to stderr has precedence.
     return `Failed to build \`${target}' in \`${outDir}'
-
+${stdout}
 ${stderr}
 `;
   }
@@ -176,6 +234,7 @@ ${output}
   return `Failed to build \`${target}' in \`${outDir}' (${message.substring(0, message.indexOf('\n'))})`;
 }
 
+/** @enum */
 export const BuildStep = {
   GN: 'gn',
   AUTONINJA: 'autoninja',
@@ -185,11 +244,11 @@ export class BuildError extends Error {
   /**
    * Constructs a new `BuildError` with the given parameters.
    *
-   * @param {BuildStep} step the build step that failed.
-   * @param {Object} options additional options for the `BuildError`.
-   * @param {Error} options.cause the actual cause for the build error.
-   * @param {string} options.outDir the absolute path to the `target` out directory.
-   * @param {string} options.target the target relative to `//out`.
+   * @param step the build step that failed.
+   * @param {object} options additional options for the `BuildError`.
+   * @param options.cause the actual cause for the build error.
+   * @param options.outDir the absolute path to the `target` out directory.
+   * @param options.target the target relative to `//out`.
    */
   constructor(step, options) {
     const {cause, outDir, target} = options;
@@ -210,8 +269,8 @@ export class BuildError extends Error {
  */
 
 /**
- * @param {string} target
- * @return {Promise<void>}
+ * @param target the target relative to `//out`.
+ * @returns the GN args for the `target`.
  */
 export async function prepareBuild(target) {
   const outDir = path.join(rootPath(), 'out', target);
@@ -223,29 +282,107 @@ export async function prepareBuild(target) {
     try {
       const gnExe = vpython3ExecutablePath();
       const gnArgs = [gnPyPath(), '-q', 'gen', outDir];
-      await execFile(gnExe, gnArgs);
+      await spawn(gnExe, gnArgs);
     } catch (cause) {
       throw new BuildError(BuildStep.GN, {cause, outDir, target});
     }
   }
+
+  return await gnArgsForTarget(target);
+}
+
+/** @type Map<string, Promise<Map<string, string>>> */
+const gnArgsCache = new Map();
+
+function gnArgsForTarget(target) {
+  let gnArgs = gnArgsCache.get(target);
+  if (!gnArgs) {
+    gnArgs = (async () => {
+      const outDir = path.join(rootPath(), 'out', target);
+      try {
+        const cwd = rootPath();
+        const gnExe = vpython3ExecutablePath();
+        const gnArgs = [gnPyPath(), '-q', 'args', outDir, '--json', '--list', '--short'];
+        const {stdout} = await spawn(gnExe, gnArgs, {cwd});
+        return new Map(JSON.parse(stdout).map(arg => [arg.name, arg.current?.value ?? arg.default?.value]));
+      } catch {
+        return new Map();
+      }
+    })();
+    gnArgsCache.set(target, gnArgs);
+  }
+  return gnArgs;
+}
+
+/** @type Map<string, Map<string, Promise<Array<string>>>> */
+const gnRefsCache = new Map();
+
+function gnRefsForTarget(target, filename) {
+  let gnRefsPerTarget = gnRefsCache.get(target);
+  if (!gnRefsPerTarget) {
+    gnRefsPerTarget = new Map();
+    gnRefsCache.set(target, gnRefsPerTarget);
+  }
+  let gnRef = gnRefsPerTarget.get(filename);
+  if (!gnRef) {
+    gnRef = (async () => {
+      const cwd = rootPath();
+      const outDir = path.join(rootPath(), 'out', target);
+      const gnExe = vpython3ExecutablePath();
+      const gnArgs = [gnPyPath(), 'refs', outDir, '--as=output', filename];
+      const {stdout} = await spawn(gnExe, gnArgs, {cwd});
+      return stdout.trim().split('\n');
+    })();
+    gnRefsPerTarget.set(filename, gnRef);
+  }
+  return gnRef;
+}
+
+async function computeBuildTargetsForFiles(target, filenames) {
+  const SUPPORTED_EXTENSIONS = ['.css', '.ts'];
+  if (filenames && filenames.length &&
+      filenames.every(filename => SUPPORTED_EXTENSIONS.includes(path.extname(filename)))) {
+    if (isInChromiumDirectory().isInChromium) {
+      filenames = filenames.map(filename => path.join('third_party', 'devtools-frontend', 'src', filename));
+    }
+    const gnArgs = await gnArgsForTarget(target);
+    if (gnArgs.get('devtools_bundle') === 'false') {
+      try {
+        const gnRefs = (await Promise.all(filenames.map(filename => gnRefsForTarget(target, filename)))).flat();
+        if (gnRefs.length) {
+          // If there are any changes to TypeScript files, we need to also rebuild the
+          // `en-US.json`, as otherwise the changes to `UIStrings` aren't picked up.
+          if (filenames.some(filename => path.extname(filename) === '.ts')) {
+            gnRefs.push('collect_strings');
+          }
+          return gnRefs;
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  }
+  return ['devtools_all_files'];
 }
 
 /**
- * @param {string} target
- * @param {AbortSignal=} signal
- * @return {Promise<BuildResult>} a `BuildResult` with statistics for the build.
+ * @param target
+ * @param signal
+ * @param filenames
+ * @returns a `BuildResult` with statistics for the build.
  */
-export async function build(target, signal) {
+export async function build(target, signal, filenames) {
   const startTime = performance.now();
   const outDir = path.join(rootPath(), 'out', target);
 
   // Build just the devtools-frontend resources in |outDir|. This is important
   // since we might be running in a full Chromium checkout and certainly don't
   // want to build all of Chromium first.
+  const buildTargets = await computeBuildTargetsForFiles(target, filenames);
   try {
     const autoninjaExe = vpython3ExecutablePath();
-    const autoninjaArgs = [autoninjaPyPath(), '-C', outDir, 'devtools_all_files'];
-    await execFile(autoninjaExe, autoninjaArgs, {signal});
+    const autoninjaArgs = [autoninjaPyPath(), '-C', outDir, ...buildTargets];
+    await spawn(autoninjaExe, autoninjaArgs, {shell: true, signal});
   } catch (cause) {
     if (cause.name === 'AbortError') {
       throw cause;

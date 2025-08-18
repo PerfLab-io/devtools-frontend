@@ -215,6 +215,11 @@ export class NodeIndicator implements UI.Toolbar.Provider {
   }
 
   #update(targetInfos: Protocol.Target.TargetInfo[]): void {
+    // Disable when we are testing, as debugging e2e
+    // attaches a debug process and this changes some view sizes
+    if (Host.InspectorFrontendHost.isUnderTest()) {
+      return;
+    }
     const hasNode = Boolean(targetInfos.find(target => target.type === 'node' && !target.attached));
     this.#element.classList.toggle('inactive', !hasNode);
     if (hasNode) {
@@ -259,6 +264,9 @@ export class BackendSettingsSync implements SDK.TargetManager.Observer {
 
     this.#emulatePageFocusSetting = Common.Settings.Settings.instance().moduleSetting('emulate-page-focus');
     this.#emulatePageFocusSetting.addChangeListener(this.#update, this);
+    SDK.TargetManager.TargetManager.instance().addModelListener(
+        SDK.ChildTargetManager.ChildTargetManager, SDK.ChildTargetManager.Events.TARGET_INFO_CHANGED,
+        this.#targetInfoChanged, this);
 
     SDK.TargetManager.TargetManager.instance().observeTargets(this);
   }
@@ -279,6 +287,15 @@ export class BackendSettingsSync implements SDK.TargetManager.Observer {
     for (const target of SDK.TargetManager.TargetManager.instance().targets()) {
       this.#updateTarget(target);
     }
+  }
+
+  #targetInfoChanged(event: Common.EventTarget.EventTargetEvent<Protocol.Target.TargetInfo>): void {
+    const targetManager = SDK.TargetManager.TargetManager.instance();
+    const target = targetManager.targetById(event.data.targetId);
+    if (!target || target.outermostTarget() !== target) {
+      return;
+    }
+    this.#updateTarget(target);
   }
 
   targetAdded(target: SDK.Target.Target): void {

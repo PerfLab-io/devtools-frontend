@@ -28,6 +28,7 @@ export interface InsightSetContextWithNavigation {
 }
 
 export interface LanternContext {
+  requests: Array<Lantern.Types.NetworkRequest<Types.Events.SyntheticNetworkRequest>>;
   graph: Lantern.Graph.Node<Types.Events.SyntheticNetworkRequest>;
   simulator: Lantern.Simulation.Simulator<Types.Events.SyntheticNetworkRequest>;
   metrics: Record<string, Lantern.Metrics.MetricResult>;
@@ -75,6 +76,7 @@ export type InsightModel<UIStrings extends Record<string, string> = Record<strin
       description: Common.UIString.LocalizedString,
       category: InsightCategory,
       state: 'pass' | 'fail' | 'informative',
+      /** Used by RelatedInsightChips.ts */
       relatedEvents?: RelatedEventsMap | Types.Events.Event[],
       warnings?: InsightWarning[],
       metricSavings?: MetricSavings,
@@ -92,6 +94,8 @@ export type InsightModel<UIStrings extends Record<string, string> = Record<strin
        * If this insight is attached to a navigation, this stores its ID.
        */
       navigationId?: string,
+      /** This is lazily-generated because some insights may create many overlays. */
+      createOverlays?: () => Types.Overlays.Overlay[],
     };
 
 export type PartialInsightModel<T> =
@@ -129,8 +133,8 @@ export type InsightModels = {
 export type TraceInsightSets = Map<Types.Events.NavigationId, InsightSet>;
 
 export const enum InsightKeys {
-  LCP_PHASES = 'LCPPhases',
-  INTERACTION_TO_NEXT_PAINT = 'InteractionToNextPaint',
+  LCP_BREAKDOWN = 'LCPBreakdown',
+  INP_BREAKDOWN = 'INPBreakdown',
   CLS_CULPRITS = 'CLSCulprits',
   THIRD_PARTIES = 'ThirdParties',
   DOCUMENT_LATENCY = 'DocumentLatency',
@@ -145,4 +149,5 @@ export const enum InsightKeys {
   RENDER_BLOCKING = 'RenderBlocking',
   SLOW_CSS_SELECTOR = 'SlowCSSSelector',
   VIEWPORT = 'Viewport',
+  MODERN_HTTP = 'ModernHTTP',
 }

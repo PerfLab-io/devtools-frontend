@@ -27,6 +27,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -46,7 +47,6 @@ import {Dialog} from './Dialog.js';
 import {DockController, DockState} from './DockController.js';
 import {GlassPane} from './GlassPane.js';
 import {Infobar, Type as InfobarType} from './Infobar.js';
-import inspectorViewTabbedPaneStyles from './inspectorViewTabbedPane.css.js';
 import {KeyboardShortcut} from './KeyboardShortcut.js';
 import type {Panel} from './Panel.js';
 import {ShowMode, SplitWidget} from './SplitWidget.js';
@@ -59,31 +59,31 @@ import {VBox, type Widget, WidgetFocusRestorer} from './Widget.js';
 
 const UIStrings = {
   /**
-   *@description Title of more tabs button in inspector view
+   * @description Title of more tabs button in inspector view
    */
   moreTools: 'More Tools',
   /**
-   *@description Text that appears when hovor over the close button on the drawer view
+   * @description Text that appears when hovor over the close button on the drawer view
    */
   closeDrawer: 'Close drawer',
   /**
-   *@description The aria label for main tabbed pane that contains Panels
+   * @description The aria label for main tabbed pane that contains Panels
    */
   panels: 'Panels',
   /**
-   *@description Title of an action that reloads the tab currently being debugged by DevTools
+   * @description Title of an action that reloads the tab currently being debugged by DevTools
    */
   reloadDebuggedTab: 'Reload page',
   /**
-   *@description Title of an action that reloads the DevTools
+   * @description Title of an action that reloads the DevTools
    */
   reloadDevtools: 'Reload DevTools',
   /**
-   *@description Text for context menu action to move a tab to the main panel
+   * @description Text for context menu action to move a tab to the main panel
    */
   moveToTop: 'Move to top',
   /**
-   *@description Text for context menu action to move a tab to the drawer
+   * @description Text for context menu action to move a tab to the drawer
    */
   moveToBottom: 'Move to bottom',
   /**
@@ -107,19 +107,19 @@ const UIStrings = {
    */
   setToSpecificLanguage: 'Switch DevTools to {PH1}',
   /**
-   *@description The aria label for main toolbar
+   * @description The aria label for main toolbar
    */
   mainToolbar: 'Main toolbar',
   /**
-   *@description The aria label for the drawer.
+   * @description The aria label for the drawer.
    */
   drawer: 'Tool drawer',
   /**
-   *@description The aria label for the drawer shown.
+   * @description The aria label for the drawer shown.
    */
   drawerShown: 'Drawer shown',
   /**
-   *@description The aria label for the drawer hidden.
+   * @description The aria label for the drawer hidden.
    */
   drawerHidden: 'Drawer hidden',
   /**
@@ -128,9 +128,13 @@ const UIStrings = {
    */
   selectOverrideFolder: 'Select a folder to store override files in',
   /**
-   *@description Label for a button which opens a file picker.
+   * @description Label for a button which opens a file picker.
    */
   selectFolder: 'Select folder',
+  /**
+   * @description Text that appears when hover the toggle orientation button
+   */
+  toggleDrawerOrientation: 'Toggle drawer orientation',
 } as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/InspectorView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -150,6 +154,8 @@ export class InspectorView extends VBox implements ViewLocationResolver {
   private ownerSplitWidget?: SplitWidget;
   private reloadRequiredInfobar?: Infobar;
   #selectOverrideFolderInfobar?: Infobar;
+  #resizeObserver: ResizeObserver;
+  #toggleOrientationButton: ToolbarButton;
 
   constructor() {
     super();
@@ -174,12 +180,18 @@ export class InspectorView extends VBox implements ViewLocationResolver {
     const moreTabsButton = this.drawerTabbedLocation.enableMoreTabsButton();
     moreTabsButton.setTitle(i18nString(UIStrings.moreTools));
     this.drawerTabbedPane = this.drawerTabbedLocation.tabbedPane();
-    this.drawerTabbedPane.setMinimumSize(0, 27);
+    this.setDrawerMinimumSize();
     this.drawerTabbedPane.element.classList.add('drawer-tabbed-pane');
     this.drawerTabbedPane.element.setAttribute('jslog', `${VisualLogging.drawer()}`);
     const closeDrawerButton = new ToolbarButton(i18nString(UIStrings.closeDrawer), 'cross');
     closeDrawerButton.element.setAttribute('jslog', `${VisualLogging.close().track({click: true})}`);
     closeDrawerButton.addEventListener(ToolbarButton.Events.CLICK, this.closeDrawer, this);
+    this.#toggleOrientationButton = new ToolbarButton(
+        i18nString(UIStrings.toggleDrawerOrientation),
+        this.drawerSplitWidget.isVertical() ? 'dock-bottom' : 'dock-right');
+    this.#toggleOrientationButton.element.setAttribute('jslog', `${VisualLogging.toggle().track({click: true})}`);
+    this.#toggleOrientationButton.element.setAttribute('jslogcontext', 'toggle-drawer-orientation');
+    this.#toggleOrientationButton.addEventListener(ToolbarButton.Events.CLICK, this.toggleDrawerOrientation, this);
     this.drawerTabbedPane.addEventListener(
         TabbedPaneEvents.TabSelected,
         (event: Common.EventTarget.EventTargetEvent<EventData>) => this.tabSelected(event.data.tabId), this);
@@ -195,6 +207,9 @@ export class InspectorView extends VBox implements ViewLocationResolver {
 
     this.drawerSplitWidget.installResizer(this.drawerTabbedPane.headerElement());
     this.drawerSplitWidget.setSidebarWidget(this.drawerTabbedPane);
+    if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.VERTICAL_DRAWER)) {
+      this.drawerTabbedPane.rightToolbar().appendToolbarItem(this.#toggleOrientationButton);
+    }
     this.drawerTabbedPane.rightToolbar().appendToolbarItem(closeDrawerButton);
     this.drawerTabbedPane.headerElement().setAttribute('jslog', `${VisualLogging.toolbar('drawer').track({
                                                          drag: true,
@@ -215,7 +230,6 @@ export class InspectorView extends VBox implements ViewLocationResolver {
     // the Device mode button is not added and so the allocated space is smaller.
     const allocatedSpace = Root.Runtime.conditions.canDock() ? '69px' : '41px';
     this.tabbedPane.leftToolbar().style.minWidth = allocatedSpace;
-    this.tabbedPane.registerRequiredCSS(inspectorViewTabbedPaneStyles);
     this.tabbedPane.addEventListener(
         TabbedPaneEvents.TabSelected,
         (event: Common.EventTarget.EventTargetEvent<EventData>) => this.tabSelected(event.data.tabId), this);
@@ -241,6 +255,7 @@ export class InspectorView extends VBox implements ViewLocationResolver {
       this.tabbedPane.setAutoSelectFirstItemOnShow(false);
     }
     this.drawerSplitWidget.setMainWidget(this.tabbedPane);
+    this.drawerSplitWidget.setDefaultFocusedChild(this.tabbedPane);
 
     this.keyDownBound = this.keyDown.bind(this);
     Host.InspectorFrontendHost.InspectorFrontendHostInstance.events.addEventListener(
@@ -255,6 +270,7 @@ export class InspectorView extends VBox implements ViewLocationResolver {
       infobar.setParentView(this);
       this.attachInfobar(infobar);
     }
+    this.#resizeObserver = new ResizeObserver(this.#observedResize.bind(this));
   }
 
   static instance(opts: {
@@ -276,11 +292,24 @@ export class InspectorView extends VBox implements ViewLocationResolver {
     inspectorViewInstance = null;
   }
 
+  #observedResize(): void {
+    const rect = this.element.getBoundingClientRect();
+    this.element.style.setProperty('--devtools-window-left', `${rect.left}px`);
+    this.element.style.setProperty('--devtools-window-right', `${window.innerWidth - rect.right}px`);
+    this.element.style.setProperty('--devtools-window-width', `${rect.width}px`);
+    this.element.style.setProperty('--devtools-window-top', `${rect.top}px`);
+    this.element.style.setProperty('--devtools-window-bottom', `${window.innerHeight - rect.bottom}px`);
+    this.element.style.setProperty('--devtools-window-height', `${rect.height}px`);
+  }
+
   override wasShown(): void {
+    this.#resizeObserver.observe(this.element);
+    this.#observedResize();
     this.element.ownerDocument.addEventListener('keydown', this.keyDownBound, false);
   }
 
   override willHide(): void {
+    this.#resizeObserver.unobserve(this.element);
     this.element.ownerDocument.removeEventListener('keydown', this.keyDownBound, false);
   }
 
@@ -337,7 +366,8 @@ export class InspectorView extends VBox implements ViewLocationResolver {
       let icon: IconButton.Icon.Icon|null = null;
       if (warnings.length !== 0) {
         const warning = warnings.length === 1 ? warnings[0] : '· ' + warnings.join('\n· ');
-        icon = IconButton.Icon.create('warning-filled', 'warning');
+        icon = IconButton.Icon.create('warning-filled', 'small');
+        icon.classList.add('warning');
         Tooltip.install(icon, warning);
       }
       tabbedPane.setTrailingTabIcon(tabId, icon);
@@ -381,7 +411,7 @@ export class InspectorView extends VBox implements ViewLocationResolver {
       this.focusRestorer = null;
     }
     this.emitDrawerChangeEvent(true);
-    ARIAUtils.alert(i18nString(UIStrings.drawerShown));
+    ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.drawerShown));
   }
 
   drawerVisible(): boolean {
@@ -398,12 +428,42 @@ export class InspectorView extends VBox implements ViewLocationResolver {
     this.drawerSplitWidget.hideSidebar(true);
 
     this.emitDrawerChangeEvent(false);
-    ARIAUtils.alert(i18nString(UIStrings.drawerHidden));
+    ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.drawerHidden));
+  }
+
+  toggleDrawerOrientation(): void {
+    const drawerWillBeVertical = !this.drawerSplitWidget.isVertical();
+    this.#toggleOrientationButton.setGlyph(drawerWillBeVertical ? 'dock-bottom' : 'dock-right');
+    this.drawerSplitWidget.setVertical(drawerWillBeVertical);
+    this.setDrawerMinimumSize();
+  }
+
+  setDrawerMinimumSize(): void {
+    const drawerIsVertical = this.drawerSplitWidget.isVertical();
+    if (drawerIsVertical) {
+      // Set minimum size when the drawer is vertical to ensure the buttons will always be
+      // visible during resizing.
+      this.drawerTabbedPane.setMinimumSize(100, 27);
+    } else {
+      this.drawerTabbedPane.setMinimumSize(0, 27);
+    }
   }
 
   setDrawerMinimized(minimized: boolean): void {
     this.drawerSplitWidget.setSidebarMinimized(minimized);
     this.drawerSplitWidget.setResizable(!minimized);
+  }
+
+  drawerSize(): number {
+    return this.drawerSplitWidget.sidebarSize();
+  }
+
+  setDrawerSize(size: number): void {
+    this.drawerSplitWidget.setSidebarSize(size);
+  }
+
+  totalSize(): number {
+    return this.drawerSplitWidget.totalSize();
   }
 
   isDrawerMinimized(): boolean {
@@ -654,6 +714,11 @@ export class ActionDelegate implements ActionDelegateInterface {
             focus: true,
             hasTargetDrawer: false,
           });
+        }
+        return true;
+      case 'main.toggle-drawer-orientation':
+        if (Root.Runtime.experiments.isEnabled(Root.Runtime.ExperimentName.VERTICAL_DRAWER)) {
+          InspectorView.instance().toggleDrawerOrientation();
         }
         return true;
       case 'main.next-tab':

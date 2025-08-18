@@ -48,60 +48,61 @@ import {type Calculator, TimelineGrid} from './TimelineGrid.js';
 /**
  * Set as the `details` value on the fake context menu event we dispatch to
  * trigger a context menu on an event on a keyboard space key press.
- {@see onContextMenu} for more details and explanation.
+ * {@see onContextMenu} for more details and explanation.
  */
 const KEYBOARD_FAKED_CONTEXT_MENU_DETAIL = -1;
 
+/**
+ * The adjustments needed for the subtitle font (based off of the default font).
+ */
+const SUBTITLE_FONT_SIZE_AND_STYLE = 'italic 10px';
+
 const UIStrings = {
   /**
-   *@description Aria alert used to notify the user when an event has been selected because they tabbed into a group.
-   *@example {Paint} PH1
-   *@example {Main thread} PH2
+   * @description Aria alert used to notify the user when an event has been selected because they tabbed into a group.
+   * @example {Paint} PH1
+   * @example {Main thread} PH2
    *
    */
   eventSelectedFromGroup: 'Selected a {PH1} event within {PH2}. Press "enter" to focus this event.',
   /**
-   *@description Aria accessible name in Flame Chart of the Performance panel
+   * @description Aria accessible name in Flame Chart of the Performance panel
    */
   flameChart: 'Flame Chart',
   /**
-   *@description Text for the screen reader to announce a hovered group
-   *@example {Network} PH1
+   * @description Text for the screen reader to announce a hovered group
+   * @example {Network} PH1
    */
   sHovered: '{PH1} hovered',
   /**
-   *@description Text for screen reader to announce a selected group.
-   *@example {Network} PH1
+   * @description Text for screen reader to announce a selected group.
+   * @example {Network} PH1
    */
   sSelected: '{PH1} selected',
   /**
-   *@description Text for screen reader to announce an expanded group
-   *@example {Network} PH1
+   * @description Text for screen reader to announce an expanded group
+   * @example {Network} PH1
    */
   sExpanded: '{PH1} expanded',
   /**
-   *@description Text for screen reader to announce a collapsed group
-   *@example {Network} PH1
+   * @description Text for screen reader to announce a collapsed group
+   * @example {Network} PH1
    */
   sCollapsed: '{PH1} collapsed',
   /**
-   *@description Text for an action that adds a label annotation to an entry in the Flame Chart
+   * @description Text for an action that adds a label annotation to an entry in the Flame Chart
    */
   labelEntry: 'Label entry',
   /**
-   *@description Text for an action that adds link annotation between entries in the Flame Chart
+   * @description Text for an action that adds link annotation between entries in the Flame Chart
    */
   linkEntries: 'Link entries',
   /**
-   *@description Text for an action that removes all annotations associated with an entry
-   */
-  deleteAnnotations: 'Delete annotations',
-  /**
-   *@description Shown in the context menu when right clicking on a track header to enable the user to enter the track configuration mode.
+   * @description Shown in the context menu when right clicking on a track header to enable the user to enter the track configuration mode.
    */
   enterTrackConfigurationMode: 'Configure tracks',
   /**
-   *@description Shown in the context menu when right clicking on a track header to allow the user to exit track configuration mode.
+   * @description Shown in the context menu when right clicking on a track header to allow the user to exit track configuration mode.
    */
   exitTrackConfigurationMode: 'Finish configuring tracks',
 } as const;
@@ -125,6 +126,7 @@ export const ARROW_SIDE = 8;
 const EXPANSION_ARROW_INDENT = HEADER_LEFT_PADDING + ARROW_SIDE / 2;
 const HEADER_LABEL_X_PADDING = 3;
 const HEADER_LABEL_Y_PADDING = 2;
+const PADDING_BETWEEN_TITLE_AND_SUBTITLE = 6;
 
 // The width of each of the edit mode icons.
 export const EDIT_ICON_WIDTH = 16;
@@ -182,13 +184,6 @@ export interface FlameChartDelegate {
   containingElement?: () => HTMLElement;
 }
 
-interface GroupExpansionState {
-  [groupName: string]: boolean;
-}
-interface GroupHiddenState {
-  [groupName: string]: boolean;
-}
-
 interface PopoverState {
   // Index of the last entry the popover was shown over.
   entryIndex: number|null;
@@ -212,7 +207,6 @@ export interface OptionalFlameChartConfig {
    * system, so we disable the built in one.
    */
   selectedElementOutline?: boolean;
-  groupExpansionSetting?: Common.Settings.Setting<GroupExpansionState>;
   /**
    * The element to use when populating and positioning the mouse tooltip.
    */
@@ -221,6 +215,11 @@ export interface OptionalFlameChartConfig {
    * Used to disable the cursor element in ChartViewport and instead use the new overlays system.
    */
   useOverlaysForCursorRuler?: boolean;
+
+  /**
+   * If provided, this will add a VE Logging context to the canvas to log visibility and hovers.
+   */
+  canvasVELogContext?: string;
 }
 
 export const enum FilterAction {
@@ -258,9 +257,6 @@ export type DrawOverride =
 
 export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, typeof UI.Widget.VBox>(UI.Widget.VBox)
     implements Calculator, ChartViewportDelegate {
-  private readonly groupExpansionSetting?: Common.Settings.Setting<GroupExpansionState>;
-  private groupExpansionState: GroupExpansionState;
-  private groupHiddenState: GroupHiddenState;
   private readonly flameChartDelegate: FlameChartDelegate;
   private chartViewport: ChartViewport;
   private dataProvider: FlameChartDataProvider;
@@ -325,6 +321,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
   #tooltipPopoverYAdjustment = 0;
 
   #font: string;
+  #subtitleFont: string;
   #groupTreeRoot?: GroupTreeNode|null;
   #searchResultEntryIndex: number|null = null;
   #inTrackConfigEditMode = false;
@@ -335,21 +332,23 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
   #selectedElementOutlineEnabled = true;
 
   #indexToDrawOverride = new Map<number, DrawOverride>();
+  #persistedGroupConfig: PersistedGroupConfig[]|null = null;
+  readonly #boundOnThemeChanged = this.#onThemeChanged.bind(this);
 
   constructor(
       dataProvider: FlameChartDataProvider, flameChartDelegate: FlameChartDelegate,
       optionalConfig: OptionalFlameChartConfig = {}) {
-    super(true);
+    super({useShadowDom: true});
     this.#font = `${DEFAULT_FONT_SIZE} ${getFontFamilyForCanvas()}`;
+    this.#subtitleFont = `${SUBTITLE_FONT_SIZE_AND_STYLE} ${getFontFamilyForCanvas()}`;
     this.registerRequiredCSS(flameChartStyles);
+    this.registerRequiredCSS(UI.inspectorCommonStyles);
+
     this.contentElement.classList.add('flame-chart-main-pane');
     if (typeof optionalConfig.selectedElementOutline === 'boolean') {
       this.#selectedElementOutlineEnabled = optionalConfig.selectedElementOutline;
     }
 
-    this.groupExpansionSetting = optionalConfig.groupExpansionSetting;
-    this.groupExpansionState = optionalConfig.groupExpansionSetting?.get() || {};
-    this.groupHiddenState = {};
     this.flameChartDelegate = flameChartDelegate;
 
     // The ChartViewport has its own built-in ruler for when the user holds
@@ -368,6 +367,12 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
 
     this.viewportElement = this.chartViewport.viewportElement;
     this.canvas = this.viewportElement.createChild('canvas', 'fill');
+    if (optionalConfig.canvasVELogContext) {
+      const context = VisualLogging.canvas(optionalConfig.canvasVELogContext).track({
+        hover: true,
+      });
+      this.canvas.setAttribute('jslog', `${context}`);
+    }
     this.context = this.canvas.getContext('2d') as CanvasRenderingContext2D;
     this.candyStripePattern = this.candyStripePatternGray = null;
 
@@ -428,14 +433,23 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
 
     // Keyboard focused group is used to navigate groups irrespective of whether they are selectable or not
     this.keyboardFocusedGroup = -1;
+  }
 
-    ThemeSupport.ThemeSupport.instance().addEventListener(ThemeSupport.ThemeChangeEvent.eventName, () => {
-      this.scheduleUpdate();
-    });
+  #onThemeChanged(): void {
+    this.scheduleUpdate();
+  }
+
+  override wasShown(): void {
+    super.wasShown();
+    ThemeSupport.ThemeSupport.instance().addEventListener(
+        ThemeSupport.ThemeChangeEvent.eventName, this.#boundOnThemeChanged);
   }
 
   override willHide(): void {
+    ThemeSupport.ThemeSupport.instance().removeEventListener(
+        ThemeSupport.ThemeChangeEvent.eventName, this.#boundOnThemeChanged);
     this.hideHighlight();
+    super.willHide();
   }
 
   canvasBoundingClientRect(): DOMRect|null {
@@ -678,11 +692,12 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.updateHighlight();
   }
 
-  timelineData(rebuid?: boolean): FlameChartTimelineData|null {
+  timelineData(rebuild?: boolean): FlameChartTimelineData|null {
     if (!this.dataProvider) {
       return null;
     }
-    const timelineData = this.dataProvider.timelineData(rebuid);
+
+    const timelineData = this.dataProvider.timelineData(rebuild);
     if (timelineData !== this.rawTimelineData ||
         (timelineData && timelineData.entryStartTimes.length !== this.rawTimelineDataLength)) {
       this.processTimelineData(timelineData);
@@ -1115,12 +1130,12 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     const groupName = groups[groupIndex].name;
     if (!groups[groupIndex].selectable) {
       this.deselectAllGroups();
-      UI.ARIAUtils.alert(i18nString(UIStrings.sHovered, {PH1: groupName}));
+      UI.ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.sHovered, {PH1: groupName}));
     } else {
       this.selectedGroupIndex = groupIndex;
       this.flameChartDelegate.updateSelectedGroup(this, groups[groupIndex]);
       this.draw();
-      UI.ARIAUtils.alert(i18nString(UIStrings.sSelected, {PH1: groupName}));
+      UI.ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.sSelected, {PH1: groupName}));
     }
   }
 
@@ -1171,7 +1186,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
 
   /**
    * Toggle a group's expanded state.
-   * @param groupIndex - the index of this group in the timelineData.groups
+   * @param groupIndex the index of this group in the timelineData.groups
    * array. Note that this is the array index, and not the startLevel of the
    * group.
    */
@@ -1205,10 +1220,6 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     const group = groups[groupIndex];
     group.expanded = setExpanded;
 
-    this.groupExpansionState[group.name] = group.expanded;
-    if (this.groupExpansionSetting) {
-      this.groupExpansionSetting.set(this.groupExpansionState);
-    }
     this.updateLevelPositions();
 
     this.updateHighlight();
@@ -1227,6 +1238,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
 
     this.updateHeight();
     this.draw();
+    this.#notifyProviderOfConfigurationChange();
 
     this.scrollGroupIntoView(groupIndex);
     // We only want to read expanded/collapsed state on user inputted expand/collapse
@@ -1234,7 +1246,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
       const groupName = groups[groupIndex].name;
       const content = group.expanded ? i18nString(UIStrings.sExpanded, {PH1: groupName}) :
                                        i18nString(UIStrings.sCollapsed, {PH1: groupName});
-      UI.ARIAUtils.alert(content);
+      UI.ARIAUtils.LiveAnnouncer.alert(content);
     }
   }
 
@@ -1268,6 +1280,41 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.updateHighlight();
     this.updateHeight();
     this.draw();
+    this.#notifyProviderOfConfigurationChange();
+  }
+
+  #notifyProviderOfConfigurationChange(): void {
+    if (!this.#groupTreeRoot) {
+      return;
+    }
+    if (!this.dataProvider.handleTrackConfigurationChange) {
+      return;
+    }
+    const groups = this.rawTimelineData?.groups;
+    if (!groups) {
+      return;
+    }
+    const sortedGroupIndexes = this.#getVisualOrderOfGroupIndexes(this.#groupTreeRoot);
+    this.dataProvider.handleTrackConfigurationChange(groups, sortedGroupIndexes);
+  }
+
+  /**
+   * Walks the tree in DFS to generate the visual order of the groups.
+   */
+  #getVisualOrderOfGroupIndexes(root: GroupTreeNode): number[] {
+    const sortedGroupIndexes: number[] = [];
+    function traverse(node: GroupTreeNode): void {
+      if (node.index !== -1) {
+        // The first root is a fake parent node that we do not render, we don't
+        // want to include this in the sorted list.
+        sortedGroupIndexes.push(node.index);
+      }
+      for (const child of node.children) {
+        traverse(child);
+      }
+    }
+    traverse(root);
+    return sortedGroupIndexes;
   }
 
   moveGroupDown(groupIndex: number): void {
@@ -1300,6 +1347,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.updateHighlight();
     this.updateHeight();
     this.draw();
+    this.#notifyProviderOfConfigurationChange();
   }
 
   hideGroup(groupIndex: number): void {
@@ -1327,16 +1375,11 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     const group = groups[groupIndex];
     group.hidden = hidden;
 
-    // We need to store this state again because somehow timelineData() is
-    // called multiple times when rendering the flame chart, and timelineData()
-    // will overwrite the groups with the data from |dataProvider|.
-    // So we need this groupHiddenState to reapply hidden state in the processTimelineData()
-    this.groupHiddenState[group.name] = group.hidden;
     this.updateLevelPositions();
-
     this.updateHighlight();
     this.updateHeight();
     this.draw();
+    this.#notifyProviderOfConfigurationChange();
   }
 
   modifyTree(treeAction: FilterAction, index: number): void {
@@ -1459,13 +1502,6 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
       this.dispatchEventToListeners(Events.ENTRIES_LINK_ANNOTATION_CREATED, {entryFromIndex: this.selectedEntryIndex});
     }, {
       jslogContext: 'timeline.annotations.create-entries-link',
-    });
-
-    annotationSection.appendItem(i18nString(UIStrings.deleteAnnotations), () => {
-      this.dataProvider.deleteAnnotationsForEntry?.(this.selectedEntryIndex);
-    }, {
-      disabled: !this.dataProvider.entryHasAnnotations?.(this.selectedEntryIndex),
-      jslogContext: 'timeline.annotations.delete-entry-annotations',
     });
 
     void this.contextMenu.show();
@@ -1682,7 +1718,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.expandGroup(this.keyboardFocusedGroup, true /* setExpanded */);
     const eventName = this.dataProvider.entryTitle(firstEntryIndex);
     if (eventName) {
-      UI.ARIAUtils.alert(i18nString(UIStrings.eventSelectedFromGroup, {
+      UI.ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.eventSelectedFromGroup, {
         PH1: eventName,
         PH2: group.name,
       }));
@@ -2039,18 +2075,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     // So we first do a preorder traversal to get an array of GroupIndex. And then based on the visual index we got
     // before, we can get the real group index.
     if (this.#groupTreeRoot) {
-      const sortedGroupIndexes: number[] = [];
-
-      function traverse(root: GroupTreeNode): void {
-        sortedGroupIndexes.push(root.index);
-        for (const child of root.children) {
-          traverse(child);
-        }
-      }
-      traverse(this.#groupTreeRoot);
-      // Skip the one whose index is -1, because we added to represent the top
-      // level to be the parent of all groups.
-      sortedGroupIndexes.shift();
+      const sortedGroupIndexes = this.#getVisualOrderOfGroupIndexes(this.#groupTreeRoot);
 
       // This shouldn't happen, because the tree should have the fake root and all groups. Add a sanity check to avoid
       // error.
@@ -2371,11 +2396,8 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
             // Draw a rectangle over the event, starting at the X value of the
             // event's start time + the startDuration of the candy striping.
             const barXStart = this.timeToPositionClipped(entryStartTime + candyStripeStartTime);
-
-            // If a custom end time was passed in, that is when we stop striping, else we stripe until the very end of the entry.
-            const stripingEndTime = decoration.endAtTime ? Trace.Helpers.Timing.microToMilli(decoration.endAtTime) :
-                                                           entryStartTime + duration;
-            const barXEnd = this.timeToPositionClipped(stripingEndTime);
+            // We stripe until the very end of the entry.
+            const barXEnd = this.timeToPositionClipped(entryStartTime + duration);
             this.#drawEventRect(context, timelineData, entryIndex, {
               startX: barXStart,
               width: barXEnd - barXStart,
@@ -2761,7 +2783,14 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
       //                                                                        ^ titleStart
       const titleStart = iconsWidth + EXPANSION_ARROW_INDENT * (group.style.nestingLevel + 1) + ARROW_SIDE / 2 +
           HEADER_LABEL_X_PADDING;
-      context.fillText(group.name, titleStart, offset + group.style.height - this.textBaseline);
+      const y = offset + group.style.height - this.textBaseline;
+      context.fillText(group.name, titleStart, y);
+      if (group.subtitle) {
+        const titleMetrics = context.measureText(group.name);
+        context.font = this.#subtitleFont;
+        context.fillText(group.subtitle, titleStart + titleMetrics.width + PADDING_BETWEEN_TITLE_AND_SUBTITLE, y - 1);
+        context.font = this.#font;
+      }
       if (this.#inTrackConfigEditMode && group.hidden) {
         // Draw a strikethrough line for the hidden tracks.
         context.fillRect(
@@ -2981,7 +3010,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
    */
   /**
    * Process the pixels of start and end, and other data of each group, which are used in drawing the group.
-   * @param {GroupCallback} callback
+   * @param callback
    */
   private forEachGroup(
       callback: (groupTop: number, groupIndex: number, group: Group, isFirstGroup: boolean, height: number) => void):
@@ -3416,14 +3445,10 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.timelineLevels = levelIndexes;
     const groups = this.rawTimelineData.groups || [];
     for (let i = 0; i < groups.length; ++i) {
-      const expanded = this.groupExpansionState[groups[i].name];
-      const hidden = this.groupHiddenState[groups[i].name];
-      if (expanded !== undefined) {
-        groups[i].expanded = expanded;
-      }
-      if (hidden !== undefined) {
-        groups[i].hidden = hidden;
-      }
+      const expanded = groups[i].expanded ?? this.#persistedGroupConfig?.[i]?.expanded ?? false;
+      const hidden = groups[i].hidden ?? this.#persistedGroupConfig?.[i]?.hidden ?? false;
+      groups[i].expanded = expanded;
+      groups[i].hidden = hidden;
     }
 
     if (!this.#groupTreeRoot) {
@@ -3452,6 +3477,13 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
       this.updateGroupTree(groups, this.#groupTreeRoot);
     }
 
+    // If we have persisted track config, apply it. This method can get called when there is no timeline data, so we check for that.
+    // It shouldn't happen, but if the length of the persisted config does not match, we bail, rather than apply some invalid state.
+    if (this.#persistedGroupConfig && groups.length > 0 && this.#groupTreeRoot &&
+        this.#persistedGroupConfig.length === groups.length) {
+      this.#reOrderGroupsBasedOnPersistedConfig(this.#persistedGroupConfig, this.#groupTreeRoot);
+    }
+
     this.updateLevelPositions();
     this.updateHeight();
 
@@ -3465,6 +3497,28 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
 
     this.keyboardFocusedGroup = this.selectedGroupIndex;
     this.flameChartDelegate.updateSelectedGroup(this, timelineData.selectedGroup);
+  }
+
+  /**
+   * If we find persisted configuration, we need to update the tree so the
+   * children in the tree are ordered in the way they were ordered the last time
+   * the user viewed this trace.
+   */
+  #reOrderGroupsBasedOnPersistedConfig(persistedConfig: PersistedGroupConfig[], root: GroupTreeNode): void {
+    function traverseAndOrderChildren(node: GroupTreeNode): void {
+      if (node.children.length) {
+        // Sort the children based on their visual index, meaning that the tree
+        // structure is updated to reflect what the stored configuration shows.
+        node.children.sort((a, b) => {
+          const aIndex = persistedConfig[a.index].visualIndex;
+          const bIndex = persistedConfig[b.index].visualIndex;
+          return aIndex - bIndex;
+        });
+      }
+      node.children.forEach(traverseAndOrderChildren);
+    }
+
+    traverseAndOrderChildren(root);
   }
 
   /**
@@ -3544,7 +3598,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
    * To do this, we go through the tree, and update the start and end level of each group.
    * This function is public for test purpose.
    * @param groups the array of all groups, it should be the one from FlameChartTimelineData
-   * @returns the root of the Group tree. The root is the fake one we added, which represent the parent for all groups
+   * @param root the root of the Group tree. The root is the fake one we added, which represent the parent for all groups
    */
   updateGroupTree(groups: Group[], root: GroupTreeNode): void {
     const maxStackDepth = this.dataProvider.maxStackDepth();
@@ -3959,6 +4013,10 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.scheduleUpdate();
   }
 
+  setPersistedConfig(config: PersistedGroupConfig[]): void {
+    this.#persistedGroupConfig = config;
+  }
+
   update(): void {
     if (!this.timelineData()) {
       return;
@@ -3993,6 +4051,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.highlightedEntryIndex = -1;
     this.selectedEntryIndex = -1;
     this.selectedGroupIndex = -1;
+    this.#persistedGroupConfig = null;
   }
 
   scheduleUpdate(): void {
@@ -4067,12 +4126,11 @@ export const enum FlameChartDecorationType {
  **/
 export type FlameChartDecoration = {
   type: FlameChartDecorationType.CANDY,
-  // We often only want to highlight problem parts of events, so this time sets
-  // the minimum time at which the candystriping will start. If you want to
-  // candystripe the entire event, set this to 0.
+  /**
+   * Relative to entry's ts. We often only want to highlight problem parts of events, so this time sets the minimum
+   * time at which the candystriping will start. If you want to candystripe the entire event, set this to 0.
+   */
   startAtTime: Trace.Types.Timing.Micro,
-  // Optionally set the end time for the striping. If this is not provided, the entire entry will be striped.
-  endAtTime?: Trace.Types.Timing.Micro,
 }|{
   type: FlameChartDecorationType.WARNING_TRIANGLE,
   customStartTime?: Trace.Types.Timing.Micro,
@@ -4170,6 +4228,8 @@ export interface DataProviderSearchResult {
 }
 
 export interface FlameChartDataProvider {
+  setPersistedGroupConfigSetting?(setting: Common.Settings.Setting<PersistedConfigPerTrace>): void;
+
   minimumBoundary(): number;
 
   totalTime(): number;
@@ -4178,6 +4238,11 @@ export interface FlameChartDataProvider {
 
   maxStackDepth(): number;
 
+  /**
+   * Construct the data for the FlameChart. Note that this method is called
+   * multiple times. It is expected that the implementor cache the data
+   * aggressively and only rebuild if the flag is passed.
+   */
   timelineData(rebuild?: boolean): FlameChartTimelineData|null;
 
   preparePopoverElement(entryIndex: number): Element|null;
@@ -4223,10 +4288,6 @@ export interface FlameChartDataProvider {
   // The following three functions are used for the flame chart entry customization.
   modifyTree?(action: FilterAction, entryIndex: number): void;
 
-  entryHasAnnotations?(entryIndex: number): boolean;
-
-  deleteAnnotationsForEntry?(entryIndex: number): void;
-
   findPossibleContextMenuActions?(node: number): PossibleFilterActions|void;
 
   handleFlameChartTransformKeyboardEvent?(event: KeyboardEvent, entryIndex: number, groupIndex: number): void;
@@ -4234,6 +4295,13 @@ export interface FlameChartDataProvider {
   groupForEvent?(entryIndex: number): Group|null;
 
   getDrawOverride?(entryIndex: number): DrawOverride|undefined;
+
+  /**
+   * Used when the user re-orders / hides / shows tracks to notify the data
+   * provider. The data provider can choose to store this data in order to have
+   * the user's view persisted in memory and/or to disk when the trace is saved.
+   */
+  handleTrackConfigurationChange?(groups: readonly Group[], indexesInVisualOrder: number[]): void;
 }
 
 export interface FlameChartMarker {
@@ -4322,6 +4390,7 @@ export interface EventTypes {
 
 export interface Group {
   name: Common.UIString.LocalizedString;
+  subtitle?: Common.UIString.LocalizedString;
   startLevel: number;
   expanded?: boolean;
   hidden?: boolean;
@@ -4340,8 +4409,10 @@ export interface GroupStyle {
   collapsible: boolean;
   /** The color of the group title text. */
   color: string;
-  /** The background color of the group title when the track is collapsed,
-   * and this is usually around same length as the title text. */
+  /**
+   * The background color of the group title when the track is collapsed,
+   * and this is usually around same length as the title text.
+   */
   backgroundColor: string;
   nestingLevel: number;
   itemsHeight?: number;
@@ -4351,3 +4422,23 @@ export interface GroupStyle {
   useFirstLineForOverview?: boolean;
   useDecoratorsForOverview?: boolean;
 }
+
+export interface PersistedGroupConfig {
+  hidden: boolean;
+  expanded: boolean;
+  originalIndex: number;
+  visualIndex: number;
+}
+
+/**
+ * Used to persist into memory the configuration, so that if the user imports a
+ * new trace and then navigates back to the old one, the configuration is
+ * restored.
+ * The key here is the `traceBounds.min` time from the trace. Given this is
+ * monotonic, the chances of it clashing within traces the user records are very
+ * low. It could happen, but we accept that this is best effort.
+ * Note: the value type includes `undefined` to make sure that anyone can't do
+ * value[traceMin] and not check that it exists. If the user has not manually
+ * edited the track config, it will not be stored.
+ */
+export type PersistedConfigPerTrace = Record<Trace.Types.Timing.Micro, PersistedGroupConfig[]|undefined>;

@@ -11,16 +11,19 @@ describe('AiHistoryStorage', () => {
     id: 'id1',
     type: AiAssistance.ConversationType.STYLING,
     history: [],
+    isExternal: false,
   };
   const agent2: AiAssistance.SerializedConversation = {
     id: 'id2',
     type: AiAssistance.ConversationType.FILE,
     history: [],
+    isExternal: false,
   };
   const agent3: AiAssistance.SerializedConversation = {
     id: 'id3',
     type: AiAssistance.ConversationType.NETWORK,
     history: [],
+    isExternal: false,
   };
   const agent4: AiAssistance.SerializedConversation = {
     id: 'id4',
@@ -44,6 +47,7 @@ describe('AiHistoryStorage', () => {
         imageInput: undefined,
       },
     ],
+    isExternal: false,
   };
   const serializedImage1: AiAssistance.SerializedImage = {
     id: 'image-id1',
@@ -94,6 +98,7 @@ describe('AiHistoryStorage', () => {
           id: 'id1',
           type: 'freestyler' as AiAssistance.ConversationType,
           history: [],
+          isExternal: false,
         }],
     );
     await storage.upsertHistoryEntry(agent2);
@@ -104,11 +109,13 @@ describe('AiHistoryStorage', () => {
             id: 'id1',
             type: 'freestyler' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
           {
             id: 'id2',
             type: 'drjones-file' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
         ],
     );
@@ -139,11 +146,13 @@ describe('AiHistoryStorage', () => {
                 query: 'text',
               },
             ],
+            isExternal: false,
           },
           {
             id: 'id2',
             type: 'drjones-file' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
         ],
     );
@@ -161,16 +170,19 @@ describe('AiHistoryStorage', () => {
                 query: 'text',
               },
             ],
+            isExternal: false,
           },
           {
             id: 'id2',
             type: 'drjones-file' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
           {
             id: 'id3',
             type: 'drjones-network-request' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
         ],
     );
@@ -194,16 +206,19 @@ describe('AiHistoryStorage', () => {
                 query: 'text',
               },
             ],
+            isExternal: false,
           },
           {
             id: 'id2',
             type: 'drjones-file' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
           {
             id: 'id3',
             type: 'drjones-network-request' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
           {
             id: 'id4',
@@ -227,6 +242,7 @@ describe('AiHistoryStorage', () => {
                 imageInput: undefined,
               },
             ],
+            isExternal: false,
           },
         ],
     );
@@ -260,11 +276,13 @@ describe('AiHistoryStorage', () => {
             id: 'id1',
             type: 'freestyler' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
           {
             id: 'id3',
             type: 'drjones-network-request' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
         ],
     );
@@ -286,16 +304,19 @@ describe('AiHistoryStorage', () => {
             id: 'id1',
             type: 'freestyler' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
           {
             id: 'id2',
             type: 'drjones-file' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
           {
             id: 'id3',
             type: 'drjones-network-request' as AiAssistance.ConversationType,
             history: [],
+            isExternal: false,
           },
         ],
     );
@@ -313,6 +334,7 @@ describe('AiHistoryStorage', () => {
     await storage.upsertImage(serializedImage1);
     await storage.upsertImage(serializedImage2);
     await storage.upsertHistoryEntry(agent4);
+    const historyDeletedPromise = storage.once('AiHistoryDeleted' as AiAssistance.Events.HISTORY_DELETED);
     await storage.deleteAll();
     assert.deepEqual(
         storage.getHistory(),
@@ -322,6 +344,7 @@ describe('AiHistoryStorage', () => {
         storage.getImageHistory(),
         [],
     );
+    await historyDeletedPromise;
   });
 
   it('should limit the amount of stored images', async () => {
@@ -458,7 +481,8 @@ describe('AiHistoryStorage', () => {
             type: AiAssistance.ResponseType.USER_QUERY,
             query: 'text',
             imageId: 'image-id1',
-          }]
+          }],
+          isExternal: false,
         });
         assert.deepEqual(historyWithoutImages[1], {
           id: 'id2',
@@ -468,7 +492,8 @@ describe('AiHistoryStorage', () => {
             query: 'text',
             imageInput: undefined,
             imageId: 'image-id2',
-          }]
+          }],
+          isExternal: false,
         });
       });
 
@@ -485,9 +510,8 @@ describe('AiHistoryStorage', () => {
         assert.lengthOf(imageHistory, 1);
         const historyWithoutImages = storage.getHistory();
         assert.lengthOf(historyWithoutImages, 2);
-        const conversationFromHistory = historyWithoutImages.map(item => {
-          return new AiAssistance.Conversation(item.type, item.history, item.id, true);
-        });
+        const conversationFromHistory =
+            historyWithoutImages.map(item => AiAssistance.Conversation.fromSerializedConversation(item));
         assert.lengthOf(conversationFromHistory, 2);
         assert.deepEqual(conversationFromHistory[0].history, [{
                            type: AiAssistance.ResponseType.USER_QUERY,
@@ -513,5 +537,95 @@ describe('AiHistoryStorage', () => {
                          }]);
       });
     });
+  });
+
+  it('should generate markdown from a conversation', () => {
+    const fakeTime = new Date('2024-01-01T00:00:00.000Z');
+    const clock = sinon.useFakeTimers(fakeTime);
+
+    const history: AiAssistance.ResponseData[] = [
+      {
+        type: AiAssistance.ResponseType.USER_QUERY,
+        query: 'What is the color of the sky?',
+      },
+      {
+        type: AiAssistance.ResponseType.USER_QUERY,
+        query: 'And what about this image?',
+        imageInput: {inlineData: {data: 'test', mimeType: 'image/png'}},
+      },
+      {
+        type: AiAssistance.ResponseType.CONTEXT,
+        title: 'Analyzing context',
+        details: [
+          {title: 'Detail 1', text: 'Some detail'},
+          {title: 'Detail 2', text: 'const a = 1;', codeLang: 'js'},
+        ],
+      },
+      {
+        type: AiAssistance.ResponseType.TITLE,
+        title: 'Thinking about it',
+      },
+      {
+        type: AiAssistance.ResponseType.THOUGHT,
+        thought: 'The user is asking about colors.',
+      },
+      {
+        type: AiAssistance.ResponseType.ACTION,
+        code: 'console.log("blue")',
+        output: 'blue',
+        canceled: false,
+      },
+      {
+        type: AiAssistance.ResponseType.ACTION,
+        code: 'console.log("red")',
+        output: 'red',
+        canceled: true,
+      },
+      {
+        type: AiAssistance.ResponseType.ACTION,
+        code: 'console.log("no output")',
+        canceled: false,
+      },
+      {
+        type: AiAssistance.ResponseType.ANSWER,
+        text: 'The sky is blue.',
+        complete: true,
+      },
+      {
+        type: AiAssistance.ResponseType.ANSWER,
+        text: 'This is a partial answer',
+        complete: false,
+      },
+    ];
+    const conversation = new AiAssistance.Conversation(AiAssistance.ConversationType.STYLING, history);
+    const markdown = conversation.getConversationMarkdown();
+
+    const expected = [
+      '# Exported Chat from Chrome DevTools AI Assistance\n\n' +
+          '**Export Timestamp (UTC):** 2024-01-01T00:00:00.000Z\n\n' +
+          '---\n\n',
+      '### User: What is the color of the sky?\n',
+      '### User: And what about this image?\n',
+      'User attached an image\n\n',
+      '### Context:\n',
+      '**Details**:\n\n' +
+          '**Detail 1:**\n\nSome detail\n\n' +
+          '**Detail 2:**\n\n```js\nconst a = 1;\n```\n\n\n',
+      '### AI (Title): Thinking about it\n\n',
+      '### AI (Thought): The user is asking about colors.\n\n',
+      '### AI (Action):\n' +
+          '**Code executed:**\n```\nconsole.log("blue")\n```\n' +
+          '**Output:**\n```\nblue\n```\n' +
+          '\n',
+      '### AI (Action):\n' +
+          '**Code executed:**\n```\nconsole.log("red")\n```\n' +
+          '**Output:**\n```\nred\n```\n' +
+          '**(Action Canceled)**\n' +
+          '\n',
+      '### AI (Answer): The sky is blue.\n\n',
+    ].join('');
+
+    assert.strictEqual(markdown, expected);
+    clock.restore();
   });
 });

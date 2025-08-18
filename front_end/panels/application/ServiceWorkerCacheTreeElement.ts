@@ -17,23 +17,23 @@ import {ServiceWorkerCacheView} from './ServiceWorkerCacheViews.js';
 
 const UIStrings = {
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   cacheStorage: 'Cache storage',
   /**
-   *@description Text in Application Panel if no cache storage was detected.
+   * @description Text in Application Panel if no cache storage was detected.
    */
   noCacheStorage: 'No cache storage detected',
   /**
-   *@description Description text in Application Panel describing the cache storage tab
+   * @description Description text in Application Panel describing the cache storage tab
    */
   cacheStorageDescription: 'On this page you can view and delete cache data.',
   /**
-   *@description A context menu item in the Application Panel Sidebar of the Application panel
+   * @description A context menu item in the Application Panel Sidebar of the Application panel
    */
   refreshCaches: 'Refresh Caches',
   /**
-   *@description Text to delete something
+   * @description Text to delete something
    */
   delete: 'Delete',
 } as const;
@@ -49,9 +49,7 @@ export class ServiceWorkerCacheTreeElement extends ExpandableApplicationPanelTre
         resourcesPanel, i18nString(UIStrings.cacheStorage), i18nString(UIStrings.noCacheStorage),
         i18nString(UIStrings.cacheStorageDescription), 'cache-storage');
     const icon = IconButton.Icon.create('database');
-    this.setLink(
-        'https://developer.chrome.com/docs/devtools/storage/cache/?utm_source=devtools' as
-        Platform.DevToolsPath.UrlString);
+    this.setLink('https://developer.chrome.com/docs/devtools/storage/cache/' as Platform.DevToolsPath.UrlString);
     this.setLeadingIcons([icon]);
     this.swCacheModels = new Set();
     this.swCacheTreeElements = new Set();

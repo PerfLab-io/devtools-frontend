@@ -8,6 +8,7 @@ import * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Protocol from '../../generated/protocol.js';
 import {createTarget, expectConsoleLogs} from '../../testing/EnvironmentHelpers.js';
+import {spyCall} from '../../testing/ExpectStubCall.js';
 import {
   describeWithDevtoolsExtension,
   getExtensionOrigin,
@@ -15,6 +16,7 @@ import {
 import {MockProtocolBackend} from '../../testing/MockScopeChain.js';
 import {addChildFrame, FRAME_URL, getMainFrame} from '../../testing/ResourceTreeHelpers.js';
 import {encodeSourceMap} from '../../testing/SourceMapEncoder.js';
+import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as Bindings from '../bindings/bindings.js';
 import * as Extensions from '../extensions/extensions.js';
@@ -79,74 +81,166 @@ describeWithDevtoolsExtension('Extensions', {}, context => {
     assert.deepEqual(resources.map(r => r.url), ['https://example.com/', 'http://example.com']);
   });
 
-  describe('Resource.setFunctionRangesForScript API', () => {
-    const validFunctionRanges = [{start: {line: 0, column: 0}, end: {line: 10, column: 1}, name: 'foo'}];
-    it('correctly calls DebuggerWorkspaceBindings.setFunctionRanges via Resource.setFunctionRangesForScript API',
-       async () => {
-         const target = createTarget();
-         const inspectedUrl = urlString`https://www.example.com/`;
-         const scriptUrl = urlString`https://example.com/foo.js.map/foo.js`;
-         target.setInspectedURL(inspectedUrl);
+  describe('Resource', () => {
+    let target: SDK.Target.Target;
+    let project: Bindings.ContentProviderBasedProject.ContentProviderBasedProject;
 
-         const project = new Bindings.ContentProviderBasedProject.ContentProviderBasedProject(
-             Workspace.Workspace.WorkspaceImpl.instance(), target.id(), Workspace.Workspace.projectTypes.Network, '',
-             false /* isServiceProject */);
+    beforeEach(() => {
+      target = createTarget();
+      const inspectedUrl = urlString`https://www.example.com/`;
+      target.setInspectedURL(inspectedUrl);
 
-         const targetManager = target.targetManager();
-         const resourceMapping =
-             new Bindings.ResourceMapping.ResourceMapping(targetManager, Workspace.Workspace.WorkspaceImpl.instance());
-         Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance(
-             {forceNew: true, resourceMapping, targetManager});
-         // create a mock uiSourceCode for the sourceMap script
-         project.addUISourceCode(
-             new Workspace.UISourceCode.UISourceCode(
-                 project, scriptUrl, Common.ResourceType.resourceTypes.SourceMapScript),
-         );
-         const uiSourceCode = project.uiSourceCodeForURL(scriptUrl);
-         assert.exists(uiSourceCode);
-         assert.exists(context.chrome.devtools);
+      project = new Bindings.ContentProviderBasedProject.ContentProviderBasedProject(
+          Workspace.Workspace.WorkspaceImpl.instance(), target.id(), Workspace.Workspace.projectTypes.Network, '',
+          false /* isServiceProject */);
 
-         const resources = await new Promise<Chrome.DevTools.Resource[]>(
-             r => context.chrome.devtools?.inspectedWindow.getResources(r));
+      const targetManager = target.targetManager();
+      const resourceMapping =
+          new Bindings.ResourceMapping.ResourceMapping(targetManager, Workspace.Workspace.WorkspaceImpl.instance());
+      const ignoreListManager = Workspace.IgnoreListManager.IgnoreListManager.instance({forceNew: true});
+      Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance({
+        forceNew: true,
+        resourceMapping,
+        targetManager,
+        ignoreListManager,
+      });
+    });
 
-         const nonSourceMapScripts = resources.filter(r => r.type !== 'sm-script');
-         const sourceMapScripts = resources.filter(r => r.type === 'sm-script');
+    describe('setFunctionRangesForScript', () => {
+      expectConsoleLogs({
+        error: [
+          'Extension server error: Invalid argument command: expected a source map script resource for url: https://example.com/',
+          'Extension server error: Invalid argument command: expected valid scriptUrl and non-empty NamedFunctionRanges'
+        ],
+      });
 
-         const workspaceBindingSetFunctionRangesStub =
-             sinon.stub(Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance(), 'setFunctionRanges');
+      const validFunctionRanges = [{start: {line: 0, column: 0}, end: {line: 10, column: 1}, name: 'foo'}];
+      it('correctly calls DebuggerWorkspaceBindings.setFunctionRanges via Resource.setFunctionRangesForScript API',
+         async () => {
+           // create a mock uiSourceCode for the sourceMap script
+           const scriptUrl = urlString`https://example.com/foo.js.map/foo.js`;
+           project.addUISourceCode(
+               new Workspace.UISourceCode.UISourceCode(
+                   project, scriptUrl, Common.ResourceType.resourceTypes.SourceMapScript),
+           );
+           const uiSourceCode = project.uiSourceCodeForURL(scriptUrl);
+           assert.exists(uiSourceCode);
+           assert.exists(context.chrome.devtools);
 
-         // The assert.throws() helper does not work with async/await, hence the manual try catch
-         let didThrow = false;
-         try {
-           // Should throw if called with a non-sourceMap script
-           await nonSourceMapScripts[0].setFunctionRangesForScript(validFunctionRanges);
-         } catch (e) {
-           didThrow = true;
-           assertIsStatus(e);
-           assert.strictEqual(e.code, 'E_BADARG');
-         }
-         assert.isTrue(didThrow, 'SetFunctionRangesForScript did not throw an error as expected.');
+           const resources = await new Promise<Chrome.DevTools.Resource[]>(
+               r => context.chrome.devtools?.inspectedWindow.getResources(r));
 
-         try {
-           // Should throw if called with invalid/empty ranges
-           await sourceMapScripts[0].setFunctionRangesForScript([/** empty ranges */]);
-         } catch (e) {
-           didThrow = true;
-           assertIsStatus(e);
-           assert.strictEqual(e.code, 'E_BADARG');
-         }
-         assert.isTrue(didThrow, 'SetFunctionRangesForScript did not throw an error as expected.');
-         sinon.assert.notCalled(workspaceBindingSetFunctionRangesStub);
-         await sourceMapScripts[0].setFunctionRangesForScript(validFunctionRanges);
-         sinon.assert.calledOnceWithExactly(workspaceBindingSetFunctionRangesStub, uiSourceCode, validFunctionRanges);
-       });
+           const nonSourceMapScripts = resources.filter(r => r.type !== 'sm-script');
+           const sourceMapScripts = resources.filter(r => r.type === 'sm-script');
+
+           const workspaceBindingSetFunctionRangesStub =
+               sinon.stub(Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance(), 'setFunctionRanges');
+
+           // The assert.throws() helper does not work with async/await, hence the manual try catch
+           let didThrow = false;
+           try {
+             // Should throw if called with a non-sourceMap script
+             await nonSourceMapScripts[0].setFunctionRangesForScript(validFunctionRanges);
+           } catch (e) {
+             didThrow = true;
+             assertIsStatus(e);
+             assert.strictEqual(e.code, 'E_BADARG');
+           }
+           assert.isTrue(didThrow, 'SetFunctionRangesForScript did not throw an error as expected.');
+
+           try {
+             // Should throw if called with invalid/empty ranges
+             await sourceMapScripts[0].setFunctionRangesForScript([/** empty ranges */]);
+           } catch (e) {
+             didThrow = true;
+             assertIsStatus(e);
+             assert.strictEqual(e.code, 'E_BADARG');
+           }
+           assert.isTrue(didThrow, 'SetFunctionRangesForScript did not throw an error as expected.');
+           sinon.assert.notCalled(workspaceBindingSetFunctionRangesStub);
+           await sourceMapScripts[0].setFunctionRangesForScript(validFunctionRanges);
+           sinon.assert.calledOnceWithExactly(workspaceBindingSetFunctionRangesStub, uiSourceCode, validFunctionRanges);
+         });
+    });
+
+    it('returns the buildId', async () => {
+      const stubScript = sinon.createStubInstance(SDK.Script.Script);
+      // @ts-expect-error
+      stubScript.buildId = 'my-build-id';
+      sinon.stub(Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance(), 'scriptsForUISourceCode')
+          .returns([stubScript]);
+      project.addUISourceCode(
+          new Workspace.UISourceCode.UISourceCode(
+              project, urlString`http://example.com/index.js`, Common.ResourceType.resourceTypes.Script),
+      );
+
+      const resources =
+          await new Promise<Chrome.DevTools.Resource[]>(r => context.chrome.devtools?.inspectedWindow.getResources(r));
+
+      assert.strictEqual(resources[0].url, 'http://example.com/index.js');
+      assert.strictEqual(resources[0].buildId, 'my-build-id');
+    });
   });
 });
 
-describeWithDevtoolsExtension('Extensions - Recorder', {}, context => {
+describeWithDevtoolsExtension('Extensions', {}, context => {
+  beforeEach(() => {
+    createTarget().setInspectedURL(urlString`http://example.com`);
+  });
+
+  it('can register and unregister a global open resource handler', async () => {
+    const registerLinkHandlerSpy = spyCall(Components.Linkifier.Linkifier, 'registerLinkHandler');
+    const unregisterLinkHandlerSpy = spyCall(Components.Linkifier.Linkifier, 'unregisterLinkHandler');
+
+    // Register without a specific scheme (global handler).
+    context.chrome.devtools?.panels.setOpenResourceHandler(() => {});
+
+    const registration = await (await registerLinkHandlerSpy).args[0];
+    assert.strictEqual(registration.title, 'TestExtension');
+    assert.isUndefined(registration.scheme);
+    assert.isFunction(registration.handler);
+    assert.isFunction(registration.shouldHandleOpenResource);
+
+    // Now unregister the extension.
+    context.chrome.devtools?.panels.setOpenResourceHandler();
+
+    const unregistration = await (await unregisterLinkHandlerSpy).args[0];
+    assert.strictEqual(unregistration.title, 'TestExtension');
+    assert.isUndefined(unregistration.scheme);
+    assert.isFunction(unregistration.handler);
+    assert.isFunction(unregistration.shouldHandleOpenResource);
+  });
+
+  it('can register and unregister a scheme specific open resource handler', async () => {
+    const registerLinkHandlerSpy = spyCall(Components.Linkifier.Linkifier, 'registerLinkHandler');
+    const unregisterLinkHandlerSpy = spyCall(Components.Linkifier.Linkifier, 'unregisterLinkHandler');
+
+    context.chrome.devtools?.panels.setOpenResourceHandler(() => {}, 'foo-extension:');
+
+    const registration = await (await registerLinkHandlerSpy).args[0];
+    assert.strictEqual(registration.title, 'TestExtension');
+    assert.strictEqual(registration.scheme, 'foo-extension:');
+    assert.isFunction(registration.handler);
+    assert.isFunction(registration.shouldHandleOpenResource);
+
+    // Now unregister the extension.
+    context.chrome.devtools?.panels.setOpenResourceHandler();
+
+    const unregistration = await (await unregisterLinkHandlerSpy).args[0];
+    assert.strictEqual(unregistration.title, 'TestExtension');
+    assert.isUndefined(unregistration.scheme);
+    assert.isFunction(unregistration.handler);
+    assert.isFunction(unregistration.shouldHandleOpenResource);
+  });
+});
+
+describeWithDevtoolsExtension('Extensions', {}, context => {
   expectConsoleLogs({
     warn: ['evaluate: the main frame is not yet available'],
-    error: ['Extension server error: Object not found: <top>'],
+    error: [
+      'Extension server error: Object not found: <top>',
+      'Extension server error: Operation failed: https://example.com/ has no execution context'
+    ],
   });
   beforeEach(() => {
     createTarget().setInspectedURL(urlString`http://example.com`);
@@ -593,15 +687,14 @@ describeWithDevtoolsExtension('Runtime hosts policy', {hostsPolicy}, context => 
   });
 
   async function createUISourceCode(
-      project: Bindings.ContentProviderBasedProject.ContentProviderBasedProject, url: Platform.DevToolsPath.UrlString) {
+      project: Bindings.ContentProviderBasedProject.ContentProviderBasedProject, url: Platform.DevToolsPath.UrlString,
+      contentType = Common.ResourceType.resourceTypes.Document) {
     const mimeType = 'text/html';
     const dataProvider = () =>
         Promise.resolve(new TextUtils.ContentData.ContentData('content', /* isBase64 */ false, mimeType));
     project.addUISourceCodeWithProvider(
-        new Workspace.UISourceCode.UISourceCode(project, url, Common.ResourceType.resourceTypes.Document),
-        new TextUtils.StaticContentProvider.StaticContentProvider(
-            url, Common.ResourceType.resourceTypes.Document, dataProvider),
-        null, mimeType);
+        new Workspace.UISourceCode.UISourceCode(project, url, contentType),
+        new TextUtils.StaticContentProvider.StaticContentProvider(url, contentType, dataProvider), null, mimeType);
     await project.uiSourceCodeForURL(url)?.requestContentData();
   }
 
@@ -609,6 +702,9 @@ describeWithDevtoolsExtension('Runtime hosts policy', {hostsPolicy}, context => 
     const target = createTarget({id: 'target' as Protocol.Target.TargetID});
     target.setInspectedURL(allowedUrl);
 
+    sinon.stub(Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding, 'instance')
+        .returns(sinon.createStubInstance(
+            Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding, {scriptsForUISourceCode: []}));
     const project = new Bindings.ContentProviderBasedProject.ContentProviderBasedProject(
         Workspace.Workspace.WorkspaceImpl.instance(), target.id(), Workspace.Workspace.projectTypes.Network, '',
         false /* isServiceProject */);
@@ -627,6 +723,32 @@ describeWithDevtoolsExtension('Runtime hosts policy', {hostsPolicy}, context => 
     assert.deepEqual(resourceContents, [
       {url: allowedUrl, content: 'content', encoding: ''},
     ]);
+  });
+
+  it('allows arbitrary schemes in sourceURL comments, as long as the inspected target is allowed', async () => {
+    const target = createTarget({id: 'target' as Protocol.Target.TargetID});
+    target.setInspectedURL(allowedUrl);
+
+    const script = sinon.createStubInstance(SDK.Script.Script, {target, contentURL: blockedUrl});
+    script.hasSourceURL = true;
+    const workspaceBinding = sinon.createStubInstance(Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding);
+    workspaceBinding.scriptsForUISourceCode.callsFake(uiSourceCode => {
+      if (uiSourceCode.contentURL() === blockedUrl) {
+        return [script];
+      }
+      return [];
+    });
+    sinon.stub(Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding, 'instance').returns(workspaceBinding);
+    const project = new Bindings.ContentProviderBasedProject.ContentProviderBasedProject(
+        Workspace.Workspace.WorkspaceImpl.instance(), target.id(), Workspace.Workspace.projectTypes.Network, '',
+        false /* isServiceProject */);
+    await createUISourceCode(project, blockedUrl, Common.ResourceType.resourceTypes.Script);
+    await createUISourceCode(project, allowedUrl, Common.ResourceType.resourceTypes.Script);
+
+    assert.exists(context.chrome.devtools);
+    const resources =
+        await new Promise<Chrome.DevTools.Resource[]>(r => context.chrome.devtools?.inspectedWindow.getResources(r));
+    assert.deepEqual(resources.map(r => r.url), [blockedUrl, allowedUrl]);
   });
 
   function createRequest(
@@ -673,6 +795,9 @@ describeWithDevtoolsExtension('Runtime hosts policy', {hostsPolicy}, context => 
     const target = createTarget({id: 'target' as Protocol.Target.TargetID});
     target.setInspectedURL(allowedUrl);
 
+    sinon.stub(Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding, 'instance')
+        .returns(sinon.createStubInstance(
+            Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding, {scriptsForUISourceCode: []}));
     const project = new Bindings.ContentProviderBasedProject.ContentProviderBasedProject(
         Workspace.Workspace.WorkspaceImpl.instance(), target.id(), Workspace.Workspace.projectTypes.Network, '',
         false /* isServiceProject */);
@@ -799,8 +924,13 @@ describeWithDevtoolsExtension('Wasm extension API', {}, context => {
     const targetManager = target.targetManager();
     const resourceMapping =
         new Bindings.ResourceMapping.ResourceMapping(targetManager, Workspace.Workspace.WorkspaceImpl.instance());
-    Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance(
-        {forceNew: true, resourceMapping, targetManager});
+    const ignoreListManager = Workspace.IgnoreListManager.IgnoreListManager.instance({forceNew: true});
+    Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance({
+      forceNew: true,
+      resourceMapping,
+      targetManager,
+      ignoreListManager,
+    });
 
     const callFrame = sinon.createStubInstance(SDK.DebuggerModel.CallFrame);
     callFrame.debuggerModel = new SDK.DebuggerModel.DebuggerModel(target);
@@ -928,9 +1058,13 @@ for (const allowFileAccess of [true, false]) {
           const workspace = Workspace.Workspace.WorkspaceImpl.instance();
           const resourceMapping = new Bindings.ResourceMapping.ResourceMapping(targetManager, workspace);
           target.setInspectedURL(urlString`http://example.com`);
-          const debuggerWorkspaceBinding = Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance(
-              {forceNew: true, targetManager, resourceMapping});
-          Bindings.IgnoreListManager.IgnoreListManager.instance({forceNew: true, debuggerWorkspaceBinding});
+          const ignoreListManager = Workspace.IgnoreListManager.IgnoreListManager.instance({forceNew: true});
+          Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance({
+            forceNew: true,
+            resourceMapping,
+            targetManager,
+            ignoreListManager,
+          });
         });
 
         it('passes allowFileAccess to the LanguageExtensionEndpoint', async () => {
@@ -951,7 +1085,7 @@ for (const allowFileAccess of [true, false]) {
                 type: Protocol.Debugger.DebugSymbolsType.SourceMap,
                 externalURL: 'file:///source/url.map',
               }],
-              null);
+              null, null);
 
           sinon.assert.calledOnce(endpointSpy);
           assert.strictEqual(
@@ -991,10 +1125,14 @@ describeWithDevtoolsExtension('validate attachSourceMapURL ', {}, context => {
     const targetManager = target.targetManager();
     const workspace = Workspace.Workspace.WorkspaceImpl.instance();
     const resourceMapping = new Bindings.ResourceMapping.ResourceMapping(targetManager, workspace);
-    const debuggerWorkspaceBinding = Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance(
-        {forceNew: false, resourceMapping, targetManager});
+    const ignoreListManager = Workspace.IgnoreListManager.IgnoreListManager.instance({forceNew: true});
+    const debuggerWorkspaceBinding = Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance({
+      forceNew: true,
+      resourceMapping,
+      targetManager,
+      ignoreListManager,
+    });
     const backend = new MockProtocolBackend();
-    Bindings.IgnoreListManager.IgnoreListManager.instance({forceNew: false, debuggerWorkspaceBinding});
 
     // Before any script is registered, there shouldn't be any uiSourceCodes.
     assert.isNull(Workspace.Workspace.WorkspaceImpl.instance().uiSourceCodeForURL(scriptInfo.url));

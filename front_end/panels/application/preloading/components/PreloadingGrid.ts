@@ -22,19 +22,19 @@ const {PreloadingStatus} = SDK.PreloadingModel;
 
 const UIStrings = {
   /**
-   *@description Column header: Action of preloading (prefetch/prerender)
+   * @description Column header: Action of preloading (prefetch/prerender)
    */
   action: 'Action',
   /**
-   *@description Column header: A rule set of preloading
+   * @description Column header: A rule set of preloading
    */
   ruleSet: 'Rule set',
   /**
-   *@description Column header: Status of preloading attempt
+   * @description Column header: Status of preloading attempt
    */
   status: 'Status',
   /**
-   *@description Status: Prerender failed, but prefetch is available
+   * @description Status: Prerender failed, but prefetch is available
    */
   prefetchFallbackReady: 'Prefetch fallback ready',
 } as const;
@@ -79,7 +79,7 @@ export class PreloadingGrid extends LegacyWrapper.LegacyWrapper.WrappableCompone
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
-      <style>${preloadingGridStyles.cssText}</style>
+      <style>${preloadingGridStyles}</style>
       <div class="preloading-container">
         <devtools-data-grid striped @select=${this.#onPreloadingGridCellFocused}>
           <table>
@@ -108,9 +108,8 @@ export class PreloadingGrid extends LegacyWrapper.LegacyWrapper.WrappableCompone
                     ${(hasError || hasWarning) ?  html`
                       <devtools-icon
                         name=${hasWarning ? 'warning-filled' : 'cross-circle-filled'}
+                        class='medium'
                         style=${styleMap({
-                          width: '16px',
-                          height: '16px',
                           color: hasWarning ? 'var(--sys-color-warning)' : 'var(--sys-color-error)',
                           'vertical-align': 'sub',
                         })}
