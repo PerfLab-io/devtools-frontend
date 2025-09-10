@@ -352,11 +352,10 @@ export function createSortedSyntheticEvents<T extends Types.Events.PairableAsync
     }>,
     syntheticEventCallback?: (syntheticEvent: Types.Events.SyntheticEventPair<T>) => void,
     ): Array<Types.Events.SyntheticEventPair<T>> {
-  const syntheticEvents: Types.Events.SyntheticEventPair<T>[] = [];
+  const syntheticEvents: Array<Types.Events.SyntheticEventPair<T>> = [];
   let currentAnimationFrame: Types.Events.SyntheticEventPair<T> & {
     phases?: Array<Types.Events.SyntheticEventPair<T>>,
   } = {} as Types.Events.SyntheticEventPair<T>;
-  const syntheticEvents: Array<Types.Events.SyntheticEventPair<T>> = [];
   for (const [id, eventsTriplet] of matchedPairs.entries()) {
     const beginEvent = eventsTriplet.begin;
     const endEvent = eventsTriplet.end;
