@@ -1,16 +1,16 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/icon_button/icon_button.js';
 
 import * as i18n from '../../../core/i18n/i18n.js';
-// eslint-disable-next-line rulesdir/es-modules-import
-import inspectorCommonStylesRaw from '../../../ui/legacy/inspectorCommon.css.js';
+import * as UI from '../../../ui/legacy/legacy.js';
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
-import valueInterpreterDisplayStylesRaw from './valueInterpreterDisplay.css.js';
+import valueInterpreterDisplayStyles from './valueInterpreterDisplay.css.js';
 import {
   Endianness,
   format,
@@ -24,38 +24,30 @@ import {
   ValueTypeMode,
 } from './ValueInterpreterDisplayUtils.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const inspectorCommonStyles = new CSSStyleSheet();
-inspectorCommonStyles.replaceSync(inspectorCommonStylesRaw.cssContent);
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const valueInterpreterDisplayStyles = new CSSStyleSheet();
-valueInterpreterDisplayStyles.replaceSync(valueInterpreterDisplayStylesRaw.cssContent);
-
 const UIStrings = {
   /**
-   *@description Tooltip text that appears when hovering over an unsigned interpretation of the memory under the Value Interpreter
+   * @description Tooltip text that appears when hovering over an unsigned interpretation of the memory under the Value Interpreter
    */
   unsignedValue: '`Unsigned` value',
   /**
-   *@description Tooltip text that appears when hovering over the element to change value type modes of under the Value Interpreter. Value type modes
+   * @description Tooltip text that appears when hovering over the element to change value type modes of under the Value Interpreter. Value type modes
    *             are different ways of viewing a certain value, e.g.: 10 (decimal) can be 0xa in hexadecimal mode, or 12 in octal mode.
    */
   changeValueTypeMode: 'Change mode',
   /**
-   *@description Tooltip text that appears when hovering over a signed interpretation of the memory under the Value Interpreter
+   * @description Tooltip text that appears when hovering over a signed interpretation of the memory under the Value Interpreter
    */
   signedValue: '`Signed` value',
   /**
-   *@description Tooltip text that appears when hovering over a 'jump-to-address' button that is next to a pointer (32-bit or 64-bit) under the Value Interpreter
+   * @description Tooltip text that appears when hovering over a 'jump-to-address' button that is next to a pointer (32-bit or 64-bit) under the Value Interpreter
    */
   jumpToPointer: 'Jump to address',
   /**
-   *@description Tooltip text that appears when hovering over a 'jump-to-address' button that is next to a pointer (32-bit or 64-bit) with an invalid address under the Value Interpreter.
+   * @description Tooltip text that appears when hovering over a 'jump-to-address' button that is next to a pointer (32-bit or 64-bit) with an invalid address under the Value Interpreter.
    */
   addressOutOfRange: 'Address out of memory range',
 
-};
+} as const;
 const str_ =
     i18n.i18n.registerUIStrings('panels/linear_memory_inspector/components/ValueInterpreterDisplay.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -96,24 +88,12 @@ export class JumpToPointerAddressEvent extends Event {
 }
 
 export class ValueInterpreterDisplay extends HTMLElement {
-
   readonly #shadow = this.attachShadow({mode: 'open'});
   #endianness = Endianness.LITTLE;
   #buffer = new ArrayBuffer(0);
-  #valueTypes: Set<ValueType> = new Set();
+  #valueTypes = new Set<ValueType>();
   #valueTypeModeConfig: Map<ValueType, ValueTypeMode> = getDefaultValueTypeMapping();
   #memoryLength = 0;
-
-  constructor() {
-    super();
-    this.#shadow.adoptedStyleSheets = [
-      inspectorCommonStyles,
-    ];
-  }
-
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [valueInterpreterDisplayStyles];
-  }
 
   set data(data: ValueDisplayData) {
     this.#buffer = data.buffer;
@@ -136,6 +116,8 @@ export class ValueInterpreterDisplay extends HTMLElement {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
+      <style>${UI.inspectorCommonStyles}</style>
+      <style>${valueInterpreterDisplayStyles}</style>
       <div class="value-types">
         ${SORTED_VALUE_TYPES.map(type => this.#valueTypes.has(type) ? this.#showValue(type) : '')}
       </div>
@@ -172,8 +154,7 @@ export class ValueInterpreterDisplay extends HTMLElement {
               <button class="jump-to-button" data-jump="true" title=${buttonTitle} ?disabled=${jumpDisabled}
                 jslog=${VisualLogging.action('linear-memory-inspector.jump-to-address').track({click: true})}
                 @click=${this.#onJumpToAddressClicked.bind(this, Number(address))}>
-                <devtools-icon .data=${
-                  {iconName: 'open-externally', color: iconColor, width: '16px'}}>
+                <devtools-icon name="open-externally" class="medium" style="color: ${iconColor}">
                 </devtools-icon>
               </button>`}
         </div>
@@ -194,7 +175,6 @@ export class ValueInterpreterDisplay extends HTMLElement {
       <div>
         <select title=${i18nString(UIStrings.changeValueTypeMode)}
           data-mode-settings="true"
-          style="border: none; background-color: transparent; cursor: pointer; color: var(--sys-color-token-subtle);"
           jslog=${VisualLogging.dropDown('linear-memory-inspector.value-type-mode').track({change: true})}
           @change=${this.#onValueTypeModeChange.bind(this, type)}>
             ${VALUE_TYPE_MODE_LIST.filter(x => isValidMode(type, x)).map(mode => {

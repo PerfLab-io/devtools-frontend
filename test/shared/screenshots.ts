@@ -11,8 +11,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type * as puppeteer from 'puppeteer-core';
 
-import {platform} from '../conductor/mocha-interface-helpers.js';
 import {SOURCE_ROOT} from '../conductor/paths.js';
+import {platform} from '../conductor/platform.js';
 import {ScreenshotError} from '../conductor/screenshot-error.js';
 import {TestConfig} from '../conductor/test_config.js';
 import {
@@ -28,7 +28,7 @@ import {
  * goldens from there.
  */
 const testRunnerCWD = SOURCE_ROOT;
-const GOLDENS_FOLDER = path.join(testRunnerCWD, 'test', 'interactions', 'goldens', platform);
+const GOLDENS_FOLDER = path.join(testRunnerCWD, 'test', 'goldens', platform);
 
 /**
  * It's assumed that the image_diff binaries are in CWD/third_party/image_diff/{platform}/image_diff
@@ -60,34 +60,47 @@ const defaultScreenshotOpts: puppeteer.ScreenshotOptions = {
   captureBeyondViewport: false,
 };
 
-const DEFAULT_RETRIES_COUNT = 5;
+const DEFAULT_RETRIES_COUNT = 1;
 const DEFAULT_MS_BETWEEN_RETRIES = 150;
 
 // Percentage difference when comparing golden vs new screenshot that is
 // acceptable and will not fail the test.
-const DEFAULT_SCREENSHOT_THRESHOLD_PERCENT = 4;
+const DEFAULT_SCREENSHOT_THRESHOLD_PERCENT = 0.1;
 
 export const assertElementScreenshotUnchanged = async (
-    element: puppeteer.ElementHandle|null, fileName: string,
-    maximumDiffThreshold = DEFAULT_SCREENSHOT_THRESHOLD_PERCENT,
-    options: Partial<puppeteer.ScreenshotOptions> = {}) => {
-  if (!element) {
-    assert.fail(`Given element for test ${fileName} was not found.`);
-  }
+    element: puppeteer.ElementHandle|null,
+    fileName: NonNullable<puppeteer.ScreenshotOptions['path']>,
+    options: Partial<puppeteer.ScreenshotOptions> = {},
+    ) => {
+  assert.isOk(element, `Given element for test ${fileName} was not found.`);
   // Only assert screenshots on Linux. We don't observe platform-specific differences enough to justify
   // the costs of asserting 3 platforms per screenshot.
   if (platform !== 'linux') {
+    // Extra new line to work with the progress-diff karma reporter that
+    // replaces the previous line.
+    console.warn('Screenshot assertions are only supported on Linux\n');
     return;
   }
-  return assertScreenshotUnchangedWithRetries(element, fileName, maximumDiffThreshold, DEFAULT_RETRIES_COUNT, options);
+  return await assertScreenshotUnchangedWithRetries(
+      element, fileName, DEFAULT_SCREENSHOT_THRESHOLD_PERCENT, DEFAULT_RETRIES_COUNT, options);
 };
 
-const assertScreenshotUnchangedWithRetries = async (
-    elementOrPage: puppeteer.ElementHandle|puppeteer.Page, fileName: string, maximumDiffThreshold: number,
-    maximumRetries: number, options: Partial<puppeteer.ScreenshotOptions> = {}) => {
-  const {frontend} = getBrowserAndPages();
+function getFrontend() {
+  // Outside e2e or interaction tests the frontend can be undefined.
   try {
-    await frontend.evaluate(() => window.dispatchEvent(new Event('hidecomponentdocsui')));
+    const {frontend} = getBrowserAndPages();
+    return frontend;
+  } catch {
+    return;
+  }
+}
+
+const assertScreenshotUnchangedWithRetries = async (
+    elementOrPage: puppeteer.ElementHandle|puppeteer.Page, fileName: NonNullable<puppeteer.ScreenshotOptions['path']>,
+    maximumDiffThreshold: number, maximumRetries: number, options: Partial<puppeteer.ScreenshotOptions> = {}) => {
+  const frontend = getFrontend();
+  try {
+    await frontend?.evaluate(() => window.dispatchEvent(new Event('hidecomponentdocsui')));
     /**
      * You can call the helper with a path for the golden - e.g.
      * accordion/basic.png. So we split on `/` and then join on path.sep to
@@ -95,16 +108,8 @@ const assertScreenshotUnchangedWithRetries = async (
      */
     const fileNameForPlatform = fileName.split('/').join(path.sep);
     const goldenScreenshotPath = path.join(GOLDENS_FOLDER, fileNameForPlatform);
-    const generatedScreenshotPath = path.join(generatedScreenshotFolder, fileNameForPlatform);
-
-    // You can run the tests with ITERATIONS=2 to run each test twice. In that
-    // case we would expect the generated screenshots to already exists, so if
-    // we are running more than 1 iteration, we do not error.
-    const testIterations = TestConfig.repetitions;
-    if (fs.existsSync(generatedScreenshotPath) && testIterations < 2) {
-      // If this happened something went wrong during the clean-up at the start of the test run, so let's bail.
-      throw new Error(`${generatedScreenshotPath} already exists.`);
-    }
+    const generatedScreenshotPath =
+        path.join(generatedScreenshotFolder, fileNameForPlatform) as NonNullable<puppeteer.ScreenshotOptions['path']>;
 
     /**
      * Ensure that the directories for the golden/generated file exist. We need
@@ -124,13 +129,13 @@ const assertScreenshotUnchangedWithRetries = async (
       maximumRetries,
     });
   } finally {
-    await frontend.evaluate(() => window.dispatchEvent(new Event('showcomponentdocsui')));
+    await frontend?.evaluate(() => window.dispatchEvent(new Event('showcomponentdocsui')));
   }
 };
 
 interface ScreenshotAssertionOptions {
   goldenScreenshotPath: string;
-  generatedScreenshotPath: string;
+  generatedScreenshotPath: NonNullable<puppeteer.ScreenshotOptions['path']>;
   screenshotOptions: Partial<puppeteer.ScreenshotOptions>;
   elementOrPage: puppeteer.ElementHandle|puppeteer.Page;
   fileName: string;
@@ -150,7 +155,7 @@ const assertScreenshotUnchanged = async (options: ScreenshotAssertionOptions) =>
     retryCount = 1,
   } = options;
   const screenshotOptions = {...defaultScreenshotOpts, ...options.screenshotOptions, path: generatedScreenshotPath};
-  await (elementOrPage as puppeteer.Page).screenshot(screenshotOptions);
+  await elementOrPage.screenshot(screenshotOptions);
 
   /**
    * The user can do UPDATE_GOLDEN=accordion/basic.png npm run screenshotstest
@@ -169,7 +174,7 @@ const assertScreenshotUnchanged = async (options: ScreenshotAssertionOptions) =>
     if (process.env.LUCI_CONTEXT !== undefined && !shouldUpdate) {
       // If the image is missing, there's no point retrying the test N more times.
       onBotAndImageNotFound = true;
-      throw ScreenshotError.fromMessage(
+      throw ScreenshotError.fromGeneratedScreenshot(
           `Failing test: in an environment with LUCI_CONTEXT and did not find a golden screenshot.
 
         Here's the image that this test generated as a base64:
@@ -184,12 +189,13 @@ const assertScreenshotUnchanged = async (options: ScreenshotAssertionOptions) =>
     console.log('Golden does not exist, using generated screenshot.');
     setGeneratedFileAsGolden(goldenScreenshotPath, generatedScreenshotPath);
     if (throwAfterGoldensUpdate) {
-      throw new Error('Golden does not exist, using generated screenshot.');
+      throw ScreenshotError.fromGeneratedScreenshot(
+          'Golden does not exist, using generated screenshot.', generatedScreenshotPath);
     }
   }
 
   try {
-    await compare(goldenScreenshotPath, generatedScreenshotPath, maximumDiffThreshold);
+    await compare(goldenScreenshotPath, generatedScreenshotPath, maximumDiffThreshold, shouldUpdate);
   } catch (compareError) {
     if (!onBotAndImageNotFound) {
       console.log(`=> Test failed. Retrying (retry ${retryCount} of ${maximumRetries} maximum).`);
@@ -230,7 +236,7 @@ interface ImageDiff {
 }
 
 async function imageDiff(golden: string, generated: string) {
-  return new Promise<ImageDiff>(async (resolve, reject) => {
+  return await new Promise<ImageDiff>(async (resolve, reject) => {
     try {
       const imageDiff: ImageDiff = {rawMisMatchPercentage: 0, diffPath: ''};
       const diffText = await execImageDiffCommand(`${IMAGE_DIFF_BINARY} --histogram ${golden} ${generated}`);
@@ -256,7 +262,7 @@ async function imageDiff(golden: string, generated: string) {
 }
 
 async function execImageDiffCommand(cmd: string) {
-  return new Promise<string>((resolve, reject) => {
+  return await new Promise<string>((resolve, reject) => {
     let commandOutput = '';
     try {
       commandOutput = childProcess.execSync(cmd, {encoding: 'utf8'});
@@ -275,7 +281,7 @@ async function execImageDiffCommand(cmd: string) {
   });
 }
 
-async function compare(golden: string, generated: string, maximumDiffThreshold: number) {
+async function compare(golden: string, generated: string, maximumDiffThreshold: number, isInDiffUpdateMode: boolean) {
   const isOnBot = process.env.LUCI_CONTEXT !== undefined;
   if (!isOnBot && process.env.SKIP_SCREENSHOT_COMPARISONS_FOR_FAST_COVERAGE) {
     // When checking test coverage locally the tests get sped up significantly
@@ -304,7 +310,7 @@ async function compare(golden: string, generated: string, maximumDiffThreshold: 
   let debugInfo = '';
   if (isOnBot) {
     debugInfo = `${base64TestGeneratedImageLog}\n${base64DiffImageLog}\n`;
-  } else {
+  } else if (!isInDiffUpdateMode) {
     debugInfo = `Run the tests again with --on-diff=update to update all tests that fail.
   Only do this if you expected this screenshot to have changed!
 
@@ -323,7 +329,7 @@ async function compare(golden: string, generated: string, maximumDiffThreshold: 
     }
 
   } catch (assertionError) {
-    throw ScreenshotError.fromError(assertionError, golden, generated, diffPath);
+    throw ScreenshotError.fromScreenshotAssertionError(assertionError, golden, generated, diffPath);
   }
 }
 
@@ -342,7 +348,7 @@ function setGeneratedFileAsGolden(golden: string, generated: string) {
 export async function waitForDialogAnimationEnd(root?: puppeteer.ElementHandle) {
   const ANIMATION_TIMEOUT = 2000;
   const dialog = await waitFor('dialog[open]', root);
-  const animationPromise = dialog.evaluate((dialog: Element) => {
+  const animationPromise = dialog.evaluate(dialog => {
     return new Promise<void>(resolve => {
       dialog.addEventListener('animationend', () => resolve(), {once: true});
     });

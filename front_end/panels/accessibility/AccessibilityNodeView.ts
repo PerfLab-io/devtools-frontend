@@ -1,6 +1,7 @@
 // Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -15,97 +16,97 @@ import {AccessibilitySubPane} from './AccessibilitySubPane.js';
 
 const UIStrings = {
   /**
-   *@description Text in Accessibility Node View of the Accessibility panel
+   * @description Text in Accessibility Node View of the Accessibility panel
    */
   computedProperties: 'Computed Properties',
   /**
-   *@description Text in Accessibility Node View of the Accessibility panel
+   * @description Text in Accessibility Node View of the Accessibility panel
    */
   noAccessibilityNode: 'No accessibility node',
   /**
-   *@description Text in Accessibility Node View of the Accessibility panel
+   * @description Text in Accessibility Node View of the Accessibility panel
    */
   accessibilityNodeNotExposed: 'Accessibility node not exposed',
   /**
-   *@description Text in Accessibility Node View of the Accessibility panel
+   * @description Text in Accessibility Node View of the Accessibility panel
    */
   invalidSource: 'Invalid source.',
   /**
-   *@description Text in Accessibility Node View of the Accessibility panel
+   * @description Text in Accessibility Node View of the Accessibility panel
    */
   notSpecified: 'Not specified',
   /**
-   *@description Text in Accessibility Node View of the Accessibility panel
+   * @description Text in Accessibility Node View of the Accessibility panel
    */
   noNodeWithThisId: 'No node with this ID.',
   /**
-   *@description Text which appears in the Accessibility Node View of the Accessibility panel when an element is covered by a modal/popup window
+   * @description Text which appears in the Accessibility Node View of the Accessibility panel when an element is covered by a modal/popup window
    */
   elementIsHiddenBy: 'Element is hidden by active modal dialog:\xA0',
   /**
-   *@description Text which appears in the Accessibility Node View of the Accessibility panel when an element is hidden by another accessibility tree.
+   * @description Text which appears in the Accessibility Node View of the Accessibility panel when an element is hidden by another accessibility tree.
    */
   elementIsHiddenByChildTree: 'Element is hidden by child tree:\xA0',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
+   * @description Reason element in Accessibility Node View of the Accessibility panel
    */
   ancestorChildrenAreAll: 'Ancestor\'s children are all presentational:\xA0',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
-  @example {aria-hidden} PH1
+   * @description Reason element in Accessibility Node View of the Accessibility panel
+   * @example {aria-hidden} PH1
    */
   elementIsPlaceholder: 'Element is {PH1}.',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
-   *@example {aria-hidden} PH1
-   *@example {true} PH2
+   * @description Reason element in Accessibility Node View of the Accessibility panel
+   * @example {aria-hidden} PH1
+   * @example {true} PH2
    */
   placeholderIsPlaceholderOnAncestor: '{PH1} is {PH2} on ancestor:\xA0',
   /**
-   *@description Text in Accessibility Node View of the Accessibility panel
+   * @description Text in Accessibility Node View of the Accessibility panel
    */
   elementHasEmptyAltText: 'Element has empty alt text.',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
+   * @description Reason element in Accessibility Node View of the Accessibility panel
    */
   noTextContent: 'No text content.',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
+   * @description Reason element in Accessibility Node View of the Accessibility panel
    */
   elementIsInert: 'Element is `inert`.',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
+   * @description Reason element in Accessibility Node View of the Accessibility panel
    */
   elementIsInAnInertSubTree: 'Element is in an `inert` subtree from\xA0',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
+   * @description Reason element in Accessibility Node View of the Accessibility panel
    */
   elementsInheritsPresentational: 'Element inherits presentational role from\xA0',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
+   * @description Reason element in Accessibility Node View of the Accessibility panel
    */
   partOfLabelElement: 'Part of label element:\xA0',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
+   * @description Reason element in Accessibility Node View of the Accessibility panel
    */
   labelFor: 'Label for\xA0',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
+   * @description Reason element in Accessibility Node View of the Accessibility panel
    */
   elementIsNotRendered: 'Element is not rendered.',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
+   * @description Reason element in Accessibility Node View of the Accessibility panel
    */
   elementIsNotVisible: 'Element is not visible.',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel. Indicates the
+   * @description Reason element in Accessibility Node View of the Accessibility panel. Indicates the
    *ARIA role for this element, which will always have the format 'role=', but with different roles
    *(which are not translated). https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles
-   *@example {role=link} PH1
+   * @example {role=link} PH1
    */
   elementHasPlaceholder: 'Element has {PH1}.',
   /**
-   *@description Reason element in Accessibility Node View of the Accessibility panel
+   * @description Reason element in Accessibility Node View of the Accessibility panel
    */
   elementIsPresentational: 'Element is presentational.',
   /**
@@ -114,7 +115,7 @@ const UIStrings = {
    * element doesn't have any special accessibility considerations
    */
   elementNotInteresting: 'Element not interesting for accessibility.',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/accessibility/AccessibilityNodeView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class AXNodeSubPane extends AccessibilitySubPane {
@@ -124,13 +125,16 @@ export class AXNodeSubPane extends AccessibilitySubPane {
   private readonly treeOutline: UI.TreeOutline.TreeOutline;
   private readonly ignoredReasonsTree: UI.TreeOutline.TreeOutline;
   constructor() {
-    super(i18nString(UIStrings.computedProperties));
+    super({
+      title: i18nString(UIStrings.computedProperties),
+      viewId: 'computed-properties',
+      jslog: `${VisualLogging.section('computed-properties')}`,
+    });
     this.registerRequiredCSS(accessibilityNodeStyles);
 
     this.axNode = null;
 
     this.contentElement.classList.add('ax-subpane');
-    this.contentElement.setAttribute('jslog', `${VisualLogging.section('computed-properties')}`);
 
     this.noNodeInfo = this.createInfo(i18nString(UIStrings.noAccessibilityNode));
     this.ignoredInfo = this.createInfo(i18nString(UIStrings.accessibilityNodeNotExposed), 'ax-ignored-info hidden');
@@ -272,7 +276,7 @@ export class AXNodePropertyTreeElement extends UI.TreeOutline.TreeElement {
   appendNameElement(name: string): void {
     const nameElement = document.createElement('span');
     if (name in AXAttributes) {
-      // @ts-ignore TS can't cast name here but we checked it's valid.
+      // @ts-expect-error TS can't cast name here but we checked it's valid.
       const attribute = AXAttributes[name];
       nameElement.textContent = attribute.name();
       UI.Tooltip.Tooltip.install(nameElement, attribute.description());
@@ -316,7 +320,7 @@ export class AXNodePropertyTreeElement extends UI.TreeOutline.TreeElement {
   appendRelatedNodeInline(relatedNode: Protocol.Accessibility.AXRelatedNode): void {
     const deferredNode =
         new SDK.DOMModel.DeferredDOMNode(this.axNode.accessibilityModel().target(), relatedNode.backendDOMNodeId);
-    const linkedNode = new AXRelatedNodeElement({deferredNode, idref: undefined}, relatedNode);
+    const linkedNode = new AXRelatedNodeElement({deferredNode, idref: undefined});
     this.listItemElement.appendChild(linkedNode.render());
   }
 
@@ -337,9 +341,7 @@ export class AXNodePropertyTreeElement extends UI.TreeOutline.TreeElement {
   }
 }
 
-export const TypeStyles: {
-  [x: string]: string,
-} = {
+export const TypeStyles: Record<string, string> = {
   attribute: 'ax-value-string',
   boolean: 'object-value-boolean',
   booleanOrUndefined: 'object-value-boolean',
@@ -544,7 +546,7 @@ export class AXRelatedNodeSourceTreeElement extends UI.TreeOutline.TreeElement {
     super('');
 
     this.value = value;
-    this.axRelatedNodeElement = new AXRelatedNodeElement(node, value);
+    this.axRelatedNodeElement = new AXRelatedNodeElement(node);
     this.selectable = true;
   }
 
@@ -569,16 +571,12 @@ export class AXRelatedNodeSourceTreeElement extends UI.TreeOutline.TreeElement {
 export class AXRelatedNodeElement {
   private readonly deferredNode: SDK.DOMModel.DeferredDOMNode|undefined;
   private readonly idref: string|undefined;
-  private readonly value: Protocol.Accessibility.AXRelatedNode|undefined;
-  constructor(
-      node: {
-        deferredNode?: SDK.DOMModel.DeferredDOMNode,
-        idref?: string,
-      },
-      value?: Protocol.Accessibility.AXRelatedNode) {
+  constructor(node: {
+    deferredNode?: SDK.DOMModel.DeferredDOMNode,
+    idref?: string,
+  }) {
     this.deferredNode = node.deferredNode;
     this.idref = node.idref;
-    this.value = value;
   }
 
   render(): Element {
@@ -676,7 +674,7 @@ export class AXNodeIgnoredReasonTreeElement extends AXNodePropertyTreeElement {
         reasonElement = i18n.i18n.getFormatLocalizedString(str_, UIStrings.elementIsNotVisible, {});
         break;
       case 'presentationalRole': {
-        const role = axNode && axNode.role()?.value || '';
+        const role = axNode?.role()?.value || '';
         const rolePresentationSpan = document.createElement('span', {is: 'source-code'}).textContent = 'role=' + role;
         reasonElement =
             i18n.i18n.getFormatLocalizedString(str_, UIStrings.elementHasPlaceholder, {PH1: rolePresentationSpan});

@@ -87,7 +87,7 @@ function findWorkerThreads(trace: Lantern.Types.Trace): Map<number, number[]> {
 function createLanternRequest(
     parsedTrace: Readonly<Handlers.Types.ParsedTrace>, workerThreads: Map<number, number[]>,
     request: Types.Events.SyntheticNetworkRequest): NetworkRequest|undefined {
-  if (request.args.data.connectionId === undefined || request.args.data.connectionReused === undefined) {
+  if (request.args.data.hasResponse && request.args.data.connectionId === undefined) {
     throw new Lantern.Core.LanternError('Trace is too old');
   }
 
@@ -102,6 +102,7 @@ function createLanternRequest(
     // These two timings are not included in the trace.
     workerFetchStart: -1,
     workerRespondWithSettled: -1,
+    receiveHeadersStart: -1,
     ...request.args.data.timing,
   } :
                                             undefined;
@@ -166,8 +167,8 @@ function createLanternRequest(
   return {
     rawRequest: request,
     requestId: request.args.data.requestId,
-    connectionId: request.args.data.connectionId,
-    connectionReused: request.args.data.connectionReused,
+    connectionId: request.args.data.connectionId ?? 0,
+    connectionReused: request.args.data.connectionReused ?? false,
     url: request.args.data.url,
     protocol: request.args.data.protocol,
     parsedURL: createParsedUrl(url),
@@ -256,7 +257,7 @@ function chooseInitiatorRequest(request: NetworkRequest, requestsByURL: Map<stri
 }
 
 function linkInitiators(lanternRequests: NetworkRequest[]): void {
-  const requestsByURL: Map<string, NetworkRequest[]> = new Map();
+  const requestsByURL = new Map<string, NetworkRequest[]>();
   for (const request of lanternRequests) {
     const requests = requestsByURL.get(request.url) || [];
     requests.push(request);
@@ -276,25 +277,28 @@ function createNetworkRequests(
     endTime = Number.POSITIVE_INFINITY): NetworkRequest[] {
   const workerThreads = findWorkerThreads(trace);
 
-  const lanternRequests: NetworkRequest[] = [];
+  const lanternRequestsNoRedirects: NetworkRequest[] = [];
   for (const request of parsedTrace.NetworkRequests.byTime) {
     if (request.ts >= startTime && request.ts < endTime) {
       const lanternRequest = createLanternRequest(parsedTrace, workerThreads, request);
       if (lanternRequest) {
-        lanternRequests.push(lanternRequest);
+        lanternRequestsNoRedirects.push(lanternRequest);
       }
     }
   }
 
+  const lanternRequests: NetworkRequest[] = [];
+
   // Trace Engine consolidates all redirects into a single request object, but lantern needs
   // an entry for each redirected request.
-  for (const request of [...lanternRequests]) {
+  for (const request of [...lanternRequestsNoRedirects]) {
     if (!request.rawRequest) {
       continue;
     }
 
     const redirects = request.rawRequest.args.data.redirects;
     if (!redirects.length) {
+      lanternRequests.push(request);
       continue;
     }
 
@@ -341,6 +345,7 @@ function createNetworkRequests(
       lanternRequests.push(redirectedRequest);
     }
     requestChain.push(request);
+    lanternRequests.push(request);
 
     for (let i = 0; i < requestChain.length; i++) {
       const request = requestChain[i];
@@ -354,7 +359,7 @@ function createNetworkRequests(
     }
 
     // Apply the `:redirect` requestId convention: only redirects[0].requestId is the actual
-    // requestId, all the rest have n occurences of `:redirect` as a suffix.
+    // requestId, all the rest have n occurrences of `:redirect` as a suffix.
     for (let i = 1; i < requestChain.length; i++) {
       requestChain[i].requestId = `${requestChain[i - 1].requestId}:redirect`;
     }
@@ -362,9 +367,7 @@ function createNetworkRequests(
 
   linkInitiators(lanternRequests);
 
-  // This would already be sorted by rendererStartTime, if not for the redirect unwrapping done
-  // above.
-  return lanternRequests.sort((a, b) => a.rendererStartTime - b.rendererStartTime);
+  return lanternRequests;
 }
 
 function collectMainThreadEvents(

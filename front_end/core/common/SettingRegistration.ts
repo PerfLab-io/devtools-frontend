@@ -10,78 +10,82 @@ import type {SettingStorageType} from './Settings.js';
 
 const UIStrings = {
   /**
-   *@description Title of the Elements Panel
+   * @description Title of the Elements Panel
    */
   elements: 'Elements',
   /**
-   *@description Text for DevTools appearance
+   * @description Text for DevTools AI
+   */
+  ai: 'AI',
+  /**
+   * @description Text for DevTools appearance
    */
   appearance: 'Appearance',
   /**
-   *@description Name of the Sources panel
+   * @description Name of the Sources panel
    */
   sources: 'Sources',
   /**
-   *@description Title of the Network tool
+   * @description Title of the Network tool
    */
   network: 'Network',
   /**
-   *@description Text for the performance of something
+   * @description Text for the performance of something
    */
   performance: 'Performance',
   /**
-   *@description Title of the Console tool
+   * @description Title of the Console tool
    */
   console: 'Console',
   /**
-   *@description A title of the 'Persistence' setting category
+   * @description A title of the 'Persistence' setting category
    */
   persistence: 'Persistence',
   /**
-   *@description Text that refers to the debugger
+   * @description Text that refers to the debugger
    */
   debugger: 'Debugger',
   /**
-   *@description Text describing global shortcuts and settings that are available throughout the DevTools
+   * @description Text describing global shortcuts and settings that are available throughout the DevTools
    */
   global: 'Global',
   /**
-   *@description Title of the Rendering tool
+   * @description Title of the Rendering tool
    */
   rendering: 'Rendering',
   /**
-   *@description Title of a section on CSS Grid tooling
+   * @description Title of a section on CSS Grid tooling
    */
   grid: 'Grid',
   /**
-   *@description Text for the mobile platform, as opposed to desktop
+   * @description Text for the mobile platform, as opposed to desktop
    */
   mobile: 'Mobile',
   /**
-   *@description Text for the memory of the page
+   * @description Text for the memory of the page
    */
   memory: 'Memory',
   /**
-   *@description Text for the extension of the page
+   * @description Text for the extension of the page
    */
   extension: 'Extension',
   /**
-   *@description Text for the adorner of the page
+   * @description Text for the adorner of the page
    */
   adorner: 'Adorner',
   /**
-   * @description Header for the "Sync" section in the settings UI. The "Sync"
-   * section allows users to configure which DevTools data is synced via Chrome Sync.
+   * @description Header for the "Account" section in the settings UI. The "Account"
+   * section allows users see their signed in account and configure which DevTools data is synced via Chrome Sync.
    */
-  sync: 'Sync',
+  account: 'Account',
   /**
    * @description Text for the privacy section of the page.
    */
   privacy: 'Privacy',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('core/common/SettingRegistration.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
-let registeredSettings: Array<SettingRegistration> = [];
+let registeredSettings: SettingRegistration[] = [];
 const settingNameSet = new Set<string>();
 
 export function registerSettingExtension(registration: SettingRegistration): void {
@@ -93,13 +97,11 @@ export function registerSettingExtension(registration: SettingRegistration): voi
   registeredSettings.push(registration);
 }
 
-export function getRegisteredSettings(config: Root.Runtime.HostConfig): Array<SettingRegistration> {
-  return registeredSettings.filter(
-      setting => Root.Runtime.Runtime.isDescriptorEnabled(
-          {experiment: setting.experiment, condition: setting.condition}, config));
+export function getRegisteredSettings(): SettingRegistration[] {
+  return registeredSettings.filter(setting => Root.Runtime.Runtime.isDescriptorEnabled(setting));
 }
 
-export function registerSettingsForTest(settings: Array<SettingRegistration>, forceReset: boolean = false): void {
+export function registerSettingsForTest(settings: SettingRegistration[], forceReset = false): void {
   if (registeredSettings.length === 0 || forceReset) {
     registeredSettings = settings;
     settingNameSet.clear();
@@ -130,6 +132,7 @@ export function maybeRemoveSettingExtension(settingName: string): boolean {
 export const enum SettingCategory {
   NONE = '',  // `NONE` must be a falsy value. Legacy code uses if-checks for the category.
   ELEMENTS = 'ELEMENTS',
+  AI = 'AI',
   APPEARANCE = 'APPEARANCE',
   SOURCES = 'SOURCES',
   NETWORK = 'NETWORK',
@@ -145,7 +148,7 @@ export const enum SettingCategory {
   MEMORY = 'MEMORY',
   EXTENSIONS = 'EXTENSIONS',
   ADORNER = 'ADORNER',
-  SYNC = 'SYNC',
+  ACCOUNT = 'ACCOUNT',
   PRIVACY = 'PRIVACY',
 }
 
@@ -153,6 +156,8 @@ export function getLocalizedSettingsCategory(category: SettingCategory): Platfor
   switch (category) {
     case SettingCategory.ELEMENTS:
       return i18nString(UIStrings.elements);
+    case SettingCategory.AI:
+      return i18nString(UIStrings.ai);
     case SettingCategory.APPEARANCE:
       return i18nString(UIStrings.appearance);
     case SettingCategory.SOURCES:
@@ -185,8 +190,8 @@ export function getLocalizedSettingsCategory(category: SettingCategory): Platfor
       return i18nString(UIStrings.adorner);
     case SettingCategory.NONE:
       return i18n.i18n.lockedString('');
-    case SettingCategory.SYNC:
-      return i18nString(UIStrings.sync);
+    case SettingCategory.ACCOUNT:
+      return i18nString(UIStrings.account);
     case SettingCategory.PRIVACY:
       return i18nString(UIStrings.privacy);
   }
@@ -254,7 +259,7 @@ export interface SettingRegistration {
   /**
    * The possible values the setting can have, each with a description composed of a title and an optional text.
    */
-  options?: Array<SettingExtensionOption>;
+  options?: SettingExtensionOption[];
   /**
    * Whether DevTools must be reloaded for a change in the setting to take effect.
    */
@@ -330,5 +335,5 @@ interface RawSettingExtensionOption {
 export type SettingExtensionOption = LocalizedSettingExtensionOption|RawSettingExtensionOption;
 export type DisabledConditionResult = {
   disabled: true,
-  reasons: string[],
+  reasons: Platform.UIString.LocalizedString[],
 }|{disabled: false};

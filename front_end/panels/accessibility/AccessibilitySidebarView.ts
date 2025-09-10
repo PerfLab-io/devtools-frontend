@@ -1,6 +1,7 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import type * as Common from '../../core/common/common.js';
 import * as Root from '../../core/root/root.js';
@@ -15,18 +16,19 @@ import {SourceOrderPane} from './SourceOrderView.js';
 let accessibilitySidebarViewInstance: AccessibilitySidebarView;
 
 export class AccessibilitySidebarView extends UI.ThrottledWidget.ThrottledWidget {
-  private nodeInternal: SDK.DOMModel.DOMNode|null;
-  private axNodeInternal: SDK.AccessibilityModel.AccessibilityNode|null;
+  #node: SDK.DOMModel.DOMNode|null;
+  #axNode: SDK.AccessibilityModel.AccessibilityNode|null;
   private skipNextPullNode: boolean;
   private readonly sidebarPaneStack: UI.View.ViewLocation;
-  private readonly breadcrumbsSubPane: AXBreadcrumbsPane|null = null;
+  private readonly breadcrumbsSubPane: AXBreadcrumbsPane;
   private readonly ariaSubPane: ARIAAttributesPane;
   private readonly axNodeSubPane: AXNodeSubPane;
   private readonly sourceOrderSubPane: SourceOrderPane;
   private constructor(throttlingTimeout?: number) {
     super(false /* useShadowDom */, throttlingTimeout);
-    this.nodeInternal = null;
-    this.axNodeInternal = null;
+    this.element.classList.add('accessibility-sidebar-view');
+    this.#node = null;
+    this.#axNode = null;
     this.skipNextPullNode = false;
     this.sidebarPaneStack = UI.ViewManager.ViewManager.instance().createStackLocation();
     this.breadcrumbsSubPane = new AXBreadcrumbsPane(this);
@@ -53,16 +55,16 @@ export class AccessibilitySidebarView extends UI.ThrottledWidget.ThrottledWidget
   }
 
   node(): SDK.DOMModel.DOMNode|null {
-    return this.nodeInternal;
+    return this.#node;
   }
 
   axNode(): SDK.AccessibilityModel.AccessibilityNode|null {
-    return this.axNodeInternal;
+    return this.#axNode;
   }
 
   setNode(node: SDK.DOMModel.DOMNode|null, fromAXTree?: boolean): void {
     this.skipNextPullNode = Boolean(fromAXTree);
-    this.nodeInternal = node;
+    this.#node = node;
     this.update();
   }
 
@@ -71,7 +73,7 @@ export class AccessibilitySidebarView extends UI.ThrottledWidget.ThrottledWidget
       return;
     }
 
-    this.axNodeInternal = axNode;
+    this.#axNode = axNode;
 
     if (axNode.isDOMNode()) {
       void this.sidebarPaneStack.showView(this.ariaSubPane, this.axNodeSubPane);
@@ -79,21 +81,15 @@ export class AccessibilitySidebarView extends UI.ThrottledWidget.ThrottledWidget
       this.sidebarPaneStack.removeView(this.ariaSubPane);
     }
 
-    if (this.axNodeSubPane) {
-      this.axNodeSubPane.setAXNode(axNode);
-    }
-    if (this.breadcrumbsSubPane) {
-      this.breadcrumbsSubPane.setAXNode(axNode);
-    }
+    this.axNodeSubPane.setAXNode(axNode);
+    this.breadcrumbsSubPane.setAXNode(axNode);
   }
 
   override async doUpdate(): Promise<void> {
     const node = this.node();
     this.axNodeSubPane.setNode(node);
     this.ariaSubPane.setNode(node);
-    if (this.breadcrumbsSubPane) {
-      this.breadcrumbsSubPane.setNode(node);
-    }
+    this.breadcrumbsSubPane.setNode(node);
     void this.sourceOrderSubPane.setNodeAsync(node);
     if (!node) {
       return;
@@ -144,13 +140,14 @@ export class AccessibilitySidebarView extends UI.ThrottledWidget.ThrottledWidget
     this.setNode(UI.Context.Context.instance().flavor(SDK.DOMModel.DOMNode));
   }
 
-  private onNodeChange(event: Common.EventTarget
-                           .EventTargetEvent<{node: SDK.DOMModel.DOMNode, name: string}|SDK.DOMModel.DOMNode>): void {
+  private onNodeChange(
+      event: Common.EventTarget.EventTargetEvent<{node: SDK.DOMModel.DOMNode, name: string}|SDK.DOMModel.DOMNode>):
+      void {
     if (!this.node()) {
       return;
     }
     const data = event.data;
-    const node = (data instanceof SDK.DOMModel.DOMNode ? data : data.node as SDK.DOMModel.DOMNode);
+    const node = (data instanceof SDK.DOMModel.DOMNode ? data : data.node);
     if (this.node() !== node) {
       return;
     }

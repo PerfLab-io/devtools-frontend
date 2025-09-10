@@ -9,14 +9,14 @@ import type * as CSSOverview from './css_overview.js';
 
 const UIStrings = {
   /**
-   *@description Title of the CSS overview panel
+   * @description Title of the CSS overview panel
    */
   cssOverview: 'CSS overview',
   /**
-   *@description Title of the CSS overview panel
+   * @description Title of the CSS overview panel
    */
   showCssOverview: 'Show CSS overview',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/css_overview/css_overview-meta.ts', UIStrings);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
@@ -39,8 +39,7 @@ UI.ViewManager.registerViewExtension({
   persistence: UI.ViewManager.ViewPersistence.CLOSEABLE,
   async loadView() {
     const CSSOverview = await loadCSSOverviewModule();
-    return new CSSOverview.CSSOverviewPanel.CSSOverviewPanel(
-        new CSSOverview.CSSOverviewController.OverviewController());
+    return new CSSOverview.CSSOverviewPanel.CSSOverviewPanel();
   },
   isPreviewFeature: true,
 });

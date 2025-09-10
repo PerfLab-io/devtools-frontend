@@ -39,6 +39,7 @@ export class IndexedDBModel extends SDK.SDKModel.SDKModel<EventTypes> implements
   private readonly storageBucketModel: SDK.StorageBucketsModel.StorageBucketsModel|null;
   private readonly indexedDBAgent: ProtocolProxyApi.IndexedDBApi;
   private readonly storageAgent: ProtocolProxyApi.StorageApi;
+  // Used in web tests
   private readonly databasesInternal: Map<DatabaseId, Database>;
   private databaseNamesByStorageKeyAndBucket: Map<string, Map<string, Set<DatabaseId>>>;
   private readonly updatedStorageBuckets: Set<Protocol.Storage.StorageBucket>;
@@ -349,13 +350,13 @@ export class IndexedDBModel extends SDK.SDKModel.SDKModel<EventTypes> implements
 
   loadObjectStoreData(
       databaseId: DatabaseId, objectStoreName: string, idbKeyRange: IDBKeyRange|null, skipCount: number,
-      pageSize: number, callback: (arg0: Array<Entry>, arg1: boolean) => void): void {
+      pageSize: number, callback: (arg0: Entry[], arg1: boolean) => void): void {
     void this.requestData(databaseId, databaseId.name, objectStoreName, '', idbKeyRange, skipCount, pageSize, callback);
   }
 
   loadIndexData(
       databaseId: DatabaseId, objectStoreName: string, indexName: string, idbKeyRange: IDBKeyRange|null,
-      skipCount: number, pageSize: number, callback: (arg0: Array<Entry>, arg1: boolean) => void): void {
+      skipCount: number, pageSize: number, callback: (arg0: Entry[], arg1: boolean) => void): void {
     void this.requestData(
         databaseId, databaseId.name, objectStoreName, indexName, idbKeyRange, skipCount, pageSize, callback);
   }
@@ -363,7 +364,7 @@ export class IndexedDBModel extends SDK.SDKModel.SDKModel<EventTypes> implements
   private async requestData(
       databaseId: DatabaseId, databaseName: string, objectStoreName: string, indexName: string,
       idbKeyRange: IDBKeyRange|null, skipCount: number, pageSize: number,
-      callback: (arg0: Array<Entry>, arg1: boolean) => void): Promise<void> {
+      callback: (arg0: Entry[], arg1: boolean) => void): Promise<void> {
     const keyRange = idbKeyRange ? IndexedDBModel.keyRangeFromIDBKeyRange(idbKeyRange) : undefined;
     const runtimeModel = this.target().model(SDK.RuntimeModel.RuntimeModel);
     const response = await this.indexedDBAgent.invoke_requestData({
@@ -463,6 +464,10 @@ export class IndexedDBModel extends SDK.SDKModel.SDKModel<EventTypes> implements
   sharedStorageAccessed(_event: Protocol.Storage.SharedStorageAccessedEvent): void {
   }
 
+  sharedStorageWorkletOperationExecutionFinished(
+      _event: Protocol.Storage.SharedStorageWorkletOperationExecutionFinishedEvent): void {
+  }
+
   storageBucketCreatedOrUpdated(_event: Protocol.Storage.StorageBucketCreatedOrUpdatedEvent): void {
   }
 
@@ -470,6 +475,11 @@ export class IndexedDBModel extends SDK.SDKModel.SDKModel<EventTypes> implements
   }
 
   attributionReportingSourceRegistered(_event: Protocol.Storage.AttributionReportingSourceRegisteredEvent): void {
+  }
+  attributionReportingReportSent(_event: Protocol.Storage.AttributionReportingReportSentEvent): void {
+  }
+  attributionReportingVerboseDebugReportSent(_event: Protocol.Storage.AttributionReportingVerboseDebugReportSentEvent):
+      void {
   }
 }
 

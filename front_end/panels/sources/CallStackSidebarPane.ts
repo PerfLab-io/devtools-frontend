@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
@@ -36,7 +37,7 @@ import type * as Protocol from '../../generated/protocol.js';
 import * as Bindings from '../../models/bindings/bindings.js';
 import * as Persistence from '../../models/persistence/persistence.js';
 import * as SourceMapScopes from '../../models/source_map_scopes/source_map_scopes.js';
-import type * as Workspace from '../../models/workspace/workspace.js';
+import * as Workspace from '../../models/workspace/workspace.js';
 import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
@@ -45,45 +46,45 @@ import callStackSidebarPaneStyles from './callStackSidebarPane.css.js';
 
 const UIStrings = {
   /**
-   *@description Text in Call Stack Sidebar Pane of the Sources panel
+   * @description Text in Call Stack Sidebar Pane of the Sources panel
    */
   callStack: 'Call Stack',
   /**
-   *@description Not paused message element text content in Call Stack Sidebar Pane of the Sources panel
+   * @description Not paused message element text content in Call Stack Sidebar Pane of the Sources panel
    */
   notPaused: 'Not paused',
   /**
-   *@description Text exposed to screen reader when navigating through a ignore-listed call frame in the sources panel
+   * @description Text exposed to screen reader when navigating through a ignore-listed call frame in the sources panel
    */
   onIgnoreList: 'on ignore list',
   /**
-   *@description Show all link text content in Call Stack Sidebar Pane of the Sources panel
+   * @description Show all link text content in Call Stack Sidebar Pane of the Sources panel
    */
   showIgnorelistedFrames: 'Show ignore-listed frames',
   /**
-   *@description Text to show more content
+   * @description Text to show more content
    */
   showMore: 'Show more',
   /**
-   *@description A context menu item in the Call Stack Sidebar Pane of the Sources panel
+   * @description A context menu item in the Call Stack Sidebar Pane of the Sources panel
    */
   copyStackTrace: 'Copy stack trace',
   /**
-   *@description Text in Call Stack Sidebar Pane of the Sources panel when some call frames have warnings
+   * @description Text in Call Stack Sidebar Pane of the Sources panel when some call frames have warnings
    */
   callFrameWarnings: 'Some call frames have warnings',
   /**
-   *@description Error message that is displayed in UI when a file needed for debugging information for a call frame is missing
-   *@example {src/myapp.debug.wasm.dwp} PH1
+   * @description Error message that is displayed in UI when a file needed for debugging information for a call frame is missing
+   * @example {src/myapp.debug.wasm.dwp} PH1
    */
   debugFileNotFound: 'Failed to load debug file "{PH1}".',
   /**
-   * @description A contex menu item in the Call Stack Sidebar Pane. "Restart" is a verb and
+   * @description A context menu item in the Call Stack Sidebar Pane. "Restart" is a verb and
    * "frame" is a noun. "Frame" refers to an individual item in the call stack, i.e. a call frame.
    * The user opens this context menu by selecting a specific call frame in the call stack sidebar pane.
    */
   restartFrame: 'Restart frame',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/sources/CallStackSidebarPane.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -108,10 +109,14 @@ export class CallStackSidebarPane extends UI.View.SimpleView implements UI.Conte
   private lastDebuggerModel: SDK.DebuggerModel.DebuggerModel|null = null;
 
   private constructor() {
-    super(i18nString(UIStrings.callStack), true, 'sources.callstack');
+    super({
+      jslog: `${VisualLogging.section('sources.callstack')}`,
+      title: i18nString(UIStrings.callStack),
+      viewId: 'sources.callstack',
+      useShadowDom: true,
+    });
     this.registerRequiredCSS(callStackSidebarPaneStyles);
 
-    this.contentElement.setAttribute('jslog', `${VisualLogging.section('sources.callstack')}`);
     ({element: this.ignoreListMessageElement, checkbox: this.ignoreListCheckboxElement} =
          this.createIgnoreListMessageElementAndCheckbox());
     this.contentElement.appendChild(this.ignoreListMessageElement);
@@ -122,13 +127,8 @@ export class CallStackSidebarPane extends UI.View.SimpleView implements UI.Conte
 
     this.callFrameWarningsElement = this.contentElement.createChild('div', 'call-frame-warnings-message');
     const icon = new IconButton.Icon.Icon();
-    icon.data = {
-      iconName: 'warning-filled',
-      color: 'var(--icon-warning)',
-      width: '14px',
-      height: '14px',
-    };
-    icon.classList.add('call-frame-warning-icon');
+    icon.name = 'warning-filled';
+    icon.classList.add('call-frame-warning-icon', 'small');
     this.callFrameWarningsElement.appendChild(icon);
     this.callFrameWarningsElement.appendChild(document.createTextNode(i18nString(UIStrings.callFrameWarnings)));
     this.callFrameWarningsElement.tabIndex = -1;
@@ -226,7 +226,7 @@ export class CallStackSidebarPane extends UI.View.SimpleView implements UI.Conte
     this.notPausedMessageElement.classList.add('hidden');
 
     const itemPromises = [];
-    const uniqueWarnings: Set<string> = new Set();
+    const uniqueWarnings = new Set<string>();
     for (const frame of details.callFrames) {
       const itemPromise = Item.createForDebuggerCallFrame(frame, this.locationPool, this.refreshItem.bind(this));
       itemPromises.push(itemPromise);
@@ -240,34 +240,21 @@ export class CallStackSidebarPane extends UI.View.SimpleView implements UI.Conte
       UI.Tooltip.Tooltip.install(this.callFrameWarningsElement, Array.from(uniqueWarnings).join('\n'));
     }
 
-    let debuggerModel = details.debuggerModel;
-    let asyncStackTraceId = details.asyncStackTraceId;
-    let asyncStackTrace: Protocol.Runtime.StackTrace|undefined|null = details.asyncStackTrace;
     let previousStackTrace: Protocol.Runtime.CallFrame[]|SDK.DebuggerModel.CallFrame[] = details.callFrames;
-    for (let {maxAsyncStackChainDepth} = this; maxAsyncStackChainDepth > 0; --maxAsyncStackChainDepth) {
-      if (!asyncStackTrace) {
-        if (!asyncStackTraceId) {
-          break;
-        }
-        if (asyncStackTraceId.debuggerId) {
-          const dm = await SDK.DebuggerModel.DebuggerModel.modelForDebuggerId(asyncStackTraceId.debuggerId);
-          if (!dm) {
-            break;
-          }
-          debuggerModel = dm;
-        }
-        asyncStackTrace = await debuggerModel.fetchAsyncStackTrace(asyncStackTraceId);
-        if (!asyncStackTrace) {
-          break;
-        }
-      }
+    let {maxAsyncStackChainDepth} = this;
+    let asyncStackTrace: Protocol.Runtime.StackTrace|null = null;
+    for await (const {stackTrace} of details.debuggerModel.iterateAsyncParents(details)) {
+      asyncStackTrace = stackTrace;
       const title = UI.UIUtils.asyncStackTraceLabel(asyncStackTrace.description, previousStackTrace);
       items.push(...await Item.createItemsForAsyncStack(
-          title, debuggerModel, asyncStackTrace.callFrames, this.locationPool, this.refreshItem.bind(this)));
+          title, details.debuggerModel, asyncStackTrace.callFrames, this.locationPool, this.refreshItem.bind(this)));
       previousStackTrace = asyncStackTrace.callFrames;
-      asyncStackTraceId = asyncStackTrace.parentId;
-      asyncStackTrace = asyncStackTrace.parent;
+
+      if (--maxAsyncStackChainDepth <= 0) {
+        break;
+      }
     }
+
     this.showMoreMessageElement.classList.toggle('hidden', !asyncStackTrace);
     this.items.replaceAll(items);
     for (const item of this.items) {
@@ -344,25 +331,15 @@ export class CallStackSidebarPane extends UI.View.SimpleView implements UI.Conte
     UI.ARIAUtils.setSelected(element, isSelected);
     element.classList.toggle('hidden', !this.showIgnoreListed && item.isIgnoreListed);
     const icon = new IconButton.Icon.Icon();
-    icon.data = {
-      iconName: 'large-arrow-right-filled',
-      color: 'var(--icon-arrow-main-thread)',
-      width: '14px',
-      height: '14px',
-    };
-    icon.classList.add('selected-call-frame-icon');
+    icon.name = 'large-arrow-right-filled';
+    icon.classList.add('selected-call-frame-icon', 'small');
     element.appendChild(icon);
     element.tabIndex = item === this.list.selectedItem() ? 0 : -1;
 
-    if (callframe && callframe.missingDebugInfoDetails) {
+    if (callframe?.missingDebugInfoDetails) {
       const icon = new IconButton.Icon.Icon();
-      icon.data = {
-        iconName: 'warning-filled',
-        color: 'var(--icon-warning)',
-        width: '14px',
-        height: '14px',
-      };
-      icon.classList.add('call-frame-warning-icon');
+      icon.name = 'warning-filled';
+      icon.classList.add('call-frame-warning-icon', 'small');
       const messages = callframe.missingDebugInfoDetails.resources.map(
           r => i18nString(UIStrings.debugFileNotFound, {PH1: Common.ParsedURL.ParsedURL.extractName(r.resourceUrl)}));
       UI.Tooltip.Tooltip.install(icon, [callframe.missingDebugInfoDetails.details, ...messages].join('\n'));
@@ -452,13 +429,6 @@ export class CallStackSidebarPane extends UI.View.SimpleView implements UI.Conte
     void contextMenu.show();
   }
 
-  private onClick(event: Event): void {
-    const item = this.list.itemForNode((event.target as Node | null));
-    if (item) {
-      this.activateItem(item);
-    }
-  }
-
   private activateItem(item: Item): void {
     const uiLocation = item.uiLocation;
     if (this.muteActivateItem || !uiLocation) {
@@ -500,7 +470,7 @@ export class CallStackSidebarPane extends UI.View.SimpleView implements UI.Conte
       return;
     }
 
-    for (const {text, callback, jslogContext} of Bindings.IgnoreListManager.IgnoreListManager.instance()
+    for (const {text, callback, jslogContext} of Workspace.IgnoreListManager.IgnoreListManager.instance()
              .getIgnoreListURLContextMenuItems(uiSourceCode)) {
       menuSection.appendItem(text, callback, {jslogContext});
     }
@@ -547,7 +517,7 @@ export const elementSymbol = Symbol('element');
 export const defaultMaxAsyncStackChainDepth = 32;
 
 export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
-  handleAction(context: UI.Context.Context, actionId: string): boolean {
+  handleAction(_context: UI.Context.Context, actionId: string): boolean {
     switch (actionId) {
       case 'debugger.next-call-frame':
         CallStackSidebarPane.instance().selectNextCallFrameOnStack();
@@ -606,6 +576,13 @@ export class Item {
       liveLocationPromises.push(
           Bindings.DebuggerWorkspaceBinding.DebuggerWorkspaceBinding.instance().createCallFrameLiveLocation(
               rawLocation, item.update.bind(item), locationPool));
+      void SourceMapScopes.NamesResolver.resolveProfileFrameFunctionName(frame, debuggerModel.target())
+          .then(functionName => {
+            if (functionName && functionName !== frame.functionName) {
+              item.title = functionName;
+              item.updateDelegate(item);
+            }
+          });
       asyncFrameItems.push(item);
     }
 
@@ -646,7 +623,7 @@ export class Item {
 
   private async update(liveLocation: Bindings.LiveLocation.LiveLocation): Promise<void> {
     const uiLocation = await liveLocation.uiLocation();
-    this.isIgnoreListed = await liveLocation.isIgnoreListed();
+    this.isIgnoreListed = Boolean(uiLocation?.isIgnoreListed());
     this.linkText = uiLocation ? uiLocation.linkText() : '';
     this.uiLocation = uiLocation;
     this.updateDelegate(this);

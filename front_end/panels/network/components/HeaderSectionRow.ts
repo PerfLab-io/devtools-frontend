@@ -1,6 +1,7 @@
 // Copyright 2022 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/legacy/legacy.js';
 
@@ -16,52 +17,48 @@ import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
 import type {EditableSpan} from './EditableSpan.js';
-import headerSectionRowStylesRaw from './HeaderSectionRow.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const headerSectionRowStyles = new CSSStyleSheet();
-headerSectionRowStyles.replaceSync(headerSectionRowStylesRaw.cssContent);
+import headerSectionRowStyles from './HeaderSectionRow.css.js';
 
 const {render, html} = Lit;
 
 const UIStrings = {
   /**
-   *@description Comment used in decoded X-Client-Data HTTP header output in Headers View of the Network panel
+   * @description Comment used in decoded X-Client-Data HTTP header output in Headers View of the Network panel
    */
   activeClientExperimentVariation: 'Active `client experiment variation IDs`.',
   /**
-   *@description Comment used in decoded X-Client-Data HTTP header output in Headers View of the Network panel
+   * @description Comment used in decoded X-Client-Data HTTP header output in Headers View of the Network panel
    */
   activeClientExperimentVariationIds: 'Active `client experiment variation IDs` that trigger server-side behavior.',
   /**
-   *@description Text in Headers View of the Network panel for X-Client-Data HTTP headers
+   * @description Text in Headers View of the Network panel for X-Client-Data HTTP headers
    */
   decoded: 'Decoded:',
   /**
-   *@description The title of a button to enable overriding a HTTP header.
+   * @description The title of a button to enable overriding a HTTP header.
    */
   editHeader: 'Override header',
   /**
-   *@description Description of which letters the name of an HTTP header may contain (a-z, A-Z, 0-9, '-', or '_').
+   * @description Description of which letters the name of an HTTP header may contain (a-z, A-Z, 0-9, '-', or '_').
    */
   headerNamesOnlyLetters: 'Header names should contain only letters, digits, hyphens or underscores',
   /**
-   *@description Text that is usually a hyperlink to more documentation
+   * @description Text that is usually a hyperlink to more documentation
    */
   learnMore: 'Learn more',
   /**
-   *@description Text for a link to the issues panel
+   * @description Text for a link to the issues panel
    */
   learnMoreInTheIssuesTab: 'Learn more in the issues tab',
   /**
-   *@description Hover text prompting the user to reload the whole page or refresh the particular request, so that the changes they made take effect.
+   * @description Hover text prompting the user to reload the whole page or refresh the particular request, so that the changes they made take effect.
    */
   reloadPrompt: 'Refresh the page/request for these changes to take effect',
   /**
-   *@description The title of a button which removes a HTTP header override.
+   * @description The title of a button which removes a HTTP header override.
    */
   removeOverride: 'Remove this header override',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/network/components/HeaderSectionRow.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -120,20 +117,15 @@ export interface HeaderSectionRowData {
 export class HeaderSectionRow extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
   #header: HeaderDescriptor|null = null;
-  readonly #boundRender = this.#render.bind(this);
   #isHeaderValueEdited = false;
   #isValidHeaderName = true;
-
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [headerSectionRowStyles];
-  }
 
   set data(data: HeaderSectionRowData) {
     this.#header = data.header;
     this.#isHeaderValueEdited =
         this.#header.originalValue !== undefined && this.#header.value !== this.#header.originalValue;
     this.#isValidHeaderName = isValidHeaderName(this.#header.name);
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #render(): void {
@@ -180,6 +172,7 @@ export class HeaderSectionRow extends HTMLElement {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
+      <style>${headerSectionRowStyles}</style>
       <div class=${rowClasses}>
         <div class=${headerNameClasses}>
           ${this.#header.headerNotSet ?
@@ -187,12 +180,7 @@ export class HeaderSectionRow extends HTMLElement {
             Lit.nothing
           }
           ${isHeaderNameEditable && !this.#isValidHeaderName ?
-            html`<devtools-icon class="inline-icon disallowed-characters" title=${UIStrings.headerNamesOnlyLetters} .data=${{
-              iconName: 'cross-circle-filled',
-              width: '16px',
-              height: '16px',
-              color: 'var(--icon-error)',
-            }}>
+            html`<devtools-icon class="inline-icon disallowed-characters medium" title=${UIStrings.headerNamesOnlyLetters} name='cross-circle-filled'>
             </devtools-icon>` : Lit.nothing
           }
           ${isHeaderNameEditable && !this.#header.isDeleted ?
@@ -203,7 +191,7 @@ export class HeaderSectionRow extends HTMLElement {
               @paste=${this.#onHeaderNamePaste}
               .data=${{value: this.#header.name}}
             ></devtools-editable-span>` :
-            this.#header.name}:
+            this.#header.name}
         </div>
         <div
           class=${headerValueClasses}
@@ -212,12 +200,7 @@ export class HeaderSectionRow extends HTMLElement {
           ${this.#renderHeaderValue()}
         </div>
         ${showReloadInfoIcon ?
-          html`<devtools-icon class="row-flex-icon flex-right" title=${UIStrings.reloadPrompt} .data=${{
-            iconName: 'info',
-            width: '16px',
-            height: '16px',
-            color: 'var(--icon-default)',
-          }}>
+          html`<devtools-icon name="info" class="row-flex-icon flex-right medium" title=${UIStrings.reloadPrompt}>
           </devtools-icon>` : Lit.nothing
         }
       </div>
@@ -310,15 +293,10 @@ export class HeaderSectionRow extends HTMLElement {
       // Disabled until https://crbug.com/1079231 is fixed.
       // clang-format off
       return html`
-        <devtools-icon class="row-flex-icon" title=${titleText} .data=${{
-            iconName: 'warning-filled',
-            color: 'var(--icon-warning)',
-            width: '16px',
-            height: '16px',
-          }}>
+        <devtools-icon class="row-flex-icon medium" title=${titleText} name='warning-filled'>
         </devtools-icon>
       `;
-            // clang-format on
+      // clang-format on
     }
     return Lit.nothing;
   }
@@ -335,13 +313,8 @@ export class HeaderSectionRow extends HTMLElement {
           <div class="explanation">${blockedDetails.explanation()}</div>
           ${blockedDetails.examples.map(example => html`
             <div class="example">
-              <code>${example.codeSnippet}</code>
-              ${example.comment ? html`
-                <span class="comment">${example.comment()}</span>
-              ` : ''}
-            </div>
-          `)}
-          ${this.#maybeRenderBlockedDetailsLink(blockedDetails)}
+              <code>${example.codeSnippet}</code> ${example.comment ? html`<span class="comment"> ${example.comment()}</span>` : ''}
+           </div>`)} ${this.#maybeRenderBlockedDetailsLink(blockedDetails)}
         </div>
       </div>
     `;
@@ -354,34 +327,24 @@ export class HeaderSectionRow extends HTMLElement {
       // clang-format off
       return html`
         <div class="devtools-link" @click=${blockedDetails.reveal}>
-          <devtools-icon class="inline-icon" .data=${{
-            iconName: 'issue-exclamation-filled',
-            color: 'var(--icon-warning)',
-            width: '16px',
-            height: '16px',
-          }}>
+          <devtools-icon name="issue-exclamation-filled" class="inline-icon medium">
           </devtools-icon
           >${i18nString(UIStrings.learnMoreInTheIssuesTab)}
         </div>
       `;
-            // clang-format on
+      // clang-format on
     }
     if (blockedDetails?.link) {
       // Disabled until https://crbug.com/1079231 is fixed.
       // clang-format off
       return html`
         <x-link href=${blockedDetails.link.url} class="link">
-          <devtools-icon class="inline-icon" .data=${{
-            iconName: 'open-externally',
-            color: 'var(--icon-link)',
-            width: '20px',
-            height: '20px',
-          }}>
+          <devtools-icon name="open-externally" class="inline-icon extra-large" style="color: var(--icon-link);">
           </devtools-icon
           >${i18nString(UIStrings.learnMore)}
         </x-link>
       `;
-            // clang-format on
+      // clang-format on
     }
     return Lit.nothing;
   }
@@ -395,7 +358,7 @@ export class HeaderSectionRow extends HTMLElement {
     if (!compareHeaders(headerValue, this.#header.value?.trim())) {
       this.#header.value = headerValue;
       this.dispatchEvent(new HeaderEditedEvent(this.#header.name, headerValue));
-      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
     }
 
     // Clear selection (needed when pressing 'enter' in editable span).
@@ -418,7 +381,7 @@ export class HeaderSectionRow extends HTMLElement {
     } else if (!compareHeaders(headerName, this.#header.name.trim())) {
       this.#header.name = headerName;
       this.dispatchEvent(new HeaderEditedEvent(headerName, this.#header.value || ''));
-      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
     }
 
     // Clear selection (needed when pressing 'enter' in editable span).
@@ -467,7 +430,7 @@ export class HeaderSectionRow extends HTMLElement {
     const isValidName = isValidHeaderName(editable.value);
     if (this.#isValidHeaderName !== isValidName) {
       this.#isValidHeaderName = isValidName;
-      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
     }
   }
 
@@ -480,7 +443,7 @@ export class HeaderSectionRow extends HTMLElement {
       if (this.#header) {
         this.#header.highlight = false;
       }
-      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#boundRender);
+      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
     }
   }
 

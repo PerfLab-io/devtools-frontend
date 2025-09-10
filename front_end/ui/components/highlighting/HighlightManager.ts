@@ -4,12 +4,6 @@
 
 import type * as TextUtils from '../../../models/text_utils/text_utils.js';
 
-import highlightingStylesRaw from './highlighting.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const highlightingStyles = new CSSStyleSheet();
-highlightingStyles.replaceSync(highlightingStylesRaw.cssContent);
-
 export class RangeWalker {
   #offset = 0;
   readonly #treeWalker: TreeWalker;
@@ -65,15 +59,17 @@ export class RangeWalker {
   }
 }
 
-export const HIGHLIGHT_REGISTRY = 'search-highlight';
+export const HIGHLIGHT_REGISTRY = 'highlighted-search-result';
+export const CURRENT_HIGHLIGHT_REGISTRY = 'current-search-result';
 
 let highlightManagerInstance: HighlightManager;
 export class HighlightManager {
   #highlights = new Highlight();
+  #currentHighlights = new Highlight();
 
   constructor() {
-    document.adoptedStyleSheets.push(highlightingStyles);
     CSS.highlights.set(HIGHLIGHT_REGISTRY, this.#highlights);
+    CSS.highlights.set(CURRENT_HIGHLIGHT_REGISTRY, this.#currentHighlights);
   }
 
   static instance(opts: {
@@ -95,19 +91,32 @@ export class HighlightManager {
     ranges.forEach(this.removeHighlight.bind(this));
   }
 
+  addCurrentHighlight(range: Range): void {
+    this.#currentHighlights.add(range);
+  }
+
+  addCurrentHighlights(ranges: Range[]): void {
+    ranges.forEach(this.addCurrentHighlight.bind(this));
+  }
+
   addHighlight(range: Range): void {
     this.#highlights.add(range);
   }
 
   removeHighlight(range: Range): void {
     this.#highlights.delete(range);
+    this.#currentHighlights.delete(range);
   }
 
-  highlightOrderedTextRanges(root: Node, sourceRanges: TextUtils.TextRange.SourceRange[]): Range[] {
+  highlightOrderedTextRanges(root: Node, sourceRanges: TextUtils.TextRange.SourceRange[], isCurrent = false): Range[] {
     const rangeWalker = new RangeWalker(root);
     const ranges = sourceRanges.map(range => rangeWalker.nextRange(range.offset, range.length))
                        .filter((r): r is Range => r !== null && !r.collapsed);
-    this.addHighlights(ranges);
+    if (isCurrent) {
+      this.addCurrentHighlights(ranges);
+    } else {
+      this.addHighlights(ranges);
+    }
     return ranges;
   }
 }

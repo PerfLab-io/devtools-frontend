@@ -1,6 +1,7 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -18,12 +19,14 @@ import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
 import {AffectedBlockedByResponseView} from './AffectedBlockedByResponseView.js';
 import {AffectedCookiesView, AffectedRawCookieLinesView} from './AffectedCookiesView.js';
+import {AffectedDescendantsWithinSelectElementView} from './AffectedDescendantsWithinSelectElementView.js';
 import {AffectedDirectivesView} from './AffectedDirectivesView.js';
 import {AffectedDocumentsInQuirksModeView} from './AffectedDocumentsInQuirksModeView.js';
 import {AffectedElementsView} from './AffectedElementsView.js';
 import {AffectedElementsWithLowContrastView} from './AffectedElementsWithLowContrastView.js';
 import {AffectedHeavyAdView} from './AffectedHeavyAdView.js';
 import {AffectedMetadataAllowedSitesView} from './AffectedMetadataAllowedSitesView.js';
+import {AffectedPartitioningBlobURLView} from './AffectedPartitioningBlobURLView.js';
 import {AffectedItem, AffectedResourcesView, extractShortPath} from './AffectedResourcesView.js';
 import {AffectedSharedArrayBufferIssueDetailsView} from './AffectedSharedArrayBufferIssueDetailsView.js';
 import {AffectedSourcesView} from './AffectedSourcesView.js';
@@ -37,23 +40,23 @@ import type {AggregatedIssue} from './IssueAggregator.js';
 
 const UIStrings = {
   /**
-   *@description Noun, singular. Label for a column or field containing the name of an entity.
+   * @description Noun, singular. Label for a column or field containing the name of an entity.
    */
   name: 'Name',
   /**
-   *@description The kind of resolution for a mixed content issue
+   * @description The kind of resolution for a mixed content issue
    */
   blocked: 'blocked',
   /**
-   *@description Label for a type of issue that can appear in the Issues view. Noun for singular or plural number of network requests.
+   * @description Label for a type of issue that can appear in the Issues view. Noun for singular or plural number of network requests.
    */
   nRequests: '{n, plural, =1 {# request} other {# requests}}',
   /**
-   *@description Label for singular or plural number of affected resources in issue view
+   * @description Label for singular or plural number of affected resources in issue view
    */
   nResources: '{n, plural, =1 {# resource} other {# resources}}',
   /**
-   *@description Label for mixed content issue's restriction status
+   * @description Label for mixed content issue's restriction status
    */
   restrictionStatus: 'Restriction Status',
   /**
@@ -62,27 +65,27 @@ const UIStrings = {
    */
   warned: 'Warned',
   /**
-   *@description Header for the section listing affected resources
+   * @description Header for the section listing affected resources
    */
   affectedResources: 'Affected Resources',
   /**
-   *@description Title for a link to further information in issue view
-   *@example {SameSite Cookies Explained} PH1
+   * @description Title for a link to further information in issue view
+   * @example {SameSite Cookies Explained} PH1
    */
   learnMoreS: 'Learn more: {PH1}',
   /**
-   *@description The kind of resolution for a mixed content issue
+   * @description The kind of resolution for a mixed content issue
    */
   automaticallyUpgraded: 'automatically upgraded',
   /**
-   *@description Menu entry for hiding a particular issue, in the Hide Issues context menu.
+   * @description Menu entry for hiding a particular issue, in the Hide Issues context menu.
    */
   hideIssuesLikeThis: 'Hide issues like this',
   /**
-   *@description Menu entry for unhiding a particular issue, in the Hide Issues context menu.
+   * @description Menu entry for unhiding a particular issue, in the Hide Issues context menu.
    */
   unhideIssuesLikeThis: 'Unhide issues like this',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/issues/IssueView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -223,7 +226,7 @@ export class IssueView extends UI.TreeOutline.TreeElement {
   #throttle: Common.Throttler.Throttler;
   #needsUpdateOnExpand = true;
   #hiddenIssuesMenu?: Components.HideIssuesMenu.HideIssuesMenu;
-  #contentCreated: boolean = false;
+  #contentCreated = false;
 
   constructor(issue: AggregatedIssue, description: IssuesManager.MarkdownIssueDescription.IssueDescription) {
     super();
@@ -255,6 +258,8 @@ export class IssueView extends UI.TreeOutline.TreeElement {
       new AffectedRawCookieLinesView(this, this.#issue, 'affected-raw-cookies'),
       new AffectedTrackingSitesView(this, this.#issue, 'tracking-sites-details'),
       new AffectedMetadataAllowedSitesView(this, this.#issue, 'metadata-allowed-sites-details'),
+      new AffectedDescendantsWithinSelectElementView(this, this.#issue, 'disallowed-select-descendants-details'),
+      new AffectedPartitioningBlobURLView(this, this.#issue, 'partitioning-blob-url-details'),
     ];
     this.#hiddenIssuesMenu = new Components.HideIssuesMenu.HideIssuesMenu();
     this.#aggregatedIssuesCount = null;
@@ -332,7 +337,7 @@ export class IssueView extends UI.TreeOutline.TreeElement {
     const header = document.createElement('div');
     header.classList.add('header');
     this.#issueKindIcon = new IconButton.Icon.Icon();
-    this.#issueKindIcon.classList.add('leading-issue-icon');
+    this.#issueKindIcon.classList.add('leading-issue-icon', 'extra-large');
     this.#aggregatedIssuesCount = document.createElement('span');
     const countAdorner = new Adorners.Adorner.Adorner();
     countAdorner.data = {
@@ -359,8 +364,8 @@ export class IssueView extends UI.TreeOutline.TreeElement {
 
     // Handle sub type for cookie issues.
     if (category === IssuesManager.Issue.IssueCategory.COOKIE) {
-      const cookieIssueSubCatagory = IssuesManager.CookieIssue.CookieIssue.getSubCategory(this.#issue.code());
-      Host.userMetrics.issuesPanelIssueExpanded(cookieIssueSubCatagory);
+      const cookieIssueSubCategory = IssuesManager.CookieIssue.CookieIssue.getSubCategory(this.#issue.code());
+      Host.userMetrics.issuesPanelIssueExpanded(cookieIssueSubCategory);
     } else {
       Host.userMetrics.issuesPanelIssueExpanded(category);
     }
@@ -380,7 +385,7 @@ export class IssueView extends UI.TreeOutline.TreeElement {
   #updateFromIssue(): void {
     if (this.#issueKindIcon) {
       const kind = this.#issue.getKind();
-      this.#issueKindIcon.data = IssueCounter.IssueCounter.getIssueKindIconData(kind);
+      this.#issueKindIcon.name = IssueCounter.IssueCounter.getIssueKindIconName(kind);
       this.#issueKindIcon.title = IssuesManager.Issue.getIssueKindDescription(kind);
     }
     if (this.#aggregatedIssuesCount) {

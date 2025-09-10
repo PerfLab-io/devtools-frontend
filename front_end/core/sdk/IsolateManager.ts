@@ -12,19 +12,18 @@ let isolateManagerInstance: IsolateManager;
 
 export class IsolateManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> implements
     SDKModelObserver<RuntimeModel> {
-  readonly #isolatesInternal: Map<string, Isolate>;
-  #isolateIdByModel: Map<RuntimeModel, string|null>;
-  #observers: Set<Observer>;
-  #pollId: number;
+  readonly #isolates = new Map<string, Isolate>();
+  /**
+   * Contains null while the isolateId is being retrieved.
+   */
+  #isolateIdByModel = new Map<RuntimeModel, string|null>();
+  #observers = new Set<Observer>();
+  #pollId = 0;
 
   constructor() {
     super();
-    this.#isolatesInternal = new Map();
-    // #isolateIdByModel contains null while the isolateId is being retrieved.
-    this.#isolateIdByModel = new Map();
-    this.#observers = new Set();
+
     TargetManager.instance().observeModels(RuntimeModel, this);
-    this.#pollId = 0;
   }
 
   static instance({forceNew}: {
@@ -45,23 +44,16 @@ export class IsolateManager extends Common.ObjectWrapper.ObjectWrapper<EventType
       void this.poll();
     }
     this.#observers.add(observer);
-    for (const isolate of this.#isolatesInternal.values()) {
+    for (const isolate of this.#isolates.values()) {
       observer.isolateAdded(isolate);
     }
   }
 
-  unobserveIsolates(observer: Observer): void {
-    this.#observers.delete(observer);
-    if (!this.#observers.size) {
-      ++this.#pollId;
-    }  // Stops the current polling loop.
-  }
-
   modelAdded(model: RuntimeModel): void {
-    void this.modelAddedInternal(model);
+    void this.#modelAdded(model);
   }
 
-  private async modelAddedInternal(model: RuntimeModel): Promise<void> {
+  async #modelAdded(model: RuntimeModel): Promise<void> {
     this.#isolateIdByModel.set(model, null);
     const isolateId = await model.isolateId();
     if (!this.#isolateIdByModel.has(model)) {
@@ -73,13 +65,13 @@ export class IsolateManager extends Common.ObjectWrapper.ObjectWrapper<EventType
       return;
     }
     this.#isolateIdByModel.set(model, isolateId);
-    let isolate = this.#isolatesInternal.get(isolateId);
+    let isolate = this.#isolates.get(isolateId);
     if (!isolate) {
       isolate = new Isolate(isolateId);
-      this.#isolatesInternal.set(isolateId, isolate);
+      this.#isolates.set(isolateId, isolate);
     }
-    isolate.modelsInternal.add(model);
-    if (isolate.modelsInternal.size === 1) {
+    isolate.models().add(model);
+    if (isolate.models().size === 1) {
       for (const observer of this.#observers) {
         observer.isolateAdded(isolate);
       }
@@ -96,12 +88,12 @@ export class IsolateManager extends Common.ObjectWrapper.ObjectWrapper<EventType
     if (!isolateId) {
       return;
     }
-    const isolate = this.#isolatesInternal.get(isolateId);
+    const isolate = this.#isolates.get(isolateId);
     if (!isolate) {
       return;
     }
-    isolate.modelsInternal.delete(model);
-    if (isolate.modelsInternal.size) {
+    isolate.models().delete(model);
+    if (isolate.models().size) {
       for (const observer of this.#observers) {
         observer.isolateChanged(isolate);
       }
@@ -110,15 +102,15 @@ export class IsolateManager extends Common.ObjectWrapper.ObjectWrapper<EventType
     for (const observer of this.#observers) {
       observer.isolateRemoved(isolate);
     }
-    this.#isolatesInternal.delete(isolateId);
+    this.#isolates.delete(isolateId);
   }
 
   isolateByModel(model: RuntimeModel): Isolate|null {
-    return this.#isolatesInternal.get(this.#isolateIdByModel.get(model) || '') || null;
+    return this.#isolates.get(this.#isolateIdByModel.get(model) || '') || null;
   }
 
   isolates(): Iterable<Isolate> {
-    return this.#isolatesInternal.values();
+    return this.#isolates.values();
   }
 
   private async poll(): Promise<void> {
@@ -149,34 +141,34 @@ export const MemoryTrendWindowMs = 120e3;
 const PollIntervalMs = 2e3;
 
 export class Isolate {
-  readonly #idInternal: string;
-  readonly modelsInternal: Set<RuntimeModel>;
-  #usedHeapSizeInternal: number;
+  readonly #id: string;
+  readonly #models: Set<RuntimeModel>;
+  #usedHeapSize: number;
   readonly #memoryTrend: MemoryTrend;
 
   constructor(id: string) {
-    this.#idInternal = id;
-    this.modelsInternal = new Set();
-    this.#usedHeapSizeInternal = 0;
+    this.#id = id;
+    this.#models = new Set();
+    this.#usedHeapSize = 0;
     const count = MemoryTrendWindowMs / PollIntervalMs;
     this.#memoryTrend = new MemoryTrend(count);
   }
 
   id(): string {
-    return this.#idInternal;
+    return this.#id;
   }
 
   models(): Set<RuntimeModel> {
-    return this.modelsInternal;
+    return this.#models;
   }
 
   runtimeModel(): RuntimeModel|null {
-    return this.modelsInternal.values().next().value || null;
+    return this.#models.values().next().value || null;
   }
 
   heapProfilerModel(): HeapProfilerModel|null {
     const runtimeModel = this.runtimeModel();
-    return runtimeModel && runtimeModel.heapProfilerModel();
+    return runtimeModel?.heapProfilerModel() ?? null;
   }
 
   async update(): Promise<void> {
@@ -185,8 +177,8 @@ export class Isolate {
     if (!usage) {
       return;
     }
-    this.#usedHeapSizeInternal = usage.usedSize;
-    this.#memoryTrend.add(this.#usedHeapSizeInternal);
+    this.#usedHeapSize = usage.usedSize + (usage.embedderHeapUsedSize ?? 0) + (usage.backingStorageSize ?? 0);
+    this.#memoryTrend.add(this.#usedHeapSize);
     IsolateManager.instance().dispatchEventToListeners(Events.MEMORY_CHANGED, this);
   }
 
@@ -195,7 +187,7 @@ export class Isolate {
   }
 
   usedHeapSize(): number {
-    return this.#usedHeapSizeInternal;
+    return this.#usedHeapSize;
   }
 
   /**

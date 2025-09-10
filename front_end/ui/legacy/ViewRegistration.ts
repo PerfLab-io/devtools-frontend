@@ -12,38 +12,38 @@ import type {Widget} from './Widget.js';
 
 const UIStrings = {
   /**
-   *@description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Elements' panel.
+   * @description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Elements' panel.
    */
   elements: 'Elements',
   /**
-   *@description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Drawer' panel.
+   * @description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Drawer' panel.
    */
   drawer: 'Drawer',
   /**
-   *@description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Drawer sidebar' panel.
+   * @description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Drawer sidebar' panel.
    */
   drawer_sidebar: 'Drawer sidebar',
   /**
-   *@description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Panel'.
+   * @description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Panel'.
    */
   panel: 'Panel',
   /**
-   *@description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Network' panel.
+   * @description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Network' panel.
    */
   network: 'Network',
   /**
-   *@description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Settings' panel.
+   * @description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Settings' panel.
    */
   settings: 'Settings',
   /**
-   *@description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Sources' panel.
+   * @description Badge label for an entry in the Quick Open menu. Selecting the entry opens the 'Sources' panel.
    */
   sources: 'Sources',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/ViewRegistration.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
-const registeredViewExtensions: Array<PreRegisteredView> = [];
+const registeredViewExtensions: PreRegisteredView[] = [];
 
 export const enum ViewPersistence {
   CLOSEABLE = 'closeable',
@@ -145,7 +145,7 @@ export interface ViewRegistration {
   /**
    * The names of the settings the registered view performs as UI for.
    */
-  settings?: Array<string>;
+  settings?: string[];
   /**
    * Words used to find the view in the Command Menu.
    */
@@ -154,6 +154,10 @@ export interface ViewRegistration {
    * Icon to be used next to view's title.
    */
   iconName?: string;
+  /**
+   * Whether a view needs to be promoted. A new badge is shown next to the menu items then.
+   */
+  featurePromotionId?: string;
 }
 
 const viewIdSet = new Set<string>();
@@ -166,10 +170,9 @@ export function registerViewExtension(registration: ViewRegistration): void {
   registeredViewExtensions.push(new PreRegisteredView(registration));
 }
 
-export function getRegisteredViewExtensions(config: Root.Runtime.HostConfig): Array<PreRegisteredView> {
+export function getRegisteredViewExtensions(): PreRegisteredView[] {
   return registeredViewExtensions.filter(
-      view => Root.Runtime.Runtime.isDescriptorEnabled(
-          {experiment: view.experiment(), condition: view.condition()}, config));
+      view => Root.Runtime.Runtime.isDescriptorEnabled({experiment: view.experiment(), condition: view.condition()}));
 }
 
 export function maybeRemoveViewExtension(viewId: string): boolean {
@@ -181,7 +184,7 @@ export function maybeRemoveViewExtension(viewId: string): boolean {
   return true;
 }
 
-const registeredLocationResolvers: Array<LocationResolverRegistration> = [];
+const registeredLocationResolvers: LocationResolverRegistration[] = [];
 
 const viewLocationNameSet = new Set<ViewLocationValues>();
 
@@ -194,7 +197,7 @@ export function registerLocationResolver(registration: LocationResolverRegistrat
   registeredLocationResolvers.push(registration);
 }
 
-export function getRegisteredLocationResolvers(): Array<LocationResolverRegistration> {
+export function getRegisteredLocationResolvers(): LocationResolverRegistration[] {
   return registeredLocationResolvers;
 }
 

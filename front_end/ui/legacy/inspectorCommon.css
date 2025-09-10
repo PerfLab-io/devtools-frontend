@@ -14,48 +14,9 @@
 }
 
 :root {
-  /**
-   * NOTE: please don't add to these colours!
-   * We are migrating to a new set of theme colors (see below for details) and over time these colors will be deprecated / removed.
-   * Chat to jacktfranklin@ or petermueller@ if you have questions.
-   * https://crbug.com/1122511
-   */
-  --legacy-accent-color: #1a73e8;
-  --legacy-focus-ring-inactive-shadow-color: #e0e0e0;
-  --legacy-input-validation-error: #db1600;
-  --legacy-selection-bg-color: var(--legacy-accent-color);
-  --legacy-focus-ring-inactive-shadow: 0 0 0 1px var(--legacy-focus-ring-inactive-shadow-color);
-  --legacy-focus-ring-active-shadow: 0 0 0 1px var(--legacy-accent-color);
-  --monospace-font-size: 10px;
-  --monospace-font-family: monospace;
-  --source-code-font-size: 11px;
-  --source-code-font-family: monospace;
-  --sys-motion-duration-short4: 200ms;
-  --sys-motion-duration-medium2: 300ms;
-  --sys-motion-duration-long2: 500ms;
-  --sys-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
-
-  /* This will be overridden by the platform-X classes that get
-   * added to the html tag on load, but is here as a safe
-   * fallback */
-  --default-font-family: ".SFNSDisplay-Regular", "Helvetica Neue", "Lucida Grande", sans-serif;
-}
-
-.dark #-blink-dev-tools {
-  /**
-   * Inherit the native form control colors when using a dark theme.
-   * Override them using CSS variables if needed.
-   */
-  color-scheme: dark;
-  /**
-   * NOTE: please don't add to these colours!
-   * We are migrating to a new set of theme colors (see below for details) and over time these colors will be deprecated / removed.
-   * Chat to jacktfranklin@ or petermueller@ if you have questions.
-   * https://crbug.com/1122511
-   */
-  --legacy-accent-color: #0e639c;
-  --legacy-focus-ring-inactive-shadow-color: #5a5a5a;
-  --legacy-focus-ring-inactive-shadow: 0 0 0 1px var(--legacy-focus-ring-inactive-shadow-color);
+  height: 100%;
+  overflow: hidden;
+  interpolate-size: allow-keywords;
 }
 
 #-blink-dev-tools {
@@ -73,53 +34,37 @@
   background: var(--sys-color-cdt-base-container);
 }
 
-/* Default fonts */
-.platform-linux {
-  --default-font-family: "Google Sans Text", "Google Sans", system-ui, sans-serif;
+:focus {
+  outline-width: 0;
 }
 
-.platform-mac {
-  --default-font-family: system-ui, sans-serif;
-}
-
-.platform-windows {
-  --default-font-family: system-ui, sans-serif;
-}
-
-/* Monospace font per platform configuration */
-.platform-mac,
-:host-context(.platform-mac) {
-  --monospace-font-size: 11px;
-  --monospace-font-family: monospace;
-  --source-code-font-size: 11px;
-  --source-code-font-family: monospace;
-}
-
-.platform-windows,
-:host-context(.platform-windows) {
-  --monospace-font-size: 12px;
-  --monospace-font-family: monospace;
-  --source-code-font-size: 12px;
-  --source-code-font-family: monospace;
-}
-
-.platform-linux,
-:host-context(.platform-linux) {
-  --monospace-font-size: 11px;
-  --monospace-font-family: "Noto Sans Mono", "DejaVu Sans Mono", monospace;
-  --source-code-font-size: 11px;
-  --source-code-font-family: "Noto Sans Mono", "DejaVu Sans Mono", monospace;
+/* Prevent UA stylesheet from overriding font-family for HTML elements. */
+code, kbd, samp, pre {
+  font-family: var(--monospace-font-family);
 }
 
 .monospace {
   font-family: var(--monospace-font-family);
-  font-size: var(--monospace-font-size) !important; /* stylelint-disable-line declaration-no-important */
+  font-size: var(
+    --monospace-font-size
+  ) !important; /* stylelint-disable-line declaration-no-important */
 }
 
 .source-code {
   font-family: var(--source-code-font-family);
-  font-size: var(--source-code-font-size) !important; /* stylelint-disable-line declaration-no-important */
+  font-size: var(
+    --source-code-font-size
+  ) !important; /* stylelint-disable-line declaration-no-important */
+
   white-space: pre-wrap;
+
+  &:not(input)::selection {
+    color: var(--sys-color-on-surface);
+  }
+}
+
+.source-code.breakpoint {
+  white-space: nowrap;
 }
 
 .source-code .devtools-link.text-button {
@@ -199,7 +144,7 @@ iframe.widget {
   display: none !important; /* stylelint-disable-line declaration-no-important */
 }
 
-.highlighted-search-result {
+.highlighted-search-result,::highlight(highlighted-search-result) {
   border-radius: 1px;
   background-color: var(--sys-color-yellow-container);
   outline: 1px solid var(--sys-color-yellow-container);
@@ -208,7 +153,7 @@ iframe.widget {
 .link {
   cursor: pointer;
   text-decoration: underline;
-  color: var(--sys-color-primary);
+  color: var(--text-link);
   outline-offset: 2px;
 }
 
@@ -229,7 +174,7 @@ iframe.widget {
 #-blink-dev-tools input {
   color: inherit;
 
-  &[type="checkbox"] {
+  &[type='checkbox'] {
     position: relative;
     outline: none;
     display: flex;
@@ -238,7 +183,7 @@ iframe.widget {
 
     &:hover::after,
     &:active::before {
-      content: "";
+      content: '';
       height: 24px;
       width: 24px;
       border-radius: var(--sys-shape-corner-full);
@@ -259,7 +204,7 @@ iframe.widget {
     }
 
     &:not(:disabled):focus-visible::before {
-      content: "";
+      content: '';
       height: 15px;
       width: 15px;
       border-radius: 5px;
@@ -283,13 +228,15 @@ iframe.widget {
 }
 
 .dark #-blink-dev-tools input::placeholder,
-:host-context(.dark #-blink-dev-tools) input::placeholder {
+.theme-with-dark-background #-blink-dev-tools input::placeholder,
+:host-context(.dark #-blink-dev-tools) input::placeholder,
+:host-context(.theme-with-dark-background #-blink-dev-tools) input::placeholder {
   --override-input-placeholder-color: rgb(230 230 230 / 54%);
 }
 
 .harmony-input:not([type]),
-.harmony-input[type="number"],
-.harmony-input[type="text"] {
+.harmony-input[type='number'],
+.harmony-input[type='text'] {
   padding: 3px 6px;
   height: 24px;
   border: 1px solid var(--sys-color-neutral-outline);
@@ -310,7 +257,7 @@ iframe.widget {
 }
 
 /* Radio inputs */
-input[type="radio"] {
+input[type='radio'] {
   height: 17px;
   width: 17px;
   min-width: 17px;
@@ -320,13 +267,13 @@ input[type="radio"] {
   accent-color: var(--sys-color-primary-bright);
   color: var(--sys-color-on-primary);
 
-  &:focus {
-    box-shadow: var(--legacy-focus-ring-active-shadow);
+  &:focus-visible {
+    outline: var(--sys-size-2) solid var(--sys-color-state-focus-ring);
   }
 }
 
 @media (forced-colors: active) {
-  input[type="radio"] {
+  input[type='radio'] {
     --gradient-start: ButtonFace;
     --gradient-end: ButtonFace;
 
@@ -338,7 +285,7 @@ input[type="radio"] {
 }
 
 /* Range inputs */
-input[type="range"] {
+input[type='range'] {
   appearance: none;
   margin: 0;
   padding: 0;
@@ -348,7 +295,7 @@ input[type="range"] {
   background: none;
 }
 
-input[type="range"]::-webkit-slider-thumb,
+input[type='range']::-webkit-slider-thumb,
 .-theme-preserve {
   appearance: none;
   margin: 0;
@@ -361,7 +308,7 @@ input[type="range"]::-webkit-slider-thumb,
   background-color: var(--sys-color-primary);
 }
 
-input[type="range"]::-webkit-slider-runnable-track {
+input[type='range']::-webkit-slider-runnable-track {
   appearance: none;
   margin: 0;
   padding: 0;
@@ -370,24 +317,25 @@ input[type="range"]::-webkit-slider-runnable-track {
   background-color: var(--sys-color-surface-variant);
 }
 
-input[type="range"]:focus::-webkit-slider-thumb {
+input[type='range']:focus::-webkit-slider-thumb {
   box-shadow: 0 0 0 2px var(--sys-color-inverse-primary);
 }
 
-input[type="range"]:disabled::-webkit-slider-thumb {
+input[type='range']:disabled::-webkit-slider-thumb {
   background-color: var(--sys-color-state-disabled);
 }
 
 @media (forced-colors: active) {
-  input[type="range"] {
+  input[type='range'] {
     forced-color-adjust: none;
   }
 }
 
-.highlighted-search-result.current-search-result {
+.highlighted-search-result.current-search-result,::highlight(current-search-result) {
   /* Note: this value is used in light & dark mode */
   --override-current-search-result-background-color: rgb(255 127 0 / 80%);
 
+  outline: 1px solid var(--sys-color-yellow-container);
   border-radius: 1px;
   padding: 1px;
   margin: -1px;
@@ -413,7 +361,10 @@ input[type="range"]:disabled::-webkit-slider-thumb {
 
 .editing,
 .editing * {
-  color: var(--sys-color-on-surface) !important; /* stylelint-disable-line declaration-no-important */
+  color: var(
+    --sys-color-on-surface
+  ) !important; /* stylelint-disable-line declaration-no-important */
+
   text-decoration: none !important; /* stylelint-disable-line declaration-no-important */
 }
 
@@ -440,7 +391,7 @@ select {
     border-color: transparent;
     color: var(--sys-color-state-disabled);
     background-color: var(--sys-color-state-disabled-container);
-    pointer-events: none;;
+    pointer-events: none;
   }
 
   &:enabled {
@@ -453,12 +404,15 @@ select {
     }
 
     &:hover:active {
-      /* stylelint-disable plugin/use_theme_colors */
-      background:
-        var(--combobox-dropdown-arrow),
-        linear-gradient(var(--sys-color-state-hover-on-subtle), var(--sys-color-state-hover-on-subtle)),
-        linear-gradient(var(--sys-color-state-ripple-neutral-on-subtle), var(--sys-color-state-ripple-neutral-on-subtle));
-      /* stylelint-enable plugin/use_theme_colors */
+      background: var(--combobox-dropdown-arrow),
+        linear-gradient(
+          var(--sys-color-state-hover-on-subtle),
+          var(--sys-color-state-hover-on-subtle)
+        ),
+        linear-gradient(
+          var(--sys-color-state-ripple-neutral-on-subtle),
+          var(--sys-color-state-ripple-neutral-on-subtle)
+        );
       background-position: right center;
       background-repeat: no-repeat;
     }
@@ -545,7 +499,7 @@ select option {
     font: var(--sys-typescale-body4-regular);
     color: var(--sys-color-on-surface-subtle);
 
-    > x-link {  /* stylelint-disable-line selector-type-no-unknown */
+    > x-link {
       white-space: nowrap;
       margin-left: var(--sys-size-3);
     }
@@ -558,25 +512,6 @@ select option {
 
 dt-icon-label {
   flex: none;
-}
-
-.full-widget-dimmed-banner a {
-  color: inherit;
-}
-
-.full-widget-dimmed-banner {
-  color: var(--sys-color-token-subtle);
-  background-color: var(--sys-color-cdt-base-container);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  padding: 20px;
-  position: absolute;
-  inset: 0;
-  font-size: 13px;
-  overflow: auto;
-  z-index: 500;
 }
 
 .dot::before {
@@ -597,6 +532,24 @@ dt-icon-label {
 
 .purple::before {
   background-color: var(--sys-color-purple-bright);
+}
+
+.new-badge {
+  width: fit-content;
+  height: var(--sys-size-8);
+  line-height: var(--sys-size-8);
+  border-radius: var(--sys-shape-corner-extra-small);
+  padding: 0 var(--sys-size-3);
+  background-color: var(--sys-color-tonal-container);
+  color: var(--sys-color-on-tonal-container);
+  font-weight: var(--ref-typeface-weight-bold);
+  font-size: 9px;
+  text-align: center;
+}
+
+:host-context(.platform-mac) .new-badge {
+  background-color: var(--sys-color-primary);
+  color: var(--sys-color-on-primary);
 }
 
 .expandable-inline-button {
@@ -653,6 +606,12 @@ button.link:focus-visible {
   border-radius: var(--sys-shape-corner-full);
 }
 
+.data-grid-data-grid-node button.link:focus-visible {
+  border-radius: var(--sys-shape-corner-extra-small);
+  padding: 0;
+  margin-top: 3px;
+}
+
 @media (forced-colors: active) {
   .dimmed,
   select:disabled {
@@ -660,14 +619,14 @@ button.link:focus-visible {
   }
 
   .harmony-input:not([type]),
-  .harmony-input[type="number"],
-  .harmony-input[type="text"] {
+  .harmony-input[type='number'],
+  .harmony-input[type='text'] {
     border: 1px solid ButtonText;
   }
 
   .harmony-input:not([type]):focus,
-  .harmony-input[type="number"]:focus,
-  .harmony-input[type="text"]:focus {
+  .harmony-input[type='number']:focus,
+  .harmony-input[type='text']:focus {
     border: 1px solid Highlight;
   }
 }
@@ -695,10 +654,11 @@ input.custom-search-input::-webkit-search-cancel-button:hover {
   display: block;
   width: var(--dimension, 24px);
   height: var(--dimension, 24px);
-  border: var(--override-spinner-size, 3px) solid var(--override-spinner-color, var(--sys-color-token-subtle));
+  border: var(--override-spinner-size, 3px) solid
+    var(--override-spinner-color, var(--sys-color-token-subtle));
   border-radius: 12px;
-  clip: rect(0, var(--clip-size, 15px), var(--clip-size, 15px), 0);
-  content: "";
+  clip-path: rect(0, var(--clip-size, 15px), var(--clip-size, 15px), 0);
+  content: '';
   position: absolute;
   animation: spinner-animation 1s linear infinite;
   box-sizing: border-box;
@@ -730,7 +690,9 @@ input.custom-search-input::-webkit-search-cancel-button:hover {
 
 :host-context(.dark #-blink-dev-tools) devtools-adorner {
   --override-adorner-border-color: var(--sys-color-tonal-outline);
-  --override-adorner-active-background-color: var(--sys-color-state-riple-neutral-on-subtle);
+  --override-adorner-active-background-color: var(
+    --sys-color-state-riple-neutral-on-subtle
+  );
 }
 
 /* General panel styles */
@@ -795,13 +757,18 @@ devtools-toolbar {
     }
   }
 
+  .status-buttons {
+    padding: 0 var(--sys-size-2);
+    gap: var(--sys-size-2);
+  }
+
   & > :not(select) {
     padding: 0;
   }
 
   & > devtools-issue-counter {
     margin-top: -4px;
-    padding-left: 1px;
+    padding: 0 1px;
   }
 
   devtools-adorner.fix-perf-icon {
@@ -818,7 +785,7 @@ devtools-toolbar {
   .toolbar-dropdown-arrow {
     pointer-events: none;
     flex: none;
-    top: 2px;
+    top: var(--sys-size-1);
   }
 
   .toolbar-button.dark-text .toolbar-dropdown-arrow {
@@ -834,7 +801,7 @@ devtools-toolbar {
     background: transparent;
     border-radius: 0;
 
-    &[aria-haspopup="true"][aria-expanded="true"] {
+    &[aria-haspopup='true'][aria-expanded='true'] {
       pointer-events: none;
     }
   }
@@ -867,7 +834,7 @@ devtools-toolbar {
 
     &:hover::after,
     &:active::before {
-      content: "";
+      content: '';
       height: 100%;
       width: 100%;
       border-radius: inherit;
@@ -912,7 +879,7 @@ devtools-toolbar {
     inset: 2px;
     background-color: var(--sys-color-state-focus-highlight);
     border-radius: 2px;
-    content: "";
+    content: '';
     /* This ::before rule serves as a background for an element.
     Setting z-index to make sure it's always below the content. */
     z-index: -1;
@@ -945,28 +912,39 @@ devtools-toolbar {
   }
 
   .toolbar-state-on.toolbar-toggle-with-dot .toolbar-text::after {
-    content: "";
+    content: '';
     position: absolute;
     bottom: 2px;
     background-color: var(--sys-color-primary-bright);
     width: 4.5px;
     height: 4.5px;
-    border: 2px solid var(--override-toolbar-background-color, --sys-color-cdt-base-container);
+    border: 2px solid
+      var(--override-toolbar-background-color, --sys-color-cdt-base-container);
     border-radius: 50%;
     right: 0;
   }
 
   .toolbar-button.toolbar-state-on.toolbar-toggle-with-red-color .toolbar-glyph,
-  .toolbar-button.toolbar-state-off.toolbar-default-with-red-color .toolbar-glyph {
-    color: var(--icon-error) !important; /* stylelint-disable-line declaration-no-important */
+  .toolbar-button.toolbar-state-off.toolbar-default-with-red-color
+    .toolbar-glyph {
+    color: var(
+      --icon-error
+    ) !important; /* stylelint-disable-line declaration-no-important */
   }
 
-  .toolbar-button:not(.toolbar-has-glyph, .toolbar-has-dropdown, .largeicon-menu, .toolbar-button-secondary) {
+  .toolbar-button:not(
+      .toolbar-has-glyph,
+      .toolbar-has-dropdown,
+      .largeicon-menu,
+      .toolbar-button-secondary
+    ) {
     font-weight: bold;
   }
 
   .toolbar-button.dark-text .toolbar-text {
-    color: var(--sys-color-on-surface) !important;  /* stylelint-disable-line declaration-no-important */
+    color: var(
+      --sys-color-on-surface
+    ) !important; /* stylelint-disable-line declaration-no-important */
   }
 
   .toolbar-button.toolbar-state-on .toolbar-text {
@@ -995,8 +973,9 @@ devtools-toolbar {
 
   /* Checkbox */
 
-  & > dt-checkbox {
+  & > devtools-checkbox {
     padding: 0 5px 0 0;
+    white-space: unset;
   }
 
   /* Select */
@@ -1028,7 +1007,7 @@ devtools-toolbar {
     }
 
     &::before {
-      content: "";
+      content: '';
       box-sizing: inherit;
       height: 100%;
       width: 100%;
@@ -1066,7 +1045,7 @@ devtools-toolbar {
     flex: 1;
     overflow: hidden;
     white-space: nowrap;
-    cursor: auto;
+    cursor: text;
     color: var(--sys-color-on-surface);
   }
   /* Separator */
@@ -1097,7 +1076,7 @@ devtools-toolbar {
   }
 
   & > .highlight::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: 2px;
     border-radius: 2px;
@@ -1214,11 +1193,17 @@ devtools-toolbar {
 
 /* Syntax highlighting */
 .webkit-css-property {
-  color: var(--webkit-css-property-color, var(--sys-color-token-property-special)); /* stylelint-disable-line plugin/use_theme_colors */ /* See: crbug.com/1152736 for color variable migration. */
+  /* See: crbug.com/1152736 for color variable migration. */
+  /* stylelint-disable-next-line plugin/use_theme_colors */
+  color: var(
+    --webkit-css-property-color,
+    var(--sys-color-token-property-special)
+  );
 }
 
 .webkit-html-comment {
   color: var(--sys-color-token-comment);
+  word-break: break-all;
 }
 
 .webkit-html-tag {
@@ -1249,8 +1234,9 @@ devtools-toolbar {
 
 .webkit-html-entity-value {
   /* This one is non-standard. */
-  background-color: rgb(0 0 0 / 15%); /* stylelint-disable-line plugin/use_theme_colors */
   /* See: crbug.com/1152736 for color variable migration. */
+  /* stylelint-disable-next-line plugin/use_theme_colors */
+  background-color: rgb(0 0 0 / 15%);
   unicode-bidi: -webkit-isolate;
 }
 
@@ -1292,7 +1278,9 @@ devtools-toolbar {
   }
 
   &:focus-visible {
-    outline-width: unset;
+    outline: var(--sys-size-2) solid var(--sys-color-state-focus-ring);
+    outline-offset: 0;
+    border-radius: var(--sys-shape-corner-extra-small);
   }
 
   &.invalid-link {

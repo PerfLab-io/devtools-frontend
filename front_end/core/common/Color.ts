@@ -65,7 +65,7 @@ function normalizeHue(hue: number): number {
 // and returns the canonicalized `degree`.
 function parseAngle(angleText: string): number|null {
   const angle = angleText.replace(/(deg|g?rad|turn)$/, '');
-  // @ts-ignore: isNaN can accept strings
+  // @ts-expect-error: isNaN can accept strings
   if (isNaN(angle) || angleText.match(/\s+(deg|g?rad|turn)/)) {
     return null;
   }
@@ -148,6 +148,22 @@ function getColorSpace(colorSpaceText: string): ColorSpace|null {
   }
 
   return null;
+}
+
+export const enum ColorChannel {
+  A = 'a',
+  ALPHA = 'alpha',
+  B = 'b',
+  C = 'c',
+  G = 'g',
+  H = 'h',
+  L = 'l',
+  R = 'r',
+  S = 's',
+  W = 'w',
+  X = 'x',
+  Y = 'y',
+  Z = 'z',
 }
 
 /**
@@ -337,7 +353,7 @@ function parseAlpha(value: string|undefined): number|null {
  * - 20% in range [0, 1] is 0.5
  */
 function parsePercentOrNumber(value: string, range: [number, number] = [0, 1]): number|null {
-  // @ts-ignore: isNaN can accept strings
+  // @ts-expect-error: isNaN can accept strings
   if (isNaN(value.replace('%', ''))) {
     return null;
   }
@@ -366,7 +382,7 @@ function parseRgbNumeric(value: string): number|null {
 
 export function parseHueNumeric(value: string): number|null {
   const angle = value.replace(/(deg|g?rad|turn)$/, '');
-  // @ts-ignore: isNaN can accept strings
+  // @ts-expect-error: isNaN can accept strings
   if (isNaN(angle) || value.match(/\s+(deg|g?rad|turn)/)) {
     return null;
   }
@@ -385,7 +401,7 @@ export function parseHueNumeric(value: string): number|null {
 }
 
 function parseSatLightNumeric(value: string): number|null {
-  // @ts-ignore: isNaN can accept strings
+  // @ts-expect-error: isNaN can accept strings
   if (value.indexOf('%') !== value.length - 1 || isNaN(value.replace('%', ''))) {
     return null;
   }
@@ -512,7 +528,7 @@ export function desiredLuminance(luminance: number, contrast: number, lighter: b
  * calculated luminance of `candidateHSVA` approximates `desiredLuminance`.
  */
 export function approachColorValue(
-    candidateHSVA: Color4D, bgRGBA: Color4D, index: number, desiredLuminance: number,
+    candidateHSVA: Color4D, index: number, desiredLuminance: number,
     candidateLuminance: (arg0: Color4D) => number): number|null {
   const epsilon = 0.0002;
 
@@ -567,12 +583,12 @@ export function findFgColorForContrast(fgColor: Legacy, bgColor: Legacy, require
   const saturationComponentIndex = 1;
   const valueComponentIndex = 2;
 
-  if (approachColorValue(candidateHSVA, bgRGBA, valueComponentIndex, desired, candidateLuminance)) {
+  if (approachColorValue(candidateHSVA, valueComponentIndex, desired, candidateLuminance)) {
     return Legacy.fromHSVA(candidateHSVA);
   }
 
   candidateHSVA[valueComponentIndex] = 1;
-  if (approachColorValue(candidateHSVA, bgRGBA, saturationComponentIndex, desired, candidateLuminance)) {
+  if (approachColorValue(candidateHSVA, saturationComponentIndex, desired, candidateLuminance)) {
     return Legacy.fromHSVA(candidateHSVA);
   }
 
@@ -581,7 +597,6 @@ export function findFgColorForContrast(fgColor: Legacy, bgColor: Legacy, require
 
 export function findFgColorForContrastAPCA(fgColor: Legacy, bgColor: Legacy, requiredContrast: number): Legacy|null {
   const candidateHSVA = fgColor.as(Format.HSL).hsva();
-  const bgRGBA = bgColor.rgba();
 
   const candidateLuminance = (candidateHSVA: Color4D): number => {
     return luminanceAPCA(Legacy.fromHSVA(candidateHSVA).rgba());
@@ -595,7 +610,7 @@ export function findFgColorForContrastAPCA(fgColor: Legacy, bgColor: Legacy, req
   const saturationComponentIndex = 1;
   const valueComponentIndex = 2;
 
-  if (approachColorValue(candidateHSVA, bgRGBA, valueComponentIndex, desiredLuminance, candidateLuminance)) {
+  if (approachColorValue(candidateHSVA, valueComponentIndex, desiredLuminance, candidateLuminance)) {
     const candidate = Legacy.fromHSVA(candidateHSVA);
     if (Math.abs(contrastRatioAPCA(bgColor.rgba(), candidate.rgba())) >= requiredContrast) {
       return candidate;
@@ -603,7 +618,7 @@ export function findFgColorForContrastAPCA(fgColor: Legacy, bgColor: Legacy, req
   }
 
   candidateHSVA[valueComponentIndex] = 1;
-  if (approachColorValue(candidateHSVA, bgRGBA, saturationComponentIndex, desiredLuminance, candidateLuminance)) {
+  if (approachColorValue(candidateHSVA, saturationComponentIndex, desiredLuminance, candidateLuminance)) {
     const candidate = Legacy.fromHSVA(candidateHSVA);
     if (Math.abs(contrastRatioAPCA(bgColor.rgba(), candidate.rgba())) >= requiredContrast) {
       return candidate;
@@ -642,6 +657,7 @@ interface ColorConversions<T = void> {
 
 export interface Color {
   readonly alpha: number|null;
+  readonly channels: [ColorChannel, ColorChannel, ColorChannel, ColorChannel];
 
   equal(color: Color): boolean;
   asString(format?: Format): string;
@@ -721,6 +737,8 @@ export class Lab implements Color {
   readonly alpha: number|null;
   readonly #authoredText?: string;
   readonly #rawParams: Color3D;
+  readonly channels: [ColorChannel, ColorChannel, ColorChannel, ColorChannel] =
+      [ColorChannel.L, ColorChannel.A, ColorChannel.B, ColorChannel.ALPHA];
 
   static readonly #conversions: ColorConversions<Lab> = {
     [Format.HEX]: (self: Lab) => new Legacy(self.#getRGBArray(/* withAlpha= */ false), Format.HEX),
@@ -762,7 +780,7 @@ export class Lab implements Color {
 
   #getRGBArray(withAlpha: true): Color4DOr3D;
   #getRGBArray(withAlpha: false): Color3D;
-  #getRGBArray(withAlpha: boolean = true): Color3D|Color4DOr3D {
+  #getRGBArray(withAlpha = true): Color3D|Color4DOr3D {
     const params = ColorConverter.xyzd50ToSrgb(...this.#toXyzd50());
     if (withAlpha) {
       return [...params, this.alpha ?? undefined];
@@ -858,6 +876,8 @@ export class LCH implements Color {
   readonly h: number;
   readonly alpha: number|null;
   readonly #authoredText?: string;
+  readonly channels: [ColorChannel, ColorChannel, ColorChannel, ColorChannel] =
+      [ColorChannel.L, ColorChannel.C, ColorChannel.H, ColorChannel.ALPHA];
 
   static readonly #conversions: ColorConversions<LCH> = {
     [Format.HEX]: (self: LCH) => new Legacy(self.#getRGBArray(/* withAlpha= */ false), Format.HEX),
@@ -899,7 +919,7 @@ export class LCH implements Color {
 
   #getRGBArray(withAlpha: true): Color4DOr3D;
   #getRGBArray(withAlpha: false): Color3D;
-  #getRGBArray(withAlpha: boolean = true): Color4DOr3D|Color3D {
+  #getRGBArray(withAlpha = true): Color4DOr3D|Color3D {
     const params = ColorConverter.xyzd50ToSrgb(...this.#toXyzd50());
     if (withAlpha) {
       return [...params, this.alpha ?? undefined];
@@ -998,6 +1018,8 @@ export class Oklab implements Color {
   readonly b: number;
   readonly alpha: number|null;
   readonly #authoredText?: string;
+  readonly channels: [ColorChannel, ColorChannel, ColorChannel, ColorChannel] =
+      [ColorChannel.L, ColorChannel.A, ColorChannel.B, ColorChannel.ALPHA];
 
   static readonly #conversions: ColorConversions<Oklab> = {
     [Format.HEX]: (self: Oklab) => new Legacy(self.#getRGBArray(/* withAlpha= */ false), Format.HEX),
@@ -1039,7 +1061,7 @@ export class Oklab implements Color {
 
   #getRGBArray(withAlpha: true): Color4DOr3D;
   #getRGBArray(withAlpha: false): Color3D;
-  #getRGBArray(withAlpha: boolean = true): Color4DOr3D|Color3D {
+  #getRGBArray(withAlpha = true): Color4DOr3D|Color3D {
     const params = ColorConverter.xyzd50ToSrgb(...this.#toXyzd50());
     if (withAlpha) {
       return [...params, this.alpha ?? undefined];
@@ -1135,6 +1157,8 @@ export class Oklch implements Color {
   readonly h: number;
   readonly alpha: number|null;
   readonly #authoredText?: string;
+  readonly channels: [ColorChannel, ColorChannel, ColorChannel, ColorChannel] =
+      [ColorChannel.L, ColorChannel.C, ColorChannel.H, ColorChannel.ALPHA];
 
   static readonly #conversions: ColorConversions<Oklch> = {
     [Format.HEX]: (self: Oklch) => new Legacy(self.#getRGBArray(/* withAlpha= */ false), Format.HEX),
@@ -1176,7 +1200,7 @@ export class Oklch implements Color {
 
   #getRGBArray(withAlpha: true): Color4DOr3D;
   #getRGBArray(withAlpha: false): Color3D;
-  #getRGBArray(withAlpha: boolean = true): Color4DOr3D|Color3D {
+  #getRGBArray(withAlpha = true): Color4DOr3D|Color3D {
     const params = ColorConverter.xyzd50ToSrgb(...this.#toXyzd50());
     if (withAlpha) {
       return [...params, this.alpha ?? undefined];
@@ -1272,6 +1296,10 @@ export class ColorFunction implements Color {
   readonly alpha: number|null;
   readonly colorSpace: ColorSpace;
   readonly #authoredText?: string;
+  get channels(): [ColorChannel, ColorChannel, ColorChannel, ColorChannel] {
+    return this.isXYZ() ? [ColorChannel.X, ColorChannel.Y, ColorChannel.Z, ColorChannel.ALPHA] :
+                          [ColorChannel.R, ColorChannel.G, ColorChannel.B, ColorChannel.ALPHA];
+  }
 
   static readonly #conversions: ColorConversions<ColorFunction> = {
     [Format.HEX]: (self: ColorFunction) => new Legacy(self.#getRGBArray(/* withAlpha= */ false), Format.HEX),
@@ -1336,7 +1364,7 @@ export class ColorFunction implements Color {
 
   #getRGBArray(withAlpha: true): Color4DOr3D;
   #getRGBArray(withAlpha: false): Color3D;
-  #getRGBArray(withAlpha: boolean = true): Color4DOr3D|Color3D {
+  #getRGBArray(withAlpha = true): Color4DOr3D|Color3D {
     // With color(), out-of-gamut inputs are to be used for intermediate computations
     const [p0, p1, p2] = this.#rawParams;
     const params: Color3D =
@@ -1420,6 +1448,16 @@ export class ColorFunction implements Color {
     return false;
   }
 
+  isXYZ(): boolean {
+    switch (this.colorSpace) {
+      case Format.XYZ:
+      case Format.XYZ_D50:
+      case Format.XYZ_D65:
+        return true;
+    }
+    return false;
+  }
+
   /**
    * Parses given `color()` function definition and returns the `Color` object.
    * We want to special case its parsing here because it's a bit different
@@ -1493,6 +1531,8 @@ export class HSL implements Color {
   readonly alpha: number|null;
   readonly #rawParams: Color3D;
   #authoredText: string|undefined;
+  readonly channels: [ColorChannel, ColorChannel, ColorChannel, ColorChannel] =
+      [ColorChannel.H, ColorChannel.S, ColorChannel.L, ColorChannel.ALPHA];
 
   static readonly #conversions: ColorConversions<HSL> = {
     [Format.HEX]: (self: HSL) => new Legacy(self.#getRGBArray(/* withAlpha= */ false), Format.HEX),
@@ -1531,7 +1571,7 @@ export class HSL implements Color {
 
   #getRGBArray(withAlpha: true): Color4DOr3D;
   #getRGBArray(withAlpha: false): Color3D;
-  #getRGBArray(withAlpha: boolean = true): Color4DOr3D|Color3D {
+  #getRGBArray(withAlpha = true): Color4DOr3D|Color3D {
     const rgb = hsl2rgb([this.h, this.s, this.l, 0]);
     if (withAlpha) {
       return [rgb[0], rgb[1], rgb[2], this.alpha ?? undefined];
@@ -1637,6 +1677,7 @@ export class HSL implements Color {
     return [Math.round(this.h * 360), Math.round(this.s * 100), Math.round(this.l * 100), this.alpha ?? 1];
   }
 }
+
 export class HWB implements Color {
   readonly h: number;
   readonly w: number;
@@ -1644,6 +1685,8 @@ export class HWB implements Color {
   readonly alpha: number|null;
   readonly #rawParams: Color3D;
   #authoredText: string|undefined;
+  readonly channels: [ColorChannel, ColorChannel, ColorChannel, ColorChannel] =
+      [ColorChannel.H, ColorChannel.W, ColorChannel.B, ColorChannel.ALPHA];
 
   static readonly #conversions: ColorConversions<HWB> = {
     [Format.HEX]: (self: HWB) => new Legacy(self.#getRGBArray(/* withAlpha= */ false), Format.HEX),
@@ -1682,7 +1725,7 @@ export class HWB implements Color {
 
   #getRGBArray(withAlpha: true): Color4DOr3D;
   #getRGBArray(withAlpha: false): Color3D;
-  #getRGBArray(withAlpha: boolean = true): Color4DOr3D|Color3D {
+  #getRGBArray(withAlpha = true): Color4DOr3D|Color3D {
     const rgb = hwb2rgb([this.h, this.w, this.b, 0]);
     if (withAlpha) {
       return [rgb[0], rgb[1], rgb[2], this.alpha ?? undefined];
@@ -1801,6 +1844,8 @@ function toRgbValue(value: number): number {
 
 abstract class ShortFormatColorBase implements Color {
   protected readonly color: Legacy;
+  readonly channels: [ColorChannel, ColorChannel, ColorChannel, ColorChannel] =
+      [ColorChannel.R, ColorChannel.G, ColorChannel.B, ColorChannel.ALPHA];
   constructor(color: Legacy) {
     this.color = color;
   }
@@ -1907,23 +1952,21 @@ export class Nickname extends ShortFormatColorBase {
 
 export class Legacy implements Color {
   readonly #rawParams: Color3D;
-  #rgbaInternal: Color4D;
+  #rgba: Color4D;
   readonly #authoredText: string|null;
-  #formatInternal: LegacyColor;
+  #format: LegacyColor;
+  readonly channels: [ColorChannel, ColorChannel, ColorChannel, ColorChannel] =
+      [ColorChannel.R, ColorChannel.G, ColorChannel.B, ColorChannel.ALPHA];
 
   static readonly #conversions: ColorConversions<Legacy> = {
-    [Format.HEX]: (self: Legacy) => new Legacy(self.#rgbaInternal, Format.HEX),
-    [Format.HEXA]: (self: Legacy) => new Legacy(self.#rgbaInternal, Format.HEXA),
-    [Format.RGB]: (self: Legacy) => new Legacy(self.#rgbaInternal, Format.RGB),
-    [Format.RGBA]: (self: Legacy) => new Legacy(self.#rgbaInternal, Format.RGBA),
-    [Format.HSL]: (self: Legacy) =>
-        new HSL(...rgbToHsl([self.#rgbaInternal[0], self.#rgbaInternal[1], self.#rgbaInternal[2]]), self.alpha),
-    [Format.HSLA]: (self: Legacy) =>
-        new HSL(...rgbToHsl([self.#rgbaInternal[0], self.#rgbaInternal[1], self.#rgbaInternal[2]]), self.alpha),
-    [Format.HWB]: (self: Legacy) =>
-        new HWB(...rgbToHwb([self.#rgbaInternal[0], self.#rgbaInternal[1], self.#rgbaInternal[2]]), self.alpha),
-    [Format.HWBA]: (self: Legacy) =>
-        new HWB(...rgbToHwb([self.#rgbaInternal[0], self.#rgbaInternal[1], self.#rgbaInternal[2]]), self.alpha),
+    [Format.HEX]: (self: Legacy) => new Legacy(self.#rgba, Format.HEX),
+    [Format.HEXA]: (self: Legacy) => new Legacy(self.#rgba, Format.HEXA),
+    [Format.RGB]: (self: Legacy) => new Legacy(self.#rgba, Format.RGB),
+    [Format.RGBA]: (self: Legacy) => new Legacy(self.#rgba, Format.RGBA),
+    [Format.HSL]: (self: Legacy) => new HSL(...rgbToHsl([self.#rgba[0], self.#rgba[1], self.#rgba[2]]), self.alpha),
+    [Format.HSLA]: (self: Legacy) => new HSL(...rgbToHsl([self.#rgba[0], self.#rgba[1], self.#rgba[2]]), self.alpha),
+    [Format.HWB]: (self: Legacy) => new HWB(...rgbToHwb([self.#rgba[0], self.#rgba[1], self.#rgba[2]]), self.alpha),
+    [Format.HWBA]: (self: Legacy) => new HWB(...rgbToHwb([self.#rgba[0], self.#rgba[1], self.#rgba[2]]), self.alpha),
     [Format.LCH]: (self: Legacy) =>
         new LCH(...ColorConverter.labToLch(...ColorConverter.xyzd50ToLab(...self.#toXyzd50())), self.alpha),
     [Format.OKLCH]: (self: Legacy) => new Oklch(...ColorConverter.xyzd50ToOklch(...self.#toXyzd50()), self.alpha),
@@ -1950,7 +1993,7 @@ export class Legacy implements Color {
   };
 
   #toXyzd50(): Color3D {
-    const [r, g, b] = this.#rgbaInternal;
+    const [r, g, b] = this.#rgba;
     return ColorConverter.srgbToXyzd50(r, g, b);
   }
 
@@ -1958,7 +2001,7 @@ export class Legacy implements Color {
     switch (this.format()) {
       case Format.HEXA:
       case Format.RGBA:
-        return this.#rgbaInternal[3];
+        return this.#rgba[3];
       default:
         return null;
     }
@@ -1975,7 +2018,7 @@ export class Legacy implements Color {
 
   shortHex(): ShortHex|null {
     for (let i = 0; i < 4; ++i) {
-      const c = Math.round(this.#rgbaInternal[i] * 255);
+      const c = Math.round(this.#rgba[i] * 255);
       // Check if the two digits of each are identical: #aabbcc => #abc
       if (c % 0x11) {
         return null;
@@ -1986,10 +2029,10 @@ export class Legacy implements Color {
 
   constructor(rgba: Color3D|Color4DOr3D, format: LegacyColor, authoredText?: string) {
     this.#authoredText = authoredText || null;
-    this.#formatInternal = format;
+    this.#format = format;
     this.#rawParams = [rgba[0], rgba[1], rgba[2]];
 
-    this.#rgbaInternal = [
+    this.#rgba = [
       clamp(rgba[0], {min: 0, max: 1}),
       clamp(rgba[1], {min: 0, max: 1}),
       clamp(rgba[2], {min: 0, max: 1}),
@@ -2052,11 +2095,11 @@ export class Legacy implements Color {
   }
 
   format(): LegacyColor {
-    return this.#formatInternal;
+    return this.#format;
   }
 
   hasAlpha(): boolean {
-    return this.#rgbaInternal[3] !== 1;
+    return this.#rgba[3] !== 1;
   }
 
   detectHEXFormat(): Format {
@@ -2068,11 +2111,11 @@ export class Legacy implements Color {
     if (format) {
       return this.as(format).asString();
     }
-    return this.#stringify(format, this.#rgbaInternal[0], this.#rgbaInternal[1], this.#rgbaInternal[2]);
+    return this.#stringify(format, this.#rgba[0], this.#rgba[1], this.#rgba[2]);
   }
   #stringify(format: LegacyColor|undefined, r: number, g: number, b: number): string {
     if (!format) {
-      format = this.#formatInternal;
+      format = this.#format;
     }
 
     function toHexValue(value: number): string {
@@ -2085,7 +2128,7 @@ export class Legacy implements Color {
       case Format.RGBA: {
         const start = Platform.StringUtilities.sprintf('rgb(%d %d %d', toRgbValue(r), toRgbValue(g), toRgbValue(b));
         if (this.hasAlpha()) {
-          return start + Platform.StringUtilities.sprintf(' / %d%)', Math.round(this.#rgbaInternal[3] * 100));
+          return start + Platform.StringUtilities.sprintf(' / %d%)', Math.round(this.#rgba[3] * 100));
         }
         return start + ')';
       }
@@ -2093,7 +2136,7 @@ export class Legacy implements Color {
       case Format.HEXA: {
         if (this.hasAlpha()) {
           return Platform.StringUtilities
-              .sprintf('#%s%s%s%s', toHexValue(r), toHexValue(g), toHexValue(b), toHexValue(this.#rgbaInternal[3]))
+              .sprintf('#%s%s%s%s', toHexValue(r), toHexValue(g), toHexValue(b), toHexValue(this.#rgba[3]))
               .toLowerCase();
         }
         return Platform.StringUtilities.sprintf('#%s%s%s', toHexValue(r), toHexValue(g), toHexValue(b)).toLowerCase();
@@ -2115,20 +2158,20 @@ export class Legacy implements Color {
   }
   isGamutClipped(): boolean {
     return !equals(
-        this.#rawParams.map(toRgbValue),
-        [this.#rgbaInternal[0], this.#rgbaInternal[1], this.#rgbaInternal[2]].map(toRgbValue), WIDE_RANGE_EPSILON);
+        this.#rawParams.map(toRgbValue), [this.#rgba[0], this.#rgba[1], this.#rgba[2]].map(toRgbValue),
+        WIDE_RANGE_EPSILON);
   }
 
   rgba(): Color4D {
-    return [...this.#rgbaInternal];
+    return [...this.#rgba];
   }
 
   canonicalRGBA(): Color4D {
     const rgba = new Array(4);
     for (let i = 0; i < 3; ++i) {
-      rgba[i] = Math.round(this.#rgbaInternal[i] * 255);
+      rgba[i] = Math.round(this.#rgba[i] * 255);
     }
-    rgba[3] = this.#rgbaInternal[3];
+    rgba[3] = this.#rgba[3];
     return rgba as Color4D;
   }
 
@@ -2153,10 +2196,10 @@ export class Legacy implements Color {
 
   invert(): Legacy {
     const rgba: Color4D = [0, 0, 0, 0];
-    rgba[0] = 1 - this.#rgbaInternal[0];
-    rgba[1] = 1 - this.#rgbaInternal[1];
-    rgba[2] = 1 - this.#rgbaInternal[2];
-    rgba[3] = this.#rgbaInternal[3];
+    rgba[0] = 1 - this.#rgba[0];
+    rgba[1] = 1 - this.#rgba[1];
+    rgba[2] = 1 - this.#rgba[2];
+    rgba[3] = this.#rgba[3];
     return new Legacy(rgba, Format.RGBA);
   }
 
@@ -2165,44 +2208,44 @@ export class Legacy implements Color {
    * Note: We override with an alpha of 50% to enhance the dimming effect.
    */
   grayscale(): Legacy {
-    const [r, g, b] = this.#rgbaInternal;
+    const [r, g, b] = this.#rgba;
     const gray = r * 0.299 + g * 0.587 + b * 0.114;
     return new Legacy([gray, gray, gray, 0.5], Format.RGBA);
   }
 
   setAlpha(alpha: number): Legacy {
-    const rgba: Color4D = [...this.#rgbaInternal];
+    const rgba: Color4D = [...this.#rgba];
     rgba[3] = alpha;
     return new Legacy(rgba, Format.RGBA);
   }
 
   blendWith(fgColor: Legacy): Legacy {
-    const rgba: Color4D = blendColors(fgColor.#rgbaInternal, this.#rgbaInternal);
+    const rgba: Color4D = blendColors(fgColor.#rgba, this.#rgba);
     return new Legacy(rgba, Format.RGBA);
   }
 
   blendWithAlpha(alpha: number): Legacy {
-    const rgba: Color4D = [...this.#rgbaInternal];
+    const rgba: Color4D = [...this.#rgba];
     rgba[3] *= alpha;
     return new Legacy(rgba, Format.RGBA);
   }
 
   setFormat(format: LegacyColor): void {
-    this.#formatInternal = format;
+    this.#format = format;
   }
 
   equal(other: Color): boolean {
-    const legacy = other.as(this.#formatInternal);
-    return equals(toRgbValue(this.#rgbaInternal[0]), toRgbValue(legacy.#rgbaInternal[0]), WIDE_RANGE_EPSILON) &&
-        equals(toRgbValue(this.#rgbaInternal[1]), toRgbValue(legacy.#rgbaInternal[1]), WIDE_RANGE_EPSILON) &&
-        equals(toRgbValue(this.#rgbaInternal[2]), toRgbValue(legacy.#rgbaInternal[2]), WIDE_RANGE_EPSILON) &&
-        equals(this.#rgbaInternal[3], legacy.#rgbaInternal[3]);
+    const legacy = other.as(this.#format);
+    return equals(toRgbValue(this.#rgba[0]), toRgbValue(legacy.#rgba[0]), WIDE_RANGE_EPSILON) &&
+        equals(toRgbValue(this.#rgba[1]), toRgbValue(legacy.#rgba[1]), WIDE_RANGE_EPSILON) &&
+        equals(toRgbValue(this.#rgba[2]), toRgbValue(legacy.#rgba[2]), WIDE_RANGE_EPSILON) &&
+        equals(this.#rgba[3], legacy.#rgba[3]);
   }
 }
 
-export const Regex: RegExp =
+export const Regex =
     /((?:rgba?|hsla?|hwba?|lab|lch|oklab|oklch|color)\([^)]+\)|#[0-9a-fA-F]{8}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3,4}|\b[a-zA-Z]+\b(?!-))/g;
-export const ColorMixRegex: RegExp = /color-mix\(.*,\s*(?<firstColor>.+)\s*,\s*(?<secondColor>.+)\s*\)/g;
+export const ColorMixRegex = /color-mix\(.*,\s*(?<firstColor>.+)\s*,\s*(?<secondColor>.+)\s*\)/g;
 
 const COLOR_TO_RGBA_ENTRIES: Array<readonly[string, number[]]> = [
   ['aliceblue', [240, 248, 255]],
@@ -2414,13 +2457,12 @@ export class Generator {
   readonly #satSpace: Space;
   readonly #lightnessSpace: Space;
   readonly #alphaSpace: Space;
-  readonly #colors: Map<string, string>;
+  readonly #colors = new Map<string, string>();
   constructor(hueSpace?: Space, satSpace?: Space, lightnessSpace?: Space, alphaSpace?: Space) {
     this.#hueSpace = hueSpace || {min: 0, max: 360, count: undefined};
     this.#satSpace = satSpace || 67;
     this.#lightnessSpace = lightnessSpace || 80;
     this.#alphaSpace = alphaSpace || 1;
-    this.#colors = new Map();
   }
 
   setColorForID(id: string, color: string): void {

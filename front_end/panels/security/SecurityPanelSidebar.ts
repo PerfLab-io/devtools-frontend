@@ -1,16 +1,19 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
+import * as Root from '../../core/root/root.js';
 import * as Protocol from '../../generated/protocol.js';
 import type * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as UI from '../../ui/legacy/legacy.js';
 
 import {CookieControlsTreeElement} from './CookieControlsTreeElement.js';
 import {CookieReportTreeElement} from './CookieReportTreeElement.js';
+import {IPProtectionTreeElement} from './IPProtectionTreeElement.js';
 import lockIconStyles from './lockIcon.css.js';
 import {OriginTreeElement} from './OriginTreeElement.js';
 import {
@@ -24,46 +27,50 @@ import sidebarStyles from './sidebar.css.js';
 
 const UIStrings = {
   /**
-   *@description Section title for the the Security Panel's sidebar
+   * @description Section title for the the Security Panel's sidebar
    */
   security: 'Security',
   /**
-   *@description Section title for the the Security Panel's sidebar
+   * @description Section title for the the Security Panel's sidebar
    */
   privacy: 'Privacy',
   /**
-   *@description Sidebar element text in the Security panel
+   * @description Sidebar element text in the Security panel
    */
   cookieReport: 'Third-party cookies',
   /**
-   *@description Sidebar element text in the Security panel
+   * @description Sidebar element text in the Security panel
    */
   flagControls: 'Controls',
   /**
-   *@description Text in Security Panel of the Security panel
+   * @description Sidebar element text in the Security panel
+   */
+  ipProtection: 'IP Protection',
+  /**
+   * @description Text in Security Panel of the Security panel
    */
   mainOrigin: 'Main origin',
   /**
-   *@description Text in Security Panel of the Security panel
+   * @description Text in Security Panel of the Security panel
    */
   nonsecureOrigins: 'Non-secure origins',
   /**
-   *@description Text in Security Panel of the Security panel
+   * @description Text in Security Panel of the Security panel
    */
   secureOrigins: 'Secure origins',
   /**
-   *@description Text in Security Panel of the Security panel
+   * @description Text in Security Panel of the Security panel
    */
   unknownCanceled: 'Unknown / canceled',
   /**
-   *@description Title text content in Security Panel of the Security panel
+   * @description Title text content in Security Panel of the Security panel
    */
   overview: 'Overview',
   /**
-   *@description Text in Security Panel of the Security panel
+   * @description Text in Security Panel of the Security panel
    */
   reloadToViewDetails: 'Reload to view details',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/security/SecurityPanelSidebar.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -75,13 +82,14 @@ export class SecurityPanelSidebar extends UI.Widget.VBox {
   #originGroups: Map<OriginGroup, UI.TreeOutline.TreeElement>;
   securityOverviewElement: OriginTreeElement;
   readonly #cookieControlsTreeElement: CookieControlsTreeElement|undefined;
-  readonly #cookieReportTreeElement: CookieReportTreeElement|undefined;
+  readonly cookieReportTreeElement: CookieReportTreeElement|undefined;
+  readonly ipProtectionTreeElement: IPProtectionTreeElement|undefined;
   readonly #elementsByOrigin: Map<string, OriginTreeElement>;
   readonly #mainViewReloadMessage: UI.TreeOutline.TreeElement;
   #mainOrigin: string|null;
 
   constructor(element?: HTMLElement) {
-    super(undefined, undefined, element);
+    super(element);
 
     this.#securitySidebarLastItemSetting =
         Common.Settings.Settings.instance().createSetting('security-last-selected-element-path', '');
@@ -92,13 +100,18 @@ export class SecurityPanelSidebar extends UI.Widget.VBox {
     this.sidebarTree.element.classList.add('security-sidebar');
     this.contentElement.appendChild(this.sidebarTree.element);
 
-    if (Common.Settings.Settings.instance().getHostConfig().devToolsPrivacyUI?.enabled) {
+    if (Root.Runtime.hostConfig.devToolsPrivacyUI?.enabled) {
       const privacyTreeSection = this.#addSidebarSection(i18nString(UIStrings.privacy), 'privacy');
       this.#cookieControlsTreeElement =
           new CookieControlsTreeElement(i18nString(UIStrings.flagControls), 'cookie-flag-controls');
       privacyTreeSection.appendChild(this.#cookieControlsTreeElement);
-      this.#cookieReportTreeElement = new CookieReportTreeElement(i18nString(UIStrings.cookieReport), 'cookie-report');
-      privacyTreeSection.appendChild(this.#cookieReportTreeElement);
+      this.cookieReportTreeElement = new CookieReportTreeElement(i18nString(UIStrings.cookieReport), 'cookie-report');
+      privacyTreeSection.appendChild(this.cookieReportTreeElement);
+
+      if (Root.Runtime.hostConfig.devToolsIpProtectionPanelInDevTools?.enabled) {
+        this.ipProtectionTreeElement = new IPProtectionTreeElement(i18nString(UIStrings.ipProtection), 'ip-protection');
+        privacyTreeSection.appendChild(this.ipProtectionTreeElement);
+      }
 
       // If this if the first time this setting is set, go to the controls tool
       if (this.#securitySidebarLastItemSetting.get() === '') {
@@ -175,10 +188,15 @@ export class SecurityPanelSidebar extends UI.Widget.VBox {
       this.#cookieControlsTreeElement.select();
       this.#cookieControlsTreeElement.showElement();
     } else if (
-        this.#cookieReportTreeElement &&
-        this.#securitySidebarLastItemSetting.get() === this.#cookieReportTreeElement.elemId) {
-      this.#cookieReportTreeElement.select();
-      this.#cookieReportTreeElement.showElement();
+        this.cookieReportTreeElement &&
+        this.#securitySidebarLastItemSetting.get() === this.cookieReportTreeElement.elemId) {
+      this.cookieReportTreeElement.select();
+      this.cookieReportTreeElement.showElement();
+    } else if (
+        this.ipProtectionTreeElement &&
+        this.#securitySidebarLastItemSetting.get() === this.ipProtectionTreeElement.elemId) {
+      this.ipProtectionTreeElement.select();
+      this.ipProtectionTreeElement.showElement();
     } else {
       this.securityOverviewElement.select();
       this.securityOverviewElement.showElement();

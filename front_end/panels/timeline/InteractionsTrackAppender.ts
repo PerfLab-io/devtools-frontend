@@ -19,10 +19,10 @@ import * as Utils from './utils/utils.js';
 
 const UIStrings = {
   /**
-   *@description Text in Timeline Flame Chart Data Provider of the Performance panel
+   * @description Text in Timeline Flame Chart Data Provider of the Performance panel
    */
   interactions: 'Interactions',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/InteractionsTrackAppender.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -47,7 +47,7 @@ export class InteractionsTrackAppender implements TrackAppender {
    * interactions track.
    * @param trackStartLevel the horizontal level of the flame chart events where
    * the track's events will start being appended.
-   * @param expanded wether the track should be rendered expanded.
+   * @param expanded whether the track should be rendered expanded.
    * @returns the first available level to append more data after having
    * appended the track's events.
    */
@@ -115,11 +115,11 @@ export class InteractionsTrackAppender implements TrackAppender {
     decorationsForEvent.push(
         {
           type: PerfUI.FlameChart.FlameChartDecorationType.CANDY,
+          // Where the striping starts is hard. The problem is the whole interaction, isolating the part of it *responsible* for
+          // making the interaction 200ms is hard and our decoration won't do it perfectly. To simplify we just flag all the overage.
+          // AKA the first 200ms of the interaction aren't flagged. A downside is we often flag a lot of render delay.
+          // It'd be fair to shift the candystriping segment earlier in the interaction... Let's see what the feedback is like.
           startAtTime: Trace.Handlers.ModelHandlers.UserInteractions.LONG_INTERACTION_THRESHOLD,
-          // Interaction events have whiskers, so we do not want to candy stripe
-          // the entire duration. The box represents processing duration, so we only
-          // candystripe up to the end of processing.
-          endAtTime: entry.processingEnd,
         },
         {
           type: PerfUI.FlameChart.FlameChartDecorationType.WARNING_TRIANGLE,

@@ -27,32 +27,33 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as Platform from '../../../../core/platform/platform.js';
+import type * as NetworkTimeCalculator from '../../../../models/network_time_calculator/network_time_calculator.js';
 import * as IconButton from '../../../components/icon_button/icon_button.js';
 import * as VisualLogging from '../../../visual_logging/visual_logging.js';
 import * as UI from '../../legacy.js';
-import * as ThemeSupport from '../../theme_support/theme_support.js';
 
 import overviewGridStyles from './overviewGrid.css.js';
-import {type Calculator, TimelineGrid} from './TimelineGrid.js';
+import {TimelineGrid} from './TimelineGrid.js';
 
 const UIStrings = {
   /**
-   *@description Label for the window for Overview grids
+   * @description Label for the window for Overview grids
    */
   overviewGridWindow: 'Overview grid window',
   /**
-   *@description Label for left window resizer for Overview grids
+   * @description Label for left window resizer for Overview grids
    */
   leftResizer: 'Left Resizer',
   /**
-   *@description Label for right window resizer for Overview grids
+   * @description Label for right window resizer for Overview grids
    */
   rightResizer: 'Right Resizer',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/perf_ui/OverviewGrid.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class OverviewGrid {
@@ -61,7 +62,7 @@ export class OverviewGrid {
   // The |window| will manage the html element of resizers, the left/right blue-colour curtain, and handle the resizing,
   // zooming, and breadcrumb creation.
   private readonly window: Window;
-  constructor(prefix: string, calculator?: Calculator) {
+  constructor(prefix: string, calculator?: NetworkTimeCalculator.Calculator) {
     this.element = document.createElement('div');
     this.element.id = prefix + '-overview-container';
 
@@ -86,7 +87,7 @@ export class OverviewGrid {
     return this.element.clientWidth;
   }
 
-  updateDividers(calculator: Calculator): void {
+  updateDividers(calculator: NetworkTimeCalculator.Calculator): void {
     this.grid.updateDividers(calculator);
   }
 
@@ -154,7 +155,7 @@ const OffsetFromWindowEnds = 10;
 
 export class Window extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
   private parentElement: Element;
-  private calculator: Calculator|undefined;
+  private calculator: NetworkTimeCalculator.Calculator|undefined;
   private leftResizeElement: HTMLElement;
   private rightResizeElement: HTMLElement;
   private leftCurtainElement: HTMLElement;
@@ -178,9 +179,10 @@ export class Window extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
   private resizeEnabled?: boolean;
   private clickHandler?: ((arg0: Event) => boolean)|null;
   private resizerParentOffsetLeft?: number;
-  #breadcrumbsEnabled: boolean = false;
-  #mouseOverGridOverview: boolean = false;
-  constructor(parentElement: HTMLElement, dividersLabelBarElement?: Element, calculator?: Calculator) {
+  #breadcrumbsEnabled = false;
+  #mouseOverGridOverview = false;
+  constructor(
+      parentElement: HTMLElement, dividersLabelBarElement?: Element, calculator?: NetworkTimeCalculator.Calculator) {
     super();
     this.parentElement = parentElement;
     this.parentElement.classList.add('parent-element');
@@ -200,7 +202,7 @@ export class Window extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
 
     this.parentElement.addEventListener('wheel', this.onMouseWheel.bind(this), true);
     this.parentElement.addEventListener('dblclick', this.resizeWindowMaximum.bind(this), true);
-    ThemeSupport.ThemeSupport.instance().appendStyle(this.parentElement, overviewGridStyles);
+    Platform.DOMUtilities.appendStyle(this.parentElement, overviewGridStyles);
 
     this.leftResizeElement = parentElement.createChild('div', 'overview-grid-window-resizer');
     UI.UIUtils.installDragHandle(
@@ -399,7 +401,7 @@ export class Window extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
     delete this.overviewWindowSelector;
     const clickThreshold = 3;
     if (window.end - window.start < clickThreshold) {
-      if (this.clickHandler && this.clickHandler.call(null, event)) {
+      if (this.clickHandler?.call(null, event)) {
         return;
       }
       const middle = window.end;

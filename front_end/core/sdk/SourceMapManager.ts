@@ -7,24 +7,21 @@ import * as Platform from '../platform/platform.js';
 
 import type {FrameAssociated} from './FrameAssociated.js';
 import {PageResourceLoader, type PageResourceLoadInitiator} from './PageResourceLoader.js';
-import {parseSourceMap, SourceMap, type SourceMapV3} from './SourceMap.js';
+import {type DebugId, parseSourceMap, SourceMap, type SourceMapV3} from './SourceMap.js';
+import {SourceMapCache} from './SourceMapCache.js';
 import {type Target, Type} from './Target.js';
 
 export class SourceMapManager<T extends FrameAssociated> extends Common.ObjectWrapper.ObjectWrapper<EventTypes<T>> {
   readonly #target: Target;
-  #isEnabled: boolean;
-  readonly #clientData: Map<T, ClientData>;
-  readonly #sourceMaps: Map<SourceMap, T>;
-  #attachingClient: T|null;
+  #isEnabled = true;
+  readonly #clientData = new Map<T, ClientData>();
+  readonly #sourceMaps = new Map<SourceMap, T>();
+  #attachingClient: T|null = null;
 
   constructor(target: Target) {
     super();
 
     this.#target = target;
-    this.#isEnabled = true;
-    this.#attachingClient = null;
-    this.#clientData = new Map();
-    this.#sourceMaps = new Map();
   }
 
   setEnabled(isEnabled: boolean): void {
@@ -109,7 +106,7 @@ export class SourceMapManager<T extends FrameAssociated> extends Common.ObjectWr
           this.#attachingClient = null;
           const initiator = client.createPageResourceLoadInitiator();
           clientData.sourceMapPromise =
-              loadSourceMap(sourceMapURL, initiator)
+              loadSourceMap(sourceMapURL, client.debugId(), initiator)
                   .then(
                       payload => {
                         const sourceMap = new SourceMap(sourceURL, sourceMapURL, payload);
@@ -145,13 +142,11 @@ export class SourceMapManager<T extends FrameAssociated> extends Common.ObjectWr
   cancelAttachSourceMap(client: T): void {
     if (client === this.#attachingClient) {
       this.#attachingClient = null;
-    } else {
       // This should not happen.
-      if (this.#attachingClient) {
-        console.error('cancel attach source map requested but a different source map was being attached');
-      } else {
-        console.error('cancel attach source map requested but no source map was being attached');
-      }
+    } else if (this.#attachingClient) {
+      console.error('cancel attach source map requested but a different source map was being attached');
+    } else {
+      console.error('cancel attach source map requested but no source map was being attached');
     }
   }
 
@@ -174,13 +169,36 @@ export class SourceMapManager<T extends FrameAssociated> extends Common.ObjectWr
   }
 }
 
-async function loadSourceMap(
-    url: Platform.DevToolsPath.UrlString, initiator: PageResourceLoadInitiator): Promise<SourceMapV3> {
+export async function loadSourceMap(
+    url: Platform.DevToolsPath.UrlString, debugId: DebugId|null,
+    initiator: PageResourceLoadInitiator): Promise<SourceMapV3> {
   try {
+    if (debugId) {
+      const cachedSourceMap = await SourceMapCache.instance().get(debugId);
+      if (cachedSourceMap) {
+        return cachedSourceMap;
+      }
+    }
+
     const {content} = await PageResourceLoader.instance().loadResource(url, initiator);
-    return parseSourceMap(content);
+    const sourceMap = parseSourceMap(content);
+    if ('debugId' in sourceMap && sourceMap.debugId) {
+      // In case something goes wrong with updating the cache, we still want to use the source map.
+      await SourceMapCache.instance().set(sourceMap.debugId as DebugId, sourceMap).catch();
+    }
+    return sourceMap;
   } catch (cause) {
     throw new Error(`Could not load content for ${url}: ${cause.message}`, {cause});
+  }
+}
+
+export async function tryLoadSourceMap(
+    url: Platform.DevToolsPath.UrlString, initiator: PageResourceLoadInitiator): Promise<SourceMapV3|null> {
+  try {
+    return await loadSourceMap(url, null, initiator);
+  } catch (cause) {
+    console.error(cause);
+    return null;
   }
 }
 

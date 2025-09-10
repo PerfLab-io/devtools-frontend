@@ -1,6 +1,7 @@
 // Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../../../core/common/common.js';
 import * as Platform from '../../../../core/platform/platform.js';
@@ -18,19 +19,26 @@ export interface ChartViewportDelegate {
 }
 
 export interface Config {
+  /**
+   * Configures if the Chart should show a vertical line at the position of the
+   * mouse cursor when the user holds the `Shift` key.
+   * The reason this is configurable is because within the Performance Panel
+   * we use our own overlays system for UI like this, so we do not need the
+   * ChartViewport to manage it.
+   */
   enableCursorElement: boolean;
 }
 
 export class ChartViewport extends UI.Widget.VBox {
   private readonly delegate: ChartViewportDelegate;
   viewportElement: HTMLElement;
-  private alwaysShowVerticalScrollInternal: boolean;
+  #alwaysShowVerticalScroll: boolean;
   private rangeSelectionEnabled: boolean;
   private vScrollElement: HTMLElement;
   private vScrollContent: HTMLElement;
   private readonly selectionOverlay: HTMLElement;
   private cursorElement: HTMLElement;
-  private isDraggingInternal!: boolean;
+  #isDragging!: boolean;
   private totalHeight!: number;
   private offsetHeight!: number;
   private scrollTop!: number;
@@ -75,7 +83,7 @@ export class ChartViewport extends UI.Widget.VBox {
         this.viewportElement, this.startRangeSelection.bind(this), this.rangeSelectionDragging.bind(this),
         this.endRangeSelection.bind(this), 'text', null);
 
-    this.alwaysShowVerticalScrollInternal = false;
+    this.#alwaysShowVerticalScroll = false;
     this.rangeSelectionEnabled = true;
     this.vScrollElement = this.contentElement.createChild('div', 'chart-viewport-v-scroll');
     this.vScrollContent = this.vScrollElement.createChild('div');
@@ -91,7 +99,7 @@ export class ChartViewport extends UI.Widget.VBox {
   }
 
   alwaysShowVerticalScroll(): void {
-    this.alwaysShowVerticalScrollInternal = true;
+    this.#alwaysShowVerticalScroll = true;
     this.vScrollElement.classList.add('always-show-scrollbar');
   }
 
@@ -102,15 +110,19 @@ export class ChartViewport extends UI.Widget.VBox {
   }
 
   isDragging(): boolean {
-    return this.isDraggingInternal;
+    return this.#isDragging;
   }
 
   override elementsToRestoreScrollPositionsFor(): Element[] {
     return [this.vScrollElement];
   }
 
+  verticalScrollBarVisible(): boolean {
+    return !this.vScrollElement.classList.contains('hidden');
+  }
+
   private updateScrollBar(): void {
-    const showScroll = this.alwaysShowVerticalScrollInternal || this.totalHeight > this.offsetHeight;
+    const showScroll = this.#alwaysShowVerticalScroll || this.totalHeight > this.offsetHeight;
     if (this.vScrollElement.classList.contains('hidden') !== showScroll) {
       return;
     }
@@ -129,7 +141,7 @@ export class ChartViewport extends UI.Widget.VBox {
     this.scrollTop = 0;
     this.rangeSelectionStart = null;
     this.rangeSelectionEnd = null;
-    this.isDraggingInternal = false;
+    this.#isDragging = false;
     this.dragStartPointX = 0;
     this.dragStartPointY = 0;
     this.dragStartScrollTop = 0;
@@ -167,7 +179,7 @@ export class ChartViewport extends UI.Widget.VBox {
   }
 
   /**
-   * @param centered - If true, scrolls offset to where it is centered on the chart,
+   * @param centered If true, scrolls offset to where it is centered on the chart,
    * based on current the this.offsetHeight value.
    */
   setScrollOffset(offset: number, height?: number, centered?: boolean): void {
@@ -180,10 +192,8 @@ export class ChartViewport extends UI.Widget.VBox {
         // Need to scroll up, include height.
         this.vScrollElement.scrollTop = offset - (height + halfPadding);
       }
-    } else {
-      if (this.vScrollElement.scrollTop > offset) {
-        this.vScrollElement.scrollTop = offset;
-      }
+    } else if (this.vScrollElement.scrollTop > offset) {
+      this.vScrollElement.scrollTop = offset;
     }
 
     if (this.vScrollElement.scrollTop < offset - this.offsetHeight + height) {
@@ -192,7 +202,9 @@ export class ChartViewport extends UI.Widget.VBox {
   }
 
   scrollOffset(): number {
-    return this.vScrollElement.scrollTop;
+    // Return the cached value, rather than the live value (which typically incurs a forced reflow)
+    // In practice, this is true whenever scrollOffset() is called:  `this.scrollTop === this.vScrollElement.scrollTop`
+    return this.scrollTop;
   }
 
   chartHeight(): number {
@@ -258,7 +270,7 @@ export class ChartViewport extends UI.Widget.VBox {
     if (event.shiftKey) {
       return false;
     }
-    this.isDraggingInternal = true;
+    this.#isDragging = true;
     this.dragStartPointX = event.pageX;
     this.dragStartPointY = event.pageY;
     this.dragStartScrollTop = this.vScrollElement.scrollTop;
@@ -275,21 +287,21 @@ export class ChartViewport extends UI.Widget.VBox {
   }
 
   private endDragging(): void {
-    this.isDraggingInternal = false;
+    this.#isDragging = false;
   }
 
   private startRangeSelection(event: MouseEvent): boolean {
     if (!event.shiftKey || !this.rangeSelectionEnabled) {
       return false;
     }
-    this.isDraggingInternal = true;
+    this.#isDragging = true;
     this.selectionOffsetShiftX = event.offsetX - event.pageX;
     this.selectionStartX = event.offsetX;
     return true;
   }
 
   private endRangeSelection(): void {
-    this.isDraggingInternal = false;
+    this.#isDragging = false;
     this.selectionStartX = null;
   }
 
@@ -300,8 +312,8 @@ export class ChartViewport extends UI.Widget.VBox {
   }
 
   /**
-   * @param startTime - the start time of the selection in MilliSeconds
-   * @param endTime - the end time of the selection in MilliSeconds
+   * @param startTime the start time of the selection in MilliSeconds
+   * @param endTime the end time of the selection in MilliSeconds
    * TODO(crbug.com/346312365): update the type definitions in ChartViewport.ts
    */
   setRangeSelection(startTime: number, endTime: number): void {
@@ -368,7 +380,7 @@ export class ChartViewport extends UI.Widget.VBox {
   }
 
   private showCursor(visible: boolean): void {
-    this.cursorElement.classList.toggle('hidden', !visible || this.isDraggingInternal);
+    this.cursorElement.classList.toggle('hidden', !visible || this.#isDragging);
   }
 
   private onChartKeyDown(keyboardEvent: KeyboardEvent): void {
@@ -485,6 +497,16 @@ export class ChartViewport extends UI.Widget.VBox {
     this.delegate.update();
   }
 
+  override willHide(): void {
+    // Stop animations when the view is hidden (or destroyed).
+    // In this case, we also jump the time immediately to the target time, so
+    // that if the view is restored, the time shown is correct.
+    if (this.cancelWindowTimesAnimation) {
+      this.cancelWindowTimesAnimation();
+      this.setWindowTimes(this.targetLeftTime, this.targetRightTime, false);
+    }
+  }
+
   setWindowTimes(startTime: number, endTime: number, animate?: boolean): void {
     if (startTime === this.targetLeftTime && endTime === this.targetRightTime) {
       return;
@@ -513,6 +535,11 @@ export class ChartViewport extends UI.Widget.VBox {
         });
 
     function animateWindowTimes(this: ChartViewport, startTime: number, endTime: number): void {
+      // We cancel the animation in the willHide method, but as an extra check
+      // bail here if we are hidden rather than queue an update.
+      if (!this.isShowing()) {
+        return;
+      }
       this.visibleLeftTime = startTime;
       this.visibleRightTime = endTime;
       this.update();

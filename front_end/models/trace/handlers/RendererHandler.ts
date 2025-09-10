@@ -25,25 +25,25 @@ import type {HandlerName} from './types.js';
  * event type.
  */
 
-const processes = new Map<Types.Events.ProcessID, RendererProcess>();
+let processes = new Map<Types.Events.ProcessID, RendererProcess>();
 
-const entityMappings: HandlerHelpers.EntityMappings = {
+let entityMappings: HandlerHelpers.EntityMappings = {
   eventsByEntity: new Map<HandlerHelpers.Entity, Types.Events.Event[]>(),
   entityByEvent: new Map<Types.Events.Event, HandlerHelpers.Entity>(),
   createdEntityCache: new Map<string, HandlerHelpers.Entity>(),
+  entityByUrlCache: new Map<string, HandlerHelpers.Entity>(),
 };
 
 // We track the compositor tile worker thread name events so that at the end we
 // can return these keyed by the process ID. These are used in the frontend to
 // show the user the rasterization thread(s) on the main frame as tracks.
-const compositorTileWorkers = Array<{
+let compositorTileWorkers = Array<{
   pid: Types.Events.ProcessID,
   tid: Types.Events.ThreadID,
 }>();
-const entryToNode: Map<Types.Events.Event, Helpers.TreeHelpers.TraceEntryNode> = new Map();
-let allTraceEntries: Types.Events.Event[] = [];
+let entryToNode = new Map<Types.Events.Event, Helpers.TreeHelpers.TraceEntryNode>();
 
-const completeEventStack: (Types.Events.SyntheticComplete)[] = [];
+let completeEventStack: (Types.Events.SyntheticComplete)[] = [];
 
 let config: Types.Configuration.Configuration = Types.Configuration.defaults();
 
@@ -75,14 +75,16 @@ export function handleUserConfig(userConfig: Types.Configuration.Configuration):
 }
 
 export function reset(): void {
-  processes.clear();
-  entryToNode.clear();
-  entityMappings.eventsByEntity.clear();
-  entityMappings.entityByEvent.clear();
-  entityMappings.createdEntityCache.clear();
-  allTraceEntries.length = 0;
-  completeEventStack.length = 0;
-  compositorTileWorkers.length = 0;
+  processes = new Map();
+  entryToNode = new Map();
+  entityMappings = {
+    eventsByEntity: new Map<HandlerHelpers.Entity, Types.Events.Event[]>(),
+    entityByEvent: new Map<Types.Events.Event, HandlerHelpers.Entity>(),
+    createdEntityCache: new Map<string, HandlerHelpers.Entity>(),
+    entityByUrlCache: new Map<string, HandlerHelpers.Entity>(),
+  };
+  completeEventStack = [];
+  compositorTileWorkers = [];
 }
 
 export function handleEvent(event: Types.Events.Event): void {
@@ -101,7 +103,6 @@ export function handleEvent(event: Types.Events.Event): void {
       return;
     }
     thread.entries.push(completeEvent);
-    allTraceEntries.push(completeEvent);
     return;
   }
 
@@ -109,7 +110,6 @@ export function handleEvent(event: Types.Events.Event): void {
     const process = getOrCreateRendererProcess(processes, event.pid);
     const thread = getOrCreateRendererThread(process, event.tid);
     thread.entries.push(event);
-    allTraceEntries.push(event);
   }
 
   if (Types.Events.isLayout(event)) {
@@ -127,27 +127,24 @@ export function handleEvent(event: Types.Events.Event): void {
 
 export async function finalize(): Promise<void> {
   const {mainFrameId, rendererProcessesByFrame, threadsInProcess} = metaHandlerData();
-  const {entityMappings: networkEntityMappings} = networkRequestHandlerData();
-  // Build on top of the created entity cache to avoid de-dupes of entities that are made up.
-  entityMappings.createdEntityCache = new Map(networkEntityMappings.createdEntityCache);
+  entityMappings = networkRequestHandlerData().entityMappings;
 
   assignMeta(processes, mainFrameId, rendererProcessesByFrame, threadsInProcess);
   sanitizeProcesses(processes);
   buildHierarchy(processes);
   sanitizeThreads(processes);
-  Helpers.Trace.sortTraceEventsInPlace(allTraceEntries);
 }
 
 export function data(): RendererHandlerData {
   return {
-    processes: new Map(processes),
-    compositorTileWorkers: new Map(gatherCompositorThreads()),
-    entryToNode: new Map(entryToNode),
-    allTraceEntries: [...allTraceEntries],
+    processes,
+    compositorTileWorkers: gatherCompositorThreads(),
+    entryToNode,
     entityMappings: {
-      entityByEvent: new Map(entityMappings.entityByEvent),
-      eventsByEntity: new Map(entityMappings.eventsByEntity),
-      createdEntityCache: new Map(entityMappings.createdEntityCache),
+      entityByEvent: entityMappings.entityByEvent,
+      eventsByEntity: entityMappings.eventsByEntity,
+      createdEntityCache: entityMappings.createdEntityCache,
+      entityByUrlCache: entityMappings.entityByUrlCache,
     },
   };
 }
@@ -174,7 +171,7 @@ export function assignMeta(
     threadsInProcess: Map<Types.Events.ProcessID, Map<Types.Events.ThreadID, Types.Events.ThreadName>>): void {
   assignOrigin(processes, rendererProcessesByFrame);
   assignIsMainFrame(processes, mainFrameId, rendererProcessesByFrame);
-  assignThreadName(processes, rendererProcessesByFrame, threadsInProcess);
+  assignThreadName(processes, threadsInProcess);
 }
 
 /**
@@ -235,7 +232,7 @@ export function assignIsMainFrame(
  * @see assignMeta
  */
 export function assignThreadName(
-    processes: Map<Types.Events.ProcessID, RendererProcess>, rendererProcessesByFrame: FrameProcessData,
+    processes: Map<Types.Events.ProcessID, RendererProcess>,
     threadsInProcess: Map<Types.Events.ProcessID, Map<Types.Events.ThreadID, Types.Events.ThreadName>>): void {
   for (const [pid, process] of processes) {
     for (const [tid, threadInfo] of threadsInProcess.get(pid) ?? []) {
@@ -248,7 +245,7 @@ export function assignThreadName(
 /**
  * Removes unneeded trace data opportunistically stored while handling events.
  * This currently does the following:
- *  - Deletes processes with an unkonwn origin.
+ *  - Deletes processes with an unknown origin.
  */
 export function sanitizeProcesses(processes: Map<Types.Events.ProcessID, RendererProcess>): void {
   const auctionWorklets = auctionWorkletsData().worklets;
@@ -339,13 +336,12 @@ export function buildHierarchy(
                 cpuProfile, samplesDataForThread.profileId, pid, tid, config);
         const profileCalls = samplesIntegrator?.buildProfileCalls(thread.entries);
         if (samplesIntegrator && profileCalls) {
-          allTraceEntries = [...allTraceEntries, ...profileCalls];
           thread.entries = Helpers.Trace.mergeEventsInOrder(thread.entries, profileCalls);
           thread.profileCalls = profileCalls;
+
           // We'll also inject the instant JSSample events (in debug mode only)
           const jsSamples = samplesIntegrator.jsSampleEvents;
-          if (jsSamples) {
-            allTraceEntries = [...allTraceEntries, ...jsSamples];
+          if (jsSamples.length) {
             thread.entries = Helpers.Trace.mergeEventsInOrder(thread.entries, jsSamples);
           }
         }
@@ -356,7 +352,8 @@ export function buildHierarchy(
       // Update the entryToNode map with the entries from this thread
       for (const [entry, node] of treeData.entryToNode) {
         entryToNode.set(entry, node);
-        HandlerHelpers.updateEventForEntities(entry, entityMappings);
+        // Entity mapping is unrelated to the tree, but calling here as we need to call on every node anyway.
+        HandlerHelpers.addEventToEntityMapping(entry, entityMappings);
       }
     }
   }
@@ -406,11 +403,6 @@ export interface RendererHandlerData {
    */
   compositorTileWorkers: Map<Types.Events.ProcessID, Types.Events.ThreadID[]>;
   entryToNode: Map<Types.Events.Event, Helpers.TreeHelpers.TraceEntryNode>;
-  /**
-   * All trace events and synthetic profile calls made from
-   * samples.
-   */
-  allTraceEntries: Types.Events.Event[];
   entityMappings: HandlerHelpers.EntityMappings;
 }
 

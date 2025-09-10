@@ -1,11 +1,13 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
+
+import '../../../ui/components/cards/cards.js';
 
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as EmulationModel from '../../../models/emulation/emulation.js';
 import type * as Buttons from '../../../ui/components/buttons/buttons.js';
-import * as Cards from '../../../ui/components/cards/cards.js';
 import * as UI from '../../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
@@ -22,53 +24,53 @@ const UIStrings = {
    */
   defaultDevices: 'Default devices',
   /**
-   *@description Button to add a custom device (e.g. phone, tablet) the Device Toolbar.
+   * @description Button to add a custom device (e.g. phone, tablet) the Device Toolbar.
    */
   addCustomDevice: 'Add custom device',
   /**
-   *@description Label/title for UI to add a new custom device type. Device means mobile/tablet etc.
+   * @description Label/title for UI to add a new custom device type. Device means mobile/tablet etc.
    */
   device: 'Device',
   /**
-   *@description Placeholder for text input for the name of a custom device.
+   * @description Placeholder for text input for the name of a custom device.
    */
   deviceName: 'Device Name',
   /**
-   *@description Placeholder text for text input for the width of a custom device in pixels.
+   * @description Placeholder text for text input for the width of a custom device in pixels.
    */
   width: 'Width',
   /**
-   *@description Placeholder text for text input for the height of a custom device in pixels.
+   * @description Placeholder text for text input for the height of a custom device in pixels.
    */
   height: 'Height',
   /**
-   *@description Placeholder text for text input for the height/width ratio of a custom device in pixels.
+   * @description Placeholder text for text input for the height/width ratio of a custom device in pixels.
    */
   devicePixelRatio: 'Device pixel ratio',
   /**
-   *@description Label in the Devices settings pane for the user agent string input of a custom device
+   * @description Label in the Devices settings pane for the user agent string input of a custom device
    */
   userAgentString: 'User agent string',
   /**
-   *@description Tooltip text for a drop-down in the Devices settings pane, for the 'user agent type' input of a custom device.
+   * @description Tooltip text for a drop-down in the Devices settings pane, for the 'user agent type' input of a custom device.
    * 'Type' refers to different options e.g. mobile or desktop.
    */
   userAgentType: 'User agent type',
   /**
-   *@description Error message in the Devices settings pane that declares the maximum length of the device name input
-   *@example {50} PH1
+   * @description Error message in the Devices settings pane that declares the maximum length of the device name input
+   * @example {50} PH1
    */
   deviceNameMustBeLessThanS: 'Device name must be less than {PH1} characters.',
   /**
-   *@description Error message in the Devices settings pane that declares that the device name input must not be empty
+   * @description Error message in the Devices settings pane that declares that the device name input must not be empty
    */
   deviceNameCannotBeEmpty: 'Device name cannot be empty.',
   /**
-   *@description Success message for screen readers when device is added.
-   *@example {TestDevice} PH1
+   * @description Success message for screen readers when device is added.
+   * @example {TestDevice} PH1
    */
   deviceAddedOrUpdated: 'Device {PH1} successfully added/updated.',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/settings/emulation/DevicesSettingsTab.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -84,10 +86,8 @@ export class DevicesSettingsTab extends UI.Widget.VBox implements
   private editor?: UI.ListWidget.Editor<EmulationModel.EmulatedDevices.EmulatedDevice>;
 
   constructor() {
-    super();
+    super({jslog: `${VisualLogging.pane('devices')}`});
     this.registerRequiredCSS(devicesSettingsTabStyles);
-
-    this.element.setAttribute('jslog', `${VisualLogging.pane('devices')}`);
 
     this.containerElement =
         this.contentElement.createChild('div', 'settings-card-container-wrapper').createChild('div');
@@ -117,24 +117,18 @@ export class DevicesSettingsTab extends UI.Widget.VBox implements
     const deviceList = customSettings.createChild('div');
     customSettings.appendChild(this.addCustomButton);
 
-    const customDevicesCard = new Cards.Card.Card();
-    customDevicesCard.data = {
-      heading: i18nString(UIStrings.customDevices),
-      content: [customSettings],
-    };
-    this.containerElement.appendChild(customDevicesCard);
+    const customDevicesCard = this.containerElement.createChild('devtools-card');
+    customDevicesCard.heading = i18nString(UIStrings.customDevices);
+    customDevicesCard.append(customSettings);
 
     this.#customDeviceList = new UI.ListWidget.ListWidget(this, false /* delegatesFocus */);
     this.#customDeviceList.registerRequiredCSS(devicesSettingsTabStyles);
     this.#customDeviceList.element.classList.add('devices-list');
     this.#customDeviceList.show(deviceList);
 
-    const defaultDevicesCard = new Cards.Card.Card();
-    defaultDevicesCard.data = {
-      heading: i18nString(UIStrings.defaultDevices),
-      content: [this.#defaultDeviceList.element],
-    };
-    this.containerElement.appendChild(defaultDevicesCard);
+    const defaultDevicesCard = this.containerElement.createChild('devtools-card');
+    defaultDevicesCard.heading = i18nString(UIStrings.defaultDevices);
+    defaultDevicesCard.append(this.#defaultDeviceList.element);
   }
 
   override wasShown(): void {
@@ -345,7 +339,7 @@ export class DevicesSettingsTab extends UI.Widget.VBox implements
     }
 
     function titleValidator(
-        item: EmulationModel.EmulatedDevices.EmulatedDevice, index: number,
+        _item: EmulationModel.EmulatedDevices.EmulatedDevice, _index: number,
         input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
       let valid = false;
       let errorMessage;
@@ -364,19 +358,19 @@ export class DevicesSettingsTab extends UI.Widget.VBox implements
     }
 
     function widthValidator(
-        item: EmulationModel.EmulatedDevices.EmulatedDevice, index: number,
+        _item: EmulationModel.EmulatedDevices.EmulatedDevice, _index: number,
         input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
       return EmulationModel.DeviceModeModel.DeviceModeModel.widthValidator(input.value);
     }
 
     function heightValidator(
-        item: EmulationModel.EmulatedDevices.EmulatedDevice, index: number,
+        _item: EmulationModel.EmulatedDevices.EmulatedDevice, _index: number,
         input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
       return EmulationModel.DeviceModeModel.DeviceModeModel.heightValidator(input.value);
     }
 
     function scaleValidator(
-        item: EmulationModel.EmulatedDevices.EmulatedDevice, index: number,
+        _item: EmulationModel.EmulatedDevices.EmulatedDevice, _index: number,
         input: UI.ListWidget.EditorControl): UI.ListWidget.ValidatorResult {
       return EmulationModel.DeviceModeModel.DeviceModeModel.scaleValidator(input.value);
     }

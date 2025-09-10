@@ -1,6 +1,7 @@
 // Copyright (c) 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../icon_button/icon_button.js';
 
@@ -9,26 +10,22 @@ import type * as Host from '../../../core/host/host.js';
 import * as i18n from '../../../core/i18n/i18n.js';
 import {html, render} from '../../lit/lit.js';
 
-import surveyLinkStylesRaw from './surveyLink.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const surveyLinkStyles = new CSSStyleSheet();
-surveyLinkStyles.replaceSync(surveyLinkStylesRaw.cssContent);
+import surveyLinkStyles from './surveyLink.css.js';
 
 const UIStrings = {
   /**
-   *@description Text shown when the link to open a survey is clicked but the survey has not yet appeared
+   * @description Text shown when the link to open a survey is clicked but the survey has not yet appeared
    */
   openingSurvey: 'Opening survey …',
   /**
-   *@description Text displayed instead of the survey link after the survey link is clicked, if the survey was shown successfully
+   * @description Text displayed instead of the survey link after the survey link is clicked, if the survey was shown successfully
    */
   thankYouForYourFeedback: 'Thank you for your feedback',
   /**
-   *@description Text displayed instead of the survey link after the survey link is clicked, if the survey was not shown successfully
+   * @description Text displayed instead of the survey link after the survey link is clicked, if the survey was not shown successfully
    */
   anErrorOccurredWithTheSurvey: 'An error occurred with the survey',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/components/survey_link/SurveyLink.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -54,17 +51,12 @@ const enum State {
 // A link to a survey. The link is rendered aysnchronously because we need to first check if
 // canShowSurvey succeeds.
 export class SurveyLink extends HTMLElement {
-
   readonly #shadow = this.attachShadow({mode: 'open'});
   #trigger = '';
   #promptText = Common.UIString.LocalizedEmptyString;
   #canShowSurvey: (trigger: string, callback: CanShowSurveyCallback) => void = () => {};
   #showSurvey: (trigger: string, callback: ShowSurveyCallback) => void = () => {};
   #state: State = State.CHECKING;
-
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [surveyLinkStyles];
-  }
 
   // Re-setting data will cause the state to go back to 'Checking' which hides the link.
   set data(data: SurveyLinkData) {
@@ -125,13 +117,15 @@ export class SurveyLink extends HTMLElement {
     const ariaDisabled = this.#state !== State.SHOW_LINK;
 
     // clang-format off
-
     const output = html`
-      <button class="link ${linkState}" tabindex=${ariaDisabled ? '-1' : '0'} .disabled=${ariaDisabled} aria-disabled=${ariaDisabled} @click=${this.#sendSurvey}>
-        <devtools-icon class="link-icon" .data=${{iconName: 'review', color: 'var(--sys-color-primary)', width: 'var(--issue-link-icon-size, 16px)', height: 'var(--issue-link-icon-size, 16px)'}}></devtools-icon><!--
-      -->${linkText}
-      </button>
-    `;
+      <style>${surveyLinkStyles}</style>
+      <button
+          class="link ${linkState}" tabindex=${ariaDisabled ? '-1' : '0'}
+          .disabled=${ariaDisabled} aria-disabled=${ariaDisabled} @click=${this.#sendSurvey}>
+        <devtools-icon class="link-icon" name="review" style="color: var(--sys-color-primary); width: var(--issue-link-icon-size, 16px); height: var(--issue-link-icon-size, 16px)">
+        </devtools-icon>
+        ${linkText}
+      </button>`;
     // clang-format on
     render(output, this.#shadow, {host: this});
   }

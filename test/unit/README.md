@@ -143,3 +143,66 @@ describe.skip('[crbug.com/12345678] Foo', () => {
 ```
 
 if all the tests for `Foo` should be skipped.
+
+## Screenshot tests
+
+Unit tests also have the ability to store a screenshot of an element and
+in future tests ensure that the screenshot has not changed. The purpose
+of screenshot tests is to test view functions of presenters to ensure
+that visual styles do not regress.
+
+```ts
+describe('view', () => {
+  it('renders the feedback form', async () => {
+    const target = document.createElement('div');
+    renderElementIntoDOM(target);
+    AiAssistance.UserActionRow.DEFAULT_VIEW(
+        {
+          onRatingClick: () => {},
+          onReportClick: () => {},
+          scrollSuggestionsScrollContainer: () => {},
+          onSuggestionsScrollOrResize: () => {},
+          onSuggestionClick: () => {},
+          onSubmit: () => {},
+          onClose: () => {},
+          onInputChange: () => {},
+          showRateButtons: true,
+          isSubmitButtonDisabled: false,
+          isShowingFeedbackForm: true,
+        },
+        {}, target);
+    await assertScreenshot('ai_assistance/user_action_row.png');
+  });
+});
+```
+
+Currently, screenshot tests require that they are run in the browser
+instance started by the test runner because they rely on custom bindings
+to take and compare screenshots.
+
+Screenshot assertions are only supported on Linux. On other platforms,
+they are reported as passing without actually capturing any screenshots.
+
+### Updating screenshots locally
+
+When you need to update a screenshot because you have purposefully changed the UI:
+
+```sh
+npm run test -- $TESTPATH --on-diff=update
+```
+
+### Generating and/or updating screenshots via CQ bots
+
+> Ensure you are a member of the g/devtools-dev group, otherwise the
+> `update_goldens.py` tool will not work.
+
+After the try jobs completed on a CL (`git cl upload && git cl try`),
+you can fetch screenshots created on the bots by runng in the
+`update_goldens.py`:
+
+```sh
+scripts/tools/update_goldens.py
+```
+
+The command is expected to fetch images from the bots and apply them to
+your local source code. You need to review and commit them to your CL.

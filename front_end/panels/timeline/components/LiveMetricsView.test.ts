@@ -7,13 +7,16 @@ import * as SDK from '../../../core/sdk/sdk.js';
 import * as CrUXManager from '../../../models/crux-manager/crux-manager.js';
 import * as EmulationModel from '../../../models/emulation/emulation.js';
 import * as LiveMetrics from '../../../models/live-metrics/live-metrics.js';
+import type * as Trace from '../../../models/trace/trace.js';
 import {renderElementIntoDOM} from '../../../testing/DOMHelpers.js';
-import {createTarget} from '../../../testing/EnvironmentHelpers.js';
+import {createTarget, registerActions} from '../../../testing/EnvironmentHelpers.js';
 import {describeWithMockConnection} from '../../../testing/MockConnection.js';
 import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
 import * as UI from '../../../ui/legacy/legacy.js';
 
 import * as Components from './components.js';
+
+type Milli = Trace.Types.Timing.Milli;
 
 function renderLiveMetrics(): Components.LiveMetricsView.LiveMetricsView {
   const root = document.createElement('div');
@@ -40,12 +43,12 @@ function getEnvironmentRecs(view: Element): HTMLElement[] {
 
 function getInteractions(view: Element): HTMLElement[] {
   const interactionsListEl = view.shadowRoot!.querySelector('.log[slot="interactions-log-content"]');
-  return Array.from(interactionsListEl?.querySelectorAll('.interaction') || []) as HTMLElement[];
+  return Array.from(interactionsListEl?.querySelectorAll('.interaction') || []);
 }
 
 function getLayoutShifts(view: Element): HTMLElement[] {
   const interactionsListEl = view.shadowRoot!.querySelector('.log[slot="layout-shifts-log-content"]');
-  return Array.from(interactionsListEl?.querySelectorAll('.layout-shift') || []) as HTMLElement[];
+  return Array.from(interactionsListEl?.querySelectorAll('.layout-shift') || []);
 }
 
 function selectVisibleLog(view: Element, logId: string): void {
@@ -63,8 +66,7 @@ function getClearLogButton(view: Element): HTMLElementTagNameMap['devtools-butto
 
 function selectDeviceOption(view: Element, deviceOption: string): void {
   const deviceScopeSelector = view.shadowRoot!.querySelector('devtools-select-menu#device-scope-select') as HTMLElement;
-  const deviceScopeOptions = Array.from(deviceScopeSelector.querySelectorAll('devtools-menu-item')) as
-      HTMLElementTagNameMap['devtools-menu-item'][];
+  const deviceScopeOptions = Array.from(deviceScopeSelector.querySelectorAll('devtools-menu-item'));
 
   deviceScopeSelector.click();
   deviceScopeOptions.find(o => o.value === deviceOption)!.click();
@@ -74,8 +76,7 @@ function selectPageScope(view: Element, pageScope: string): void {
   const pageScopeSelector = view.shadowRoot!.querySelector('devtools-select-menu#page-scope-select') as HTMLElement;
   pageScopeSelector.click();
 
-  const pageScopeOptions = Array.from(pageScopeSelector.querySelectorAll('devtools-menu-item')) as
-      HTMLElementTagNameMap['devtools-menu-item'][];
+  const pageScopeOptions = Array.from(pageScopeSelector.querySelectorAll('devtools-menu-item'));
   const originOption = pageScopeOptions.find(o => o.value === pageScope);
   originOption!.click();
 }
@@ -86,7 +87,7 @@ function getFieldMessage(view: Element): HTMLElement|null {
 
 function getLiveMetricsTitle(view: Element): HTMLElement {
   // There may be multiple, but this should always be the first one.
-  return view.shadowRoot!.querySelector('.live-metrics > .section-title') as HTMLElement;
+  return view.shadowRoot!.querySelector('.live-metrics > .section-title')!;
 }
 
 function getInpInteractionLink(view: Element): HTMLElement|null {
@@ -152,16 +153,18 @@ describeWithMockConnection('LiveMetricsView', () => {
   beforeEach(async () => {
     mockHandleAction.reset();
 
-    UI.ActionRegistration.registerActionExtension({
-      actionId: 'timeline.toggle-recording',
-      category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
-      loadActionDelegate: async () => ({handleAction: mockHandleAction}),
-    });
-    UI.ActionRegistration.registerActionExtension({
-      actionId: 'timeline.record-reload',
-      category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
-      loadActionDelegate: async () => ({handleAction: mockHandleAction}),
-    });
+    registerActions([
+      {
+        actionId: 'timeline.toggle-recording',
+        category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
+        loadActionDelegate: async () => ({handleAction: mockHandleAction}),
+      },
+      {
+        actionId: 'timeline.record-reload',
+        category: UI.ActionRegistration.ActionCategory.PERFORMANCE,
+        loadActionDelegate: async () => ({handleAction: mockHandleAction}),
+      }
+    ]);
 
     const dummyStorage = new Common.Settings.SettingsStorage({});
     Common.Settings.Settings.instance({
@@ -171,19 +174,9 @@ describeWithMockConnection('LiveMetricsView', () => {
       localStorage: dummyStorage,
     });
 
-    const actionRegistryInstance = UI.ActionRegistry.ActionRegistry.instance({forceNew: true});
-    UI.ShortcutRegistry.ShortcutRegistry.instance({forceNew: true, actionRegistry: actionRegistryInstance});
     LiveMetrics.LiveMetrics.instance({forceNew: true});
     CrUXManager.CrUXManager.instance({forceNew: true});
     EmulationModel.DeviceModeModel.DeviceModeModel.instance({forceNew: true});
-  });
-
-  afterEach(async () => {
-    UI.ActionRegistry.ActionRegistry.reset();
-    UI.ShortcutRegistry.ShortcutRegistry.removeInstance();
-
-    UI.ActionRegistration.maybeRemoveActionExtension('timeline.toggle-recording');
-    UI.ActionRegistration.maybeRemoveActionExtension('timeline.record-reload');
   });
 
   it('should show interactions', async () => {
@@ -192,9 +185,9 @@ describeWithMockConnection('LiveMetricsView', () => {
       inp: {
         value: 500,
         phases: {
-          inputDelay: 100,
-          processingDuration: 300,
-          presentationDelay: 100,
+          inputDelay: 100 as Milli,
+          processingDuration: 300 as Milli,
+          presentationDelay: 100 as Milli,
         },
         interactionId: 'interaction-1-1',
       },
@@ -206,7 +199,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'pointer',
           interactionId: 'interaction-1-1',
           eventNames: ['pointerup'],
-          phases: {inputDelay: 100, processingDuration: 300, presentationDelay: 100},
+          phases: {inputDelay: 100 as Milli, processingDuration: 300 as Milli, presentationDelay: 100 as Milli},
           longAnimationFrameTimings: [],
         },
         {
@@ -216,7 +209,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'keyboard',
           interactionId: 'interaction-1-2',
           eventNames: ['keyup'],
-          phases: {inputDelay: 10, processingDuration: 10, presentationDelay: 10},
+          phases: {inputDelay: 10 as Milli, processingDuration: 10 as Milli, presentationDelay: 10 as Milli},
           longAnimationFrameTimings: [],
         },
       ]),
@@ -279,9 +272,9 @@ describeWithMockConnection('LiveMetricsView', () => {
       inp: {
         value: 500,
         phases: {
-          inputDelay: 100,
-          processingDuration: 300,
-          presentationDelay: 100,
+          inputDelay: 100 as Milli,
+          processingDuration: 300 as Milli,
+          presentationDelay: 100 as Milli,
         },
         interactionId: 'interaction-1-1',
       },
@@ -293,7 +286,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'pointer',
           interactionId: 'interaction-1-1',
           eventNames: ['pointerup'],
-          phases: {inputDelay: 100, processingDuration: 300, presentationDelay: 100},
+          phases: {inputDelay: 100 as Milli, processingDuration: 300 as Milli, presentationDelay: 100 as Milli},
           longAnimationFrameTimings: [{
             renderStart: 0,
             duration: 0,
@@ -307,7 +300,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'keyboard',
           interactionId: 'interaction-1-2',
           eventNames: ['keyup'],
-          phases: {inputDelay: 10, processingDuration: 10, presentationDelay: 10},
+          phases: {inputDelay: 10 as Milli, processingDuration: 10 as Milli, presentationDelay: 10 as Milli},
           longAnimationFrameTimings: [],
         },
       ]),
@@ -320,8 +313,8 @@ describeWithMockConnection('LiveMetricsView', () => {
 
     assert(
         interactions[0].querySelector('.log-extra-details-button'), 'First interaction should have log details button');
-    assert(
-        !interactions[1].querySelector('.log-extra-details-button'),
+    assert.isNotOk(
+        interactions[1].querySelector('.log-extra-details-button'),
         'Second interaction should not have log details button');
   });
 
@@ -331,9 +324,9 @@ describeWithMockConnection('LiveMetricsView', () => {
       inp: {
         value: 50,
         phases: {
-          inputDelay: 10,
-          processingDuration: 30,
-          presentationDelay: 10,
+          inputDelay: 10 as Milli,
+          processingDuration: 30 as Milli,
+          presentationDelay: 10 as Milli,
         },
         interactionId: 'interaction-1-2',
       },
@@ -345,7 +338,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'keyboard',
           interactionId: 'interaction-1-1',
           eventNames: ['keyup'],
-          phases: {inputDelay: 10, processingDuration: 30, presentationDelay: 10},
+          phases: {inputDelay: 10 as Milli, processingDuration: 30 as Milli, presentationDelay: 10 as Milli},
           longAnimationFrameTimings: [],
         },
         {
@@ -355,7 +348,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'pointer',
           interactionId: 'interaction-1-2',
           eventNames: ['pointerup'],
-          phases: {inputDelay: 100, processingDuration: 300, presentationDelay: 100},
+          phases: {inputDelay: 100 as Milli, processingDuration: 300 as Milli, presentationDelay: 100 as Milli},
           longAnimationFrameTimings: [],
         },
       ]),
@@ -463,9 +456,9 @@ describeWithMockConnection('LiveMetricsView', () => {
       inp: {
         value: 500,
         phases: {
-          inputDelay: 100,
-          processingDuration: 300,
-          presentationDelay: 100,
+          inputDelay: 100 as Milli,
+          processingDuration: 300 as Milli,
+          presentationDelay: 100 as Milli,
         },
         interactionId: 'interaction-1-1',
       },
@@ -477,7 +470,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'pointer',
           interactionId: 'interaction-1-1',
           eventNames: ['pointerup'],
-          phases: {inputDelay: 100, processingDuration: 300, presentationDelay: 100},
+          phases: {inputDelay: 100 as Milli, processingDuration: 300 as Milli, presentationDelay: 100 as Milli},
           longAnimationFrameTimings: [],
         },
         {
@@ -487,7 +480,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'keyboard',
           interactionId: 'interaction-1-2',
           eventNames: ['keyup'],
-          phases: {inputDelay: 10, processingDuration: 10, presentationDelay: 10},
+          phases: {inputDelay: 10 as Milli, processingDuration: 10 as Milli, presentationDelay: 10 as Milli},
           longAnimationFrameTimings: [],
         },
       ]),
@@ -518,9 +511,9 @@ describeWithMockConnection('LiveMetricsView', () => {
       inp: {
         value: 500,
         phases: {
-          inputDelay: 100,
-          processingDuration: 300,
-          presentationDelay: 100,
+          inputDelay: 100 as Milli,
+          processingDuration: 300 as Milli,
+          presentationDelay: 100 as Milli,
         },
         interactionId: 'interaction-1-1',
       },
@@ -532,7 +525,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'keyboard',
           interactionId: 'interaction-1-2',
           eventNames: ['keyup'],
-          phases: {inputDelay: 10, processingDuration: 10, presentationDelay: 10},
+          phases: {inputDelay: 10 as Milli, processingDuration: 10 as Milli, presentationDelay: 10 as Milli},
           longAnimationFrameTimings: [],
         },
       ]),
@@ -555,9 +548,9 @@ describeWithMockConnection('LiveMetricsView', () => {
       inp: {
         value: 50,
         phases: {
-          inputDelay: 10,
-          processingDuration: 30,
-          presentationDelay: 10,
+          inputDelay: 10 as Milli,
+          processingDuration: 30 as Milli,
+          presentationDelay: 10 as Milli,
         },
         interactionId: 'interaction-1-2',
       },
@@ -569,7 +562,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'keyboard',
           interactionId: 'interaction-1-1',
           eventNames: ['keyup'],
-          phases: {inputDelay: 10, processingDuration: 30, presentationDelay: 10},
+          phases: {inputDelay: 10 as Milli, processingDuration: 30 as Milli, presentationDelay: 10 as Milli},
           longAnimationFrameTimings: [],
         },
         {
@@ -579,7 +572,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'pointer',
           interactionId: 'interaction-1-2',
           eventNames: ['pointerup'],
-          phases: {inputDelay: 100, processingDuration: 300, presentationDelay: 100},
+          phases: {inputDelay: 100 as Milli, processingDuration: 300 as Milli, presentationDelay: 100 as Milli},
           longAnimationFrameTimings: [],
         },
       ]),
@@ -593,7 +586,7 @@ describeWithMockConnection('LiveMetricsView', () => {
     assert.lengthOf(getLayoutShifts(view), 1);
 
     const clearLogButton = getClearLogButton(view);
-    clearLogButton!.click();
+    clearLogButton.click();
 
     await RenderCoordinator.done();
 
@@ -612,9 +605,9 @@ describeWithMockConnection('LiveMetricsView', () => {
       inp: {
         value: 50,
         phases: {
-          inputDelay: 10,
-          processingDuration: 30,
-          presentationDelay: 10,
+          inputDelay: 10 as Milli,
+          processingDuration: 30 as Milli,
+          presentationDelay: 10 as Milli,
         },
         interactionId: 'interaction-1-2',
       },
@@ -626,7 +619,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'keyboard',
           interactionId: 'interaction-1-1',
           eventNames: ['keyup'],
-          phases: {inputDelay: 10, processingDuration: 30, presentationDelay: 10},
+          phases: {inputDelay: 10 as Milli, processingDuration: 30 as Milli, presentationDelay: 10 as Milli},
           longAnimationFrameTimings: [],
         },
         {
@@ -636,7 +629,7 @@ describeWithMockConnection('LiveMetricsView', () => {
           interactionType: 'pointer',
           interactionId: 'interaction-1-2',
           eventNames: ['pointerup'],
-          phases: {inputDelay: 100, processingDuration: 300, presentationDelay: 100},
+          phases: {inputDelay: 100 as Milli, processingDuration: 300 as Milli, presentationDelay: 100 as Milli},
           longAnimationFrameTimings: [],
         },
       ]),
@@ -654,7 +647,7 @@ describeWithMockConnection('LiveMetricsView', () => {
     await RenderCoordinator.done();
 
     const clearLogButton = getClearLogButton(view);
-    clearLogButton!.click();
+    clearLogButton.click();
 
     await RenderCoordinator.done();
 
@@ -898,7 +891,7 @@ describeWithMockConnection('LiveMetricsView', () => {
         assert.match(envRecs[1].textContent!, /Slow 4G/);
 
         const recNotice = view.shadowRoot!.querySelector('.environment-option devtools-network-throttling-selector')
-                              ?.shadowRoot!.querySelector('devtools-button');
+                              ?.shadowRoot!.querySelector('devtools-icon[name="info"]');
         assert.exists(recNotice);
       });
 
@@ -915,7 +908,7 @@ describeWithMockConnection('LiveMetricsView', () => {
         assert.strictEqual(envRecs[1].textContent, 'Not enough data');
 
         const recNotice = view.shadowRoot!.querySelector('.environment-option devtools-network-throttling-selector')
-                              ?.shadowRoot!.querySelector('devtools-button');
+                              ?.shadowRoot!.querySelector('devtools-icon[name="info"]');
         assert.notExists(recNotice);
       });
 

@@ -1,6 +1,7 @@
 // Copyright (c) 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -33,7 +34,7 @@ const UIStrings = {
    * panel. Element is a HTML DOM Element and classes refers to CSS classes.
    */
   elementClasses: 'Element Classes',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/elements/ClassesPaneWidget.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class ClassesPaneWidget extends UI.Widget.Widget {
@@ -46,10 +47,12 @@ export class ClassesPaneWidget extends UI.Widget.Widget {
   private previousTarget: SDK.DOMModel.DOMNode|null;
 
   constructor() {
-    super(true);
+    super({
+      jslog: `${VisualLogging.pane('elements-classes')}`,
+      useShadowDom: true,
+    });
     this.registerRequiredCSS(classesPaneWidgetStyles);
     this.contentElement.className = 'styles-element-classes-pane';
-    this.contentElement.setAttribute('jslog', `${VisualLogging.pane('elements-classes')}`);
     const container = this.contentElement.createChild('div', 'title-container');
     this.input = container.createChild('div', 'new-class-input monospace');
     this.setDefaultFocusedElement(this.input);
@@ -90,7 +93,7 @@ export class ClassesPaneWidget extends UI.Widget.Widget {
     }
 
     const eventTarget = (event.target as HTMLElement);
-    let text: ''|string = (eventTarget.textContent as string);
+    let text = eventTarget.textContent;
     if (Platform.KeyboardUtilities.isEscKey(event)) {
       if (!Platform.StringUtilities.isWhitespace(text)) {
         event.consume(true);
@@ -120,7 +123,7 @@ export class ClassesPaneWidget extends UI.Widget.Widget {
     const joinClassString = classNames.join(' ');
     const announcementString = classNames.length > 1 ? i18nString(UIStrings.classesSAdded, {PH1: joinClassString}) :
                                                        i18nString(UIStrings.classSAdded, {PH1: joinClassString});
-    UI.ARIAUtils.alert(announcementString);
+    UI.ARIAUtils.LiveAnnouncer.alert(announcementString);
 
     this.installNodeClasses(node);
     this.update();
@@ -168,7 +171,7 @@ export class ClassesPaneWidget extends UI.Widget.Widget {
     }
 
     this.classesContainer.removeChildren();
-    // @ts-ignore this.input is a div, not an input element. So this line makes no sense at all
+    // @ts-expect-error this.input is a div, not an input element. So this line makes no sense at all
     this.input.disabled = !node;
 
     if (!node) {
@@ -179,11 +182,11 @@ export class ClassesPaneWidget extends UI.Widget.Widget {
     const keys = [...classes.keys()];
     keys.sort(Platform.StringUtilities.caseInsensetiveComparator);
     for (const className of keys) {
-      const label = UI.UIUtils.CheckboxLabel.createWithStringLiteral(
-          className, classes.get(className), undefined, 'element-class', true);
-      label.classList.add('monospace');
-      label.checkboxElement.addEventListener('click', this.onClick.bind(this, className), false);
-      this.classesContainer.appendChild(label);
+      const checkbox =
+          UI.UIUtils.CheckboxLabel.createWithStringLiteral(className, classes.get(className), 'element-class', true);
+      checkbox.classList.add('monospace');
+      checkbox.addEventListener('click', this.onClick.bind(this, className), false);
+      this.classesContainer.appendChild(checkbox);
     }
   }
 
@@ -355,7 +358,7 @@ export class ClassNamePrompt extends UI.TextPrompt.TextPrompt {
     }
 
     let completions: string[] = await this.classNamesPromise;
-    const classesMap = this.nodeClasses((selectedNode as SDK.DOMModel.DOMNode));
+    const classesMap = this.nodeClasses((selectedNode));
     completions = completions.filter(value => !classesMap.get(value));
 
     if (prefix[0] === '.') {

@@ -4,11 +4,10 @@
 
 import { // eslint-disable-line rulesdir/es-modules-import
   createTraceExtensionDataFromPerformanceAPITestInput,
-  type PerformanceAPIExtensionTestData,
 } from '../../../models/trace/handlers/ExtensionTraceDataHandler.test.js';
 import * as Trace from '../../../models/trace/trace.js';
 import {describeWithEnvironment} from '../../../testing/EnvironmentHelpers.js';
-import {getBaseTraceParseModelData} from '../../../testing/TraceHelpers.js';
+import {getBaseTraceParseModelData, type PerformanceAPIExtensionTestData} from '../../../testing/TraceHelpers.js';
 import {TraceLoader} from '../../../testing/TraceLoader.js';
 import * as PerfUI from '../../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as ThemeSupport from '../../../ui/legacy/theme_support/theme_support.js';
@@ -18,8 +17,9 @@ function initTrackAppender(
     flameChartData: PerfUI.FlameChart.FlameChartTimelineData, parsedTrace: Trace.Handlers.Types.ParsedTrace,
     entryData: Trace.Types.Events.Event[], entryTypeByLevel: Timeline.TimelineFlameChartDataProvider.EntryType[]):
     Timeline.ExtensionTrackAppender.ExtensionTrackAppender[] {
+  const entityMapper = new Timeline.Utils.EntityMapper.EntityMapper(parsedTrace);
   const compatibilityTracksAppender = new Timeline.CompatibilityTracksAppender.CompatibilityTracksAppender(
-      flameChartData, parsedTrace, entryData, entryTypeByLevel);
+      flameChartData, parsedTrace, entryData, entryTypeByLevel, entityMapper);
 
   return compatibilityTracksAppender.allVisibleTrackAppenders().filter(track => track.appenderName === 'Extension') as
       Timeline.ExtensionTrackAppender.ExtensionTrackAppender[];
@@ -49,14 +49,17 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
 
   describe('appendTrackAtLevel', function() {
     it('creates flamechart groups for the Extension tracks properly', function() {
-      assert.lengthOf(flameChartData.groups, 3);
-      assert.strictEqual(flameChartData.groups[0].name, 'A track group — Custom track');
+      assert.lengthOf(flameChartData.groups, 4);
+      assert.strictEqual(flameChartData.groups[0].name, 'A track group');
+      assert.strictEqual(flameChartData.groups[0].subtitle, '— Custom');
       assert.strictEqual(flameChartData.groups[0].startLevel, 0);
       assert.strictEqual(flameChartData.groups[0].style.nestingLevel, 0);
       assert.strictEqual(flameChartData.groups[1].name, 'Another Extension Track');
+      assert.isUndefined(flameChartData.groups[1].subtitle);
       assert.strictEqual(flameChartData.groups[1].startLevel, 0);
       assert.strictEqual(flameChartData.groups[1].style.nestingLevel, 1);
-      assert.strictEqual(flameChartData.groups[2].name, 'An Extension Track — Custom track');
+      assert.strictEqual(flameChartData.groups[2].name, 'An Extension Track');
+      assert.strictEqual(flameChartData.groups[2].subtitle, '— Custom');
       assert.strictEqual(flameChartData.groups[2].startLevel, 1);
       assert.strictEqual(flameChartData.groups[2].style.nestingLevel, 0);
     });
@@ -162,7 +165,7 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
           parsedTrace.ExtensionTraceData.extensionTrackData.map(track => Object.values(track.entriesByTrack)).flat(2);
       for (const event of allExtensionTrackEntries) {
         assert.strictEqual(extensionTrackAppenders[0].titleForEvent(event), event.name);
-        if (event.args.color === 'tertiary') {
+        if (event.devtoolsObj.color === 'tertiary') {
           // "tertiary" color category is mapped to --ref-palette-green70
           // which is faked out to 10, 10, 10
           assert.strictEqual(extensionTrackAppenders[0].colorForEvent(event), 'rgb(10 10 10)');
@@ -177,21 +180,21 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
 
     it('sets a default value when a color is not set or is set an unknown value', function() {
       const mockExtensionEntryNoColor = {
-        args: {
+        devtoolsObj: {
           metadata: {dataType: 'track-entry', extensionName: 'Extension'},
           track: 'A track',
         },
         cat: 'devtools.extension',
-      } as unknown as Trace.Types.Events.Event;
+      } as unknown as Trace.Types.Extensions.SyntheticExtensionTrackEntry;
 
       const mockExtensionEntryUnknownColor = {
-        args: {
+        devtoolsObj: {
           metadata: {dataType: 'track-entry', extensionName: 'Extension'},
           track: 'A track',
           color: 'anUnknownColor',
         },
         cat: 'devtools.extension',
-      } as unknown as Trace.Types.Events.Event;
+      } as unknown as Trace.Types.Extensions.SyntheticExtensionTrackEntry;
       // "primary" color category is mapped to --ref-palette-blue70
       // which is faked out to 4, 4, 4
       assert.strictEqual(extensionTrackAppenders[0].colorForEvent(mockExtensionEntryNoColor), 'rgb(4 4 4)');

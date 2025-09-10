@@ -7,6 +7,7 @@ import {assert} from 'chai';
 import {
   click,
   clickElement,
+  drainFrontendTaskQueue,
   enableExperiment,
   getBrowserAndPages,
   goToResource,
@@ -20,6 +21,7 @@ import {reloadDevTools} from '../helpers/cross-tool-helper.js';
 import {getMenuItemAtPosition, getMenuItemTitleAtPosition, openFileQuickOpen} from '../helpers/quick_open-helpers.js';
 import {
   addBreakpointForLine,
+  addLogpointForLine,
   CODE_LINE_COLUMN_SELECTOR,
   getBreakpointHitLocation,
   isBreakpointSet,
@@ -40,9 +42,7 @@ async function waitForTopCallFrameChanged(previousCallFrame: string, updatedCall
 
 async function assertScriptLocation(expectedLocation: string) {
   const scriptLocation = await retrieveTopCallFrameWithoutResuming();
-  if (!scriptLocation) {
-    assert.fail('Unable to retrieve script location for call frame');
-  }
+  assert.isOk(scriptLocation, 'Unable to retrieve script location for call frame');
   assert.isTrue(isEqualOrAbbreviation(scriptLocation, expectedLocation));
 }
 
@@ -50,16 +50,10 @@ describe('The Sources Tab', function() {
   const CLICK_BREAKPOINT_SCRIPT = 'click-breakpoint.js';
   const CLICK_BREAKPOINT_HTML = 'click-breakpoint.html';
 
-  // Some of these tests that use instrumentation breakpoints
-  // can be slower on mac and windows. Increaese the timeout for them.
-  if (this.timeout() !== 0) {
-    this.timeout(10000);
-  }
-
   it('sets and hits breakpoints in JavaScript', async () => {
-    const {target, frontend} = getBrowserAndPages();
+    const {target} = getBrowserAndPages();
     await openSourceCodeEditorForFile(CLICK_BREAKPOINT_SCRIPT, CLICK_BREAKPOINT_HTML);
-    await addBreakpointForLine(frontend, 4);
+    await addBreakpointForLine(4);
 
     const scriptEvaluation = target.evaluate('f2();');
 
@@ -74,11 +68,11 @@ describe('The Sources Tab', function() {
   });
 
   it('can disable and re-enable breakpoints in JavaScript', async () => {
-    const {target, frontend} = getBrowserAndPages();
+    const {target} = getBrowserAndPages();
     await openSourceCodeEditorForFile(CLICK_BREAKPOINT_SCRIPT, CLICK_BREAKPOINT_HTML);
 
     // After adding a breakpoint, we expect the script to pause. Resume afterwards.
-    await addBreakpointForLine(frontend, 4);
+    await addBreakpointForLine(4);
     await testScriptPauseAndResume();
 
     // Disable breakpoint. This time, we should not pause but be able to
@@ -102,9 +96,9 @@ describe('The Sources Tab', function() {
   });
 
   it('can set and remove breakpoints in JavaScript', async () => {
-    const {target, frontend} = getBrowserAndPages();
+    const {target} = getBrowserAndPages();
     await openSourceCodeEditorForFile(CLICK_BREAKPOINT_SCRIPT, CLICK_BREAKPOINT_HTML);
-    await addBreakpointForLine(frontend, 4);
+    await addBreakpointForLine(4);
 
     // Hover over breakpoint.
     await hover(`[aria-label="${CLICK_BREAKPOINT_SCRIPT}"] [aria-label="checked"]`);
@@ -117,11 +111,9 @@ describe('The Sources Tab', function() {
   });
 
   it('doesn\'t synchronize breakpoints between scripts and source-mapped scripts', async () => {
-    const {frontend} = getBrowserAndPages();
-
     // Navigate to page with sourceURL annotation and set breakpoint in line 2.
     await openSourceCodeEditorForFile('breakpoint-conflict.js', 'breakpoint-conflict-source-url.html');
-    await addBreakpointForLine(frontend, 2);
+    await addBreakpointForLine(2);
 
     // Navigate to page with sourceMappingURL annotation and check that breakpoint did not sync.
     await openSourceCodeEditorForFile('breakpoint-conflict.js', 'breakpoint-conflict-source-map.html');
@@ -135,9 +127,9 @@ describe('The Sources Tab', function() {
     });
 
     await step('add a breakpoint to line No.3, 4, and 9', async () => {
-      await addBreakpointForLine(frontend, 3);
-      await addBreakpointForLine(frontend, 4);
-      await addBreakpointForLine(frontend, 9);
+      await addBreakpointForLine(3);
+      await addBreakpointForLine(4);
+      await addBreakpointForLine(9);
     });
 
     let scriptEvaluation: Promise<void>;
@@ -169,14 +161,12 @@ describe('The Sources Tab', function() {
 
   it('can hit a breakpoint on the main thread on a fresh DevTools', async () => {
     await enableExperiment('instrumentation-breakpoints');
-    const {frontend} = getBrowserAndPages();
-
     await step('navigate to a page and open the Sources tab', async () => {
       await openSourceCodeEditorForFile('breakpoint-hit-on-first-load.js', 'breakpoint-hit-on-first-load.html');
     });
 
     await step('add a breakpoint to the beginning of the script', async () => {
-      await addBreakpointForLine(frontend, 1);
+      await addBreakpointForLine(1);
     });
 
     await step('Navigate to a different site to refresh devtools and remove back-end state', async () => {
@@ -197,39 +187,34 @@ describe('The Sources Tab', function() {
     });
   });
 
-  // Skip test for now to land unrelated changes that will fail this test. Inline scripts without source
-  // urls are currently not correctly handled.
-  it.skip(
-      '[crbug.com/1229541] can hit a breakpoint in an inline script on the main thread on a fresh DevTools',
-      async () => {
-        await enableExperiment('instrumentation-breakpoints');
-        const {frontend} = getBrowserAndPages();
+  it('can hit a breakpoint in an inline script on the main thread on a fresh DevTools', async () => {
+    await enableExperiment('instrumentation-breakpoints');
 
-        await step('navigate to a page and open the Sources tab', async () => {
-          await openSourceCodeEditorForFile('breakpoint-hit-on-first-load.html', 'breakpoint-hit-on-first-load.html');
-        });
+    await step('navigate to a page and open the Sources tab', async () => {
+      await openSourceCodeEditorForFile('breakpoint-hit-on-first-load.html', 'breakpoint-hit-on-first-load.html');
+    });
 
-        await step('add a breakpoint to the beginning of the inline script', async () => {
-          await addBreakpointForLine(frontend, 9);
-        });
+    await step('add a breakpoint to the beginning of the inline script', async () => {
+      await addBreakpointForLine(9);
+    });
 
-        await step('Navigate to a different site to refresh devtools and remove back-end state', async () => {
-          await reloadDevTools({removeBackendState: true, selectedPanel: {name: 'sources'}});
-        });
+    await step('Navigate to a different site to refresh devtools and remove back-end state', async () => {
+      await reloadDevTools({removeBackendState: true, selectedPanel: {name: 'sources'}});
+    });
 
-        await step('Navigate back to test page', () => {
-          void goToResource('sources/breakpoint-hit-on-first-load.html');
-        });
+    await step('Navigate back to test page', () => {
+      void goToResource('sources/breakpoint-hit-on-first-load.html');
+    });
 
-        await step('wait for pause and check if we stopped at line 9', async () => {
-          await waitFor(PAUSE_INDICATOR_SELECTOR);
-          await assertScriptLocation('breakpoint-hit-on-first-load.html:9');
-        });
+    await step('wait for pause and check if we stopped at line 9', async () => {
+      await waitFor(PAUSE_INDICATOR_SELECTOR);
+      await assertScriptLocation('breakpoint-hit-on-first-load.html:9');
+    });
 
-        await step('Resume', async () => {
-          await click(RESUME_BUTTON);
-        });
-      });
+    await step('Resume', async () => {
+      await click(RESUME_BUTTON);
+    });
+  });
 
   it('can hit a breakpoint in an inline script with sourceURL comment on the main thread on a fresh DevTools',
      async () => {
@@ -243,6 +228,8 @@ describe('The Sources Tab', function() {
        await step('open the hello.js file (inline script)', async () => {
          await openFileQuickOpen();
          await frontend.keyboard.type('hello.js');
+         // TODO: it should actually wait for rendering to finish.
+         await drainFrontendTaskQueue();
 
          const firstItemTitle = await getMenuItemTitleAtPosition(0);
          const firstItem = await getMenuItemAtPosition(0);
@@ -251,7 +238,7 @@ describe('The Sources Tab', function() {
        });
 
        await step('add a breakpoint to the beginning of the inline script with sourceURL', async () => {
-         await addBreakpointForLine(frontend, 2);
+         await addBreakpointForLine(2);
        });
 
        await step('Navigate to a different site to refresh devtools and remove back-end state', async () => {
@@ -272,6 +259,14 @@ describe('The Sources Tab', function() {
        });
      });
 
+  it('shows a tooltip for logpoints', async () => {
+    await openSourceCodeEditorForFile(CLICK_BREAKPOINT_SCRIPT, CLICK_BREAKPOINT_HTML);
+    await addLogpointForLine(4, '14');
+
+    const tooltip = await waitFor('.cm-breakpoint-logpoint devtools-tooltip');
+    assert.strictEqual(await tooltip.evaluate(e => e.textContent), '14');
+  });
+
   describe('The breakpoint edit dialog', () => {
     it('shows up on Ctrl/Meta + click if no breakpoint was set', async () => {
       await openSourceCodeEditorForFile(CLICK_BREAKPOINT_SCRIPT, CLICK_BREAKPOINT_HTML);
@@ -283,9 +278,8 @@ describe('The Sources Tab', function() {
     });
 
     it('shows up on Ctrl/Meta + click if breakpoint was already set', async () => {
-      const {frontend} = getBrowserAndPages();
       await openSourceCodeEditorForFile(CLICK_BREAKPOINT_SCRIPT, CLICK_BREAKPOINT_HTML);
-      await addBreakpointForLine(frontend, 4);
+      await addBreakpointForLine(4);
 
       const lineNumberColumn = await waitFor(CODE_LINE_COLUMN_SELECTOR);
       await withControlOrMetaKey(async () => {

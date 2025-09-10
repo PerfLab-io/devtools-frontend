@@ -1,6 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../../ui/legacy/components/data_grid/data_grid.js';
 
@@ -20,42 +21,42 @@ const {render, html, Directives: {styleMap}} = Lit;
 
 const UIStrings = {
   /**
-   *@description Column header
+   * @description Column header
    */
   url: 'URL',
   /**
-   *@description Column header: Action of preloading (prefetch/prerender)
+   * @description Column header: Action of preloading (prefetch/prerender)
    */
   action: 'Action',
   /**
-   *@description Column header: Status of preloading attempt
+   * @description Column header: Status of preloading attempt
    */
   status: 'Status',
   /**
-   *@description Text in grid and details: Preloading attempt is not yet triggered.
+   * @description Text in grid and details: Preloading attempt is not yet triggered.
    */
   statusNotTriggered: 'Not triggered',
   /**
-   *@description Text in grid and details: Preloading attempt is eligible but pending.
+   * @description Text in grid and details: Preloading attempt is eligible but pending.
    */
   statusPending: 'Pending',
   /**
-   *@description Text in grid and details: Preloading is running.
+   * @description Text in grid and details: Preloading is running.
    */
   statusRunning: 'Running',
   /**
-   *@description Text in grid and details: Preloading finished and the result is ready for the next navigation.
+   * @description Text in grid and details: Preloading finished and the result is ready for the next navigation.
    */
   statusReady: 'Ready',
   /**
-   *@description Text in grid and details: Ready, then used.
+   * @description Text in grid and details: Ready, then used.
    */
   statusSuccess: 'Success',
   /**
-   *@description Text in grid and details: Preloading failed.
+   * @description Text in grid and details: Preloading failed.
    */
   statusFailure: 'Failure',
-};
+} as const;
 const str_ =
     i18n.i18n.registerUIStrings('panels/application/preloading/components/MismatchedPreloadingGrid.ts', UIStrings);
 export const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -104,7 +105,6 @@ export class MismatchedPreloadingGrid extends LegacyWrapper.LegacyWrapper.Wrappa
   #data: MismatchedPreloadingGridData|null = null;
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [];
     this.#render();
   }
 

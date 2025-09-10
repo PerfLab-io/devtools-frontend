@@ -23,15 +23,15 @@
  *
  */
 
-import * as Common from '../../core/common/common.js';
 import type * as Protocol from '../../generated/protocol.js';
+import * as Common from '../common/common.js';
 import * as i18n from '../i18n/i18n.js';
-import {UserVisibleError} from '../platform/platform.js';
+import type * as Platform from '../platform/platform.js';
 import type * as ProtocolClient from '../protocol_client/protocol_client.js';
 
 import * as EnhancedTraces from './EnhancedTracesParser.js';
 import type {
-  ProtocolMessage, RehydratingExecutionContext, RehydratingScript, RehydratingTarget, ServerMessage} from
+  ProtocolMessage, RehydratingExecutionContext, RehydratingScript, RehydratingTarget, ServerMessage, TraceFile} from
   './RehydratingObject.js';
 import {TraceObject} from './TraceObject.js';
 
@@ -48,7 +48,7 @@ const UIStrings = {
    * @description Text to indicate that there is an error loading the log
    */
   errorLoadingLog: 'Error loading log',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('core/sdk/RehydratingConnection.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -66,13 +66,15 @@ export class RehydratingConnection implements ProtocolClient.InspectorBackend.Co
   rehydratingConnectionState: RehydratingConnectionState = RehydratingConnectionState.UNINITIALIZED;
   onDisconnect: ((arg0: string) => void)|null = null;
   onMessage: ((arg0: Object) => void)|null = null;
-  traceEvents: unknown[] = [];
-  sessions: Map<number, RehydratingSessionBase> = new Map();
+  trace: TraceFile|null = null;
+  sessions = new Map<number, RehydratingSessionBase>();
+  #onConnectionLost: (message: Platform.UIString.LocalizedString) => void;
   #rehydratingWindow: Window&typeof globalThis;
   #onReceiveHostWindowPayloadBound = this.#onReceiveHostWindowPayload.bind(this);
 
-  constructor() {
+  constructor(onConnectionLost: (message: Platform.UIString.LocalizedString) => void) {
     // If we're invoking this class, we're in the rehydrating pop-up window. Rename window for clarity.
+    this.#onConnectionLost = onConnectionLost;
     this.#rehydratingWindow = window;
     this.#setupMessagePassing();
   }
@@ -80,7 +82,7 @@ export class RehydratingConnection implements ProtocolClient.InspectorBackend.Co
   #setupMessagePassing(): void {
     this.#rehydratingWindow.addEventListener('message', this.#onReceiveHostWindowPayloadBound);
     if (!this.#rehydratingWindow.opener) {
-      throw new UserVisibleError.UserVisibleError(i18nString(UIStrings.noHostWindow));
+      this.#onConnectionLost(i18nString(UIStrings.noHostWindow));
     }
     this.#rehydratingWindow.opener.postMessage({type: 'REHYDRATING_WINDOW_READY'});
   }
@@ -91,40 +93,42 @@ export class RehydratingConnection implements ProtocolClient.InspectorBackend.Co
    */
   #onReceiveHostWindowPayload(event: MessageEvent): void {
     if (event.data.type === 'REHYDRATING_TRACE_FILE') {
-      const {traceFile} = event.data;
-      const reader = new FileReader();
-      reader.onload = async(): Promise<void> => {
-        await this.startHydration(reader.result as string);
-      };
-      reader.onerror = (): void => {
-        throw new UserVisibleError.UserVisibleError(i18nString(UIStrings.errorLoadingLog));
-      };
-      reader.readAsText(traceFile);
+      const traceJson = event.data.traceJson as string;
+      let trace;
+      try {
+        trace = JSON.parse(traceJson) as TraceFile;
+      } catch {
+        this.#onConnectionLost(i18nString(UIStrings.errorLoadingLog));
+        return;
+      }
+      void this.startHydration(trace);
     }
     this.#rehydratingWindow.removeEventListener('message', this.#onReceiveHostWindowPayloadBound);
   }
 
-  async startHydration(logPayload: string): Promise<boolean> {
+  async startHydration(trace: TraceFile): Promise<boolean> {
     // OnMessage should've been set before hydration, and the connection should
     // be initialized and not hydrated already.
     if (!this.onMessage || this.rehydratingConnectionState !== RehydratingConnectionState.INITIALIZED) {
       return false;
     }
 
-    const payload = JSON.parse(logPayload);
-    if (!('traceEvents' in payload)) {
+    if (!('traceEvents' in trace)) {
       console.error('RehydratingConnection failed to initialize due to missing trace events in payload');
       return false;
     }
 
-    this.traceEvents = payload.traceEvents;
-    const enhancedTracesParser = new EnhancedTraces.EnhancedTracesParser(this.traceEvents);
-    const dataPerTarget = enhancedTracesParser.data();
+    this.trace = trace;
+    const enhancedTracesParser = new EnhancedTraces.EnhancedTracesParser(trace);
+    const hydratingData = enhancedTracesParser.data();
 
     let sessionId = 0;
     // Set up default rehydrating session.
     this.sessions.set(sessionId, new RehydratingSessionBase(this));
-    for (const [target, [executionContexts, scripts]] of dataPerTarget.entries()) {
+    for (const hydratingDataPerTarget of hydratingData) {
+      const target = hydratingDataPerTarget.target;
+      const executionContexts = hydratingDataPerTarget.executionContexts;
+      const scripts = hydratingDataPerTarget.scripts;
       this.postToFrontend({
         method: 'Target.targetCreated',
         params: {
@@ -149,13 +153,17 @@ export class RehydratingConnection implements ProtocolClient.InspectorBackend.Co
   }
 
   async #onRehydrated(): Promise<void> {
+    if (!this.trace) {
+      return;
+    }
+
     this.rehydratingConnectionState = RehydratingConnectionState.REHYDRATED;
     // Use revealer to load trace into performance panel
-    const trace = new TraceObject(this.traceEvents);
+    const trace = new TraceObject(this.trace.traceEvents as object[], this.trace.metadata);
     await Common.Revealer.reveal(trace);
   }
 
-  setOnMessage(onMessage: (arg0: (Object|string)) => void): void {
+  setOnMessage(onMessage: (arg0: Object|string) => void): void {
     this.onMessage = onMessage;
     this.rehydratingConnectionState = RehydratingConnectionState.INITIALIZED;
   }
@@ -244,7 +252,7 @@ export class RehydratingSession extends RehydratingSessionBase {
     this.sessionAttachToTarget();
   }
 
-  override sendMessageToFrontend(payload: ServerMessage, attachSessionId: boolean = true): void {
+  override sendMessageToFrontend(payload: ServerMessage, attachSessionId = true): void {
     // Attach the session's Id to the message.
     if (this.sessionId !== 0 && attachSessionId) {
       payload.sessionId = this.sessionId;

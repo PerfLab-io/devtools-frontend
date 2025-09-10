@@ -67,56 +67,47 @@ export {FrontendMessageType} from './ConsoleModelTypes.js';
 
 const UIStrings = {
   /**
-   *@description Text shown when the main frame (page) of the website was navigated to a different URL.
-   *@example {https://example.com} PH1
+   * @description Text shown when the main frame (page) of the website was navigated to a different URL.
+   * @example {https://example.com} PH1
    */
   navigatedToS: 'Navigated to {PH1}',
   /**
-   *@description Text shown when the main frame (page) of the website was navigated to a different URL
+   * @description Text shown when the main frame (page) of the website was navigated to a different URL
    * and the page was restored from back/forward cache (https://web.dev/bfcache/).
-   *@example {https://example.com} PH1
+   * @example {https://example.com} PH1
    */
   bfcacheNavigation: 'Navigation to {PH1} was restored from back/forward cache (see https://web.dev/bfcache/)',
   /**
-   *@description Text shown in the console when a performance profile (with the given name) was started.
-   *@example {title} PH1
+   * @description Text shown in the console when a performance profile (with the given name) was started.
+   * @example {title} PH1
    */
   profileSStarted: 'Profile \'\'{PH1}\'\' started.',
   /**
-   *@description Text shown in the console when a performance profile (with the given name) was stopped.
-   *@example {name} PH1
+   * @description Text shown in the console when a performance profile (with the given name) was stopped.
+   * @example {name} PH1
    */
   profileSFinished: 'Profile \'\'{PH1}\'\' finished.',
   /**
-   *@description Error message shown in the console after the user tries to save a JavaScript value to a temporary variable.
+   * @description Error message shown in the console after the user tries to save a JavaScript value to a temporary variable.
    */
   failedToSaveToTempVariable: 'Failed to save to temp variable.',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('core/sdk/ConsoleModel.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export class ConsoleModel extends SDKModel<EventTypes> {
-  #messagesInternal: ConsoleMessage[];
-  readonly #messagesByTimestamp: Platform.MapUtilities.Multimap<number, ConsoleMessage>;
-  readonly #messageByExceptionId: Map<RuntimeModel, Map<number, ConsoleMessage>>;
-  #warningsInternal: number;
-  #errorsInternal: number;
-  #violationsInternal: number;
-  #pageLoadSequenceNumber: number;
-  readonly #targetListeners: WeakMap<Target, Common.EventTarget.EventDescriptor[]>;
+  #messages: ConsoleMessage[] = [];
+  readonly #messagesByTimestamp = new Platform.MapUtilities.Multimap<number, ConsoleMessage>();
+  readonly #messageByExceptionId = new Map<RuntimeModel, Map<number, ConsoleMessage>>();
+  #warnings = 0;
+  #errors = 0;
+  #violations = 0;
+  #pageLoadSequenceNumber = 0;
+  readonly #targetListeners = new WeakMap<Target, Common.EventTarget.EventDescriptor[]>();
 
   constructor(target: Target) {
     super(target);
-
-    this.#messagesInternal = [];
-    this.#messagesByTimestamp = new Platform.MapUtilities.Multimap();
-    this.#messageByExceptionId = new Map();
-    this.#warningsInternal = 0;
-    this.#errorsInternal = 0;
-    this.#violationsInternal = 0;
-    this.#pageLoadSequenceNumber = 0;
-    this.#targetListeners = new WeakMap();
 
     const resourceTreeModel = target.model(ResourceTreeModel);
     if (!resourceTreeModel || resourceTreeModel.cachedResourcesLoaded()) {
@@ -216,7 +207,7 @@ export class ConsoleModel extends SDKModel<EventTypes> {
       this.clearIfNecessary();
     }
 
-    this.#messagesInternal.push(msg);
+    this.#messages.push(msg);
     this.#messagesByTimestamp.set(msg.timestamp, msg);
     const runtimeModel = msg.runtimeModel();
     const exceptionId = msg.getExceptionId();
@@ -250,7 +241,7 @@ export class ConsoleModel extends SDKModel<EventTypes> {
     if (!exceptionMessage) {
       return;
     }
-    this.#errorsInternal--;
+    this.#errors--;
     exceptionMessage.level = Protocol.Log.LogEntryLevel.Verbose;
     this.dispatchEventToListeners(Events.MessageUpdated, exceptionMessage);
   }
@@ -283,7 +274,7 @@ export class ConsoleModel extends SDKModel<EventTypes> {
     } else if (call.args.length && call.args[0].description) {
       message = call.args[0].description;
     }
-    const callFrame = call.stackTrace && call.stackTrace.callFrames.length ? call.stackTrace.callFrames[0] : null;
+    const callFrame = call.stackTrace?.callFrames.length ? call.stackTrace.callFrames[0] : null;
     const details = {
       type: call.type,
       url: callFrame?.url as Platform.DevToolsPath.UrlString | undefined,
@@ -295,8 +286,8 @@ export class ConsoleModel extends SDKModel<EventTypes> {
       executionContextId: call.executionContextId,
       context: call.context,
     };
-    const consoleMessage = new ConsoleMessage(
-        runtimeModel, Common.Console.FrontendMessageSource.ConsoleAPI, level, (message as string), details);
+    const consoleMessage =
+        new ConsoleMessage(runtimeModel, Common.Console.FrontendMessageSource.ConsoleAPI, level, (message), details);
     for (const msg of this.#messagesByTimestamp.get(consoleMessage.timestamp).values()) {
       if (consoleMessage.isEqual(msg)) {
         return;
@@ -370,21 +361,21 @@ export class ConsoleModel extends SDKModel<EventTypes> {
 
   private incrementErrorWarningCount(msg: ConsoleMessage): void {
     if (msg.source === Protocol.Log.LogEntrySource.Violation) {
-      this.#violationsInternal++;
+      this.#violations++;
       return;
     }
     switch (msg.level) {
       case Protocol.Log.LogEntryLevel.Warning:
-        this.#warningsInternal++;
+        this.#warnings++;
         break;
       case Protocol.Log.LogEntryLevel.Error:
-        this.#errorsInternal++;
+        this.#errors++;
         break;
     }
   }
 
   messages(): ConsoleMessage[] {
-    return this.#messagesInternal;
+    return this.#messages;
   }
 
   // messages[] are not ordered by timestamp.
@@ -412,17 +403,17 @@ export class ConsoleModel extends SDKModel<EventTypes> {
   }
 
   private clear(): void {
-    this.#messagesInternal = [];
+    this.#messages = [];
     this.#messagesByTimestamp.clear();
     this.#messageByExceptionId.clear();
-    this.#errorsInternal = 0;
-    this.#warningsInternal = 0;
-    this.#violationsInternal = 0;
+    this.#errors = 0;
+    this.#warnings = 0;
+    this.#violations = 0;
     this.dispatchEventToListeners(Events.ConsoleCleared);
   }
 
   errors(): number {
-    return this.#errorsInternal;
+    return this.#errors;
   }
 
   static allErrors(): number {
@@ -434,7 +425,7 @@ export class ConsoleModel extends SDKModel<EventTypes> {
   }
 
   warnings(): number {
-    return this.#warningsInternal;
+    return this.#warnings;
   }
 
   static allWarnings(): number {
@@ -446,15 +437,7 @@ export class ConsoleModel extends SDKModel<EventTypes> {
   }
 
   violations(): number {
-    return this.#violationsInternal;
-  }
-
-  static allViolations(): number {
-    let violations = 0;
-    for (const target of TargetManager.instance().targets()) {
-      violations += target.model(ConsoleModel)?.violations() || 0;
-    }
-    return violations;
+    return this.#violations;
   }
 
   async saveToTempVariable(currentExecutionContext: ExecutionContext|null, remoteObject: RemoteObject|null):
@@ -463,7 +446,7 @@ export class ConsoleModel extends SDKModel<EventTypes> {
       failedToSave(null);
       return;
     }
-    const executionContext = (currentExecutionContext as ExecutionContext);
+    const executionContext = (currentExecutionContext);
 
     const result = await executionContext.globalObject(/* objectGroup */ '', /* generatePreview */ false);
     if ('error' in result || Boolean(result.exceptionDetails) || !result.object) {
@@ -493,7 +476,7 @@ export class ConsoleModel extends SDKModel<EventTypes> {
         ++index;
       }
       const name = prefix + index;
-      // @ts-ignore Assignment to global object
+      // @ts-expect-error Assignment to global object
       this[name] = value;
       return name;
     }
@@ -579,7 +562,7 @@ export interface ConsoleMessageDetails {
   url?: Platform.DevToolsPath.UrlString;
   line?: number;
   column?: number;
-  parameters?: (string|RemoteObject|Protocol.Runtime.RemoteObject)[];
+  parameters?: Array<string|RemoteObject|Protocol.Runtime.RemoteObject>;
   stackTrace?: Protocol.Runtime.StackTrace;
   timestamp?: number;
   executionContextId?: number;
@@ -592,7 +575,7 @@ export interface ConsoleMessageDetails {
 }
 
 export class ConsoleMessage {
-  readonly #runtimeModelInternal: RuntimeModel|null;
+  readonly #runtimeModel: RuntimeModel|null;
   source: MessageSource;
   level: Protocol.Log.LogEntryLevel|null;
   messageText: string;
@@ -600,7 +583,7 @@ export class ConsoleMessage {
   url: Platform.DevToolsPath.UrlString|undefined;
   line: number;
   column: number;
-  parameters: (string|RemoteObject|Protocol.Runtime.RemoteObject)[]|undefined;
+  parameters: Array<string|RemoteObject|Protocol.Runtime.RemoteObject>|undefined;
   stackTrace: Protocol.Runtime.StackTrace|undefined;
   timestamp: number;
   #executionContextId: number;
@@ -612,7 +595,7 @@ export class ConsoleMessage {
   #exceptionId?: number = undefined;
   #affectedResources?: AffectedResources;
   category?: Protocol.Log.LogEntryCategory;
-  isCookieReportIssue: boolean = false;
+  isCookieReportIssue = false;
 
   /**
    * The parent frame of the `console.log` call of logpoints or conditional breakpoints
@@ -627,9 +610,9 @@ export class ConsoleMessage {
   constructor(
       runtimeModel: RuntimeModel|null, source: MessageSource, level: Protocol.Log.LogEntryLevel|null,
       messageText: string, details?: ConsoleMessageDetails) {
-    this.#runtimeModelInternal = runtimeModel;
+    this.#runtimeModel = runtimeModel;
     this.source = source;
-    this.level = (level as Protocol.Log.LogEntryLevel | null);
+    this.level = (level);
     this.messageText = messageText;
     this.type = details?.type || Protocol.Runtime.ConsoleAPICalledEventType.Log;
     this.url = details?.url;
@@ -645,11 +628,11 @@ export class ConsoleMessage {
     this.category = details?.category;
     this.isCookieReportIssue = Boolean(details?.isCookieReportIssue);
 
-    if (!this.#executionContextId && this.#runtimeModelInternal) {
+    if (!this.#executionContextId && this.#runtimeModel) {
       if (this.scriptId) {
-        this.#executionContextId = this.#runtimeModelInternal.executionContextIdForScriptId(this.scriptId);
+        this.#executionContextId = this.#runtimeModel.executionContextIdForScriptId(this.scriptId);
       } else if (this.stackTrace) {
-        this.#executionContextId = this.#runtimeModelInternal.executionContextForStackTrace(this.stackTrace);
+        this.#executionContextId = this.#runtimeModel.executionContextForStackTrace(this.stackTrace);
       }
     }
 
@@ -697,11 +680,11 @@ export class ConsoleMessage {
   }
 
   runtimeModel(): RuntimeModel|null {
-    return this.#runtimeModelInternal;
+    return this.#runtimeModel;
   }
 
   target(): Target|null {
-    return this.#runtimeModelInternal ? this.#runtimeModelInternal.target() : null;
+    return this.#runtimeModel ? this.#runtimeModel.target() : null;
   }
 
   setOriginatingMessage(originatingMessage: ConsoleMessage): void {

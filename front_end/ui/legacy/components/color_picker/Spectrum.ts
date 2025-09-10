@@ -1,6 +1,7 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2011 Brian Grinstead All rights reserved.
@@ -37,6 +38,7 @@ import * as Host from '../../../../core/host/host.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as Platform from '../../../../core/platform/platform.js';
 import * as SDK from '../../../../core/sdk/sdk.js';
+import * as TextUtils from '../../../../models/text_utils/text_utils.js';
 import * as IconButton from '../../../components/icon_button/icon_button.js';
 import * as SrgbOverlay from '../../../components/srgb_overlay/srgb_overlay.js';
 import * as VisualLogging from '../../../visual_logging/visual_logging.js';
@@ -51,12 +53,12 @@ import spectrumStyles from './spectrum.css.js';
 
 const UIStrings = {
   /**
-   *@description Tooltip text that appears when hovering over largeicon eyedropper button in Spectrum of the Color Picker
+   * @description Tooltip text that appears when hovering over largeicon eyedropper button in Spectrum of the Color Picker
    * @example {c} PH1
    */
   toggleColorPicker: 'Eye dropper [{PH1}]',
   /**
-   *@description Aria label for hue slider in Color Picker
+   * @description Aria label for hue slider in Color Picker
    */
   changeHue: 'Change hue',
   /**
@@ -65,67 +67,67 @@ const UIStrings = {
    */
   changeAlpha: 'Change alpha',
   /**
-   *@description Aria label for HEX color format input
+   * @description Aria label for HEX color format input
    */
   hex: 'HEX',
   /**
-   *@description Aria label for color format switcher button in Color Picker
+   * @description Aria label for color format switcher button in Color Picker
    */
   changeColorFormat: 'Change color format',
   /**
-   *@description Screen reader reads this text when palette switcher button receives focus
+   * @description Screen reader reads this text when palette switcher button receives focus
    */
   previewPalettes: 'Preview palettes',
   /**
-   *@description Tooltip text that appears when hovering over the largeicon add button in the Spectrum of the Color Picker
+   * @description Tooltip text that appears when hovering over the largeicon add button in the Spectrum of the Color Picker
    */
   addToPalette: 'Add to palette',
   /**
-   *@description Title text content in Spectrum of the Color Picker
+   * @description Title text content in Spectrum of the Color Picker
    */
   colorPalettes: 'Color Palettes',
   /**
-   *@description Label for close button in Color Picker
+   * @description Label for close button in Color Picker
    */
   returnToColorPicker: 'Return to color picker',
   /**
-   *@description Aria label which declares hex value of a swatch in the Color Picker
-   *@example {#969696} PH1
+   * @description Aria label which declares hex value of a swatch in the Color Picker
+   * @example {#969696} PH1
    */
   colorS: 'Color {PH1}',
   /**
-   *@description Color element title in Spectrum of the Color Picker
-   *@example {#9c1724} PH1
+   * @description Color element title in Spectrum of the Color Picker
+   * @example {#9c1724} PH1
    */
   longclickOrLongpressSpaceToShow: 'Long-click or long-press space to show alternate shades of {PH1}',
   /**
-   *@description A context menu item in the Color Picker to organize the user-defined color palette (removes the user-defined color to which this action is performed)"
+   * @description A context menu item in the Color Picker to organize the user-defined color palette (removes the user-defined color to which this action is performed)"
    */
   removeColor: 'Remove color',
   /**
-   *@description A context menu item in the Color Picker to organize the user-defined color palette (removes all user-defined colors to the right of the color to which this action is performed)"
+   * @description A context menu item in the Color Picker to organize the user-defined color palette (removes all user-defined colors to the right of the color to which this action is performed)"
    */
   removeAllToTheRight: 'Remove all to the right',
   /**
-   *@description A context menu item in the Color Picker to organize the user-defined color palette (removes all user-defined colors)"
+   * @description A context menu item in the Color Picker to organize the user-defined color palette (removes all user-defined colors)"
    */
   clearPalette: 'Clear palette',
   /**
-   *@description Aria label for RGBA and HSLA color format inputs in Color Picker
-   *@example {R} PH1
-   *@example {RGBA} PH2
+   * @description Aria label for RGBA and HSLA color format inputs in Color Picker
+   * @example {R} PH1
+   * @example {RGBA} PH2
    */
   sInS: '{PH1} in {PH2}',
   /**
-   *@description Swatch copy icon title in Spectrum of the Color Picker
+   * @description Swatch copy icon title in Spectrum of the Color Picker
    */
   copyColorToClipboard: 'Copy color to clipboard',
   /**
-   *@description Aria text for the swatch position. Swatch is the color picker spectrum tool.
+   * @description Aria text for the swatch position. Swatch is the color picker spectrum tool.
    */
   pressArrowKeysMessage:
       'Press arrow keys with or without modifiers to move swatch position. Arrow key with Shift key moves position largely, with Ctrl key it is less and with Alt key it is even less',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/color_picker/Spectrum.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 const colorElementToMutable = new WeakMap<HTMLElement, boolean>();
@@ -206,7 +208,7 @@ function getColorFromHsva(gamut: SpectrumGamut, hsva: Common.ColorUtils.Color4D)
 }
 
 export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof UI.Widget.VBox>(UI.Widget.VBox) {
-  private colorInternal?: Common.Color.Color;
+  #color?: Common.Color.Color;
   private gamut: SpectrumGamut = SpectrumGamut.SRGB;
   private colorElement: HTMLElement;
   private colorDragElement: HTMLElement;
@@ -228,7 +230,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
   private srgbOverlay: SrgbOverlay.SrgbOverlay.SrgbOverlay;
   private contrastOverlay: ContrastOverlay|undefined;
   private contrastDetails: ContrastDetails|undefined;
-  private readonly contrastDetailsBackgroundColorPickedToggledBound:
+  private readonly contrastDetailsBackgroundColorPickerToggledBound:
       ((event: Common.EventTarget.EventTargetEvent<boolean>) => void)|undefined;
   private readonly palettes: Map<string, Palette>;
   private readonly palettePanel: HTMLElement;
@@ -257,7 +259,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
   private dragElement?: HTMLElement;
   private dragHotSpotX?: number;
   private dragHotSpotY?: number;
-  private colorNameInternal?: string;
+  #colorName?: string;
   private colorFormat: SpectrumColorFormat = Common.Color.Format.RGB;
   private eyeDropperAbortController: AbortController|null = null;
   private isFormatPickerShown = false;
@@ -267,9 +269,9 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
   // selected form the palettes. That time, we don't
   // want to return the value of the variable but the
   // actual variable string.
-  private colorStringInternal?: string;
+  #colorString?: string;
   constructor(contrastInfo?: ContrastInfo|null) {
-    super(true);
+    super({useShadowDom: true});
     this.registerRequiredCSS(spectrumStyles);
 
     this.contentElement.tabIndex = 0;
@@ -398,8 +400,8 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
           this.contrastInfo, this.contentElement, this.toggleColorPicker.bind(this),
           this.contrastPanelExpandedChanged.bind(this), this.colorSelected.bind(this));
 
-      this.contrastDetailsBackgroundColorPickedToggledBound =
-          this.contrastDetailsBackgroundColorPickedToggled.bind(this);
+      this.contrastDetailsBackgroundColorPickerToggledBound =
+          this.contrastDetailsBackgroundColorPickerToggled.bind(this);
     }
 
     this.element.classList.add('flex-none');
@@ -560,7 +562,8 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
 
     function appendSwitcherIcon(parentElement: Element): void {
       const switcherIcon = new IconButton.Icon.Icon();
-      switcherIcon.data = {iconName: 'fold-more', color: 'var(--icon-default)', width: '16px', height: '16px'};
+      switcherIcon.name = 'fold-more';
+      switcherIcon.classList.add('medium');
       parentElement.appendChild(switcherIcon);
     }
   }
@@ -571,7 +574,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     return true;
   }
 
-  private contrastDetailsBackgroundColorPickedToggled(event: {
+  private contrastDetailsBackgroundColorPickerToggled(event: {
     data: unknown,
   }): void {
     if (event.data) {
@@ -618,7 +621,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     }
     this.palettePanelShowing = show;
     this.contentElement.classList.toggle('palette-panel-showing', show);
-    this.focusInternal();
+    this.#focus();
   }
 
   private onCloseBtnKeydown(event: KeyboardEvent): void {
@@ -643,7 +646,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
   /**
    * (Suppress warning about preventScroll)
    */
-  private focusInternal(): void {
+  #focus(): void {
     if (!this.isShowing()) {
       return;
     }
@@ -680,15 +683,8 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
       UI.ARIAUtils.markAsButton(colorElement);
       UI.ARIAUtils.setLabel(colorElement, i18nString(UIStrings.colorS, {PH1: palette.colors[i]}));
       colorElement.tabIndex = -1;
-      colorElement.addEventListener(
-          'mousedown',
-          this.paletteColorSelected.bind(
-              this, palette.colors[i], palette.colorNames[i], Boolean(palette.matchUserFormat)));
-      colorElement.addEventListener(
-          'focus',
-          this.paletteColorSelected.bind(
-              this, palette.colors[i], palette.colorNames[i], Boolean(palette.matchUserFormat)));
-      colorElement.addEventListener('keydown', this.onPaletteColorKeydown.bind(this, i));
+      colorElement.addEventListener('mousedown', this.onPaletteColorKeydown.bind(this, palette, i));
+      colorElement.addEventListener('keydown', this.onPaletteColorKeydown.bind(this, palette, i));
       if (palette.mutable) {
         colorElementToMutable.set(colorElement, true);
         colorElementToColor.set(colorElement, palette.colors[i]);
@@ -721,7 +717,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     }
 
     this.togglePalettePanel(false);
-    this.focusInternal();
+    this.#focus();
   }
 
   private showLightnessShades(colorElement: HTMLElement, colorText: string, _event: Event): void {
@@ -760,9 +756,8 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
         UI.ARIAUtils.markAsButton(shadeElement);
         UI.ARIAUtils.setLabel(shadeElement, i18nString(UIStrings.colorS, {PH1: shades[i]}));
         shadeElement.tabIndex = -1;
-        shadeElement.addEventListener('mousedown', this.paletteColorSelected.bind(this, shades[i], shades[i], false));
-        shadeElement.addEventListener('focus', this.paletteColorSelected.bind(this, shades[i], shades[i], false));
-        shadeElement.addEventListener('keydown', this.onShadeColorKeydown.bind(this, colorElement));
+        shadeElement.addEventListener('mousedown', this.onShadeColorKeydown.bind(this, shades[i], colorElement));
+        shadeElement.addEventListener('keydown', this.onShadeColorKeydown.bind(this, shades[i], colorElement));
         this.shadesContainer.appendChild(shadeElement);
       }
     }
@@ -868,7 +863,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
         colors.push(color);
       }
     }
-    const palette = this.customPaletteSetting.get() as Palette;
+    const palette = this.customPaletteSetting.get();
     palette.colors = colors;
     this.customPaletteSetting.set(palette);
     this.showPalette(palette, false);
@@ -883,14 +878,14 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
         Palette = {title: 'Custom', colors: [], colorNames: [], mutable: true, matchUserFormat: undefined};
     this.customPaletteSetting =
         Common.Settings.Settings.instance().createSetting('custom-color-palette', defaultCustomPalette);
-    const customPalette = this.customPaletteSetting.get() as Palette;
+    const customPalette = this.customPaletteSetting.get();
     // Fallback case for custom palettes created pre-m67
     customPalette.colorNames = customPalette.colorNames || [];
     this.palettes.set(customPalette.title, customPalette);
 
     this.selectedColorPalette =
         Common.Settings.Settings.instance().createSetting('selected-color-palette', GeneratedPaletteTitle);
-    const palette = this.palettes.get(this.selectedColorPalette.get() as string);
+    const palette = this.palettes.get(this.selectedColorPalette.get());
     if (palette) {
       this.showPalette(palette, true);
     }
@@ -931,7 +926,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
   }
 
   private resizeForSelectedPalette(force?: boolean): void {
-    const palette = this.palettes.get(this.selectedColorPalette.get() as string);
+    const palette = this.palettes.get(this.selectedColorPalette.get());
     if (!palette) {
       return;
     }
@@ -958,19 +953,21 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     this.dispatchEventToListeners(Events.SIZE_CHANGED);
   }
 
-  private paletteColorSelected(colorText: string, colorName: string|undefined, matchUserFormat: boolean): void {
-    const color = Common.Color.parse(colorText);
-    if (!color) {
+  private onPaletteColorKeydown(palette: Palette, colorIndex: number, event: KeyboardEvent|MouseEvent): void {
+    if (event instanceof MouseEvent || Platform.KeyboardUtilities.isEnterOrSpaceKey(event)) {
+      const colorText = palette.colors[colorIndex];
+      const colorName = palette.colorNames[colorIndex];
+      const color = Common.Color.parse(colorText);
+      if (color) {
+        this.innerSetColor(
+            color, colorText, colorName, palette.matchUserFormat ? this.colorFormat : color.format(),
+            ChangeSource.Other);
+      }
+      // Continue bubbling so that the color picker will close and submit the selected color.
       return;
     }
-    this.innerSetColor(
-        color, colorText, colorName, matchUserFormat ? this.colorFormat : color.format(), ChangeSource.Other);
-  }
-
-  private onPaletteColorKeydown(colorIndex: number, event: Event): void {
-    const keyboardEvent = event as KeyboardEvent;
     let nextColorIndex;
-    switch (keyboardEvent.key) {
+    switch (event.key) {
       case 'ArrowLeft':
         nextColorIndex = colorIndex - 1;
         break;
@@ -990,7 +987,15 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     }
   }
 
-  private onShadeColorKeydown(colorElement: HTMLElement, event: KeyboardEvent): void {
+  private onShadeColorKeydown(shade: string, colorElement: HTMLElement, event: MouseEvent|KeyboardEvent): void {
+    if (event instanceof MouseEvent || Platform.KeyboardUtilities.isEnterOrSpaceKey(event)) {
+      const color = Common.Color.parse(shade);
+      if (color) {
+        this.innerSetColor(color, shade, shade, color.format(), ChangeSource.Other);
+      }
+      // Continue bubbling so that the color picker will close and submit the selected color.
+      return;
+    }
     const target = event.target as HTMLElement;
     if (Platform.KeyboardUtilities.isEscKey(event) || event.key === 'Tab') {
       colorElement.focus();
@@ -1019,7 +1024,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
   }
 
   private addColorToCustomPalette(): void {
-    const palette = this.customPaletteSetting.get() as Palette;
+    const palette = this.customPaletteSetting.get();
     palette.colors.push(this.colorString());
     this.customPaletteSetting.set(palette);
     this.showPalette(palette, false);
@@ -1047,7 +1052,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
   }
 
   private deletePaletteColors(colorIndex: number, toRight: boolean): void {
-    const palette = this.customPaletteSetting.get() as Palette;
+    const palette = this.customPaletteSetting.get();
     if (toRight) {
       palette.colors.splice(colorIndex + 1, palette.colors.length - colorIndex - 1);
     } else {
@@ -1068,9 +1073,9 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     this.innerSetColor(color, '', undefined /* colorName */, undefined /* colorFormat */, ChangeSource.Other);
   }
 
-  private get color(): Common.Color.Color {
-    if (this.colorInternal) {
-      return this.colorInternal;
+  get color(): Common.Color.Color {
+    if (this.#color) {
+      return this.#color;
     }
 
     return getColorFromHsva(this.gamut, this.hsv);
@@ -1086,7 +1091,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     // * If we give "" as an argument to this funciton, it means
     // we want to clear the `colorStringInternal`.
     if (colorString !== undefined) {
-      this.colorStringInternal = colorString;
+      this.#colorString = colorString;
     }
 
     if (colorFormat !== undefined) {
@@ -1109,10 +1114,10 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     //   0 as well. Meaning that, when the user comes to white, the hue will be reset to
     //   `0` which will change the state of the color picker unintentionally.
     if (Array.isArray(colorOrHsv)) {
-      this.colorInternal = undefined;
+      this.#color = undefined;
       this.hsv = colorOrHsv;
     } else if (colorOrHsv !== undefined) {
-      this.colorInternal = colorOrHsv;
+      this.#color = colorOrHsv;
       const oldHue = this.hsv ? this.hsv[0] : null;
       this.hsv = getHsvFromColor(this.gamut, colorOrHsv);
       // When the hue is powerless in lch color space
@@ -1129,7 +1134,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
         this.hsv[0] = oldHue;
       }
     }
-    this.colorNameInternal = colorName;
+    this.#colorName = colorName;
 
     if (this.contrastInfo) {
       this.contrastInfo.setColor(Common.Color.Legacy.fromHSVA(this.hsv), this.colorFormat);
@@ -1147,7 +1152,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
   }
 
   colorName(): string|undefined {
-    return this.colorNameInternal;
+    return this.#colorName;
   }
 
   private colorString(): string {
@@ -1156,8 +1161,8 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     // Empty string check is important here since we use
     // that to point that the colorStringInternal is cleared
     // and should not be used.
-    if (this.colorStringInternal) {
-      return this.colorStringInternal;
+    if (this.#colorString) {
+      return this.#colorString;
     }
 
     const color = this.color;
@@ -1241,7 +1246,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
   }
 
   private showSrgbOverlay(): void {
-    if ((this.contrastDetails && this.contrastDetails.expanded()) || this.gamut !== SpectrumGamut.DISPLAY_P3) {
+    if ((this.contrastDetails?.expanded()) || this.gamut !== SpectrumGamut.DISPLAY_P3) {
       return;
     }
 
@@ -1265,14 +1270,14 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
   }
 
   private updateUI(): void {
-    this.colorElement.style.backgroundColor = getColorFromHsva(this.gamut, [this.hsv[0], 1, 1, 1]).asString() as string;
+    this.colorElement.style.backgroundColor = getColorFromHsva(this.gamut, [this.hsv[0], 1, 1, 1]).asString();
     if (this.contrastOverlay) {
       this.contrastOverlay.setDimensions(this.dragWidth, this.dragHeight);
     }
     this.updateSrgbOverlay();
 
     this.swatch.setColor(this.color, this.colorString());
-    this.colorDragElement.style.backgroundColor = this.color.asString(Common.Color.Format.LCH) as string;
+    this.colorDragElement.style.backgroundColor = this.color.asString(Common.Color.Format.LCH);
     const noAlpha = Common.Color.Legacy.fromHSVA(this.hsv.slice(0, 3).concat(1) as Common.ColorUtils.Color4D);
     this.alphaElementBackground.style.backgroundImage = Platform.StringUtilities.sprintf(
         'linear-gradient(to right, rgba(0,0,0,0), %s)', noAlpha.asString(Common.Color.Format.LCH));
@@ -1305,9 +1310,28 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
     event.preventDefault();
   }
 
+  #getValueSteppingForInput(element: HTMLInputElement): {step: number, range: {min: number, max: number}}|undefined {
+    const channel = this.color.channels[this.textValues.indexOf(element)];
+    switch (channel) {
+      case Common.Color.ColorChannel.R:
+      case Common.Color.ColorChannel.G:
+      case Common.Color.ColorChannel.B:
+        return this.color instanceof Common.Color.ColorFunction ? {step: .01, range: {min: 0, max: 1}} :
+                                                                  {step: 1, range: {min: 0, max: 255}};
+      case Common.Color.ColorChannel.ALPHA:
+      case Common.Color.ColorChannel.X:
+      case Common.Color.ColorChannel.Y:
+      case Common.Color.ColorChannel.Z:
+        return {step: .01, range: {min: 0, max: 1}};
+      default:
+        return undefined;
+    }
+  }
+
   private inputChanged(event: Event): void {
     const inputElement = event.currentTarget as HTMLInputElement;
-    const newValue = UI.UIUtils.createReplacementString(inputElement.value, event);
+    const newValue = UI.UIUtils.createReplacementString(
+        inputElement.value, event, undefined, this.#getValueSteppingForInput(inputElement));
     if (newValue) {
       inputElement.value = newValue;
       inputElement.selectionStart = 0;
@@ -1354,19 +1378,19 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
       this.colorPickerButton.setToggled(false);
     }
 
-    if (this.contrastDetails && this.contrastDetailsBackgroundColorPickedToggledBound) {
+    if (this.contrastDetails && this.contrastDetailsBackgroundColorPickerToggledBound) {
       this.contrastDetails.addEventListener(
           ContrastDetailsEvents.BACKGROUND_COLOR_PICKER_WILL_BE_TOGGLED,
-          this.contrastDetailsBackgroundColorPickedToggledBound);
+          this.contrastDetailsBackgroundColorPickerToggledBound);
     }
   }
 
   override willHide(): void {
     void this.toggleColorPicker(false);
-    if (this.contrastDetails && this.contrastDetailsBackgroundColorPickedToggledBound) {
+    if (this.contrastDetails && this.contrastDetailsBackgroundColorPickerToggledBound) {
       this.contrastDetails.removeEventListener(
           ContrastDetailsEvents.BACKGROUND_COLOR_PICKER_WILL_BE_TOGGLED,
-          this.contrastDetailsBackgroundColorPickedToggledBound);
+          this.contrastDetailsBackgroundColorPickerToggledBound);
     }
   }
 
@@ -1375,9 +1399,10 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
       enabled = this.colorPickerButton.isToggled();
     }
 
-    // This is to make sure that only one picker is open at a time
-    // Also have a look at this.contrastDetailsBackgroundColorPickedToggled
-    if (this.contrastDetails && enabled && this.contrastDetails.backgroundColorPickerEnabled()) {
+    // This is to make sure that only one picker is open at a time (enabled is true) and
+    // the background color picker gets dismissed whenever the popup is closed by an Esc (enabled is false).
+    // Also have a look at this.contrastDetailsBackgroundColorPickedToggled.
+    if (this.contrastDetails?.backgroundColorPickerEnabled()) {
       this.contrastDetails.toggleBackgroundColorPicker(false);
     }
 
@@ -1397,7 +1422,7 @@ export class Spectrum extends Common.ObjectWrapper.eventMixin<EventTypes, typeof
       // Wait for TypeScript to support the definition of EyeDropper API:
       // https://github.com/microsoft/TypeScript/issues/48638
       /* eslint-disable  @typescript-eslint/no-explicit-any */
-      const eyeDropper = new (<any>window).EyeDropper();
+      const eyeDropper = new (window as any).EyeDropper();
       this.eyeDropperAbortController = new AbortController();
 
       try {
@@ -1450,10 +1475,9 @@ const GeneratedPaletteTitle = 'Page colors';
 
 export class PaletteGenerator {
   private readonly callback: (arg0: Palette) => void;
-  private readonly frequencyMap: Map<string, number>;
+  private readonly frequencyMap = new Map<string, number>();
   constructor(callback: (arg0: Palette) => void) {
     this.callback = callback;
-    this.frequencyMap = new Map();
     const stylesheetPromises = [];
     for (const cssModel of SDK.TargetManager.TargetManager.instance().models(SDK.CSSModel.CSSModel)) {
       for (const stylesheet of cssModel.allStyleSheets()) {
@@ -1518,8 +1542,8 @@ export class PaletteGenerator {
   }
 
   private async processStylesheet(stylesheet: SDK.CSSStyleSheetHeader.CSSStyleSheetHeader): Promise<void> {
-    let text: string = (await stylesheet.requestContent()).content || '';
-    text = text.toLowerCase();
+    const contentDataOrError = await stylesheet.requestContentData();
+    const text = TextUtils.ContentData.ContentData.textOr(contentDataOrError, '').toLowerCase();
     const regexResult = text.matchAll(/((?:rgb|hsl|hwb)a?\([^)]+\)|#[0-9a-f]{6}|#[0-9a-f]{3})/g);
     for (const {0: c, index} of regexResult) {
       // Check whether the match occured in a property value and not in a property name or a selector by verifying
@@ -1645,7 +1669,7 @@ export class Swatch {
 
   setColor(color: Common.Color.Color, colorString?: string): void {
     const lchColor = color.as(Common.Color.Format.LCH);
-    this.swatchInnerElement.style.backgroundColor = lchColor.asString() as string;
+    this.swatchInnerElement.style.backgroundColor = lchColor.asString();
     // Show border if the swatch is white.
     this.swatchInnerElement.classList.toggle('swatch-inner-white', lchColor.l > 90);
     this.colorString = colorString || null;

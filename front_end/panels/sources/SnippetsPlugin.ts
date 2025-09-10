@@ -14,14 +14,14 @@ import {Plugin} from './Plugin.js';
 
 const UIStrings = {
   /**
-   *@description Text in Snippets Plugin of the Sources panel
+   * @description Text in Snippets Plugin of the Sources panel
    */
   enter: '⌘+Enter',
   /**
-   *@description Text in Snippets Plugin of the Sources panel
+   * @description Text in Snippets Plugin of the Sources panel
    */
   ctrlenter: 'Ctrl+Enter',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/sources/SnippetsPlugin.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 

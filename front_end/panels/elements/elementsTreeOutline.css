@@ -28,6 +28,7 @@
 }
 
 .adorner-reveal {
+  vertical-align: middle;
   margin: 0 3px;
 }
 
@@ -242,7 +243,7 @@ select {
 }
 
 .elements-disclosure .elements-tree-nowrap li {
-  word-wrap: normal;
+  overflow-wrap: normal;
 }
 /* DOM update highlight */
 @keyframes dom-update-highlight-animation {
@@ -312,6 +313,8 @@ select {
   visibility: hidden;
   position: relative;
   left: -1px;
+  width: 16px;
+  height: 16px;
 }
 
 .elements-disclosure li.selected .gutter-container:not(.has-decorations) > devtools-icon {

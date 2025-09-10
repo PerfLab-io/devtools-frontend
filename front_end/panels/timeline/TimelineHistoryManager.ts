@@ -1,6 +1,7 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -29,13 +30,13 @@ export const LANDING_PAGE_INDEX_DROPDOWN_CHOICE = Infinity;
 
 const UIStrings = {
   /**
-   *@description Screen reader label for the Timeline History dropdown button
-   *@example {example.com #3} PH1
-   *@example {Show recent timeline sessions} PH2
+   * @description Screen reader label for the Timeline History dropdown button
+   * @example {example.com #3} PH1
+   * @example {Show recent timeline sessions} PH2
    */
   currentSessionSS: 'Current session: {PH1}. {PH2}',
   /**
-   *@description the title shown when the user is viewing the landing page which is showing live performance metrics that are updated automatically.
+   * @description the title shown when the user is viewing the landing page which is showing live performance metrics that are updated automatically.
    */
   landingPageTitle: 'Live metrics',
   /**
@@ -43,13 +44,13 @@ const UIStrings = {
    */
   nodeLandingPageTitle: 'New recording',
   /**
-   *@description Text in Timeline History Manager of the Performance panel
-   *@example {example.com} PH1
-   *@example {2} PH2
+   * @description Text in Timeline History Manager of the Performance panel
+   * @example {example.com} PH1
+   * @example {2} PH2
    */
   sD: '{PH1} #{PH2}',
   /**
-   *@description Accessible label for the timeline session selection menu
+   * @description Accessible label for the timeline session selection menu
    */
   selectTimelineSession: 'Select timeline session',
   /**
@@ -57,7 +58,11 @@ const UIStrings = {
    * @example {2} PH1
    */
   dSlowdown: '{PH1}× slowdown',
-};
+  /**
+   * @description Tooltip text that appears when hovering over the Back arrow inside the 'Select Timeline Session' dropdown in the Performance pane.
+   */
+  backButtonTooltip: 'View live metrics page',
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/TimelineHistoryManager.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -106,11 +111,11 @@ export class TimelineHistoryManager {
   private recordings: TraceRecordingHistoryItem[];
   private readonly action: UI.ActionRegistration.Action;
   private readonly nextNumberByDomain: Map<string, number>;
-  private readonly buttonInternal: ToolbarButton;
-  private readonly allOverviews: {
+  readonly #button: ToolbarButton;
+  private readonly allOverviews: Array<{
     constructor: (parsedTrace: Trace.Handlers.Types.ParsedTrace) => TimelineEventOverview,
     height: number,
-  }[];
+  }>;
   private totalHeight: number;
   private enabled: boolean;
   private lastActiveTrace: RecordingData|null = null;
@@ -122,12 +127,12 @@ export class TimelineHistoryManager {
     this.#minimapComponent = minimapComponent;
     this.action = UI.ActionRegistry.ActionRegistry.instance().getAction('timeline.show-history');
     this.nextNumberByDomain = new Map();
-    this.buttonInternal = new ToolbarButton(this.action);
+    this.#button = new ToolbarButton(this.action);
 
     this.#landingPageTitle =
         isNode ? i18nString(UIStrings.nodeLandingPageTitle) : i18nString(UIStrings.landingPageTitle);
 
-    UI.ARIAUtils.markAsMenuButton(this.buttonInternal.element);
+    UI.ARIAUtils.markAsMenuButton(this.#button.element);
     this.clear();
 
     // Attempt to reuse the overviews coming from the panel's minimap
@@ -180,10 +185,10 @@ export class TimelineHistoryManager {
     this.#buildAndStorePreviewData(newInput.data.parsedTraceIndex, newInput.parsedTrace, newInput.metadata, filmStrip);
 
     const modelTitle = this.title(newInput.data);
-    this.buttonInternal.setText(modelTitle);
+    this.#button.setText(modelTitle);
     const buttonTitle = this.action.title();
     UI.ARIAUtils.setLabel(
-        this.buttonInternal.element, i18nString(UIStrings.currentSessionSS, {PH1: modelTitle, PH2: buttonTitle}));
+        this.#button.element, i18nString(UIStrings.currentSessionSS, {PH1: modelTitle, PH2: buttonTitle}));
     this.updateState();
     if (this.recordings.length <= maxRecordings) {
       return;
@@ -207,14 +212,14 @@ export class TimelineHistoryManager {
   }
 
   button(): ToolbarButton {
-    return this.buttonInternal;
+    return this.#button;
   }
 
   clear(): void {
     this.recordings = [];
     this.lastActiveTrace = null;
     this.updateState();
-    this.buttonInternal.setText(this.#landingPageTitle);
+    this.#button.setText(this.#landingPageTitle);
     this.nextNumberByDomain.clear();
   }
 
@@ -236,7 +241,7 @@ export class TimelineHistoryManager {
     // DropDown.show() function finishes when the dropdown menu is closed via selection or losing focus
     const activeTraceIndex = await DropDown.show(
         this.recordings.map(recording => recording.parsedTraceIndex), this.#getActiveTraceIndexForListControl(),
-        this.buttonInternal.element, this.#landingPageTitle);
+        this.#button.element, this.#landingPageTitle);
 
     if (activeTraceIndex === null) {
       return null;
@@ -306,9 +311,9 @@ export class TimelineHistoryManager {
     this.lastActiveTrace = item;
     const modelTitle = this.title(item);
     const buttonTitle = this.action.title();
-    this.buttonInternal.setText(modelTitle);
+    this.#button.setText(modelTitle);
     UI.ARIAUtils.setLabel(
-        this.buttonInternal.element, i18nString(UIStrings.currentSessionSS, {PH1: modelTitle, PH2: buttonTitle}));
+        this.#button.element, i18nString(UIStrings.currentSessionSS, {PH1: modelTitle, PH2: buttonTitle}));
   }
 
   private updateState(): void {
@@ -454,6 +459,7 @@ export class DropDown implements UI.ListControl.ListDelegate<number> {
   private readonly focusRestorer: UI.UIUtils.ElementFocusRestorer;
   private selectionDone: ((arg0: number|null) => void)|null;
   #landingPageTitle: Common.UIString.LocalizedString;
+  contentElement: HTMLElement;
 
   constructor(availableparsedTraceIndexes: number[], landingPageTitle: Common.UIString.LocalizedString) {
     this.#landingPageTitle = landingPageTitle;
@@ -467,7 +473,7 @@ export class DropDown implements UI.ListControl.ListDelegate<number> {
 
     const shadowRoot = UI.UIUtils.createShadowRootWithCoreStyles(
         this.glassPane.contentElement, {cssFile: timelineHistoryManagerStyles});
-    const contentElement = shadowRoot.createChild('div', 'drop-down');
+    this.contentElement = shadowRoot.createChild('div', 'drop-down');
 
     const listModel = new UI.ListModel.ListModel<number>();
     this.listControl = new UI.ListControl.ListControl<number>(listModel, this, UI.ListControl.ListMode.NonViewport);
@@ -476,9 +482,9 @@ export class DropDown implements UI.ListControl.ListDelegate<number> {
 
     UI.ARIAUtils.markAsMenu(this.listControl.element);
     UI.ARIAUtils.setLabel(this.listControl.element, i18nString(UIStrings.selectTimelineSession));
-    contentElement.appendChild(this.listControl.element);
-    contentElement.addEventListener('keydown', this.onKeyDown.bind(this), false);
-    contentElement.addEventListener('click', this.onClick.bind(this), false);
+    this.contentElement.appendChild(this.listControl.element);
+    this.contentElement.addEventListener('keydown', this.onKeyDown.bind(this), false);
+    this.contentElement.addEventListener('click', this.onClick.bind(this), false);
 
     this.focusRestorer = new UI.UIUtils.ElementFocusRestorer(this.listControl.element);
     this.selectionDone = null;
@@ -578,6 +584,8 @@ export class DropDown implements UI.ListControl.ListDelegate<number> {
     div.style.width = `${previewWidth}px`;
 
     const icon = IconButton.Icon.create('arrow-back');
+    icon.title = i18nString(UIStrings.backButtonTooltip);
+    icon.classList.add('back-arrow');
     div.appendChild(icon);
 
     const text = document.createElement('span');
@@ -608,7 +616,7 @@ export class DropDown implements UI.ListControl.ListDelegate<number> {
     return false;
   }
 
-  private static instance: DropDown|null = null;
+  static instance: DropDown|null = null;
 }
 
 export class ToolbarButton extends UI.Toolbar.ToolbarItem {

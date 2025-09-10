@@ -1,6 +1,7 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/report_view/report_view.js';
 
@@ -17,81 +18,81 @@ const {html} = Lit;
 
 const UIStrings = {
   /**
-   *@description The origin of a URL (https://web.dev/same-site-same-origin/#origin).
+   * @description The origin of a URL (https://web.dev/same-site-same-origin/#origin).
    *(for a lot of languages this does not need to be translated, please translate only where necessary)
    */
   origin: 'Origin',
   /**
-   *@description Site (https://web.dev/same-site-same-origin/#site) for the URL the user sees in the omnibox.
+   * @description Site (https://web.dev/same-site-same-origin/#site) for the URL the user sees in the omnibox.
    */
   topLevelSite: 'Top-level site',
   /**
-   *@description Text to show in the top-level site row, in case the value is opaque (https://html.spec.whatwg.org/#concept-origin-opaque).
+   * @description Text to show in the top-level site row, in case the value is opaque (https://html.spec.whatwg.org/#concept-origin-opaque).
    */
   opaque: '(opaque)',
   /**
-   *@description Whether the storage corresponds to an opaque key (similar to https://html.spec.whatwg.org/#concept-origin-opaque).
+   * @description Whether the storage corresponds to an opaque key (similar to https://html.spec.whatwg.org/#concept-origin-opaque).
    */
   isOpaque: 'Is opaque',
   /**
-   *@description Whether the storage corresponds to a third-party origin (https://web.dev/learn/privacy/third-parties/).
+   * @description Whether the storage corresponds to a third-party origin (https://web.dev/learn/privacy/third-parties/).
    */
   isThirdParty: 'Is third-party',
   /**
-   *@description Text indicating that the condition holds.
+   * @description Text indicating that the condition holds.
    */
   yes: 'Yes',
   /**
-   *@description Text indicating that the condition does not hold.
+   * @description Text indicating that the condition does not hold.
    */
   no: 'No',
   /**
-   *@description Text indicating that the storage corresponds to a third-party origin because top-level site is opaque.
+   * @description Text indicating that the storage corresponds to a third-party origin because top-level site is opaque.
    */
   yesBecauseTopLevelIsOpaque: 'Yes, because the top-level site is opaque',
   /**
-   *@description Text indicating that the storage corresponds to a third-party origin because the storage key is opaque.
+   * @description Text indicating that the storage corresponds to a third-party origin because the storage key is opaque.
    */
   yesBecauseKeyIsOpaque: 'Yes, because the storage key is opaque',
   /**
-   *@description Text indicating that the storage corresponds to a third-party origin because the origin doesn't match the top-level site.
+   * @description Text indicating that the storage corresponds to a third-party origin because the origin doesn't match the top-level site.
    */
   yesBecauseOriginNotInTopLevelSite: 'Yes, because the origin is outside of the top-level site',
   /**
-   *@description Text indicating that the storage corresponds to a third-party origin because the was a third-party origin in the ancestry chain.
+   * @description Text indicating that the storage corresponds to a third-party origin because the was a third-party origin in the ancestry chain.
    */
   yesBecauseAncestorChainHasCrossSite: 'Yes, because the ancestry chain contains a third-party origin',
   /**
-   *@description Text when something is loading.
+   * @description Text when something is loading.
    */
   loading: 'Loading…',
   /**
-   *@description The storage bucket name (https://wicg.github.io/storage-buckets/explainer#bucket-names)
+   * @description The storage bucket name (https://wicg.github.io/storage-buckets/explainer#bucket-names)
    */
   bucketName: 'Bucket name',
   /**
-   *@description The name of the default bucket (https://wicg.github.io/storage-buckets/explainer#the-default-bucket)
+   * @description The name of the default bucket (https://wicg.github.io/storage-buckets/explainer#the-default-bucket)
    *(This should not be a valid bucket name (https://wicg.github.io/storage-buckets/explainer#bucket-names))
    */
   defaultBucket: 'Default bucket',
   /**
-   *@description Text indicating that the storage is persistent (https://wicg.github.io/storage-buckets/explainer#storage-policy-persistence)
+   * @description Text indicating that the storage is persistent (https://wicg.github.io/storage-buckets/explainer#storage-policy-persistence)
    */
   persistent: 'Is persistent',
   /**
-   *@description The storage durability policy (https://wicg.github.io/storage-buckets/explainer#storage-policy-durability)
+   * @description The storage durability policy (https://wicg.github.io/storage-buckets/explainer#storage-policy-durability)
    */
   durability: 'Durability',
   /**
-   *@description The storage quota (https://wicg.github.io/storage-buckets/explainer#storage-policy-quota)
+   * @description The storage quota (https://wicg.github.io/storage-buckets/explainer#storage-policy-quota)
    */
   quota: 'Quota',
   /**
-   *@description The storage expiration (https://wicg.github.io/storage-buckets/explainer#storage-policy-expiration)
+   * @description The storage expiration (https://wicg.github.io/storage-buckets/explainer#storage-policy-expiration)
    */
   expiration: 'Expiration',
   /**
-   *@description Text indicating that no value is set
+   * @description Text indicating that no value is set
    */
   none: 'None',
   /**
@@ -99,11 +100,15 @@ const UIStrings = {
    */
   deleteBucket: 'Delete bucket',
   /**
-   *@description Text shown in the confirmation dialogue that displays before deleting the bucket.
-   *@example {bucket} PH1
+   * @description Text shown in the confirmation dialogue that displays before deleting the bucket.
+   * @example {bucket} PH1
    */
   confirmBucketDeletion: 'Delete the "{PH1}" bucket?',
-};
+  /**
+   * @description Explanation text shown in the confirmation dialogue that displays before deleting the bucket.
+   */
+  bucketWillBeRemoved: 'The selected storage bucket and contained data will be removed.',
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/application/components/StorageMetadataView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -113,10 +118,6 @@ export class StorageMetadataView extends LegacyWrapper.LegacyWrapper.WrappableCo
   #storageBucketsModel?: SDK.StorageBucketsModel.StorageBucketsModel;
   #storageKey: SDK.StorageKeyManager.StorageKey|null = null;
   #storageBucket: Protocol.Storage.StorageBucketInfo|null = null;
-
-  getShadow(): ShadowRoot {
-    return this.#shadow;
-  }
 
   setStorageKey(storageKey: string): void {
     this.#storageKey = SDK.StorageKeyManager.parseStorageKey(storageKey);
@@ -236,10 +237,11 @@ export class StorageMetadataView extends LegacyWrapper.LegacyWrapper.WrappableCo
   #renderBucketControls(): Lit.TemplateResult {
     // clang-format off
     return html`
+      <devtools-report-divider></devtools-report-divider>
       <devtools-report-section>
         <devtools-button
           aria-label=${i18nString(UIStrings.deleteBucket)}
-          .variant=${Buttons.Button.Variant.PRIMARY}
+          .variant=${Buttons.Button.Variant.OUTLINED}
           @click=${this.#deleteBucket}>
           ${i18nString(UIStrings.deleteBucket)}
         </devtools-button>
@@ -252,6 +254,7 @@ export class StorageMetadataView extends LegacyWrapper.LegacyWrapper.WrappableCo
       throw new Error('Should not call #deleteBucket if #storageBucketsModel or #storageBucket is null.');
     }
     const ok = await UI.UIUtils.ConfirmDialog.show(
+        i18nString(UIStrings.bucketWillBeRemoved),
         i18nString(UIStrings.confirmBucketDeletion, {PH1: this.#storageBucket.bucket.name || ''}), this,
         {jslogContext: 'delete-bucket-confirmation'});
     if (ok) {

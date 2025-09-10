@@ -1,6 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../../ui/legacy/components/data_grid/data_grid.js';
 import '../../../../ui/components/icon_button/icon_button.js';
@@ -19,40 +20,36 @@ import * as NetworkForward from '../../../network/forward/forward.js';
 import * as PreloadingHelper from '../helper/helper.js';
 
 import * as PreloadingString from './PreloadingString.js';
-import ruleSetGridStylesRaw from './ruleSetGrid.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const ruleSetGridStyles = new CSSStyleSheet();
-ruleSetGridStyles.replaceSync(ruleSetGridStylesRaw.cssContent);
+import ruleSetGridStyles from './ruleSetGrid.css.js';
 
 const {html, Directives: {styleMap}} = Lit;
 
 const UIStrings = {
   /**
-   *@description Column header: Short URL of rule set.
+   * @description Column header: Short URL of rule set.
    */
   ruleSet: 'Rule set',
   /**
-   *@description Column header: Show how many preloads are associated if valid, error counts if invalid.
+   * @description Column header: Show how many preloads are associated if valid, error counts if invalid.
    */
   status: 'Status',
   /**
-   *@description button: Title of button to reveal the corresponding request of rule set in Elements panel
+   * @description button: Title of button to reveal the corresponding request of rule set in Elements panel
    */
   clickToOpenInElementsPanel: 'Click to open in Elements panel',
   /**
-   *@description button: Title of button to reveal the corresponding request of rule set in Network panel
+   * @description button: Title of button to reveal the corresponding request of rule set in Network panel
    */
   clickToOpenInNetworkPanel: 'Click to open in Network panel',
   /**
-   *@description Value of status, specifying rule set contains how many errors.
+   * @description Value of status, specifying rule set contains how many errors.
    */
   errors: '{errorCount, plural, =1 {# error} other {# errors}}',
   /**
-   *@description button: Title of button to reveal preloading attempts with filter by selected rule set
+   * @description button: Title of button to reveal preloading attempts with filter by selected rule set
    */
   buttonRevealPreloadsAssociatedWithRuleSet: 'Reveal speculative loads associated with this rule set',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/application/preloading/components/RuleSetGrid.ts', UIStrings);
 export const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -72,7 +69,6 @@ export class RuleSetGrid extends LegacyWrapper.LegacyWrapper.WrappableComponent<
   #data: RuleSetGridData|null = null;
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [ruleSetGridStyles];
     this.#render();
   }
 
@@ -130,6 +126,7 @@ export class RuleSetGrid extends LegacyWrapper.LegacyWrapper.WrappableComponent<
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
       Lit.render(html`
+        <style>${ruleSetGridStyles}</style>
         <div class="ruleset-container" jslog=${VisualLogging.pane('preloading-rules')}>
           <devtools-data-grid striped @select=${this.#onRowSelected}>
             <table>
@@ -142,7 +139,7 @@ export class RuleSetGrid extends LegacyWrapper.LegacyWrapper.WrappableComponent<
                 </th>
               </tr>
               ${rows.map(({ruleSet, preloadsStatusSummary}) => {
-                const location = PreloadingString.ruleSetLocationShort(ruleSet, pageURL);
+                const location = PreloadingString.ruleSetTagOrLocationShort(ruleSet, pageURL);
                 const revealInElements = ruleSet.backendNodeId !== undefined;
                 const revealInNetwork = ruleSet.url !== undefined && ruleSet.requestId;
                 return html`
@@ -166,11 +163,9 @@ export class RuleSetGrid extends LegacyWrapper.LegacyWrapper.WrappableComponent<
                                 .action(revealInElements ? 'reveal-in-elements' : 'reveal-in-network')
                                 .track({click: true})}
                           >
-                            <devtools-icon name=${revealInElements ? 'code-circle' : 'arrow-up-down-circle'}
+                            <devtools-icon name=${revealInElements ? 'code-circle' : 'arrow-up-down-circle'} class="medium"
                               style=${styleMap({
                                 color: 'var(--icon-link)',
-                                width: '16px',
-                                height: '16px',
                                 'vertical-align': 'sub',
                               })}
                             ></devtools-icon>
@@ -182,8 +177,9 @@ export class RuleSetGrid extends LegacyWrapper.LegacyWrapper.WrappableComponent<
                     ${ruleSet.errorType !== undefined ? html`
                       <span style=${styleMap({color: 'var(--sys-color-error)'})}>
                         ${i18nString(UIStrings.errors, {errorCount: 1})}
-                      </span>` : ''}
-                    ${ruleSet.errorType !== Protocol.Preload.RuleSetErrorType.SourceIsNotJsonObject ? html`
+                      </span>` : ''} ${ruleSet.errorType !== Protocol.Preload.RuleSetErrorType.SourceIsNotJsonObject &&
+                      ruleSet.errorType !== Protocol.Preload.RuleSetErrorType.InvalidRulesetLevelTag ?
+                      html`
                       <button class="link" role="link"
                         @click=${() => this.#revealAttemptViewWithFilter(ruleSet)}
                         title=${i18nString(UIStrings.buttonRevealPreloadsAssociatedWithRuleSet)}

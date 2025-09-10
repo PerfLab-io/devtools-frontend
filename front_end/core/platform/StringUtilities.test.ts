@@ -166,7 +166,7 @@ describe('StringUtilities', () => {
     });
   });
 
-  describe('isExtendedKebab', () => {
+  describe('isExtendedKebabCase', () => {
     const {isExtendedKebabCase} = Platform.StringUtilities;
 
     it('yields `true` for kebab case strings', () => {
@@ -269,9 +269,9 @@ describe('StringUtilities', () => {
       const stringA = ' '.repeat(10000);
       const stringB = stringA + ' ';
       const hashA = Platform.StringUtilities.hashCode(stringA);
-      assert.isTrue(hashA !== Platform.StringUtilities.hashCode(stringB));
+      assert.notStrictEqual(hashA, Platform.StringUtilities.hashCode(stringB));
       assert.isTrue(isFinite(hashA));
-      assert.isTrue(hashA + 1 !== hashA);
+      assert.notStrictEqual(hashA + 1, hashA);
     });
   });
 
@@ -494,6 +494,9 @@ describe('StringUtilities', () => {
       assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses('a(b)'), 0);
       assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses(')a(b)'), 0);
       assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses(')a(()bc(d(f)('), 3);
+      assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses('"(\')"'), 0);
+      assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses('("(\')"'), 1);
+      assert.strictEqual(Platform.StringUtilities.countUnmatchedLeftParentheses('abc(def"g(h)"i)jkl'), 0);
     });
   });
 
@@ -668,6 +671,59 @@ describe('StringUtilities', () => {
 
     it('should handle mixed cases', () => {
       assert.strictEqual(toKebabCase('CamelCase_with.DOTS123'), 'camel-case-with.dots-123');
+    });
+  });
+
+  describe('toKebabCaseKeys', () => {
+    const {toKebabCaseKeys} = Platform.StringUtilities;
+
+    it('converts dictionaries with numeric values', () => {
+      assert.deepEqual(
+          toKebabCaseKeys({['FOO_BAR']: 1, ['FOO_BAZ']: 2}),
+          {['foo-bar']: 1, ['foo-baz']: 2},
+      );
+    });
+
+    it('converts dictionaries with mixed values', () => {
+      assert.deepEqual(
+          toKebabCaseKeys({['FOO_BAR']: 1, ['FOO_BAZ']: 'test'}),
+          {['foo-bar']: 1, ['foo-baz']: 'test'},
+      );
+    });
+  });
+
+  describe('toSnakeCase', () => {
+    it('should convert a string to snake_case', () => {
+      const testCases = [
+        {input: 'hello world', expected: 'hello_world'},
+        {input: 'LastName', expected: 'last_name'},
+        {input: 'Already_snake_case', expected: 'already_snake_case'},
+        {input: 'singleword', expected: 'singleword'},
+        {input: 'String With Spaces', expected: 'string_with_spaces'},
+        {input: ' Multiple  Spaces ', expected: 'multiple_spaces'},
+        {input: ' Leading And Trailing Spaces ', expected: 'leading_and_trailing_spaces'},
+        {input: 'string-with-hyphens', expected: 'string_with_hyphens'},
+        {input: 'path/to/file', expected: 'path_to_file'},
+        {input: 'data.column_name', expected: 'data_column_name'},
+        {input: 'item_#id_value', expected: 'item_id_value'},
+        {input: 'text!@#$%^&*()', expected: 'text'},
+        {input: 'string 123 with numbers', expected: 'string_123_with_numbers'},
+        {input: 'ALLCAPS', expected: 'allcaps'},
+        {input: '  _--Some__Mixed-String_With_123!!_  ', expected: 'some_mixed_string_with_123'},
+        {input: '', expected: ''},
+        {input: '---', expected: ''},
+        {input: ' _ ', expected: ''},
+        {input: 'myVariableName', expected: 'my_variable_name'},
+        {input: 'aNewHope', expected: 'a_new_hope'},
+        {input: 'APIFlags', expected: 'api_flags'},
+        {input: 'HTTPRequest', expected: 'http_request'},
+        {input: 'version2Update', expected: 'version_2_update'},
+        {input: 'data-for-HTTPRequest', expected: 'data_for_http_request'},
+        {input: 'My-API-is-Awesome', expected: 'my_api_is_awesome'},
+      ];
+      testCases.forEach(({input, expected}) => {
+        assert.strictEqual(Platform.StringUtilities.toSnakeCase(input), expected, `Input: ${input}`);
+      });
     });
   });
 });

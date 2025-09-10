@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import type {Brand} from './Brand.js';
+
 export const escapeCharacters = (inputString: string, charsToEscape: string): string => {
   let foundChar = false;
   for (let i = 0; i < charsToEscape.length; ++i) {
@@ -52,7 +54,7 @@ export const formatAsJSLiteral = (content: string): string => {
   const escapePattern = (match: string, pattern: string, controlChar: string, loneSurrogate: string): string => {
     if (controlChar) {
       if (escapedReplacements.has(controlChar)) {
-        // @ts-ignore https://github.com/microsoft/TypeScript/issues/13086
+        // @ts-expect-error https://github.com/microsoft/TypeScript/issues/13086
         return escapedReplacements.get(controlChar);
       }
       const twoDigitHex = toHexadecimal(controlChar.charCodeAt(0), 2);
@@ -257,7 +259,7 @@ const EXTENDED_KEBAB_CASE_REGEXP = /^([a-z0-9]+(?:-[a-z0-9]+)*\.)*[a-z0-9]+(?:-[
  * for `'Another.AmazingLiteral'` or '`another_amazing_literal'`.
  *
  * @param inputStr the input string to test.
- * @return `true` if the `inputStr` follows the extended Kebab Case convention.
+ * @returns `true` if the `inputStr` follows the extended Kebab Case convention.
  */
 export const isExtendedKebabCase = (inputStr: string): boolean => {
   return EXTENDED_KEBAB_CASE_REGEXP.test(inputStr);
@@ -292,7 +294,7 @@ export const filterRegex = function(query: string): RegExp {
 };
 
 export const createSearchRegex = function(
-    query: string, caseSensitive: boolean, isRegex: boolean, matchWholeWord: boolean = false): RegExp {
+    query: string, caseSensitive: boolean, isRegex: boolean, matchWholeWord = false): RegExp {
   const regexFlags = caseSensitive ? 'g' : 'gi';
   let regexObject;
 
@@ -463,8 +465,12 @@ export const findUnclosedCssQuote = function(str: string): string {
 };
 
 export const countUnmatchedLeftParentheses = (str: string): number => {
+  const stringLiteralRegex = /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g;
+  // Remove all matched string literals from the original string.
+  const strWithoutStrings = str.replace(stringLiteralRegex, '');
+
   let unmatchedCount = 0;
-  for (const c of str) {
+  for (const c of strWithoutStrings) {
     if (c === '(') {
       unmatchedCount++;
     } else if (c === ')' && unmatchedCount > 0) {
@@ -487,11 +493,7 @@ export const createPlainTextSearchRegex = function(query: string, flags?: string
   return new RegExp(regex, flags || '');
 };
 
-class LowerCaseStringTag {
-  private lowerCaseStringTag: (string|undefined);
-}
-
-export type LowerCaseString = string&LowerCaseStringTag;
+export type LowerCaseString = Brand<string, 'lowerCaseStringTag'>;
 
 export const toLowerCaseString = function(input: string): LowerCaseString {
   return input.toLowerCase() as LowerCaseString;
@@ -515,19 +517,41 @@ export const toKebabCase = function(input: string): Lowercase<string> {
       Lowercase<string>;
 };
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export function toKebabCaseKeys(settingValue: {
-  [x: string]: any,
-}): {[x: string]: any} {
-  const result: {
-    [x: string]: any,
-  } = {};
-  for (const [key, value] of Object.entries(settingValue)) {
-    result[toKebabCase(key)] = value;
+export function toKebabCaseKeys<T>(settingValue: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(Object.entries(settingValue).map(([key, value]) => [toKebabCase(key), value]));
+}
+
+/**
+ * Converts a given string to snake_case.
+ * This function handles camelCase, PascalCase, and acronyms, including transitions between letters and numbers.
+ * It uses Unicode-aware regular expressions (`\p{L}`, `\p{N}`, `\p{Lu}`, `\p{Ll}` with the `u` flag)
+ * to correctly process letters and numbers from various languages.
+ *
+ * @param text The input string to convert to snake_case.
+ * @returns The snake_case version of the input string.
+ */
+export function toSnakeCase(text: string): string {
+  if (!text) {
+    return '';
   }
+  // First, handle case-based transformations to insert underscores correctly.
+  // 1. Add underscore between a letter and a number.
+  //    e.g., "version2" -> "version_2"
+  // 2. Add underscore between an uppercase letter sequence and a following uppercase+lowercase sequence.
+  //    e.g., "APIFlags" -> "API_Flags"
+  // 3. Add underscore between a lowercase/number and an uppercase letter.
+  //    e.g., "lastName" -> "last_Name", "version_2Update" -> "version_2_Update"
+  // 4. Replace sequences of non-alphanumeric with a single underscore
+  // 5. Remove any leading or trailing underscores.
+  const result = text.replace(/(\p{L})(\p{N})/gu, '$1_$2')           // 1
+                     .replace(/(\p{Lu}+)(\p{Lu}\p{Ll})/gu, '$1_$2')  // 2
+                     .replace(/(\p{Ll}|\p{N})(\p{Lu})/gu, '$1_$2')   // 3
+                     .toLowerCase()
+                     .replace(/[^\p{L}\p{N}]+/gu, '_')  // 4
+                     .replace(/^_|_$/g, '');            // 5
+
   return result;
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // Replaces the last ocurrence of parameter `search` with parameter `replacement` in `input`
 export const replaceLast = function(input: string, search: string, replacement: string): string {

@@ -23,7 +23,7 @@ const SUB_FRAME_PID_2 = 2236084;
 const SUB_FRAME_PID_3 = 2236123;
 
 async function handleEventsFromTraceFile(
-    context: Mocha.Suite|Mocha.Context|null, file: string): Promise<Trace.Handlers.Types.ParsedTrace> {
+    context: Mocha.Suite|Mocha.Context, file: string): Promise<Trace.Handlers.Types.ParsedTrace> {
   const {parsedTrace} = await TraceLoader.traceEngine(context, file);
   return parsedTrace;
 }
@@ -691,8 +691,7 @@ describeWithEnvironment('RendererHandler', function() {
 
   it('can assign origins to processes', async () => {
     const {Meta: metadata} = await handleEventsFromTraceFile(this, 'multiple-navigations-with-iframes.json.gz');
-    const processes: Map<Trace.Types.Events.ProcessID, Trace.Handlers.ModelHandlers.Renderer.RendererProcess> =
-        new Map();
+    const processes = new Map<Trace.Types.Events.ProcessID, Trace.Handlers.ModelHandlers.Renderer.RendererProcess>();
 
     Trace.Handlers.ModelHandlers.Renderer.assignOrigin(processes, metadata.rendererProcessesByFrame);
 
@@ -706,8 +705,7 @@ describeWithEnvironment('RendererHandler', function() {
 
   it('can assign main frame flags to processes', async () => {
     const {Meta: metadata} = await handleEventsFromTraceFile(this, 'multiple-navigations-with-iframes.json.gz');
-    const processes: Map<Trace.Types.Events.ProcessID, Trace.Handlers.ModelHandlers.Renderer.RendererProcess> =
-        new Map();
+    const processes = new Map<Trace.Types.Events.ProcessID, Trace.Handlers.ModelHandlers.Renderer.RendererProcess>();
 
     Trace.Handlers.ModelHandlers.Renderer.assignIsMainFrame(
         processes, metadata.mainFrameId, metadata.rendererProcessesByFrame);
@@ -723,8 +721,7 @@ describeWithEnvironment('RendererHandler', function() {
   it('can assign thread names to threads in processes', async () => {
     const {Meta: metadata} = await handleEventsFromTraceFile(this, 'multiple-navigations-with-iframes.json.gz');
     const {mainFrameId, rendererProcessesByFrame, threadsInProcess} = metadata;
-    const processes: Map<Trace.Types.Events.ProcessID, Trace.Handlers.ModelHandlers.Renderer.RendererProcess> =
-        new Map();
+    const processes = new Map<Trace.Types.Events.ProcessID, Trace.Handlers.ModelHandlers.Renderer.RendererProcess>();
 
     Trace.Handlers.ModelHandlers.Renderer.assignMeta(
         processes, mainFrameId, rendererProcessesByFrame, threadsInProcess);
@@ -806,41 +803,29 @@ describeWithEnvironment('RendererHandler', function() {
       await Trace.Handlers.ModelHandlers.Renderer.finalize();
       return Trace.Handlers.ModelHandlers.Renderer.data();
     }
-    let defaultTraceEvents: readonly Trace.Types.Events.Event[];
     const pid = Trace.Types.Events.ProcessID(28274);
     const tid = Trace.Types.Events.ThreadID(775);
-    beforeEach(async function() {
-      defaultTraceEvents = await TraceLoader.rawEvents(this, 'missing-url.json.gz');
-    });
-
-    afterEach(() => {
-      Trace.Handlers.ModelHandlers.Renderer.reset();
-      Trace.Handlers.ModelHandlers.Meta.reset();
-      Trace.Handlers.ModelHandlers.Samples.reset();
-    });
 
     it('builds a hierarchy using begin and end trace events', async () => {
       // |------------- RunTask -------------||-- RunTask --|
       //  |-- RunMicrotasks --||-- Layout --|
       //   |- FunctionCall -|
       const traceEvents = [
-        ...defaultTraceEvents, makeBeginEvent('RunTask', 0, '*', pid, tid),  // 0..10
-        makeBeginEvent('RunMicrotasks', 1, '*', pid, tid),                   // 1..4
-        makeBeginEvent('FunctionCall', 2, '*', pid, tid),                    // 2..3
-        makeEndEvent('FunctionCall', 3, '*', pid, tid),                      // 2..3
-        makeEndEvent('RunMicrotasks', 4, '*', pid, tid),                     // 1..4
-        makeBeginEvent('Layout', 5, '*', pid, tid),                          // 5..8
-        makeEndEvent('Layout', 8, '*', pid, tid),                            // 5..8
-        makeEndEvent('RunTask', 10, '*', pid, tid),                          // 0..10
-        makeBeginEvent('RunTask', 11, '*', pid, tid),                        // 11..14
-        makeEndEvent('RunTask', 14, '*', pid, tid),                          // 11..14
+        makeBeginEvent('RunTask', 0, '*', pid, tid),        // 0..10
+        makeBeginEvent('RunMicrotasks', 1, '*', pid, tid),  // 1..4
+        makeBeginEvent('FunctionCall', 2, '*', pid, tid),   // 2..3
+        makeEndEvent('FunctionCall', 3, '*', pid, tid),     // 2..3
+        makeEndEvent('RunMicrotasks', 4, '*', pid, tid),    // 1..4
+        makeBeginEvent('Layout', 5, '*', pid, tid),         // 5..8
+        makeEndEvent('Layout', 8, '*', pid, tid),           // 5..8
+        makeEndEvent('RunTask', 10, '*', pid, tid),         // 0..10
+        makeBeginEvent('RunTask', 11, '*', pid, tid),       // 11..14
+        makeEndEvent('RunTask', 14, '*', pid, tid),         // 11..14
       ];
 
-      const data = await handleEvents(traceEvents);
-
-      assert.lengthOf(data.allTraceEntries, 7);
-      assert.strictEqual(data.processes.size, 1);
-      const [process] = data.processes.values();
+      const rendererData = await handleEvents(traceEvents);
+      assert.strictEqual(rendererData.processes.size, 1);
+      const [process] = rendererData.processes.values();
       assert.strictEqual(process.threads.size, 1);
       const [thread] = process.threads.values();
       assert.strictEqual(thread.tree?.roots.size, 2);
@@ -860,26 +845,25 @@ describeWithEnvironment('RendererHandler', function() {
   -Layout [0.003ms]
 -RunTask [0.003ms]`);
     });
+
     it('builds a hierarchy using complete, begin and end trace events', async () => {
       // |------------- RunTask -------------|
       //  |-- RunMicrotasks --||-- Layout --|
       //   |- FunctionCall -|
 
       const traceEvents = [
-        ...defaultTraceEvents, makeBeginEvent('RunTask', 0, '*', pid, tid),  // 0..10
-        makeBeginEvent('RunMicrotasks', 1, '*', pid, tid),                   // 1..4
-        makeCompleteEvent('FunctionCall', 2, 1, '*', pid, tid),              // 2..3
-        makeEndEvent('RunMicrotasks', 4, '*', pid, tid),                     // 1..4
-        makeBeginEvent('Layout', 5, '*', pid, tid),                          // 5..8
-        makeEndEvent('Layout', 8, '*', pid, tid),                            // 5..8
-        makeEndEvent('RunTask', 10, '*', pid, tid),                          // 0..10
+        makeBeginEvent('RunTask', 0, '*', pid, tid),             // 0..10
+        makeBeginEvent('RunMicrotasks', 1, '*', pid, tid),       // 1..4
+        makeCompleteEvent('FunctionCall', 2, 1, '*', pid, tid),  // 2..3
+        makeEndEvent('RunMicrotasks', 4, '*', pid, tid),         // 1..4
+        makeBeginEvent('Layout', 5, '*', pid, tid),              // 5..8
+        makeEndEvent('Layout', 8, '*', pid, tid),                // 5..8
+        makeEndEvent('RunTask', 10, '*', pid, tid),              // 0..10
       ];
 
-      const data = await handleEvents(traceEvents);
-
-      assert.lengthOf(data.allTraceEntries, 6);
-      assert.strictEqual(data.processes.size, 1);
-      const [process] = data.processes.values();
+      const rendererData = await handleEvents(traceEvents);
+      assert.strictEqual(rendererData.processes.size, 1);
+      const [process] = rendererData.processes.values();
       assert.strictEqual(process.threads.size, 1);
       const [thread] = process.threads.values();
       assert.strictEqual(thread.tree?.roots.size, 1);
@@ -901,8 +885,8 @@ describeWithEnvironment('RendererHandler', function() {
 
     it('keeps a FunctionCall that has the end event missing', async () => {
       const traceEvents = [
-        ...defaultTraceEvents, makeBeginEvent('RunMicrotasks', 1, '*', pid, tid),  // 1..4
-        makeBeginEvent('FunctionCall', 2, '*', pid, tid),                          // 2..3
+        makeBeginEvent('RunMicrotasks', 1, '*', pid, tid),  // 1..4
+        makeBeginEvent('FunctionCall', 2, '*', pid, tid),   // 2..3
       ];
 
       const data = await handleEvents(traceEvents);
@@ -924,7 +908,7 @@ describeWithEnvironment('RendererHandler', function() {
       const threadId = Trace.Types.Events.ThreadID(259);
       const firstProcessId = Trace.Types.Events.ProcessID(23239);
       const thread = Renderer.processes.get(firstProcessId)?.threads.get(threadId);
-      if (!thread || !thread.tree) {
+      if (!thread?.tree) {
         throw new Error('Tree not found');
       }
       const onlyLongTasksPredicate =
@@ -1013,8 +997,10 @@ describeWithEnvironment('RendererHandler', function() {
         'paulirish.com',
         'Google Tag Manager',
         'Google Fonts',
-        'Disqus',
         'Google Analytics',
+        'Disqus',
+        // Firebase has no self time, but entity was created in NetworkHandler because transferSize
+        'Firebase',
       ]);
     });
   });

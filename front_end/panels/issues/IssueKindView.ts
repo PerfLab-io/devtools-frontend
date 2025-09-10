@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -25,7 +26,7 @@ const UIStrings = {
    * @description Menu entry for hiding all current Page Errors.
    */
   hideAllCurrentImprovements: 'Hide all current Improvements',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/issues/IssueKindView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -93,8 +94,8 @@ export class IssueKindView extends UI.TreeOutline.TreeElement {
     header.classList.add('header');
 
     const issueKindIcon = new IconButton.Icon.Icon();
-    issueKindIcon.data = IssueCounter.IssueCounter.getIssueKindIconData(this.#kind);
-    issueKindIcon.classList.add('leading-issue-icon');
+    issueKindIcon.name = IssueCounter.IssueCounter.getIssueKindIconName(this.#kind);
+    issueKindIcon.classList.add('leading-issue-icon', 'extra-large');
 
     const countAdorner = new Adorners.Adorner.Adorner();
     countAdorner.data = {

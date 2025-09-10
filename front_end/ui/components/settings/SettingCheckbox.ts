@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import './SettingDeprecationWarning.js';
 
@@ -12,20 +13,16 @@ import * as VisualLogging from '../../visual_logging/visual_logging.js';
 import * as Buttons from '../buttons/buttons.js';
 import * as Input from '../input/input.js';
 
-import settingCheckboxStylesRaw from './settingCheckbox.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const settingCheckboxStyles = new CSSStyleSheet();
-settingCheckboxStyles.replaceSync(settingCheckboxStylesRaw.cssContent);
+import settingCheckboxStyles from './settingCheckbox.css.js';
 
 const {html, Directives: {ifDefined}} = Lit;
 
 const UIStrings = {
   /**
-   *@description Text that is usually a hyperlink to more documentation
+   * @description Text that is usually a hyperlink to more documentation
    */
   learnMore: 'Learn more',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/components/settings/SettingCheckbox.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -43,10 +40,6 @@ export class SettingCheckbox extends HTMLElement {
   #setting?: Common.Settings.Setting<boolean>;
   #changeListenerDescriptor?: Common.EventTarget.EventDescriptor;
   #textOverride?: string;
-
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [Input.checkboxStyles, settingCheckboxStyles];
-  }
 
   set data(data: SettingCheckboxData) {
     if (this.#changeListenerDescriptor && this.#setting) {
@@ -73,7 +66,7 @@ export class SettingCheckbox extends HTMLElement {
     }
 
     const learnMore = this.#setting.learnMore();
-    if (learnMore && learnMore.url) {
+    if (learnMore?.url) {
       const url = learnMore.url;
       const data: Buttons.Button.ButtonData = {
         iconName: 'help',
@@ -112,6 +105,8 @@ export class SettingCheckbox extends HTMLElement {
         Lit.nothing;
     Lit.render(
         html`
+      <style>${Input.checkboxStyles}</style>
+      <style>${settingCheckboxStyles}</style>
       <p>
         <label title=${title}>
           <input

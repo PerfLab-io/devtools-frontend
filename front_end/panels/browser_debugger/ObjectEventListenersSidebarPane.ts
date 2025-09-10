@@ -1,6 +1,7 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Buttons from '../../ui/components/buttons/buttons.js';
@@ -19,8 +20,9 @@ export class ObjectEventListenersSidebarPane extends UI.ThrottledWidget.Throttle
     super();
     this.contentElement.setAttribute('jslog', `${VisualLogging.section('sources.global-listeners')}`);
 
-    this.eventListenersView = new EventListeners.EventListenersView.EventListenersView(
-        this.update.bind(this), /* enableDefaultTreeFocus */ true);
+    this.eventListenersView = new EventListeners.EventListenersView.EventListenersView();
+    this.eventListenersView.changeCallback = this.update.bind(this);
+    this.eventListenersView.enableDefaultTreeFocus = true;
     this.eventListenersView.show(this.element);
     this.setDefaultFocusedChild(this.eventListenersView);
     this.update();
@@ -38,7 +40,7 @@ export class ObjectEventListenersSidebarPane extends UI.ThrottledWidget.Throttle
       this.#lastRequestedContext = undefined;
     }
 
-    const windowObjects: Array<SDK.RemoteObject.RemoteObject> = [];
+    const windowObjects: SDK.RemoteObject.RemoteObject[] = [];
     const executionContext = UI.Context.Context.instance().flavor(SDK.RuntimeModel.ExecutionContext);
     if (executionContext) {
       this.#lastRequestedContext = executionContext;

@@ -39,7 +39,7 @@ import {Attribute, Cookie, Type} from './Cookie.js';
 
 export class CookieParser {
   readonly #domain: string|undefined;
-  #cookiesInternal: Cookie[];
+  #cookies: Cookie[];
   #input!: string|undefined;
   #originalInputLength: number;
   #lastCookie?: Cookie|null;
@@ -52,7 +52,7 @@ export class CookieParser {
       this.#domain = domain.toLowerCase().replace(/^\./, '');
     }
 
-    this.#cookiesInternal = [];
+    this.#cookies = [];
 
     this.#originalInputLength = 0;
   }
@@ -100,7 +100,7 @@ export class CookieParser {
   }
 
   cookies(): Cookie[] {
-    return this.#cookiesInternal;
+    return this.#cookies;
   }
 
   parseSetCookie(setCookieHeader: string|undefined): Cookie[]|null {
@@ -118,7 +118,7 @@ export class CookieParser {
       }
     }
     this.flushCookie();
-    return this.#cookiesInternal;
+    return this.#cookies;
   }
 
   private initialize(headerValue: string|undefined): boolean {
@@ -128,7 +128,7 @@ export class CookieParser {
       return false;
     }
 
-    this.#cookiesInternal = [];
+    this.#cookies = [];
     this.#lastCookie = null;
     this.#lastCookieLine = '';
     this.#originalInputLength = (this.#input as string).length;
@@ -162,8 +162,7 @@ export class CookieParser {
     }
 
     const result = new KeyValue(
-        keyValueMatch[1] && keyValueMatch[1].trim(), keyValueMatch[2] && keyValueMatch[2].trim(),
-        (this.#originalInputLength as number) - this.#input.length);
+        keyValueMatch[1]?.trim(), keyValueMatch[2]?.trim(), (this.#originalInputLength) - this.#input.length);
     this.#lastCookieLine += keyValueMatch[0];
     this.#input = this.#input.slice(keyValueMatch[0].length);
     return result;
@@ -196,7 +195,7 @@ export class CookieParser {
       this.#lastCookie.addAttribute(Attribute.DOMAIN, this.#domain);
     }
     this.#lastCookiePosition = keyValue.position;
-    this.#cookiesInternal.push(this.#lastCookie);
+    this.#cookies.push(this.#lastCookie);
   }
 }
 

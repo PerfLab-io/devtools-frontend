@@ -12,6 +12,7 @@ import * as ColorUtils from './ColorUtils.js';
 import * as Console from './Console.js';
 import * as Debouncer from './Debouncer.js';
 import * as EventTarget from './EventTarget.js';
+import * as Gzip from './Gzip.js';
 import * as JavaScriptMetaData from './JavaScriptMetaData.js';
 import * as Lazy from './Lazy.js';
 import * as Linkifier from './Linkifier.js';
@@ -23,6 +24,7 @@ import * as Progress from './Progress.js';
 import * as QueryParamHandler from './QueryParamHandler.js';
 import * as ResolverBase from './ResolverBase.js';
 import * as ResourceType from './ResourceType.js';
+import * as ReturnToPanel from './ReturnToPanel.js';
 import * as Revealer from './Revealer.js';
 import * as Runnable from './Runnable.js';
 import * as SegmentedRange from './SegmentedRange.js';
@@ -52,6 +54,7 @@ export {
   Console,
   Debouncer,
   EventTarget,
+  Gzip,
   JavaScriptMetaData,
   Lazy,
   Linkifier,
@@ -63,6 +66,7 @@ export {
   QueryParamHandler,
   ResolverBase,
   ResourceType,
+  ReturnToPanel,
   Revealer,
   Runnable,
   SegmentedRange,

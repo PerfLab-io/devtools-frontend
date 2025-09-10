@@ -26,12 +26,17 @@ async function renderRuleSetDetailsView(
 }
 
 describeWithEnvironment('RuleSetDetailsView', () => {
-  it('renders nothing if not selected', async () => {
+  it('renders placeholder if not selected', async () => {
     const data = null;
 
     const component = await renderRuleSetDetailsView(data, false);
     assert.isNotNull(component.shadowRoot);
-    assert.strictEqual(component.shadowRoot.textContent, '');
+    assert.exists(component.shadowRoot.querySelector('.empty-state'));
+
+    const header = component.shadowRoot.querySelector('.empty-state-header')?.textContent;
+    const description = component.shadowRoot.querySelector('.empty-state-description')?.textContent;
+    assert.deepEqual(header, 'No element selected');
+    assert.deepEqual(description, 'Select an element for more details');
   });
 
   it('renders rule set', async () => {
@@ -72,7 +77,7 @@ describeWithEnvironment('RuleSetDetailsView', () => {
 }
 `,
       url: 'https://example.com/speculationrules.json',
-      requestId: 'reqeustId' as Protocol.Network.RequestId,
+      requestId: 'requestId' as Protocol.Network.RequestId,
     };
     const component = await renderRuleSetDetailsView(data, false);
     assert.isUndefined(component.shadowRoot?.getElementById('error-message-text')?.textContent);
@@ -97,6 +102,33 @@ describeWithEnvironment('RuleSetDetailsView', () => {
     const component = await renderRuleSetDetailsView(data, false);
     assert.deepEqual(
         component.shadowRoot?.getElementById('error-message-text')?.textContent, 'Line: 6, column: 1, Syntax error.');
+    const textEditor = component.shadowRoot?.querySelector('devtools-text-editor') as TextEditor.TextEditor.TextEditor;
+    assert.strictEqual(textEditor.state.doc.toString(), data.sourceText);
+  });
+
+  it('renders invalid rule set, invalid top-level key', async () => {
+    const data: Protocol.Preload.RuleSet = {
+      id: 'ruleSetId:1' as Protocol.Preload.RuleSetId,
+      loaderId: 'loaderId:1' as Protocol.Network.LoaderId,
+      sourceText: `
+{
+  "prefetch": [
+    {
+      "source": "list",
+      "urls": ["/subresource.js"]
+    }
+  ],
+  "tag": "マイルール"
+}
+`,
+      backendNodeId: 1 as Protocol.DOM.BackendNodeId,
+      errorType: Protocol.Preload.RuleSetErrorType.InvalidRulesetLevelTag,
+      errorMessage: 'Tag value is invalid: must be ASCII printable.',
+    };
+    const component = await renderRuleSetDetailsView(data, false);
+    assert.deepEqual(
+        component.shadowRoot?.getElementById('error-message-text')?.textContent,
+        'Tag value is invalid: must be ASCII printable.');
     const textEditor = component.shadowRoot?.querySelector('devtools-text-editor') as TextEditor.TextEditor.TextEditor;
     assert.strictEqual(textEditor.state.doc.toString(), data.sourceText);
   });

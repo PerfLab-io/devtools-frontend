@@ -1,11 +1,13 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
+
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
+import * as Geometry from '../../models/geometry/geometry.js';
 import * as Trace from '../../models/trace/trace.js';
 import * as ComponentHelpers from '../../ui/components/helpers/helpers.js';
-import * as UI from '../../ui/legacy/legacy.js';
 import * as ThemeSupport from '../../ui/legacy/theme_support/theme_support.js';
 
 import {buildGroupStyle, buildTrackHeader} from './AppenderUtils.js';
@@ -21,18 +23,18 @@ import * as Utils from './utils/utils.js';
 
 const UIStrings = {
   /**
-   *@description Text in Timeline Flame Chart Data Provider of the Performance panel
+   * @description Text in Timeline Flame Chart Data Provider of the Performance panel
    */
   layoutShifts: 'Layout shifts',
   /**
-   *@description Text in Timeline Flame Chart Data Provider of the Performance panel
+   * @description Text in Timeline Flame Chart Data Provider of the Performance panel
    */
   layoutShiftCluster: 'Layout shift cluster',
   /**
-   *@description Text in Timeline Flame Chart Data Provider of the Performance panel
+   * @description Text in Timeline Flame Chart Data Provider of the Performance panel
    */
   layoutShift: 'Layout shift',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/LayoutShiftsTrackAppender.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -61,7 +63,7 @@ export class LayoutShiftsTrackAppender implements TrackAppender {
    * layout shifts track.
    * @param trackStartLevel the horizontal level of the flame chart events where
    * the track's events will start being appended.
-   * @param expanded wether the track should be rendered expanded.
+   * @param expanded whether the track should be rendered expanded.
    * @returns the first available level to append more data after having
    * appended the track's events.
    */
@@ -142,7 +144,7 @@ export class LayoutShiftsTrackAppender implements TrackAppender {
     if (Trace.Types.Events.isSyntheticLayoutShift(event)) {
       // Screenshots are max 500x500 naturally, but on a laptop in dock-to-right, 500px tall usually doesn't fit.
       // In the future, we may investigate a way to dynamically scale this tooltip content per available space.
-      const maxSize = new UI.Geometry.Size(510, 400);
+      const maxSize = new Geometry.Size(510, 400);
       const vizElem = LayoutShiftsTrackAppender.createShiftViz(event, this.#parsedTrace, maxSize);
       if (vizElem) {
         info.additionalElements.push(vizElem);
@@ -199,9 +201,8 @@ export class LayoutShiftsTrackAppender implements TrackAppender {
     return;
   }
 
-  preloadScreenshots(events: Trace.Types.Events.SyntheticLayoutShift[]): Promise<(void|undefined)[]> {
-    const screenshotsToLoad: Set<Trace.Types.Events.LegacySyntheticScreenshot|Trace.Types.Events.Screenshot> =
-        new Set();
+  preloadScreenshots(events: Trace.Types.Events.SyntheticLayoutShift[]): Promise<Array<void|undefined>> {
+    const screenshotsToLoad = new Set<Trace.Types.Events.LegacySyntheticScreenshot|Trace.Types.Events.Screenshot>();
     for (const event of events) {
       const shots = event.parsedData.screenshots;
       shots.before && screenshotsToLoad.add(shots.before);
@@ -226,7 +227,7 @@ export class LayoutShiftsTrackAppender implements TrackAppender {
 
   static createShiftViz(
       event: Trace.Types.Events.SyntheticLayoutShift, parsedTrace: Trace.Handlers.Types.ParsedTrace,
-      maxSize: UI.Geometry.Size): HTMLElement|undefined {
+      maxSize: Geometry.Size): HTMLElement|undefined {
     const screenshots = event.parsedData.screenshots;
     const {viewportRect, devicePixelRatio: dpr} = parsedTrace.Meta;
     const vizContainer = document.createElement('div');
@@ -239,7 +240,8 @@ export class LayoutShiftsTrackAppender implements TrackAppender {
       return;
     }
 
-    /** 1 of 3 scaling factors.
+    /**
+     * 1 of 3 scaling factors.
      * The Layout Instability API in Blink, which reports the LayoutShift trace events, is not based on CSS pixels but
      * physical pixels. As such the values in the impacted_nodes field need to be normalized to CSS units in order to
      * map them to the viewport dimensions, which we get in CSS pixels. We do that by dividing the values by the devicePixelRatio.

@@ -9,6 +9,8 @@ import type * as Platform from '../../core/platform/platform.js';
 import {assertNotNullOrUndefined} from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Protocol from '../../generated/protocol.js';
+import * as StackTrace from '../stack_trace/stack_trace.js';
+import type * as StackTraceImpl from '../stack_trace/stack_trace_impl.js';
 import * as TextUtils from '../text_utils/text_utils.js';
 import * as Workspace from '../workspace/workspace.js';
 
@@ -18,55 +20,55 @@ import {NetworkProject} from './NetworkProject.js';
 
 const UIStrings = {
   /**
-   *@description Error message that is displayed in the Console when language #plugins report errors
-   *@example {File not found} PH1
+   * @description Error message that is displayed in the Console when language #plugins report errors
+   * @example {File not found} PH1
    */
   errorInDebuggerLanguagePlugin: 'Error in debugger language plugin: {PH1}',
   /**
-   *@description Status message that is shown in the Console when debugging information is being
+   * @description Status message that is shown in the Console when debugging information is being
    *loaded. The 2nd and 3rd placeholders are URLs.
-   *@example {C/C++ DevTools Support (DWARF)} PH1
-   *@example {http://web.dev/file.wasm} PH2
-   *@example {http://web.dev/file.wasm.debug.wasm} PH3
+   * @example {C/C++ DevTools Support (DWARF)} PH1
+   * @example {http://web.dev/file.wasm} PH2
+   * @example {http://web.dev/file.wasm.debug.wasm} PH3
    */
-  loadingDebugSymbolsForVia: '[{PH1}] Loading debug symbols for {PH2} (via {PH3})...',
+  loadingDebugSymbolsForVia: '[{PH1}] Loading debug symbols for {PH2} (via {PH3})…',
   /**
-   *@description Status message that is shown in the Console when debugging information is being loaded
-   *@example {C/C++ DevTools Support (DWARF)} PH1
-   *@example {http://web.dev/file.wasm} PH2
+   * @description Status message that is shown in the Console when debugging information is being loaded
+   * @example {C/C++ DevTools Support (DWARF)} PH1
+   * @example {http://web.dev/file.wasm} PH2
    */
-  loadingDebugSymbolsFor: '[{PH1}] Loading debug symbols for {PH2}...',
+  loadingDebugSymbolsFor: '[{PH1}] Loading debug symbols for {PH2}…',
   /**
-   *@description Warning message that is displayed in the Console when debugging information was loaded, but no source files were found
-   *@example {C/C++ DevTools Support (DWARF)} PH1
-   *@example {http://web.dev/file.wasm} PH2
+   * @description Warning message that is displayed in the Console when debugging information was loaded, but no source files were found
+   * @example {C/C++ DevTools Support (DWARF)} PH1
+   * @example {http://web.dev/file.wasm} PH2
    */
   loadedDebugSymbolsForButDidnt: '[{PH1}] Loaded debug symbols for {PH2}, but didn\'t find any source files',
   /**
-   *@description Status message that is shown in the Console when debugging information is successfully loaded
-   *@example {C/C++ DevTools Support (DWARF)} PH1
-   *@example {http://web.dev/file.wasm} PH2
-   *@example {42} PH3
+   * @description Status message that is shown in the Console when debugging information is successfully loaded
+   * @example {C/C++ DevTools Support (DWARF)} PH1
+   * @example {http://web.dev/file.wasm} PH2
+   * @example {42} PH3
    */
   loadedDebugSymbolsForFound: '[{PH1}] Loaded debug symbols for {PH2}, found {PH3} source file(s)',
   /**
-   *@description Error message that is displayed in the Console when debugging information cannot be loaded
-   *@example {C/C++ DevTools Support (DWARF)} PH1
-   *@example {http://web.dev/file.wasm} PH2
-   *@example {File not found} PH3
+   * @description Error message that is displayed in the Console when debugging information cannot be loaded
+   * @example {C/C++ DevTools Support (DWARF)} PH1
+   * @example {http://web.dev/file.wasm} PH2
+   * @example {File not found} PH3
    */
   failedToLoadDebugSymbolsFor: '[{PH1}] Failed to load debug symbols for {PH2} ({PH3})',
   /**
-   *@description Error message that is displayed in UI debugging information cannot be found for a call frame
-   *@example {main} PH1
+   * @description Error message that is displayed in UI debugging information cannot be found for a call frame
+   * @example {main} PH1
    */
   failedToLoadDebugSymbolsForFunction: 'No debug information for function "{PH1}"',
   /**
-   *@description Error message that is displayed in UI when a file needed for debugging information for a call frame is missing
-   *@example {mainp.debug.wasm.dwp} PH1
+   * @description Error message that is displayed in UI when a file needed for debugging information for a call frame is missing
+   * @example {mainp.debug.wasm.dwp} PH1
    */
   debugSymbolsIncomplete: 'The debug information for function {PH1} is incomplete',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('models/bindings/DebuggerLanguagePlugins.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -114,10 +116,6 @@ class FormattingError extends Error {
 }
 
 class NamespaceObject extends SDK.RemoteObject.LocalJSONObject {
-  constructor(value: typeof SDK.RemoteObject.LocalJSONObject.prototype.value) {
-    super(value);
-  }
-
   override get description(): string {
     return this.type;
   }
@@ -171,16 +169,14 @@ class SourceScopeRemoteObject extends SDK.RemoteObject.RemoteObjectImpl {
     this.stopId = stopId;
   }
 
-  override async doGetProperties(ownProperties: boolean, accessorPropertiesOnly: boolean, _generatePreview: boolean):
+  override async doGetProperties(_ownProperties: boolean, accessorPropertiesOnly: boolean, _generatePreview: boolean):
       Promise<SDK.RemoteObject.GetPropertiesResult> {
     if (accessorPropertiesOnly) {
       return {properties: [], internalProperties: []} as SDK.RemoteObject.GetPropertiesResult;
     }
 
     const properties = [];
-    const namespaces: {
-      [x: string]: SDK.RemoteObject.RemoteObject,
-    } = {};
+    const namespaces: Record<string, SDK.RemoteObject.RemoteObject> = {};
 
     function makeProperty(name: string, obj: SDK.RemoteObject.RemoteObject): SDK.RemoteObject.RemoteObjectProperty {
       return new SDK.RemoteObject.RemoteObjectProperty(
@@ -199,9 +195,7 @@ class SourceScopeRemoteObject extends SDK.RemoteObject.RemoteObjectImpl {
         sourceVar = new SDK.RemoteObject.LocalJSONObject(undefined);
       }
       if (variable.nestedName && variable.nestedName.length > 1) {
-        let parent: {
-          [x: string]: SDK.RemoteObject.RemoteObject,
-        } = namespaces;
+        let parent: Record<string, SDK.RemoteObject.RemoteObject> = namespaces;
         for (let index = 0; index < variable.nestedName.length - 1; index++) {
           const nestedName = variable.nestedName[index];
           let child: NamespaceObject|SDK.RemoteObject.RemoteObject = parent[nestedName];
@@ -219,7 +213,7 @@ class SourceScopeRemoteObject extends SDK.RemoteObject.RemoteObjectImpl {
     }
 
     for (const namespace in namespaces) {
-      properties.push(makeProperty(namespace, (namespaces[namespace] as SDK.RemoteObject.RemoteObject)));
+      properties.push(makeProperty(namespace, (namespaces[namespace])));
     }
 
     return {properties, internalProperties: []};
@@ -227,30 +221,30 @@ class SourceScopeRemoteObject extends SDK.RemoteObject.RemoteObjectImpl {
 }
 
 export class SourceScope implements SDK.DebuggerModel.ScopeChainEntry {
-  readonly #callFrameInternal: SDK.DebuggerModel.CallFrame;
-  readonly #typeInternal: string;
-  readonly #typeNameInternal: string;
-  readonly #iconInternal: string|undefined;
-  readonly #objectInternal: SourceScopeRemoteObject;
+  readonly #callFrame: SDK.DebuggerModel.CallFrame;
+  readonly #type: string;
+  readonly #typeName: string;
+  readonly #icon: string|undefined;
+  readonly #object: SourceScopeRemoteObject;
   constructor(
       callFrame: SDK.DebuggerModel.CallFrame, stopId: StopId, type: string, typeName: string, icon: string|undefined,
       plugin: DebuggerLanguagePlugin) {
     if (icon && new URL(icon).protocol !== 'data:') {
       throw new Error('The icon must be a data:-URL');
     }
-    this.#callFrameInternal = callFrame;
-    this.#typeInternal = type;
-    this.#typeNameInternal = typeName;
-    this.#iconInternal = icon;
-    this.#objectInternal = new SourceScopeRemoteObject(callFrame, stopId, plugin);
+    this.#callFrame = callFrame;
+    this.#type = type;
+    this.#typeName = typeName;
+    this.#icon = icon;
+    this.#object = new SourceScopeRemoteObject(callFrame, stopId, plugin);
   }
 
   async getVariableValue(name: string): Promise<SDK.RemoteObject.RemoteObject|null> {
-    for (let v = 0; v < this.#objectInternal.variables.length; ++v) {
-      if (this.#objectInternal.variables[v].name !== name) {
+    for (let v = 0; v < this.#object.variables.length; ++v) {
+      if (this.#object.variables[v].name !== name) {
         continue;
       }
-      const properties = await this.#objectInternal.getAllProperties(false, false);
+      const properties = await this.#object.getAllProperties(false, false);
       if (!properties.properties) {
         continue;
       }
@@ -263,15 +257,15 @@ export class SourceScope implements SDK.DebuggerModel.ScopeChainEntry {
   }
 
   callFrame(): SDK.DebuggerModel.CallFrame {
-    return this.#callFrameInternal;
+    return this.#callFrame;
   }
 
   type(): string {
-    return this.#typeInternal;
+    return this.#type;
   }
 
   typeName(): string {
-    return this.#typeNameInternal;
+    return this.#typeName;
   }
 
   name(): string|undefined {
@@ -283,7 +277,7 @@ export class SourceScope implements SDK.DebuggerModel.ScopeChainEntry {
   }
 
   object(): SourceScopeRemoteObject {
-    return this.#objectInternal;
+    return this.#object;
   }
 
   description(): string {
@@ -291,7 +285,7 @@ export class SourceScope implements SDK.DebuggerModel.ScopeChainEntry {
   }
 
   icon(): string|undefined {
-    return this.#iconInternal;
+    return this.#icon;
   }
 
   extraProperties(): SDK.RemoteObject.RemoteObjectProperty[] {
@@ -350,7 +344,7 @@ export class ExtensionRemoteObject extends SDK.RemoteObject.RemoteObject {
     return this.extensionObject.description;
   }
 
-  override set description(description: string|undefined) {
+  override set description(_description: string|undefined) {
   }
 
   override get hasChildren(): boolean {
@@ -425,12 +419,12 @@ export class DebuggerLanguagePluginManager implements
   readonly #rawModuleHandles: Map<string, {
     rawModuleId: string,
     plugin: DebuggerLanguagePlugin,
-    scripts: Array<SDK.Script.Script>,
+    scripts: SDK.Script.Script[],
     addRawModulePromise:
-        Promise<Array<Platform.DevToolsPath.UrlString>|{missingSymbolFiles: SDK.DebuggerModel.MissingDebugFiles[]}>,
+        Promise<Platform.DevToolsPath.UrlString[]|{missingSymbolFiles: SDK.DebuggerModel.MissingDebugFiles[]}>,
   }>;
-  private readonly callFrameByStopId: Map<StopId, SDK.DebuggerModel.CallFrame> = new Map();
-  private readonly stopIdByCallFrame: Map<SDK.DebuggerModel.CallFrame, StopId> = new Map();
+  private readonly callFrameByStopId = new Map<StopId, SDK.DebuggerModel.CallFrame>();
+  private readonly stopIdByCallFrame = new Map<SDK.DebuggerModel.CallFrame, StopId>();
   private nextStopId: StopId = 0n;
 
   constructor(
@@ -608,7 +602,7 @@ export class DebuggerLanguagePluginManager implements
   hasPluginForScript(script: SDK.Script.Script): boolean {
     const rawModuleId = rawModuleIdForScript(script);
     const rawModuleHandle = this.#rawModuleHandles.get(rawModuleId);
-    return rawModuleHandle !== undefined && rawModuleHandle.scripts.includes(script);
+    return rawModuleHandle?.scripts.includes(script) ?? false;
   }
 
   /**
@@ -683,14 +677,14 @@ export class DebuggerLanguagePluginManager implements
 
   uiLocationToRawLocationRanges(
       uiSourceCode: Workspace.UISourceCode.UISourceCode, lineNumber: number,
-      columnNumber: number|undefined = -1): Promise<{
+      columnNumber: number|undefined = -1): Promise<Array<{
     start: SDK.DebuggerModel.Location,
     end: SDK.DebuggerModel.Location,
-  }[]|null> {
-    const locationPromises: Promise<{
+  }>|null> {
+    const locationPromises: Array<Promise<Array<{
       start: SDK.DebuggerModel.Location,
       end: SDK.DebuggerModel.Location,
-    }[]>[] = [];
+    }>>> = [];
     this.scriptsForUISourceCode(uiSourceCode).forEach(script => {
       const rawModuleId = rawModuleIdForScript(script);
       const rawModuleHandle = this.#rawModuleHandles.get(rawModuleId);
@@ -711,10 +705,10 @@ export class DebuggerLanguagePluginManager implements
     });
 
     async function getLocations(
-        rawModuleId: string, plugin: DebuggerLanguagePlugin, script: SDK.Script.Script): Promise<{
+        rawModuleId: string, plugin: DebuggerLanguagePlugin, script: SDK.Script.Script): Promise<Array<{
       start: SDK.DebuggerModel.Location,
       end: SDK.DebuggerModel.Location,
-    }[]> {
+    }>> {
       const pluginLocation = {rawModuleId, sourceFileURL: uiSourceCode.url(), lineNumber, columnNumber};
 
       const rawLocations = await plugin.sourceLocationToRawLocation(pluginLocation);
@@ -774,6 +768,71 @@ export class DebuggerLanguagePluginManager implements
     return ranges;
   }
 
+  async translateRawFramesStep(
+      rawFrames: StackTraceImpl.Trie.RawFrame[],
+      translatedFrames: Awaited<ReturnType<StackTraceImpl.StackTraceModel.TranslateRawFrames>>,
+      target: SDK.Target.Target): Promise<boolean> {
+    const frame = rawFrames[0];
+    const script = target.model(SDK.DebuggerModel.DebuggerModel)?.scriptForId(frame.scriptId ?? '');
+    if (!script) {
+      return false;
+    }
+
+    const functionInfo = await this.getFunctionInfo(script, frame);
+    if (!functionInfo) {
+      return false;
+    }
+
+    // The plugin is responsible for translating this frame. The only question is whether it was successful,
+    // or if we identity map the raw frame and attach the "missing debug info details".
+    rawFrames.shift();
+
+    if ('frames' in functionInfo && functionInfo.frames.length) {
+      const framePromises = functionInfo.frames.map(async ({name}, index) => {
+        const rawLocation = new SDK.DebuggerModel.Location(
+            script.debuggerModel, script.scriptId, frame.lineNumber, frame.columnNumber, index);
+        const uiLocation = await this.rawLocationToUILocation(rawLocation);
+        return {
+          uiSourceCode: uiLocation?.uiSourceCode,
+          url: uiLocation ? undefined : frame.url,
+          name,
+          line: uiLocation?.lineNumber ?? frame.lineNumber,
+          column: uiLocation?.columnNumber ?? frame.columnNumber,
+        };
+      });
+
+      translatedFrames.push(await Promise.all(framePromises));
+      return true;
+    }
+
+    // Identity map the frame, then add the missing debug info details.
+    const mappedFrame: (typeof translatedFrames)[number][number] = {
+      url: frame.url,
+      name: frame.functionName,
+      line: frame.lineNumber,
+      column: frame.columnNumber,
+    };
+
+    if ('missingSymbolFiles' in functionInfo && functionInfo.missingSymbolFiles.length) {
+      translatedFrames.push([{
+        ...mappedFrame,
+        missingDebugInfo: {
+          type: StackTrace.StackTrace.MissingDebugInfoType.PARTIAL_INFO,
+          missingDebugFiles: functionInfo.missingSymbolFiles,
+        },
+      }]);
+    } else {
+      translatedFrames.push([{
+        ...mappedFrame,
+        missingDebugInfo: {
+          type: StackTrace.StackTrace.MissingDebugInfoType.NO_INFO,
+        },
+      }]);
+    }
+
+    return true;
+  }
+
   scriptsForUISourceCode(uiSourceCode: Workspace.UISourceCode.UISourceCode): SDK.Script.Script[] {
     for (const modelData of this.#debuggerModelToData.values()) {
       const scripts = modelData.uiSourceCodeToScripts.get(uiSourceCode);
@@ -809,7 +868,7 @@ export class DebuggerLanguagePluginManager implements
         const sourceFileURLsPromise = (async () => {
           const console = Common.Console.Console.instance();
           const url = script.sourceURL;
-          const symbolsUrl = (script.debugSymbols && script.debugSymbols.externalURL) || '';
+          const symbolsUrl = (script.debugSymbols?.externalURL) || '';
           if (symbolsUrl) {
             console.log(i18nString(UIStrings.loadingDebugSymbolsForVia, {PH1: plugin.name, PH2: url, PH3: symbolsUrl}));
           } else {
@@ -888,8 +947,7 @@ export class DebuggerLanguagePluginManager implements
   }
 
   getSourcesForScript(script: SDK.Script.Script):
-      Promise<Array<Platform.DevToolsPath.UrlString>|{missingSymbolFiles: SDK.DebuggerModel.MissingDebugFiles[]}|
-              undefined> {
+      Promise<Platform.DevToolsPath.UrlString[]|{missingSymbolFiles: SDK.DebuggerModel.MissingDebugFiles[]}|undefined> {
     const rawModuleId = rawModuleIdForScript(script);
     const rawModuleHandle = this.#rawModuleHandles.get(rawModuleId);
     if (rawModuleHandle) {
@@ -937,9 +995,9 @@ export class DebuggerLanguagePluginManager implements
     }
   }
 
-  async getFunctionInfo(script: SDK.Script.Script, location: SDK.DebuggerModel.Location):
-      Promise<{frames: Array<Chrome.DevTools.FunctionInfo>, missingSymbolFiles: SDK.DebuggerModel.MissingDebugFiles[]}|
-              {frames: Array<Chrome.DevTools.FunctionInfo>}|{missingSymbolFiles: SDK.DebuggerModel.MissingDebugFiles[]}|
+  async getFunctionInfo(script: SDK.Script.Script, location: Pick<SDK.DebuggerModel.Location, 'columnNumber'>):
+      Promise<{frames: Chrome.DevTools.FunctionInfo[], missingSymbolFiles: SDK.DebuggerModel.MissingDebugFiles[]}|
+              {frames: Chrome.DevTools.FunctionInfo[]}|{missingSymbolFiles: SDK.DebuggerModel.MissingDebugFiles[]}|
               null> {
     const {rawModuleId, plugin} = await this.rawModuleIdAndPluginForScript(script);
     if (!plugin) {
@@ -969,10 +1027,10 @@ export class DebuggerLanguagePluginManager implements
     }
   }
 
-  async getInlinedFunctionRanges(rawLocation: SDK.DebuggerModel.Location): Promise<{
+  async getInlinedFunctionRanges(rawLocation: SDK.DebuggerModel.Location): Promise<Array<{
     start: SDK.DebuggerModel.Location,
     end: SDK.DebuggerModel.Location,
-  }[]> {
+  }>> {
     const script = rawLocation.script();
     if (!script) {
       return [];
@@ -991,7 +1049,7 @@ export class DebuggerLanguagePluginManager implements
 
     try {
       // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
-      // @ts-ignore
+      // @ts-expect-error
       const locations = await plugin.getInlinedFunctionRanges(pluginLocation);
       return locations.map(
           m => ({
@@ -1006,10 +1064,10 @@ export class DebuggerLanguagePluginManager implements
     }
   }
 
-  async getInlinedCalleesRanges(rawLocation: SDK.DebuggerModel.Location): Promise<{
+  async getInlinedCalleesRanges(rawLocation: SDK.DebuggerModel.Location): Promise<Array<{
     start: SDK.DebuggerModel.Location,
     end: SDK.DebuggerModel.Location,
-  }[]> {
+  }>> {
     const script = rawLocation.script();
     if (!script) {
       return [];
@@ -1028,7 +1086,7 @@ export class DebuggerLanguagePluginManager implements
 
     try {
       // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration)
-      // @ts-ignore
+      // @ts-expect-error
       const locations = await plugin.getInlinedCalleesRanges(pluginLocation);
       return locations.map(
           m => ({

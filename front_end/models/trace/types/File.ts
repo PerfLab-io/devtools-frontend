@@ -172,6 +172,28 @@ export interface Modifications {
   annotations: SerializedAnnotations;
 }
 
+// IMPORTANT: this is the same as PerfUI.FlameChart.PersistedGroupConfig
+// However, the PerfUI code should not depend on the model/trace, and similarly
+// this model cannot depend on that code, so we duplicate it.
+export interface TrackVisualConfig {
+  hidden: boolean;
+  expanded: boolean;
+  originalIndex: number;
+  visualIndex: number;
+  trackName: string;
+}
+
+/**
+ * Stores the visual config if the user has modified it. Split into "main" and
+ * "network" so we can pass the relevant config into the right data provider.
+ * NOTE: as of August 2025 (M141) we currently do not export this in new
+ * traces, or use it if an existing trace is imported with it.
+ */
+export interface PersistedTraceVisualConfig {
+  main: TrackVisualConfig[]|null;
+  network: TrackVisualConfig[]|null;
+}
+
 /**
  * Trace metadata that we persist to the file. This will allow us to
  * store specifics for the trace, e.g., which tracks should be visible
@@ -187,11 +209,21 @@ export interface MetaData {
   networkThrottlingConditions?: Omit<SDK.NetworkManager.Conditions, 'title'>;
   // Only set if CPU throttling is active.
   cpuThrottling?: number;
-  hardwareConcurrency?: number;
   dataOrigin?: DataOrigin;
   enhancedTraceVersion?: number;
   modifications?: Modifications;
   cruxFieldData?: CrUXManager.PageResult[];
+  /** Currently only stores JS maps, not CSS. This never stores data url source maps. */
+  sourceMaps?: MetadataSourceMap[];
+  visualTrackConfig?: PersistedTraceVisualConfig;
+  hostDPR?: number;
+}
+
+export interface MetadataSourceMap {
+  url: string;
+  /** If not defined, then this was a data url. */
+  sourceMapUrl?: string;
+  sourceMap: SDK.SourceMap.SourceMapV3;
 }
 
 export type Contents = TraceFile|Event[];

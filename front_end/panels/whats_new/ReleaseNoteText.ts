@@ -14,8 +14,8 @@ let registeredLinks = false;
 export interface ReleaseNote {
   version: number;
   header: string;
-  markdownLinks: {key: string, link: string}[];
-  videoLinks: {description: string, link: Platform.DevToolsPath.UrlString, type?: VideoType}[];
+  markdownLinks: Array<{key: string, link: string}>;
+  videoLinks: Array<{description: string, link: Platform.DevToolsPath.UrlString, type?: VideoType}>;
   link: string;
 }
 
@@ -40,28 +40,28 @@ export function getReleaseNote(): ReleaseNote {
 }
 
 let releaseNote: ReleaseNote = {
-  version: 74,
-  header: 'What\'s new in DevTools 133',
+  version: 82,
+  header: 'What\'s new in DevTools 141',
   markdownLinks: [
     {
-      key: 'persistent-chat-history',
-      link: 'https://developer.chrome.com/blog/new-in-devtools-133/#persistent-chat-history',
+      key: 'ai-insight',
+      link: 'https://developer.chrome.com/blog/new-in-devtools-141/#ai-insight',
     },
     {
-      key: 'perf-nav',
-      link: 'https://developer.chrome.com/blog/new-in-devtools-133/#perf-nav',
+      key: 'ai-chat-export',
+      link: 'https://developer.chrome.com/blog/new-in-devtools-141/#ai-chat-export',
     },
     {
-      key: 'perf-image-delivery',
-      link: 'https://developer.chrome.com/blog/new-in-devtools-133/#perf-image-delivery',
+      key: 'ipp',
+      link: 'https://developer.chrome.com/blog/new-in-devtools-141/#ipp',
     },
   ],
   videoLinks: [
     {
-      description: 'Highlights of updates from Chrome 130-132',
-      link: 'https://www.youtube.com/watch?v=kzDUe-f4gac' as Platform.DevToolsPath.UrlString,
+      description: 'See past highlights from Chrome 140',
+      link: 'https://developer.chrome.com/blog/new-in-devtools-140' as Platform.DevToolsPath.UrlString,
       type: VideoType.WHATS_NEW,
     },
   ],
-  link: 'https://developer.chrome.com/blog/new-in-devtools-133/',
+  link: 'https://developer.chrome.com/blog/new-in-devtools-141/',
 };

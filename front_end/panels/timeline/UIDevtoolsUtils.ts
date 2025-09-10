@@ -35,72 +35,70 @@ import * as Utils from './utils/utils.js';
 
 const UIStrings = {
   /**
-   *@description Text in Timeline UIUtils of the Performance panel
+   * @description Text in Timeline UIUtils of the Performance panel
    */
   frameStart: 'Frame start',
   /**
-   *@description Text in Timeline UIUtils of the Performance panel
+   * @description Text in Timeline UIUtils of the Performance panel
    */
   drawFrame: 'Draw frame',
   /**
-   *@description Text in Timeline UIUtils of the Performance panel
+   * @description Text in Timeline UIUtils of the Performance panel
    */
   layout: 'Layout',
   /**
-   *@description Text in UIDevtools Utils of the Performance panel
+   * @description Text in UIDevtools Utils of the Performance panel
    */
   rasterizing: 'Rasterizing',
   /**
-   *@description Text in UIDevtools Utils of the Performance panel
+   * @description Text in UIDevtools Utils of the Performance panel
    */
   drawing: 'Drawing',
   /**
-   *@description Text in Timeline UIUtils of the Performance panel
+   * @description Text in Timeline UIUtils of the Performance panel
    */
   painting: 'Painting',
   /**
-   *@description Text in Timeline UIUtils of the Performance panel
+   * @description Text in Timeline UIUtils of the Performance panel
    */
   system: 'System',
   /**
-   *@description Text in Timeline UIUtils of the Performance panel
+   * @description Text in Timeline UIUtils of the Performance panel
    */
   idle: 'Idle',
   /**
-   *@description Category in the Summary view of the Performance panel to indicate time spent to load resources
+   * @description Category in the Summary view of the Performance panel to indicate time spent to load resources
    */
   loading: 'Loading',
   /**
-   *@description Text in Timeline for the Experience title
+   * @description Text in Timeline for the Experience title
    */
   experience: 'Experience',
   /**
-   *@description Category in the Summary view of the Performance panel to indicate time spent in script execution
+   * @description Category in the Summary view of the Performance panel to indicate time spent in script execution
    */
   scripting: 'Scripting',
   /**
-   *@description Category in the Summary view of the Performance panel to indicate time spent in rendering the web page
+   * @description Category in the Summary view of the Performance panel to indicate time spent in rendering the web page
    */
   rendering: 'Rendering',
   /**
-   *@description Event category in the Performance panel for time spent in the GPU
+   * @description Event category in the Performance panel for time spent in the GPU
    */
   gpu: 'GPU',
   /**
-   *@description Text in Timeline UIUtils of the Performance panel
+   * @description Text in Timeline UIUtils of the Performance panel
    */
   async: 'Async',
   /**
-   *@description Text in Timeline UIUtils of the Performance panel
+   * @description Text in Timeline UIUtils of the Performance panel
    */
   messaging: 'Messaging',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/UIDevtoolsUtils.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
-let eventStylesMap: {
-  [x: string]: Utils.EntryStyles.TimelineRecordStyle,
-}|null = null;
+let eventStylesMap: Record<string, Utils.EntryStyles.TimelineRecordStyle>|null = null;
 let categories: Utils.EntryStyles.CategoryPalette|null = null;
 
 export class UIDevtoolsUtils {
@@ -108,9 +106,7 @@ export class UIDevtoolsUtils {
     return Root.Runtime.Runtime.queryParam('uiDevTools') === 'true';
   }
 
-  static categorizeEvents(): {
-    [x: string]: Utils.EntryStyles.TimelineRecordStyle,
-  } {
+  static categorizeEvents(): Record<string, Utils.EntryStyles.TimelineRecordStyle> {
     if (eventStylesMap) {
       return eventStylesMap;
     }
@@ -123,9 +119,7 @@ export class UIDevtoolsUtils {
     const painting = categories['painting'];
     const other = categories['other'];
 
-    const eventStyles: {
-      [x: string]: Utils.EntryStyles.TimelineRecordStyle,
-    } = {};
+    const eventStyles: Record<string, Utils.EntryStyles.TimelineRecordStyle> = {};
 
     const {TimelineRecordStyle} = Utils.EntryStyles;
 

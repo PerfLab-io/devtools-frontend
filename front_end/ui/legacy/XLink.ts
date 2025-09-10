@@ -12,15 +12,15 @@ import type {ContextMenu, Provider} from './ContextMenu.js';
 import {html as xhtml} from './Fragment.js';
 import {Tooltip} from './Tooltip.js';
 import {
-  addReferrerToURLIfNecessary,
   copyLinkAddressLabel,
   MaxLengthForDisplayedURLs,
+  openInNewTab,
   openLinkExternallyLabel,
 } from './UIUtils.js';
 import {XElement} from './XElement.js';
 
 export class XLink extends XElement {
-  hrefInternal: Platform.DevToolsPath.UrlString|null;
+  #href: Platform.DevToolsPath.UrlString|null;
   private clickable: boolean;
   private readonly onClick: (arg0: Event) => void;
   private readonly onKeyDown: (arg0: KeyboardEvent) => void;
@@ -49,21 +49,21 @@ export class XLink extends XElement {
     this.setAttribute('target', '_blank');
     this.setAttribute('rel', 'noopener');
 
-    this.hrefInternal = null;
+    this.#href = null;
     this.clickable = true;
 
     this.onClick = (event: Event) => {
       event.consume(true);
-      if (this.hrefInternal) {
-        Host.InspectorFrontendHost.InspectorFrontendHostInstance.openInNewTab(this.hrefInternal);
+      if (this.#href) {
+        openInNewTab(this.#href);
       }
       this.dispatchEvent(new Event('x-link-invoke'));
     };
     this.onKeyDown = (event: KeyboardEvent) => {
       if (Platform.KeyboardUtilities.isEnterOrSpaceKey(event)) {
         event.consume(true);
-        if (this.hrefInternal) {
-          Host.InspectorFrontendHost.InspectorFrontendHostInstance.openInNewTab(this.hrefInternal);
+        if (this.#href) {
+          openInNewTab(this.#href);
         }
       }
       this.dispatchEvent(new Event('x-link-invoke'));
@@ -76,7 +76,7 @@ export class XLink extends XElement {
   }
 
   get href(): Platform.DevToolsPath.UrlString|null {
-    return this.hrefInternal;
+    return this.#href;
   }
 
   override attributeChangedCallback(attr: string, oldValue: string|null, newValue: string|null): void {
@@ -92,17 +92,15 @@ export class XLink extends XElement {
         newValue = '';
       }
       let href: Platform.DevToolsPath.UrlString|null = null;
-      let url: URL|null = null;
       try {
-        url = new URL(addReferrerToURLIfNecessary(newValue as Platform.DevToolsPath.UrlString));
-        href = url.toString() as Platform.DevToolsPath.UrlString;
+        const url = new URL(newValue);
+        if (url.protocol !== 'javascript:') {
+          href = Platform.DevToolsPath.urlString`${url}`;
+        }
       } catch {
       }
-      if (url && url.protocol === 'javascript:') {
-        href = null;
-      }
 
-      this.hrefInternal = href;
+      this.#href = href;
       if (!this.hasAttribute('title')) {
         Tooltip.install(this, newValue);
       }
@@ -121,7 +119,7 @@ export class XLink extends XElement {
   }
 
   private updateClick(): void {
-    if (this.hrefInternal !== null && this.clickable) {
+    if (this.#href !== null && this.clickable) {
       this.addEventListener('click', this.onClick, false);
       this.addEventListener('keydown', this.onKeyDown, false);
       this.style.setProperty('cursor', 'pointer');
@@ -139,13 +137,13 @@ export class ContextMenuProvider implements Provider<Node> {
     while (targetNode && !(targetNode instanceof XLink)) {
       targetNode = targetNode.parentNodeOrShadowHost();
     }
-    if (!targetNode || !targetNode.href) {
+    if (!targetNode?.href) {
       return;
     }
     const node: XLink = targetNode;
     contextMenu.revealSection().appendItem(openLinkExternallyLabel(), () => {
       if (node.href) {
-        Host.InspectorFrontendHost.InspectorFrontendHostInstance.openInNewTab(node.href);
+        openInNewTab(node.href);
       }
     }, {jslogContext: 'open-in-new-tab'});
     contextMenu.revealSection().appendItem(copyLinkAddressLabel(), () => {

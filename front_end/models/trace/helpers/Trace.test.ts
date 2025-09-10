@@ -4,6 +4,7 @@
 
 import {describeWithEnvironment} from '../../../testing/EnvironmentHelpers.js';
 import {
+  allThreadEntriesInTrace,
   getMainThread,
   makeAsyncEndEvent,
   makeAsyncStartEvent,
@@ -128,9 +129,7 @@ describeWithEnvironment('Trace helpers', function() {
       const fcp = PageLoadMetrics.metricScoresByFrameId.get(Meta.mainFrameId)
                       ?.get(firstNavigationId)
                       ?.get(Trace.Handlers.ModelHandlers.PageLoadMetrics.MetricName.FCP);
-      if (!fcp || !fcp.event) {
-        assert.fail('FCP not found');
-      }
+      assert.isOk(fcp?.event, 'FCP not found');
       const navigationForFirstRequest =
           Trace.Helpers.Trace.getNavigationForTraceEvent(fcp.event, Meta.mainFrameId, Meta.navigationsByFrameId);
       assert.strictEqual(navigationForFirstRequest?.args.data?.navigationId, firstNavigationId);
@@ -426,10 +425,9 @@ describeWithEnvironment('Trace helpers', function() {
     describe('createSortedSyntheticEvents()', () => {
       it('correctly creates synthetic events when instant animation events are present', async function() {
         const events = await TraceLoader.rawEvents(this, 'instant-animation-events.json.gz');
-        const animationEvents =
-            events.filter(event => Trace.Types.Events.isAnimation(event)) as Trace.Types.Events.Animation[];
+        const animationEvents = events.filter(event => Trace.Types.Events.isAnimation(event));
         const animationSynthEvents = Trace.Helpers.Trace.createMatchedSortedSyntheticEvents(animationEvents);
-        const wantPairs = new Map<string, {compositeFailed: number, unsupportedProperties?: Array<string>}>([
+        const wantPairs = new Map<string, {compositeFailed: number, unsupportedProperties?: string[]}>([
           [
             'blink.animations,devtools.timeline,benchmark,rail:0x11d00230380:Animation',
             {compositeFailed: 8224, unsupportedProperties: ['width']},
@@ -444,7 +442,7 @@ describeWithEnvironment('Trace helpers', function() {
             {compositeFailed: 8224, unsupportedProperties: ['font-size']},
           ],
         ]);
-        // Ensure we have the correct numner of synthetic events created.
+        // Ensure we have the correct number of synthetic events created.
         assert.deepEqual(wantPairs.size, animationSynthEvents.length);
 
         animationSynthEvents.forEach(event => {
@@ -508,7 +506,7 @@ describeWithEnvironment('Trace helpers', function() {
   describe('frameIDForEvent', () => {
     it('returns the frame ID from beginData if the event has it', async function() {
       const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev-with-commit.json.gz');
-      const parseHTMLEvent = parsedTrace.Renderer.allTraceEntries.find(Trace.Types.Events.isParseHTML);
+      const parseHTMLEvent = allThreadEntriesInTrace(parsedTrace).find(Trace.Types.Events.isParseHTML);
       assert.isOk(parseHTMLEvent);
       const frameId = Trace.Helpers.Trace.frameIDForEvent(parseHTMLEvent);
       assert.isNotNull(frameId);
@@ -517,7 +515,7 @@ describeWithEnvironment('Trace helpers', function() {
 
     it('returns the frame ID from args.data if the event has it', async function() {
       const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev-with-commit.json.gz');
-      const invalidateLayoutEvent = parsedTrace.Renderer.allTraceEntries.find(Trace.Types.Events.isInvalidateLayout);
+      const invalidateLayoutEvent = allThreadEntriesInTrace(parsedTrace).find(Trace.Types.Events.isInvalidateLayout);
       assert.isOk(invalidateLayoutEvent);
       const frameId = Trace.Helpers.Trace.frameIDForEvent(invalidateLayoutEvent);
       assert.isNotNull(frameId);
@@ -526,7 +524,7 @@ describeWithEnvironment('Trace helpers', function() {
 
     it('returns null if the event does not have a frame', async function() {
       const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev-with-commit.json.gz');
-      const v8CompileEvent = parsedTrace.Renderer.allTraceEntries.find(Trace.Types.Events.isV8Compile);
+      const v8CompileEvent = allThreadEntriesInTrace(parsedTrace).find(Trace.Types.Events.isV8Compile);
       assert.isOk(v8CompileEvent);
       const frameId = Trace.Helpers.Trace.frameIDForEvent(v8CompileEvent);
       assert.isNull(frameId);
@@ -672,9 +670,9 @@ describeWithEnvironment('Trace helpers', function() {
         onInstantEvent,
       });
 
-      assert.strictEqual(onStartEvent.callCount, 0);
-      assert.strictEqual(onEndEvent.callCount, 0);
-      assert.strictEqual(onInstantEvent.callCount, 1);
+      sinon.assert.callCount(onStartEvent, 0);
+      sinon.assert.callCount(onEndEvent, 0);
+      sinon.assert.callCount(onInstantEvent, 1);
     });
 
     it('skips async events by default', async () => {
@@ -692,9 +690,9 @@ describeWithEnvironment('Trace helpers', function() {
         onInstantEvent,
       });
 
-      assert.strictEqual(onStartEvent.callCount, 0);
-      assert.strictEqual(onEndEvent.callCount, 0);
-      assert.strictEqual(onInstantEvent.callCount, 0);
+      sinon.assert.callCount(onStartEvent, 0);
+      sinon.assert.callCount(onEndEvent, 0);
+      sinon.assert.callCount(onInstantEvent, 0);
     });
 
     it('can be configured to include async events', async () => {
@@ -713,16 +711,16 @@ describeWithEnvironment('Trace helpers', function() {
         ignoreAsyncEvents: false,
       });
 
-      assert.strictEqual(onStartEvent.callCount, 0);
-      assert.strictEqual(onEndEvent.callCount, 0);
-      assert.strictEqual(onInstantEvent.callCount, 2);
+      sinon.assert.callCount(onStartEvent, 0);
+      sinon.assert.callCount(onEndEvent, 0);
+      sinon.assert.callCount(onInstantEvent, 2);
     });
   });
 
   describe('isTopLevelEvent', () => {
     it('is true for a RunTask event', async function() {
       const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev.json.gz');
-      const runTask = parsedTrace.Renderer.allTraceEntries.find(Trace.Types.Events.isRunTask);
+      const runTask = allThreadEntriesInTrace(parsedTrace).find(Trace.Types.Events.isRunTask);
       assert.isOk(runTask);
 
       assert.isTrue(Trace.Helpers.Trace.isTopLevelEvent(runTask));
@@ -748,7 +746,7 @@ describeWithEnvironment('Trace helpers', function() {
         assert.isNotNull(nextScreenshot);
         assert.isNotNull(prevScreenshot);
         // Make sure the screenshot came after the shift.
-        assert.isAbove(nextScreenshot!.ts, shift.ts);
+        assert.isAbove(nextScreenshot.ts, shift.ts);
         // Make sure the previous screenshot came before the shift
         assert.isBelow(prevScreenshot.ts, shift.ts);
 

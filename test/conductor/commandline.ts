@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {Argv} from 'yargs';
+import type * as Yargs from 'yargs';
 
 export enum DiffBehaviors {
   UPDATE = 'update',
@@ -38,7 +38,7 @@ function validateDiffBehaviors(args: undefined|string|string[]) {
   return asArray(args);
 }
 
-export function commandLineArgs<T = Record<string, unknown>>(yargs: Argv<T>) {
+export function commandLineArgs<T = Record<string, unknown>>(yargs: Yargs.Argv<T>) {
   return yargs
       .parserConfiguration({
         'camel-case-expansion': false,
@@ -52,36 +52,61 @@ export function commandLineArgs<T = Record<string, unknown>>(yargs: Argv<T>) {
       })
       .option('headless', {
         type: 'boolean',
-        default: false,
-        desc: 'Run tests headless even when in debug mode',
+        default: undefined,
+        desc: 'Whether to run tests headless. If unspecified, the default depends on the `debug` option',
       })
       .option('coverage', {
         type: 'boolean',
         default: false,
         desc: 'Enable coverage reporting',
       })
-      .option('repeat', {
-        type: 'number',
-        default: 1,
-        desc: 'Repeat tests',
-      })
       .option('artifacts-dir', {
         type: 'string',
-        desc: 'Path to a directory to store test artifacts in (e.g., coverage reports)',
+        desc: 'Path to a directory to store test artifacts in (e.g. coverage reports)',
       })
-      .option('chrome-binary', {type: 'string', desc: 'Run tests with a custom chrome binary'})
+      .option('chrome-binary', {
+        type: 'string',
+        desc: 'Path to a custom Chrome binary to run',
+      })
       .option('on-diff', {
         type: 'string',
         coerce: validateDiffBehaviors,
-        desc: `Define how to deal with diffs in snapshots/screenshots. Options are: ${
-            Object.values(DiffBehaviors).join(', ')}`,
+        choices: Object.values(DiffBehaviors),
+        desc: 'Define how to deal with diffs in snapshots/screenshots',
       })
       .option('shuffle', {
         type: 'boolean',
         desc: 'Execute tests in random order',
         default: false,
       })
-      .option('grep', {type: 'string', conflicts: 'fgrep', desc: 'Filter tests by name using grep'})
-      .option('fgrep', {type: 'string', conflicts: 'grep', desc: 'Filter tests by name using fgrep'})
-      .option('invert-grep', {type: 'boolean', desc: 'Invert the grep/fgrep result'});
+      .option('repeat', {
+        type: 'number',
+        default: 1,
+        desc: 'Reruns the test X number of times regardless of result (e2e tests only)',
+      })
+      .option('retries', {
+        type: 'number',
+        desc: 'Reruns the tests if upon failure at max X number of times',
+        default: 0,
+      })
+      .option('grep', {
+        type: 'string',
+        conflicts: 'fgrep',
+        desc: 'Filter tests by name using grep',
+      })
+      .option('fgrep', {
+        type: 'string',
+        conflicts: 'grep',
+        desc: 'Filter tests by name using fgrep',
+      })
+      .option('invert-grep', {
+        type: 'boolean',
+        default: false,
+        desc: 'Invert the grep/fgrep result',
+      })
+      .option('cpu-throttle', {
+        type: 'number',
+        default: 1,
+        desc: 'Throttle the CPU during tests. The number provided is the multiplier used.',
+      });
 }

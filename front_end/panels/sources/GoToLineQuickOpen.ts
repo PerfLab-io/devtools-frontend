@@ -12,45 +12,45 @@ import type {UISourceCodeFrame} from './UISourceCodeFrame.js';
 
 const UIStrings = {
   /**
-   *@description Text in Go To Line Quick Open of the Sources panel
+   * @description Text in Go To Line Quick Open of the Sources panel
    */
   noFileSelected: 'No file selected',
   /**
-   *@description Text to show no results have been found
+   * @description Text to show no results have been found
    */
   noResultsFound: 'No results found',
   /**
-   *@description Text in Go To Line Quick Open of the Sources panel
+   * @description Text in Go To Line Quick Open of the Sources panel
    */
   typeANumberToGoToThatLine: 'Type a number to go to that line',
   /**
-   *@description Text in Go To Line Quick Open of the Sources panel
-   *@example {000} PH1
-   *@example {bbb} PH2
+   * @description Text in Go To Line Quick Open of the Sources panel
+   * @example {000} PH1
+   * @example {bbb} PH2
    */
   currentPositionXsTypeAnOffset: 'Type an offset between 0x{PH1} and 0x{PH2} to navigate to',
   /**
-   *@description Text in the GoToLine dialog of the Sources pane that describes the current line number, file line number range, and use of the GoToLine dialog
-   *@example {100} PH1
+   * @description Text in the GoToLine dialog of the Sources pane that describes the current line number, file line number range, and use of the GoToLine dialog
+   * @example {100} PH1
    */
   currentLineSTypeALineNumber: 'Type a line number between 1 and {PH1} to navigate to',
   /**
-   *@description Text in Go To Line Quick Open of the Sources panel
-   *@example {abc} PH1
+   * @description Text in Go To Line Quick Open of the Sources panel
+   * @example {abc} PH1
    */
   goToOffsetXs: 'Go to offset 0x{PH1}',
   /**
-   *@description Text in Go To Line Quick Open of the Sources panel
-   *@example {2} PH1
-   *@example {2} PH2
+   * @description Text in Go To Line Quick Open of the Sources panel
+   * @example {2} PH1
+   * @example {2} PH2
    */
   goToLineSAndColumnS: 'Go to line {PH1} and column {PH2}',
   /**
-   *@description Text in Go To Line Quick Open of the Sources panel
-   *@example {2} PH1
+   * @description Text in Go To Line Quick Open of the Sources panel
+   * @example {2} PH1
    */
   goToLineS: 'Go to line {PH1}',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/sources/GoToLineQuickOpen.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -113,7 +113,7 @@ export class GoToLineQuickOpen extends QuickOpen.FilteredListWidget.Provider {
       return;
     }
 
-    if (sourceFrame && sourceFrame.wasmDisassembly) {
+    if (sourceFrame?.wasmDisassembly) {
       this.#goToLineStrings.push(i18nString(UIStrings.goToOffsetXs, {PH1: (position.column - 1).toString(16)}));
       return;
     }
@@ -139,9 +139,9 @@ export class GoToLineQuickOpen extends QuickOpen.FilteredListWidget.Provider {
     column: number,
   }|null {
     const sourceFrame = this.currentSourceFrame();
-    if (sourceFrame && sourceFrame.wasmDisassembly) {
+    if (sourceFrame?.wasmDisassembly) {
       const parts = query.match(/0x([0-9a-fA-F]+)/);
-      if (!parts || !parts[0] || parts[0].length !== query.length) {
+      if (!parts?.[0] || parts[0].length !== query.length) {
         return null;
       }
 
@@ -150,7 +150,7 @@ export class GoToLineQuickOpen extends QuickOpen.FilteredListWidget.Provider {
     }
 
     const parts = query.match(/([0-9]+)(\:[0-9]*)?/);
-    if (!parts || !parts[0] || parts[0].length !== query.length) {
+    if (!parts?.[0] || parts[0].length !== query.length) {
       return null;
     }
     const line = parseInt(parts[1], 10);

@@ -1,6 +1,7 @@
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as i18n from '../../core/i18n/i18n.js';
 import type * as Protocol from '../../generated/protocol.js';
@@ -15,22 +16,22 @@ import {PlayerPropertyKeys} from './PlayerPropertiesView.js';
 
 const UIStrings = {
   /**
-   *@description A right-click context menu entry which when clicked causes the menu entry for that player to be removed.
+   * @description A right-click context menu entry which when clicked causes the menu entry for that player to be removed.
    */
   hidePlayer: 'Hide player',
   /**
-   *@description A right-click context menu entry which should keep the element selected, while hiding all other entries.
+   * @description A right-click context menu entry which should keep the element selected, while hiding all other entries.
    */
   hideAllOthers: 'Hide all others',
   /**
-   *@description Context menu entry which downloads the json dump when clicked
+   * @description Context menu entry which downloads the json dump when clicked
    */
   savePlayerInfo: 'Save player info',
   /**
-   *@description Side-panel entry title text for the players section.
+   * @description Side-panel entry title text for the players section.
    */
   players: 'Players',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/media/PlayerListView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export interface PlayerStatus {
@@ -52,7 +53,7 @@ export class PlayerListView extends UI.Widget.VBox implements TriggerDispatcher 
   private currentlySelectedEntry: Element|null;
 
   constructor(mainContainer: MainView) {
-    super(true);
+    super({useShadowDom: true});
     this.registerRequiredCSS(playerListViewStyles);
 
     this.playerEntryFragments = new Map();
@@ -84,6 +85,13 @@ export class PlayerListView extends UI.Widget.VBox implements TriggerDispatcher 
     return entry;
   }
 
+  selectPlayerById(playerID: string): void {
+    const fragment = this.playerEntryFragments.get(playerID);
+    if (fragment) {
+      this.selectPlayer(playerID, fragment.element());
+    }
+  }
+
   private selectPlayer(playerID: string, element: Element): void {
     this.mainContainer.renderMainPanel(playerID);
     if (this.currentlySelectedEntry !== null) {
@@ -112,7 +120,7 @@ export class PlayerListView extends UI.Widget.VBox implements TriggerDispatcher 
   }
 
   private setMediaElementFrameTitle(playerID: string, frameTitle: string, isHostname: boolean): void {
-    // Only remove the title from the set if we arent setting a hostname title.
+    // Only remove the title from the set if we aren't setting a hostname title.
     // Otherwise, if it has a non-hostname title, and the requested new title is
     // a hostname, just drop it.
     if (this.playerEntriesWithHostnameFrameTitle.has(playerID)) {
@@ -127,7 +135,7 @@ export class PlayerListView extends UI.Widget.VBox implements TriggerDispatcher 
       return;
     }
     const fragment = this.playerEntryFragments.get(playerID);
-    if (fragment === undefined || fragment.element() === undefined) {
+    if (fragment?.element() === undefined) {
       return;
     }
     fragment.$('frame-title').textContent = frameTitle;
@@ -160,12 +168,13 @@ export class PlayerListView extends UI.Widget.VBox implements TriggerDispatcher 
     icon.appendChild(IconButton.Icon.create(iconName, 'media-player'));
   }
 
-  private formatAndEvaluate(playerID: string, func: Function, candidate: string, min: number, max: number): void {
+  private formatAndEvaluate(
+      playerID: string, func: (...args: any[]) => unknown, candidate: string, min: number, max: number): void {
     if (candidate.length <= min) {
       return;
     }
     if (candidate.length >= max) {
-      candidate = candidate.substring(0, max - 3) + '...';
+      candidate = candidate.substring(0, max - 1) + '…';
     }
     func.bind(this)(playerID, candidate);
   }
@@ -182,7 +191,7 @@ export class PlayerListView extends UI.Widget.VBox implements TriggerDispatcher 
       return;
     }
     const fragment = this.playerEntryFragments.get(playerID);
-    if (fragment === undefined || fragment.element() === undefined) {
+    if (fragment?.element() === undefined) {
       return;
     }
     this.contentElement.removeChild(fragment.element());
@@ -237,7 +246,7 @@ export class PlayerListView extends UI.Widget.VBox implements TriggerDispatcher 
     // since the site is free to set the title to _anything_, it might just be
     // junk, or it might be super long. If it's empty, or 1 character, It's
     // preferable to just drop it. Titles longer than 20 will have the first
-    // 17 characters kept and an elipsis appended.
+    // 17 characters kept and an ellipsis appended.
     if (property.name === PlayerPropertyKeys.FRAME_TITLE && property.value) {
       this.formatAndEvaluate(playerID, this.setMediaElementFrameTitle, property.value, 1, 20);
       return;

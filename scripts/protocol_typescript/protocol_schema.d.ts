@@ -3,13 +3,18 @@
 // found in the LICENSE file.
 
 /**  Definition for protocol.json types */
-export module Protocol {
+export namespace Protocol {
   export interface Version {
     major: string;
     minor: string;
   }
 
-  export interface Domain {
+  export interface ExtraInformation {
+    deprecated?: boolean;
+    experimental?: boolean;
+  }
+
+  export interface Domain extends ExtraInformation {
     /** Name of domain */
     domain: string;
     /** Description of the domain */
@@ -30,7 +35,7 @@ export module Protocol {
     redirect?: string;
   }
 
-  export interface Event {
+  export interface Event extends ExtraInformation {
     name: string;
     parameters?: PropertyType[];
     /** Description of the event */
@@ -82,10 +87,10 @@ export module Protocol {
 
   type DomainType = {
     /** Name of property */
-    id: string;
+    id: string,
     /** Description of the type */
-    description?: string;
-  }&(StringType|ObjectType|ArrayType|PrimitiveType)
+    description?: string,
+  }&(StringType|ObjectType|ArrayType|PrimitiveType)&ExtraInformation;
 
   type ProtocolType = StringType|ObjectType|ArrayType|PrimitiveType|RefType|AnyType;
   type PropertyType = PropertyBaseType&ProtocolType;

@@ -5,15 +5,15 @@
 import * as Helpers from '../helpers/helpers.js';
 import * as Types from '../types/types.js';
 
-const animations: Types.Events.Animation[] = [];
-const animationsSyntheticEvents: Types.Events.SyntheticAnimationPair[] = [];
-const animationFrames: Array<
+let animations: Types.Events.Animation[] = [];
+let animationsSyntheticEvents: Types.Events.SyntheticAnimationPair[] = [];
+let animationFrames: Array<
                         Types.Events.TraceEventAnimationFrameGroupingEvent |
                         Types.Events.TraceEventAnimationFrameInstantEvent |
                         Types.Events.TraceEventAnimationFramePaintGroupingEvent |
                         Types.Events.TraceEventAnimationFrameScriptGroupingEvent
                         > = [];
-const animationFramesSyntheticEvents: Types.Events.SyntheticExtendedAnimationFramePair[] = [];
+let animationFramesSyntheticEvents: Types.Events.SyntheticExtendedAnimationFramePair[] = [];
 
 export interface AnimationData {
   animations: readonly Types.Events.SyntheticAnimationPair[];
@@ -21,8 +21,10 @@ export interface AnimationData {
 }
 
 export function reset(): void {
-  animations.length = 0;
-  animationsSyntheticEvents.length = 0;
+  animations = [];
+  animationsSyntheticEvents = [];
+  animationsSyntheticEvents = [];
+  animationFrames = [];
 }
 
 function isAnimationFrameGrouping(event: Types.Events.Event): event is

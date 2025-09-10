@@ -1,22 +1,22 @@
 // Copyright 2024 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import type * as Buttons from '../../../ui/components/buttons/buttons.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
 import {html, render} from '../../../ui/lit/lit.js';
 
-import buttonDialogStylesRaw from './buttonDialog.css.js';
+import buttonDialogStyles from './buttonDialog.css.js';
 import {
   type ClickOutsideDialogEvent,
   type Dialog as DialogElement,
   DialogHorizontalAlignment,
+  DialogState,
   DialogVerticalPosition,
 } from './Dialog.js';
 
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const buttonDialogStyles = new CSSStyleSheet();
-buttonDialogStyles.replaceSync(buttonDialogStylesRaw.cssContent);
+export type ButtonDialogState = DialogState;
 
 export interface ButtonDialogData {
   openOnRender?: boolean;
@@ -32,32 +32,36 @@ export interface ButtonDialogData {
   closeOnESC?: boolean;
   closeOnScroll?: boolean;
   closeButton?: boolean;
+  state?: ButtonDialogState;
   dialogTitle: string;
 }
 
 export class ButtonDialog extends HTMLElement {
   readonly #shadow = this.attachShadow({mode: 'open'});
-  readonly #renderBound = this.#render.bind(this);
 
   #dialog: DialogElement|null = null;
   #showButton: Buttons.Button.Button|null = null;
   #data: ButtonDialogData|null = null;
 
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [buttonDialogStyles];
-  }
-
   set data(data: ButtonDialogData) {
     this.#data = data;
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #showDialog(): void {
     if (!this.#dialog) {
       throw new Error('Dialog not found');
     }
-    void this.#dialog.setDialogVisible(true);
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+
+    if (this.#data?.state === DialogState.DISABLED) {
+      // If dialog is disabled start teardown process to return
+      // focus to caller.
+      void this.#dialog.setDialogVisible(false);
+    } else {
+      void this.#dialog.setDialogVisible(true);
+    }
+
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
   }
 
   #closeDialog(evt?: ClickOutsideDialogEvent): void {
@@ -68,7 +72,14 @@ export class ButtonDialog extends HTMLElement {
     if (evt) {
       evt.stopImmediatePropagation();
     }
-    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#renderBound);
+    void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
+  }
+
+  set state(state: ButtonDialogState) {
+    if (this.#data) {
+      this.#data.state = state;
+      void ComponentHelpers.ScheduledRender.scheduleRender(this, this.#render);
+    }
   }
 
   #render(): void {
@@ -82,6 +93,7 @@ export class ButtonDialog extends HTMLElement {
     // clang-format off
     render(
       html`
+      <style>${buttonDialogStyles}</style>
       <devtools-button
         @click=${this.#showDialog}
         on-render=${ComponentHelpers.Directives.nodeRenderedCallback(node => {
@@ -110,6 +122,7 @@ export class ButtonDialog extends HTMLElement {
         .closeButton=${this.#data.closeButton ?? false}
         .dialogTitle=${this.#data.dialogTitle}
         .jslogContext=${this.#data.jslogContext ?? ''}
+        .state=${this.#data.state ?? DialogState.EXPANDED}
         on-render=${ComponentHelpers.Directives.nodeRenderedCallback(node => {
           this.#dialog = node as DialogElement;
         })}

@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2007, 2008 Apple Inc.  All rights reserved.
@@ -40,15 +41,15 @@ import fontViewStyles from './fontView.css.js';
 
 const UIStrings = {
   /**
-   *@description Text that appears on a button for the font resource type filter.
+   * @description Text that appears on a button for the font resource type filter.
    */
   font: 'Font',
   /**
-   *@description Aria accessible name in Font View of the Sources panel
-   *@example {https://example.com} PH1
+   * @description Aria accessible name in Font View of the Sources panel
+   * @example {https://example.com} PH1
    */
   previewOfFontFromS: 'Preview of font from {PH1}',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/source_frame/FontView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class FontView extends UI.View.SimpleView {
@@ -60,10 +61,13 @@ export class FontView extends UI.View.SimpleView {
   fontStyleElement!: HTMLStyleElement|null;
   private inResize!: boolean|null;
   constructor(mimeType: string, contentProvider: TextUtils.ContentProvider.ContentProvider) {
-    super(i18nString(UIStrings.font));
+    super({
+      title: i18nString(UIStrings.font),
+      viewId: 'font',
+      jslog: `${VisualLogging.pane('font-view')}`,
+    });
     this.registerRequiredCSS(fontViewStyles);
     this.element.classList.add('font-view');
-    this.element.setAttribute('jslog', `${VisualLogging.pane('font-view')}`);
     this.url = contentProvider.contentURL();
     UI.ARIAUtils.setLabel(this.element, i18nString(UIStrings.previewOfFontFromS, {PH1: this.url}));
     this.contentProvider = contentProvider;

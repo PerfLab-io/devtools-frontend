@@ -1,6 +1,7 @@
 // Copyright 2022 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import '../../ui/legacy/legacy.js';
 
@@ -48,7 +49,7 @@ const UIStrings = {
    * @description Text that refers to device such as a phone
    */
   device: 'Device',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/lighthouse/LighthouseStartView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -56,7 +57,7 @@ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class StartView extends UI.Widget.Widget {
   private controller: LighthouseController;
   private panel: LighthousePanel;
-  private readonly settingsToolbarInternal: UI.Toolbar.Toolbar;
+  readonly #settingsToolbar: UI.Toolbar.Toolbar;
   private startButton!: Buttons.Button.Button;
   private helpText?: Element;
   private warningText?: Element;
@@ -65,19 +66,19 @@ export class StartView extends UI.Widget.Widget {
   changeFormMode?: (mode: string) => void;
 
   constructor(controller: LighthouseController, panel: LighthousePanel) {
-    super(true /* useShadowDom */);
+    super({useShadowDom: true});
     this.registerRequiredCSS(lighthouseStartViewStyles);
 
     this.controller = controller;
     this.panel = panel;
-    this.settingsToolbarInternal = document.createElement('devtools-toolbar');
-    this.settingsToolbarInternal.classList.add('lighthouse-settings-toolbar');
+    this.#settingsToolbar = document.createElement('devtools-toolbar');
+    this.#settingsToolbar.classList.add('lighthouse-settings-toolbar');
     this.render();
   }
 
   private populateRuntimeSettingAsRadio(settingName: string, label: string, parentElement: Element): void {
     const runtimeSetting = RuntimeSettings.find(item => item.setting.name === settingName);
-    if (!runtimeSetting || !runtimeSetting.options) {
+    if (!runtimeSetting?.options) {
       throw new Error(`${settingName} is not a setting with options`);
     }
 
@@ -101,7 +102,7 @@ export class StartView extends UI.Widget.Widget {
 
   private populateRuntimeSettingAsToolbarCheckbox(settingName: string, toolbar: UI.Toolbar.Toolbar): void {
     const runtimeSetting = RuntimeSettings.find(item => item.setting.name === settingName);
-    if (!runtimeSetting || !runtimeSetting.title) {
+    if (!runtimeSetting?.title) {
       throw new Error(`${settingName} is not a setting with a title`);
     }
 
@@ -119,7 +120,7 @@ export class StartView extends UI.Widget.Widget {
 
   private populateRuntimeSettingAsToolbarDropdown(settingName: string, toolbar: UI.Toolbar.Toolbar): void {
     const runtimeSetting = RuntimeSettings.find(item => item.setting.name === settingName);
-    if (!runtimeSetting || !runtimeSetting.title) {
+    if (!runtimeSetting?.title) {
       throw new Error(`${settingName} is not a setting with a title`);
     }
 
@@ -136,8 +137,9 @@ export class StartView extends UI.Widget.Widget {
     if (runtimeSetting.learnMore) {
       const link = UI.XLink.XLink.create(
           runtimeSetting.learnMore, i18nString(UIStrings.learnMore), 'lighthouse-learn-more', undefined, 'learn-more');
-      link.style.margin = '5px';
-      control.element.appendChild(link);
+      link.style.paddingLeft = '5px';
+      link.style.display = 'inline-flex';
+      toolbar.appendToolbarItem(new UI.Toolbar.ToolbarItem(link));
     }
   }
 
@@ -167,9 +169,9 @@ export class StartView extends UI.Widget.Widget {
   }
 
   private render(): void {
-    this.populateRuntimeSettingAsToolbarCheckbox('lighthouse.clear-storage', this.settingsToolbarInternal);
-    this.populateRuntimeSettingAsToolbarCheckbox('lighthouse.enable-sampling', this.settingsToolbarInternal);
-    this.populateRuntimeSettingAsToolbarDropdown('lighthouse.throttling', this.settingsToolbarInternal);
+    this.populateRuntimeSettingAsToolbarCheckbox('lighthouse.clear-storage', this.#settingsToolbar);
+    this.populateRuntimeSettingAsToolbarCheckbox('lighthouse.enable-sampling', this.#settingsToolbar);
+    this.populateRuntimeSettingAsToolbarDropdown('lighthouse.throttling', this.#settingsToolbar);
 
     const {mode} = this.controller.getFlags();
     this.populateStartButton(mode);
@@ -310,6 +312,6 @@ export class StartView extends UI.Widget.Widget {
   }
 
   settingsToolbar(): UI.Toolbar.Toolbar {
-    return this.settingsToolbarInternal;
+    return this.#settingsToolbar;
   }
 }

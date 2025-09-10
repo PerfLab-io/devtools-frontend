@@ -14,10 +14,10 @@ import {SharedStorageEventsView} from './SharedStorageEventsView.js';
 
 const UIStrings = {
   /**
-   *@description Text in SharedStorage Category View of the Application panel
+   * @description Text in SharedStorage Category View of the Application panel
    */
   sharedStorage: 'Shared storage',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/application/SharedStorageListTreeElement.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 

@@ -9,18 +9,18 @@ import type {HandlerName} from './types.js';
 
 // Each thread contains events. Events indicate the thread and process IDs, which are
 // used to store the event in the correct process thread entry below.
-const unpairedAsyncEvents: Types.Events.PipelineReporter[] = [];
+let unpairedAsyncEvents: Types.Events.PipelineReporter[] = [];
 
-const legacyScreenshotEvents: Types.Events.LegacyScreenshot[] = [];
-const modernScreenshotEvents: Types.Events.Screenshot[] = [];
-const syntheticScreenshots: Types.Events.LegacySyntheticScreenshot[] = [];
+let legacyScreenshotEvents: Types.Events.LegacyScreenshot[] = [];
+let modernScreenshotEvents: Types.Events.Screenshot[] = [];
+let syntheticScreenshots: Types.Events.LegacySyntheticScreenshot[] = [];
 let frameSequenceToTs: Record<string, Types.Timing.Micro> = {};
 
 export function reset(): void {
-  unpairedAsyncEvents.length = 0;
-  legacyScreenshotEvents.length = 0;
-  syntheticScreenshots.length = 0;
-  modernScreenshotEvents.length = 0;
+  unpairedAsyncEvents = [];
+  legacyScreenshotEvents = [];
+  syntheticScreenshots = [];
+  modernScreenshotEvents = [];
   frameSequenceToTs = {};
 }
 
@@ -38,7 +38,9 @@ export async function finalize(): Promise<void> {
   const pipelineReporterEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(unpairedAsyncEvents);
 
   frameSequenceToTs = Object.fromEntries(pipelineReporterEvents.map(evt => {
-    const frameSequenceId = evt.args.data.beginEvent.args.chrome_frame_reporter.frame_sequence;
+    const args = evt.args.data.beginEvent.args;
+    const frameReporter = 'frame_reporter' in args ? args.frame_reporter : args.chrome_frame_reporter;
+    const frameSequenceId = frameReporter.frame_sequence;
     const presentationTs = Types.Timing.Micro(evt.ts + evt.dur);
     return [frameSequenceId, presentationTs];
   }));
@@ -53,7 +55,7 @@ export async function finalize(): Promise<void> {
       ph,
       pid,
       tid,
-      // TODO(paulirish, crbug.com/41363012): investigate why getPresentationTimestamp(snapshotEvent) seems less accurate. Resolve screenshot timing innaccuracy.
+      // TODO(paulirish, crbug.com/41363012): investigate why getPresentationTimestamp(snapshotEvent) seems less accurate. Resolve screenshot timing inaccuracy.
       // `getPresentationTimestamp(snapshotEvent) - snapshotEvent.ts` is how many microsec the screenshot should be adjusted to the right/later
       ts: snapshotEvent.ts,
       args: {

@@ -1,6 +1,7 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -22,18 +23,18 @@ import type {IssueView} from './IssueView.js';
 
 const UIStrings = {
   /**
-   *@description Text in Object Properties Section
+   * @description Text in Object Properties Section
    */
   unknown: 'unknown',
   /**
-   *@description Tooltip for button linking to the Elements panel
+   * @description Tooltip for button linking to the Elements panel
    */
   clickToRevealTheFramesDomNodeIn: 'Click to reveal the frame\'s DOM node in the Elements panel',
   /**
-   *@description Replacement text for a link to an HTML element which is not available (anymore).
+   * @description Replacement text for a link to an HTML element which is not available (anymore).
    */
   unavailable: 'unavailable',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/issues/AffectedResourcesView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -142,7 +143,7 @@ export abstract class AffectedResourcesView extends UI.TreeOutline.TreeElement {
    */
   #resolveFrameId(frameId: Protocol.Page.FrameId): SDK.ResourceTreeModel.ResourceTreeFrame|null {
     const frame = SDK.FrameManager.FrameManager.instance().getFrame(frameId);
-    if (!frame || !frame.url) {
+    if (!frame?.url) {
       this.#unresolvedFrameIds.add(frameId);
       if (!this.#frameListeners.length) {
         const addListener = SDK.FrameManager.FrameManager.instance().addEventListener(
@@ -180,8 +181,8 @@ export abstract class AffectedResourcesView extends UI.TreeOutline.TreeElement {
     frameCell.classList.add('affected-resource-cell');
     if (frame) {
       const icon = new IconButton.Icon.Icon();
-      icon.data = {iconName: 'code-circle', color: 'var(--icon-link)', width: '16px', height: '16px'};
-      icon.classList.add('link', 'elements-panel');
+      icon.name = 'code-circle';
+      icon.classList.add('link', 'elements-panel', 'medium');
       icon.onclick = async () => {
         Host.userMetrics.issuesPanelResourceOpened(issueCategory, AffectedItem.ELEMENT);
         const frame = SDK.FrameManager.FrameManager.instance().getFrame(frameId);
@@ -246,7 +247,7 @@ export abstract class AffectedResourcesView extends UI.TreeOutline.TreeElement {
 
   protected appendSourceLocation(
       element: HTMLElement,
-      sourceLocation: {url: string, scriptId?: Protocol.Runtime.ScriptId, lineNumber: number, columnNumber?: number}|
+      sourceLocation: {url: string, lineNumber: number, scriptId?: Protocol.Runtime.ScriptId, columnNumber?: number}|
       undefined,
       target: SDK.Target.Target|null|undefined): void {
     const sourceCodeLocation = document.createElement('td');

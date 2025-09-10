@@ -10,14 +10,14 @@ export interface WorkersData {
   workerURLById: Map<Types.Events.WorkerId, string>;
 }
 
-const sessionIdEvents: Types.Events.TracingSessionIdForWorker[] = [];
-const workerIdByThread: Map<Types.Events.ThreadID, Types.Events.WorkerId> = new Map();
-const workerURLById: Map<Types.Events.WorkerId, string> = new Map();
+let sessionIdEvents: Types.Events.TracingSessionIdForWorker[] = [];
+let workerIdByThread = new Map<Types.Events.ThreadID, Types.Events.WorkerId>();
+let workerURLById = new Map<Types.Events.WorkerId, string>();
 
 export function reset(): void {
-  sessionIdEvents.length = 0;
-  workerIdByThread.clear();
-  workerURLById.clear();
+  sessionIdEvents = [];
+  workerIdByThread = new Map();
+  workerURLById = new Map();
 }
 
 export function handleEvent(event: Types.Events.Event): void {

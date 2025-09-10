@@ -14,10 +14,10 @@ import type {ResourcesPanel} from './ResourcesPanel.js';
 
 const UIStrings = {
   /**
-   *@description Label for an item in the Application Panel Sidebar of the Application panel
+   * @description Label for an item in the Application Panel Sidebar of the Application panel
    */
   reportingApi: 'Reporting API',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/application/ReportingApiTreeElement.ts', UIStrings);
 export const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 

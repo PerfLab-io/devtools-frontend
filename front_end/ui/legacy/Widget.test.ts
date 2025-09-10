@@ -17,7 +17,8 @@ describe('Widget', () => {
     const widget = new Widget();
     widget.markAsRoot();
 
-    assert.throws(() => div.appendChild(widget.element));
+    assert.throws(
+        () => div.appendChild(widget.element), /Attempt to modify widget with native DOM method `appendChild`/);
   });
 
   it('monkey-patches `Element#insertBefore()` to sanity-check that widgets are properly attached', () => {
@@ -29,7 +30,9 @@ describe('Widget', () => {
     const widget = new Widget();
     widget.markAsRoot();
 
-    assert.throws(() => div.insertBefore(widget.element, child));
+    assert.throws(
+        () => div.insertBefore(widget.element, child),
+        /Attempt to modify widget with native DOM method `insertBefore`/);
   });
 
   it('monkey-patches `Element#removeChild()` to sanity-check that widgets are properly detached', () => {
@@ -40,7 +43,8 @@ describe('Widget', () => {
     widget.markAsRoot();
     widget.show(div);
 
-    assert.throws(() => div.removeChild(widget.element));
+    assert.throws(
+        () => div.removeChild(widget.element), /Attempt to modify widget with native DOM method `removeChild`/);
   });
 
   it('monkey-patches `Element#removeChildren()` to sanity-check that widgets are properly detached', () => {
@@ -51,7 +55,42 @@ describe('Widget', () => {
     widget.markAsRoot();
     widget.show(div);
 
-    assert.throws(() => div.removeChildren());
+    assert.throws(() => div.removeChildren(), /Attempt to modify widget with native DOM method `removeChildren`/);
+  });
+
+  describe('constructor', () => {
+    it('doesn\'t create a shadow DOM if `useShadowDom` is set to `false`', () => {
+      const widget = new Widget({useShadowDom: false});
+
+      assert.isNull(widget.element.shadowRoot);
+      assert.strictEqual(widget.element, widget.contentElement);
+    });
+
+    it('doesn\'t create a shadow DOM if `useShadowDom` is unspecified', () => {
+      const widget = new Widget();
+
+      assert.isNull(widget.element.shadowRoot);
+      assert.strictEqual(widget.element, widget.contentElement);
+    });
+
+    it('correctly sets the `jslog` attribute of the `contentElement`', () => {
+      const widget = new Widget({jslog: 'Panel; context: foo'});
+
+      assert.strictEqual(
+          widget.contentElement.getAttribute('jslog'),
+          'Panel; context: foo',
+      );
+    });
+
+    it('correctly sets the `jslog` attribute of the `contentElement` in the presence of Shadow DOM', () => {
+      const widget = new Widget({jslog: 'Section; context: bar', useShadowDom: true});
+
+      assert.isNull(widget.element.getAttribute('jslog'));
+      assert.strictEqual(
+          widget.contentElement.getAttribute('jslog'),
+          'Section; context: bar',
+      );
+    });
   });
 
   describe('detach', () => {
@@ -156,14 +195,11 @@ describe('Widget', () => {
     it('renders WidgetElement into DOM without a root element', async () => {
       const widget = new UI.Widget.WidgetElement();
       class WidgetInstance extends UI.Widget.Widget {
-        constructor(element: HTMLElement) {
-          super(false, false, element);
-        }
         override performUpdate(): void {
           // no-op
         }
       }
-      widget.widgetConfig = UI.Widget.widgetConfig(WidgetInstance, {});
+      widget.widgetConfig = UI.Widget.widgetConfig(WidgetInstance);
       renderElementIntoDOM(widget);
     });
   });

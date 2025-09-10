@@ -7,7 +7,8 @@ import * as Mocha from 'mocha';
 import * as commonInterface from 'mocha/lib/interfaces/common.js';
 import * as Path from 'path';
 
-import {makeInstrumentedTestFunction, platform, type Platform} from './mocha-interface-helpers.js';
+import {makeInstrumentedTestFunction} from './mocha-interface-helpers.js';
+import {platform, type Platform} from './platform.js';
 import {TestConfig} from './test_config.js';
 
 type SuiteFunction = ((this: Mocha.Suite) => void)|undefined;
@@ -110,28 +111,12 @@ function devtoolsTestInterface(suite: Mocha.Suite) {
             common.test.only(mocha, createTest(iterationTitle, fn));
           }
         };
-        it.skipOnPlatforms = function(platforms: Array<Platform>, title: string, fn: Mocha.AsyncFunc) {
+        it.skipOnPlatforms = function(platforms: Platform[], title: string, fn: Mocha.AsyncFunc) {
           const shouldSkip = platforms.includes(platform);
           if (shouldSkip) {
             return context.it.skip(title);
           }
           return context.it(title, fn);
-        };
-        function screenshotTestTitle(title: string) {
-          return '[screenshot]: ' + title;
-        }
-        // @ts-expect-error Custom interface.
-        context.itScreenshot = function(title: string, fn: Mocha.AsyncFunc) {
-          return context.it(screenshotTestTitle(title), fn);
-        };
-        // @ts-expect-error Custom interface.
-        context.itScreenshot.skipOnPlatforms = function(
-            platforms: Array<Platform>, title: string, fn: Mocha.AsyncFunc) {
-          return context.it.skipOnPlatforms(platforms, screenshotTestTitle(title), fn);
-        };
-        // @ts-expect-error Custom interface.
-        context.itScreenshot.skip = function(title: string) {
-          return context.it.skip(screenshotTestTitle(title));
         };
       },
   );

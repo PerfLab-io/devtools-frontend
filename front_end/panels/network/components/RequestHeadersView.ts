@@ -1,6 +1,7 @@
 // Copyright 2022 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import './RequestHeaderSection.js';
 
@@ -14,7 +15,6 @@ import * as Workspace from '../../../models/workspace/workspace.js';
 import * as NetworkForward from '../../../panels/network/forward/forward.js';
 import * as Buttons from '../../../ui/components/buttons/buttons.js';
 import * as ComponentHelpers from '../../../ui/components/helpers/helpers.js';
-import type * as IconButton from '../../../ui/components/icon_button/icon_button.js';
 import * as Input from '../../../ui/components/input/input.js';
 import * as LegacyWrapper from '../../../ui/components/legacy_wrapper/legacy_wrapper.js';
 import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
@@ -24,97 +24,93 @@ import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 import * as Sources from '../../sources/sources.js';
 
 import type {RequestHeaderSectionData} from './RequestHeaderSection.js';
-import requestHeadersViewStylesRaw from './RequestHeadersView.css.js';
+import requestHeadersViewStyles from './RequestHeadersView.css.js';
 import {
   RESPONSE_HEADER_SECTION_DATA_KEY,
   type ResponseHeaderSectionData,
 } from './ResponseHeaderSection.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const requestHeadersViewStyles = new CSSStyleSheet();
-requestHeadersViewStyles.replaceSync(requestHeadersViewStylesRaw.cssContent);
 
 const RAW_HEADER_CUTOFF = 3000;
 const {render, html} = Lit;
 
 const UIStrings = {
   /**
-   *@description Text in Request Headers View of the Network panel
+   * @description Text in Request Headers View of the Network panel
    */
   fromDiskCache: '(from disk cache)',
   /**
-   *@description Text in Request Headers View of the Network panel
+   * @description Text in Request Headers View of the Network panel
    */
   fromMemoryCache: '(from memory cache)',
   /**
-   *@description Text in Request Headers View of the Network panel
+   * @description Text in Request Headers View of the Network panel
    */
   fromEarlyHints: '(from early hints)',
   /**
-   *@description Text in Request Headers View of the Network panel
+   * @description Text in Request Headers View of the Network panel
    */
   fromPrefetchCache: '(from prefetch cache)',
   /**
-   *@description Text in Request Headers View of the Network panel
+   * @description Text in Request Headers View of the Network panel
    */
   fromServiceWorker: '(from `service worker`)',
   /**
-   *@description Text in Request Headers View of the Network panel
+   * @description Text in Request Headers View of the Network panel
    */
   fromSignedexchange: '(from signed-exchange)',
   /**
-   *@description Text in Request Headers View of the Network panel
+   * @description Text in Request Headers View of the Network panel
    */
   fromWebBundle: '(from Web Bundle)',
   /**
-   *@description Section header for a list of the main aspects of a http request
+   * @description Section header for a list of the main aspects of a http request
    */
   general: 'General',
   /**
-   *@description Label for a checkbox to switch between raw and parsed headers
+   * @description Label for a checkbox to switch between raw and parsed headers
    */
   raw: 'Raw',
   /**
-   *@description Text in Request Headers View of the Network panel
+   * @description Text in Request Headers View of the Network panel
    */
   referrerPolicy: 'Referrer Policy',
   /**
-   *@description Text in Network Log View Columns of the Network panel
+   * @description Text in Network Log View Columns of the Network panel
    */
   remoteAddress: 'Remote Address',
   /**
-   *@description Text in Request Headers View of the Network panel
+   * @description Text in Request Headers View of the Network panel
    */
   requestHeaders: 'Request Headers',
   /**
-   *@description The HTTP method of a request
+   * @description The HTTP method of a request
    */
   requestMethod: 'Request Method',
   /**
-   *@description The URL of a request
+   * @description The URL of a request
    */
   requestUrl: 'Request URL',
   /**
-   *@description A context menu item in the Network Log View Columns of the Network panel
+   * @description A context menu item in the Network Log View Columns of the Network panel
    */
   responseHeaders: 'Response Headers',
   /**
-   *@description A context menu item in the Network Log View Columns of the Network panel
+   * @description A context menu item in the Network Log View Columns of the Network panel
    */
   earlyHintsHeaders: 'Early Hints Headers',
   /**
-   *@description Title text for a link to the Sources panel to the file containing the header override definitions
+   * @description Title text for a link to the Sources panel to the file containing the header override definitions
    */
   revealHeaderOverrides: 'Reveal header override definitions',
   /**
-   *@description Text to show more content
+   * @description Text to show more content
    */
   showMore: 'Show more',
   /**
-   *@description HTTP response code
+   * @description HTTP response code
    */
   statusCode: 'Status Code',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/network/components/RequestHeadersView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -168,7 +164,6 @@ export class RequestHeadersView extends LegacyWrapper.LegacyWrapper.WrappableCom
   }
 
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [requestHeadersViewStyles];
     this.#workspace.addEventListener(
         Workspace.Workspace.Events.UISourceCodeAdded, this.#uiSourceCodeAddedOrRemoved, this);
     this.#workspace.addEventListener(
@@ -199,10 +194,11 @@ export class RequestHeadersView extends LegacyWrapper.LegacyWrapper.WrappableCom
       return;
     }
 
-    return RenderCoordinator.write(() => {
+    return await RenderCoordinator.write(() => {
       // Disabled until https://crbug.com/1079231 is fixed.
       // clang-format off
       render(html`
+        <style>${requestHeadersViewStyles}</style>
         ${this.#renderGeneralSection()}
         ${this.#renderEarlyHintsHeaders()}
         ${this.#renderResponseHeaders()}
@@ -299,11 +295,7 @@ export class RequestHeadersView extends LegacyWrapper.LegacyWrapper.WrappableCom
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     const fileIcon = html`
-      <devtools-icon class=${overridesSetting.get() ? 'inline-icon dot purple': 'inline-icon'} .data=${{
-          iconName: 'document',
-          width: '16px',
-          height: '16px',
-        } as IconButton.Icon.IconData}>
+      <devtools-icon name="document" class=${'medium' + overridesSetting.get() ? 'inline-icon dot purple': 'inline-icon'}>
       </devtools-icon>`;
     // clang-format on
 
@@ -324,13 +316,9 @@ export class RequestHeadersView extends LegacyWrapper.LegacyWrapper.WrappableCom
           class="link devtools-link"
           jslog=${VisualLogging.link('devtools-override').track({click: true})}
       >
-        <devtools-icon class="inline-icon" .data=${{
-            iconName: 'help',
-            width: '16px',
-            height: '16px',
-          } as IconButton.Icon.IconData}>
-        </devtools-icon
-      ></x-link>
+        <devtools-icon name="help" class="inline-icon medium">
+        </devtools-icon>
+      </x-link>
       <x-link
           @click=${revealHeadersFile}
           class="link devtools-link"
@@ -505,7 +493,7 @@ export class RequestHeadersView extends LegacyWrapper.LegacyWrapper.WrappableCom
         name.toLowerCase() === this.#toReveal?.header?.toLowerCase();
     return html`
       <div class="row ${isHighlighted ? 'header-highlight' : ''}">
-        <div class="header-name">${name}:</div>
+        <div class="header-name">${name}</div>
         <div
           class="header-value ${classNames?.join(' ')}"
           @copy=${() => Host.userMetrics.actionTaken(Host.UserMetrics.Action.NetworkPanelCopyValue)}
@@ -543,10 +531,6 @@ export class Category extends HTMLElement {
   #forceOpen: boolean|undefined = undefined;
   #loggingContext = '';
 
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [requestHeadersViewStyles, Input.checkboxStyles];
-  }
-
   set data(data: CategoryData) {
     this.#title = data.title;
     this.#expandedSetting =
@@ -568,6 +552,8 @@ export class Category extends HTMLElement {
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
     render(html`
+      <style>${requestHeadersViewStyles}</style>
+      <style>${Input.checkboxStyles}</style>
       <details ?open=${isOpen} @toggle=${this.#onToggle}>
         <summary
           class="header"
@@ -583,13 +569,10 @@ export class Category extends HTMLElement {
             </div>
             <div class="hide-when-closed">
               ${this.#checked !== undefined ? html`
-                <label><input
-                    type="checkbox"
-                    .checked=${this.#checked}
-                    @change=${this.#onCheckboxToggle}
-                    jslog=${VisualLogging.toggle('raw-headers').track({change: true})}
-                />${i18nString(UIStrings.raw)}</label>
-              ` : Lit.nothing}
+                <devtools-checkbox .checked=${this.#checked} @change=${this.#onCheckboxToggle}
+                         jslog=${VisualLogging.toggle('raw-headers').track({change: true})}>
+                  ${i18nString(UIStrings.raw)}
+              </devtools-checkbox>` : Lit.nothing}
             </div>
             <div class="hide-when-closed">${this.#additionalContent}</div>
           </div>

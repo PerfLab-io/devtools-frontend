@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
@@ -51,79 +52,79 @@ import {VBox} from './Widget.js';
 
 const UIStrings = {
   /**
-   *@description Text on a button to replace one instance with input text for the ctrl+F search bar
+   * @description Text on a button to replace one instance with input text for the ctrl+F search bar
    */
   replace: 'Replace',
   /**
-   *@description Tooltip text on a toggle to enable replacing one instance with input text for the ctrl+F search bar
+   * @description Tooltip text on a toggle to enable replacing one instance with input text for the ctrl+F search bar
    */
   enableFindAndReplace: 'Find and replace',
   /**
-   *@description Tooltip text on a toggle to disable replacing one instance with input text for the ctrl+F search bar
+   * @description Tooltip text on a toggle to disable replacing one instance with input text for the ctrl+F search bar
    */
   disableFindAndReplace: 'Disable find and replace',
   /**
-   *@description Text to find an item
+   * @description Text to find an item
    */
   findString: 'Find',
   /**
-   *@description Tooltip text on a button to search previous instance for the ctrl+F search bar
+   * @description Tooltip text on a button to search previous instance for the ctrl+F search bar
    */
   searchPrevious: 'Show previous result',
   /**
-   *@description Tooltip text on a button to search next instance for the ctrl+F search bar
+   * @description Tooltip text on a button to search next instance for the ctrl+F search bar
    */
   searchNext: 'Show next result',
   /**
-   *@description Tooltip text on a toggle to enable search by matching case of the input
+   * @description Tooltip text on a toggle to enable search by matching case of the input
    */
   enableCaseSensitive: 'Enable case sensitive search',
   /**
-   *@description Tooltip text on a toggle to disable search by matching case of the input
+   * @description Tooltip text on a toggle to disable search by matching case of the input
    */
   disableCaseSensitive: 'Disable case sensitive search',
   /**
-   *@description Tooltip text on a toggle to enable searching with regular expression
+   * @description Tooltip text on a toggle to enable searching with regular expression
    */
   enableRegularExpression: 'Enable regular expressions',
   /**
-   *@description Tooltip text on a toggle to disable searching with regular expression
+   * @description Tooltip text on a toggle to disable searching with regular expression
    */
   disableRegularExpression: 'Disable regular expressions',
   /**
-   *@description Tooltip text on a button to close the search bar
+   * @description Tooltip text on a button to close the search bar
    */
   closeSearchBar: 'Close search bar',
   /**
-   *@description Text on a button to replace all instances with input text for the ctrl+F search bar
+   * @description Text on a button to replace all instances with input text for the ctrl+F search bar
    */
   replaceAll: 'Replace all',
   /**
-   *@description Text to indicate the current match index and the total number of matches for the ctrl+F search bar
-   *@example {2} PH1
-   *@example {3} PH2
+   * @description Text to indicate the current match index and the total number of matches for the ctrl+F search bar
+   * @example {2} PH1
+   * @example {3} PH2
    */
   dOfD: '{PH1} of {PH2}',
   /**
-   *@description Tooltip text to indicate the current match index and the total number of matches for the ctrl+F search bar
-   *@example {2} PH1
-   *@example {3} PH2
+   * @description Tooltip text to indicate the current match index and the total number of matches for the ctrl+F search bar
+   * @example {2} PH1
+   * @example {3} PH2
    */
   accessibledOfD: 'Shows result {PH1} of {PH2}',
   /**
-   *@description Text to indicate search result for the ctrl+F search bar
+   * @description Text to indicate search result for the ctrl+F search bar
    */
   matchString: '1 match',
   /**
-   *@description Text to indicate search result for the ctrl+F search bar
-   *@example {2} PH1
+   * @description Text to indicate search result for the ctrl+F search bar
+   * @example {2} PH1
    */
   dMatches: '{PH1} matches',
   /**
-   *@description Text on a button to search previous instance for the ctrl+F search bar
+   * @description Text on a button to search previous instance for the ctrl+F search bar
    */
   clearInput: 'Clear',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/SearchableView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -165,8 +166,8 @@ export class SearchableView extends VBox {
   private currentQuery?: string;
   private valueChangedTimeoutId?: number;
 
-  constructor(searchable: Searchable, replaceable: Replaceable|null, settingName?: string) {
-    super(true);
+  constructor(searchable: Searchable, replaceable: Replaceable|null, settingName?: string, element?: HTMLElement) {
+    super(element, {useShadowDom: true});
     this.registerRequiredCSS(searchableViewStyles);
     searchableViewsByElement.set(this.element, this);
 
@@ -427,10 +428,6 @@ export class SearchableView extends VBox {
     this.updateSearchMatchesCountAndCurrentMatchIndex(untypedSearchProvider.currentSearchMatches, currentMatchIndex);
   }
 
-  isSearchVisible(): boolean {
-    return Boolean(this.searchIsVisible);
-  }
-
   closeSearch(): void {
     this.cancelSearch();
     if (this.footerElementContainer.hasFocus()) {
@@ -527,7 +524,7 @@ export class SearchableView extends VBox {
     let queryCandidate;
     if (!this.searchInputElement.hasFocus()) {
       const selection = InspectorView.instance().element.window().getSelection();
-      if (selection && selection.rangeCount) {
+      if (selection?.rangeCount) {
         queryCandidate = selection.toString().replace(/\r?\n.*/, '');
       }
     }
@@ -551,8 +548,7 @@ export class SearchableView extends VBox {
     }
   }
 
-  private onSearchKeyDown(ev: Event): void {
-    const event = (ev as KeyboardEvent);
+  private onSearchKeyDown(event: KeyboardEvent): void {
     if (Platform.KeyboardUtilities.isEscKey(event)) {
       this.closeSearch();
       event.consume(true);

@@ -15,22 +15,22 @@ import {
 
 const UIStrings = {
   /**
-   *@description title for autofill documentation page
+   * @description title for autofill documentation page
    */
   howDoesAutofillWorkPageTitle: 'How does autofill work?',
 
   /**
-   *@description title for label form elements usage example page
+   * @description title for label form elements usage example page
    */
   labelFormlementsPageTitle: 'The label elements',
 
   /**
-   *@description title for input form elements usage example page
+   * @description title for input form elements usage example page
    */
   inputFormElementPageTitle: 'The form input element',
 
   /**
-   *@description title for autocomplete attribute documentation page.
+   * @description title for autocomplete attribute documentation page.
    */
   autocompleteAttributePageTitle: 'HTML attribute: autocomplete',
 
@@ -38,7 +38,7 @@ const UIStrings = {
    * @description title for CORB explainer.
    */
   corbExplainerPageTitle: 'CORB explainer',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('models/issues_manager/GenericIssue.ts', UIStrings);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
@@ -185,7 +185,7 @@ export const genericResponseWasBlockedbyORB = {
   }],
 };
 
-const issueDescriptions: Map<Protocol.Audits.GenericIssueErrorType, LazyMarkdownIssueDescription> = new Map([
+const issueDescriptions = new Map<Protocol.Audits.GenericIssueErrorType, LazyMarkdownIssueDescription>([
   [Protocol.Audits.GenericIssueErrorType.FormLabelForNameError, genericFormLabelForNameError],
   [Protocol.Audits.GenericIssueErrorType.FormInputWithNoLabelError, genericFormInputWithNoLabelError],
   [
@@ -220,7 +220,7 @@ const issueDescriptions: Map<Protocol.Audits.GenericIssueErrorType, LazyMarkdown
   ],
 ]);
 
-const issueTypes: Map<Protocol.Audits.GenericIssueErrorType, IssueKind> = new Map([
+const issueTypes = new Map<Protocol.Audits.GenericIssueErrorType, IssueKind>([
   [Protocol.Audits.GenericIssueErrorType.FormLabelForNameError, IssueKind.PAGE_ERROR],
   [Protocol.Audits.GenericIssueErrorType.FormInputWithNoLabelError, IssueKind.IMPROVEMENT],
   [Protocol.Audits.GenericIssueErrorType.FormAutocompleteAttributeEmptyError, IssueKind.PAGE_ERROR],

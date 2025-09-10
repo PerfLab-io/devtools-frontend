@@ -1,6 +1,7 @@
 // Copyright (c) 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../ui/components/icon_button/icon_button.js';
 
@@ -13,12 +14,8 @@ import * as RenderCoordinator from '../../../ui/components/render_coordinator/re
 import * as Lit from '../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../ui/visual_logging/visual_logging.js';
 
-import {getIssueKindIconData} from './IssueCounter.js';
-import IssueLinkIconStylesRaw from './issueLinkIcon.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const IssueLinkIconStyles = new CSSStyleSheet();
-IssueLinkIconStyles.replaceSync(IssueLinkIconStylesRaw.cssContent);
+import {getIssueKindIconName} from './IssueCounter.js';
+import IssueLinkIconStyles from './issueLinkIcon.css.js';
 
 const {html} = Lit;
 
@@ -33,10 +30,10 @@ const UIStrings = {
    */
   clickToShowIssueWithTitle: 'Click to open the issue tab and show issue: {title}',
   /**
-   *@description Title for an link to show an issue that is unavailable because the issue couldn't be resolved
+   * @description Title for an link to show an issue that is unavailable because the issue couldn't be resolved
    */
   issueUnavailable: 'Issue unavailable at this time',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/components/issue_counter/IssueLinkIcon.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -102,10 +99,6 @@ export class IssueLinkIcon extends HTMLElement {
     await this.#render();
   }
 
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [IssueLinkIconStyles];
-  }
-
   get data(): IssueLinkIconData {
     return {
       issue: this.#issue,
@@ -141,7 +134,7 @@ export class IssueLinkIcon extends HTMLElement {
     if (!this.#issue) {
       return 'issue-questionmark-filled';
     }
-    const {iconName} = getIssueKindIconData(this.#issue.getKind());
+    const iconName = getIssueKindIconName(this.#issue.getKind());
     return iconName;
   }
 
@@ -149,6 +142,7 @@ export class IssueLinkIcon extends HTMLElement {
     return RenderCoordinator.write(() => {
       // clang-format off
       Lit.render(html`
+      <style>${IssueLinkIconStyles}</style>
       <button class=${Lit.Directives.classMap({link: Boolean(this.#issue)})}
               title=${this.#getTooltip()}
               jslog=${VisualLogging.link('issue').track({click: true})}

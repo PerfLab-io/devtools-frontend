@@ -5,7 +5,7 @@ import type * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Trace from '../../models/trace/trace.js';
 
-import {buildGroupStyle, buildTrackHeader, getFormattedTime} from './AppenderUtils.js';
+import {buildGroupStyle, buildTrackHeader, getDurationString} from './AppenderUtils.js';
 import {
   type CompatibilityTracksAppender,
   type PopoverInfo,
@@ -20,10 +20,10 @@ import type {TimelineMarkerStyle} from './TimelineUIUtils.js';
 
 const UIStrings = {
   /**
-   *@description Text in Timeline Flame Chart Data Provider of the Performance panel
+   * @description Text in Timeline Flame Chart Data Provider of the Performance panel
    */
   timings: 'Timings',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/TimingsTrackAppender.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -65,19 +65,20 @@ export class TimingsTrackAppender implements TrackAppender {
    * timings track.
    * @param trackStartLevel the horizontal level of the flame chart events where
    * the track's events will start being appended.
-   * @param expanded wether the track should be rendered expanded.
+   * @param expanded whether the track should be rendered expanded.
    * @returns the first available level to append more data after having
    * appended the track's events.
    */
   appendTrackAtLevel(trackStartLevel: number, expanded?: boolean): number {
     const extensionMarkersAreEmpty = this.#extensionMarkers.length === 0;
     const performanceMarks = this.#parsedTrace.UserTimings.performanceMarks.filter(
-        m => !Trace.Handlers.ModelHandlers.ExtensionTraceData.extensionDataInPerformanceTiming(m));
+        m => !Trace.Handlers.ModelHandlers.ExtensionTraceData.extensionDataInPerformanceTiming(m).devtoolsObj);
     const performanceMeasures = this.#parsedTrace.UserTimings.performanceMeasures.filter(
-        m => !Trace.Handlers.ModelHandlers.ExtensionTraceData.extensionDataInPerformanceTiming(m));
-    const timestampEvents = this.#parsedTrace.UserTimings.timestampEvents;
+        m => !Trace.Handlers.ModelHandlers.ExtensionTraceData.extensionDataInPerformanceTiming(m).devtoolsObj);
+    const timestampEvents = this.#parsedTrace.UserTimings.timestampEvents.filter(
+        timeStamp =>
+            !Trace.Handlers.ModelHandlers.ExtensionTraceData.extensionDataInConsoleTimeStamp(timeStamp).devtoolsObj);
     const consoleTimings = this.#parsedTrace.UserTimings.consoleTimings;
-
     if (extensionMarkersAreEmpty && performanceMarks.length === 0 && performanceMeasures.length === 0 &&
         timestampEvents.length === 0 && consoleTimings.length === 0) {
       return trackStartLevel;
@@ -115,8 +116,7 @@ export class TimingsTrackAppender implements TrackAppender {
    * extension markers (the first available level to append more data).
    */
   #appendExtensionsAtLevel(currentLevel: number): number {
-    let markers: Trace.Types.Extensions.SyntheticExtensionMarker[] = [];
-    markers = markers.concat(this.#extensionMarkers).sort((m1, m2) => m1.ts - m2.ts);
+    const markers = this.#extensionMarkers.toSorted((m1, m2) => m1.ts - m2.ts);
     if (markers.length === 0) {
       return currentLevel;
     }
@@ -244,31 +244,39 @@ export class TimingsTrackAppender implements TrackAppender {
       }
     }
     if (Trace.Types.Events.isConsoleTimeStamp(event)) {
-      return `TimeStamp: ${event.args.data?.name ?? '(name unknown)'}`;
+      return `TimeStamp: ${event.args.data?.message ?? '(name unknown)'}`;
     }
     if (Trace.Types.Events.isPerformanceMark(event)) {
       return `[mark]: ${event.name}`;
     }
-    if (Trace.Types.Extensions.isSyntheticExtensionEntry(event) && event.args.tooltipText) {
-      return event.args.tooltipText;
-    }
+    // Trace.Types.Extensions.isSyntheticExtensionEntry(event) can fall through to event.name.
     return event.name;
   }
 
   setPopoverInfo(event: Trace.Types.Events.Event, info: PopoverInfo): void {
-    // If an event is a marker event, rather than show a duration of 0, we can instead show the time that the event happened, which is much more useful. We do this currently for:
+    // If an event is a marker event, rather than show a duration of 0, we can
+    // instead show the time that the event happened, which is much more
+    // useful. We do this currently for:
     // Page load events: DCL, FCP and LCP
-    // performance.mark() events
+    // performance.mark() events (including extensibility events)
     // console.timestamp() events
+
+    const isExtensibilityMarker = Trace.Types.Extensions.isSyntheticExtensionEntry(event) &&
+        Trace.Types.Extensions.isExtensionPayloadMarker(event.devtoolsObj);
+
+    if (isExtensibilityMarker) {
+      info.title = event.devtoolsObj.tooltipText || event.name;
+    }
+
     if (Trace.Types.Events.isMarkerEvent(event) || Trace.Types.Events.isPerformanceMark(event) ||
-        Trace.Types.Events.isConsoleTimeStamp(event)) {
+        Trace.Types.Events.isConsoleTimeStamp(event) || isExtensibilityMarker) {
       const timeOfEvent = Trace.Helpers.Timing.timeStampForEventAdjustedByClosestNavigation(
           event,
           this.#parsedTrace.Meta.traceBounds,
           this.#parsedTrace.Meta.navigationsByNavigationId,
           this.#parsedTrace.Meta.navigationsByFrameId,
       );
-      info.formattedTime = getFormattedTime(timeOfEvent);
+      info.formattedTime = getDurationString(timeOfEvent);
     }
   }
 }

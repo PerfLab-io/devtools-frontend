@@ -17,10 +17,10 @@ const UIStrings = {
    */
   protocolMonitor: 'Protocol monitor',
   /**
-   *@description Command for showing the 'Protocol monitor' tool in the bottom drawer
+   * @description Command for showing the 'Protocol monitor' tool in the bottom drawer
    */
   showProtocolMonitor: 'Show Protocol monitor',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/protocol_monitor/protocol_monitor-meta.ts', UIStrings);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
 

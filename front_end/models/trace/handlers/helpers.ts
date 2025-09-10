@@ -6,33 +6,37 @@ import type * as Platform from '../../../core/platform/platform.js';
 import * as ThirdPartyWeb from '../../../third_party/third-party-web/third-party-web.js';
 import * as Types from '../types/types.js';
 
+import type {TraceEventsForNetworkRequest} from './NetworkRequestsHandler.js';
 import type {ParsedTrace} from './types.js';
 
-export type Entity = typeof ThirdPartyWeb.ThirdPartyWeb.entities[number];
+export type Entity = typeof ThirdPartyWeb.ThirdPartyWeb.entities[number]&{
+  isUnrecognized?: boolean,
+};
 
 export interface EntityMappings {
   createdEntityCache: Map<string, Entity>;
   entityByEvent: Map<Types.Events.Event, Entity>;
-  /**
-   * This holds the entities that had to be created, because they were not found using the
-   * ThirdPartyWeb database.
-   */
   eventsByEntity: Map<Entity, Types.Events.Event[]>;
+  entityByUrlCache: Map<string, Entity>;
 }
 
-export function getEntityForEvent(event: Types.Events.Event, entityByUrlCache: Map<string, Entity>): Entity|undefined {
+export function getEntityForEvent(event: Types.Events.Event, entityMappings: EntityMappings): Entity|undefined {
   const url = getNonResolvedURL(event);
   if (!url) {
     return;
   }
-  return getEntityForUrl(url, entityByUrlCache);
+  return getEntityForUrl(url, entityMappings);
 }
 
-export function getEntityForUrl(url: string, entityByUrlCache: Map<string, Entity>): Entity|undefined {
-  if (entityByUrlCache.has(url)) {
-    return entityByUrlCache.get(url);
+export function getEntityForUrl(url: string, entityMappings: EntityMappings): Entity|undefined {
+  const cachedByUrl = entityMappings.entityByUrlCache.get(url);
+  if (cachedByUrl) {
+    return cachedByUrl;
   }
-  const entity = ThirdPartyWeb.ThirdPartyWeb.getEntity(url) ?? makeUpEntity(entityByUrlCache, url);
+  const entity = ThirdPartyWeb.ThirdPartyWeb.getEntity(url) ?? makeUpEntity(entityMappings.createdEntityCache, url);
+  if (entity) {
+    entityMappings.entityByUrlCache.set(url, entity);
+  }
   return entity;
 }
 
@@ -44,6 +48,10 @@ export function getNonResolvedURL(
 
   if (Types.Events.isSyntheticNetworkRequest(entry)) {
     return entry.args.data.url as Platform.DevToolsPath.UrlString;
+  }
+
+  if (Types.Events.isParseAuthorStyleSheetEvent(entry) && entry.args) {
+    return entry.args.data.stylesheetUrl as Platform.DevToolsPath.UrlString;
   }
 
   if (entry.args?.data?.stackTrace && entry.args.data.stackTrace.length > 0) {
@@ -72,6 +80,16 @@ export function getNonResolvedURL(
   // For all other events, try to see if the URL is provided, else return null.
   if (entry.args?.data?.url) {
     return entry.args.data.url as Platform.DevToolsPath.UrlString;
+  }
+
+  // Many events don't have a url, but are associated with a request. Use the
+  // request's url.
+  const requestId = (entry.args?.data as {requestId?: string})?.requestId;
+  if (parsedTrace && requestId) {
+    const url = parsedTrace.NetworkRequests.byId.get(requestId)?.args.data.url;
+    if (url) {
+      return url as Platform.DevToolsPath.UrlString;
+    }
   }
 
   return null;
@@ -135,7 +153,7 @@ function makeUpChromeExtensionEntity(entityCache: Map<string, Entity>, url: stri
     category: 'Chrome Extension',
     homepage: 'https://chromewebstore.google.com/detail/' + host,
     categories: [],
-    domains: [],
+    domains: [origin],
     averageExecutionTime: 0,
     totalExecutionTime: 0,
     totalOccurrences: 0,
@@ -145,15 +163,44 @@ function makeUpChromeExtensionEntity(entityCache: Map<string, Entity>, url: stri
   return chromeExtensionEntity;
 }
 
-export function updateEventForEntities(entry: Types.Events.Event, entityMappings: EntityMappings): void {
-  const entity = getEntityForEvent(entry, entityMappings.createdEntityCache);
-  if (entity) {
-    if (entityMappings.eventsByEntity.has(entity)) {
-      const events = entityMappings.eventsByEntity.get(entity) ?? [];
-      events?.push(entry);
-    } else {
-      entityMappings.eventsByEntity.set(entity, [entry]);
-    }
-    entityMappings.entityByEvent.set(entry, entity);
+export function addEventToEntityMapping(event: Types.Events.Event, entityMappings: EntityMappings): void {
+  // As we share the entityMappings between Network and Renderer... We can have ResourceSendRequest events passed in here
+  // that were already mapped in Network. So, to avoid mapping twice, we always check that we didn't yet.
+  if (entityMappings.entityByEvent.has(event)) {
+    return;
+  }
+
+  const entity = getEntityForEvent(event, entityMappings);
+  if (!entity) {
+    return;
+  }
+
+  const mappedEvents = entityMappings.eventsByEntity.get(entity);
+  if (mappedEvents) {
+    mappedEvents.push(event);
+  } else {
+    entityMappings.eventsByEntity.set(entity, [event]);
+  }
+  entityMappings.entityByEvent.set(event, entity);
+}
+
+// A slight upgrade of addEventToEntityMapping to handle the sub-events of a network request.
+export function addNetworkRequestToEntityMapping(
+    networkRequest: Types.Events.SyntheticNetworkRequest, entityMappings: EntityMappings,
+    requestTraceEvents: TraceEventsForNetworkRequest): void {
+  const entity = getEntityForEvent(networkRequest, entityMappings);
+  if (!entity) {
+    return;
+  }
+  // In addition to mapping the network request, we'll also assign this entity to its "child" instant events like receiveData, willSendRequest, finishLoading, etc,
+  const eventsToMap = [networkRequest, ...Object.values(requestTraceEvents).flat()];
+  const mappedEvents = entityMappings.eventsByEntity.get(entity);
+  if (mappedEvents) {
+    mappedEvents.push(...eventsToMap);
+  } else {
+    entityMappings.eventsByEntity.set(entity, eventsToMap);
+  }
+  for (const evt of eventsToMap) {
+    entityMappings.entityByEvent.set(evt, entity);
   }
 }

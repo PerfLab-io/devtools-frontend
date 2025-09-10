@@ -45,6 +45,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: EXPECTED_ERROR_MESSAGE,
         url: undefined,
+        fix: undefined,
       },
     ]);
   });
@@ -62,6 +63,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: EXPECTED_ERROR_MESSAGE,
         url: undefined,
+        fix: undefined,
       },
     ]);
   });
@@ -81,6 +83,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: EXPECTED_ERROR_MESSAGE,
         url: undefined,
+        fix: undefined,
       },
     ]);
   });
@@ -100,6 +103,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: EXPECTED_ERROR_MESSAGE,
         url: undefined,
+        fix: undefined,
       },
     ]);
   });
@@ -117,6 +121,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: EXPECTED_ERROR_MESSAGE,
         url: undefined,
+        fix: undefined,
       },
     ]);
   });
@@ -136,6 +141,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: EXPECTED_ERROR_MESSAGE,
         url: undefined,
+        fix: undefined,
       },
     ]);
   });
@@ -219,6 +225,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: EXPECTED_ERROR_MESSAGE,
         url: undefined,
+        fix: undefined,
       },
     ]);
   });
@@ -238,6 +245,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: EXPECTED_ERROR_MESSAGE,
         url: undefined,
+        fix: undefined,
       },
     ]);
   });
@@ -246,29 +254,21 @@ describe('use_theme_colors', () => {
     const warnings = await lintAndGetWarnings(
         'p { color: var(--color-primary-old); }',
     );
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('allows any var(--image-file-*)', async () => {
     const warnings = await lintAndGetWarnings(
         'p { background: var(--image-file-fof); }',
     );
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('allows variables within rgb', async () => {
     const warnings = await lintAndGetWarnings(
         'p { background: rgb(var(--override-base-color) / 20%); }',
     );
-    assert.lengthOf(warnings, 0);
-  });
-
-  it('allows any color to be used when in a :host-context dark theme block', async () => {
-    const code = `:host-context(.theme-with-dark-background) p {
-      color: #fff;
-    }`;
-    const warnings = await lintAndGetWarnings(code);
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('does not lint against background-image properties when they are defined as just a variable', async () => {
@@ -276,7 +276,7 @@ describe('use_theme_colors', () => {
       background-image: var(--my-lovely-image);
     }`;
     const warnings = await lintAndGetWarnings(code);
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('does lint against background-image properties when they are a gradient with a colour in', async () => {
@@ -295,6 +295,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: 'All CSS color declarations should use a variable defined in ui/legacy/themeColors.css',
         url: undefined,
+        fix: undefined,
       },
       {
         line: 2,
@@ -305,16 +306,9 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: 'All CSS color declarations should use a variable defined in ui/legacy/themeColors.css',
         url: undefined,
+        fix: undefined,
       },
     ]);
-  });
-
-  it('allows any color to be used when in a .theme-with-dark-background block', async () => {
-    const code = `.theme-with-dark-background p {
-      color: #fff;
-    }`;
-    const warnings = await lintAndGetWarnings(code);
-    assert.lengthOf(warnings, 0);
   });
 
   it('ignores any css variables prefixed with "--override-"', async () => {
@@ -322,13 +316,13 @@ describe('use_theme_colors', () => {
       color: var(--override-custom-color);
     }`;
     const warnings = await lintAndGetWarnings(code);
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('correctly only detects the relevant color variables for border-X declarations', async () => {
-    const code = 'header {border-bottom: var(--header-border-height) solid var(--color-details-hairline); }';
+    const code = 'header {border-bottom: var(--header-border-height) solid var(--sys-color-divider); }';
     const warnings = await lintAndGetWarnings(code);
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('errors on a bad variable name for a border color', async () => {
@@ -344,6 +338,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: 'All CSS color declarations should use a variable defined in ui/legacy/themeColors.css',
         url: undefined,
+        fix: undefined,
       },
     ]);
   });
@@ -353,7 +348,7 @@ describe('use_theme_colors', () => {
         'p { border: var(--button-border-size) solid var(--color-primary); }',
     );
 
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('does not error when there is a var for the outline width', async () => {
@@ -361,13 +356,13 @@ describe('use_theme_colors', () => {
         'p { outline: var(--button-border-size) solid var(--color-primary); }',
     );
 
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('does not error when the outline is set to none', async () => {
     const warnings = await lintAndGetWarnings('p { outline: none; }');
 
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('does not error when using --sys-elevation for box-shadow', async () => {
@@ -375,7 +370,7 @@ describe('use_theme_colors', () => {
         'p { box-shadow: var(--sys-elevation-level1); }',
     );
 
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('does error when using a random color for box shadow', async () => {
@@ -383,7 +378,19 @@ describe('use_theme_colors', () => {
         'p { box-shadow: 0 1px 2px 0 #ff0000; }',
     );
 
-    assert.lengthOf(warnings, 1);
+    assert.deepEqual(warnings, [
+      {
+        column: 5,
+        endColumn: 37,
+        endLine: 1,
+        fix: undefined,
+        line: 1,
+        rule: 'plugin/use_theme_colors',
+        severity: 'error',
+        text: 'All CSS color declarations should use a variable defined in ui/legacy/themeColors.css',
+        url: undefined,
+      },
+    ]);
   });
 
   it('is silent when linting code that has an empty var()', async () => {
@@ -397,7 +404,7 @@ describe('use_theme_colors', () => {
      */
     const code = 'header { color: var(); }';
     const warnings = await lintAndGetWarnings(code);
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('allows multi line declared variables to be used', async () => {
@@ -408,7 +415,7 @@ describe('use_theme_colors', () => {
         );
       }`,
     );
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('error with multi line variable declarations', async () => {
@@ -429,6 +436,7 @@ describe('use_theme_colors', () => {
         severity: 'error',
         text: EXPECTED_ERROR_MESSAGE,
         url: undefined,
+        fix: undefined,
       },
     ]);
   });
@@ -440,7 +448,7 @@ describe('use_theme_colors', () => {
       }`,
     );
 
-    assert.lengthOf(warnings, 0);
+    assert.deepEqual(warnings, []);
   });
 
   it('error with invalid variable color inside color-mix', async () => {
@@ -450,6 +458,58 @@ describe('use_theme_colors', () => {
       }`,
     );
 
-    assert.lengthOf(warnings, 1);
+    assert.deepEqual(warnings, [
+      {
+        column: 9,
+        endColumn: 98,
+        endLine: 2,
+        fix: undefined,
+        line: 2,
+        rule: 'plugin/use_theme_colors',
+        severity: 'error',
+        text: 'All CSS color declarations should use a variable defined in ui/legacy/themeColors.css',
+        url: undefined,
+      },
+    ]);
+  });
+
+  it('errors with invalid color in a :host-context dark theme block', async () => {
+    const code = `:host-context(.theme-with-dark-background) p {
+      color: #fff;
+    }`;
+    const warnings = await lintAndGetWarnings(code);
+    assert.deepEqual(warnings, [
+      {
+        column: 7,
+        endColumn: 19,
+        endLine: 2,
+        fix: undefined,
+        line: 2,
+        rule: 'plugin/use_theme_colors',
+        severity: 'error',
+        text: 'All CSS color declarations should use a variable defined in ui/legacy/themeColors.css',
+        url: undefined,
+      },
+    ]);
+  });
+
+  it('errors with invalid color in a .theme-with-dark-background block', async () => {
+    const code = `.theme-with-dark-background p {
+      color: #fff;
+    }`;
+    const warnings = await lintAndGetWarnings(code);
+    assert.deepEqual(warnings, [
+      {
+        column: 7,
+        endColumn: 19,
+        endLine: 2,
+        fix: undefined,
+        line: 2,
+        rule: 'plugin/use_theme_colors',
+        severity: 'error',
+        text: 'All CSS color declarations should use a variable defined in ui/legacy/themeColors.css',
+        url: undefined,
+      },
+    ]);
   });
 });

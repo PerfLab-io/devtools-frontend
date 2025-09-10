@@ -1,8 +1,11 @@
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import type * as Common from '../../core/common/common.js';
+import * as i18n from '../../core/i18n/i18n.js';
+import type * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import type * as Protocol from '../../generated/protocol.js';
 import * as UI from '../../ui/legacy/legacy.js';
@@ -10,6 +13,34 @@ import * as UI from '../../ui/legacy/legacy.js';
 import {Events, MediaModel, type PlayerEvent} from './MediaModel.js';
 import {PlayerDetailView} from './PlayerDetailView.js';
 import {PlayerListView} from './PlayerListView.js';
+
+const UIStrings = {
+  /**
+   * @description Text to show if no media player has been selected
+   * A media player can be an audio and video source of a page.
+   */
+  noPlayerDetailsSelected: 'No media player selected',
+  /**
+   * @description Text to instruct the user on how to view media player details
+   * A media player can be an audio and video source of a page.
+   */
+  selectToViewDetails: 'Select a media player to inspect its details.',
+  /**
+   * @description Text to show if no player can be shown
+   * A media player can be an audio and video source of a page.
+   */
+  noMediaPlayer: 'No media player',
+  /**
+   * @description Text to explain this panel
+   * A media player can be an audio and video source of a page.
+   */
+  mediaPlayerDescription: 'On this page you can view and export media player details.',
+} as const;
+const str_ = i18n.i18n.registerUIStrings('panels/media/MainView.ts', UIStrings);
+const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+
+const MEDIA_PLAYER_EXPLANATION_URL =
+    'https://developer.chrome.com/docs/devtools/media-panel#hide-show' as Platform.DevToolsPath.UrlString;
 
 export interface TriggerHandler {
   onProperty(property: Protocol.Media.PlayerProperty): void;
@@ -134,10 +165,20 @@ export class MainView extends UI.Panel.PanelWithSidebar implements SDK.TargetMan
   private deletedPlayers: Set<string>;
   private readonly downloadStore: PlayerDataDownloadManager;
   private readonly sidebar: PlayerListView;
+  #playerIdsToPlayers: Map<string, Protocol.Media.Player>;
+  #domNodeIdsToPlayerIds: Map<Protocol.DOM.BackendNodeId, string>;
+  #placeholder: UI.EmptyWidget.EmptyWidget;
+  readonly #initialPlayersLoadedPromise: Promise<void>;
+  #initialPlayersLoadedPromiseResolve: () => void = () => {};
 
   constructor(downloadStore: PlayerDataDownloadManager = new PlayerDataDownloadManager()) {
     super('media');
     this.detailPanels = new Map();
+    this.#playerIdsToPlayers = new Map();
+    this.#domNodeIdsToPlayerIds = new Map();
+    this.#initialPlayersLoadedPromise = new Promise(resolve => {
+      this.#initialPlayersLoadedPromiseResolve = resolve;
+    });
 
     this.deletedPlayers = new Set();
 
@@ -145,6 +186,12 @@ export class MainView extends UI.Panel.PanelWithSidebar implements SDK.TargetMan
 
     this.sidebar = new PlayerListView(this);
     this.sidebar.show(this.panelSidebarElement());
+    this.splitWidget().hideSidebar();
+
+    this.#placeholder =
+        new UI.EmptyWidget.EmptyWidget(i18nString(UIStrings.noMediaPlayer), UIStrings.mediaPlayerDescription);
+    this.#placeholder.show(this.mainElement());
+    this.#placeholder.link = MEDIA_PLAYER_EXPLANATION_URL;
 
     SDK.TargetManager.TargetManager.instance().observeModels(MediaModel, this, {scoped: true});
   }
@@ -189,7 +236,7 @@ export class MainView extends UI.Panel.PanelWithSidebar implements SDK.TargetMan
     mediaModel.addEventListener(Events.PLAYER_EVENTS_ADDED, this.eventsAdded, this);
     mediaModel.addEventListener(Events.PLAYER_MESSAGES_LOGGED, this.messagesLogged, this);
     mediaModel.addEventListener(Events.PLAYER_ERRORS_RAISED, this.errorsRaised, this);
-    mediaModel.addEventListener(Events.PLAYERS_CREATED, this.playersCreated, this);
+    mediaModel.addEventListener(Events.PLAYER_CREATED, this.playerCreated, this);
   }
 
   private removeEventListeners(mediaModel: MediaModel): void {
@@ -197,13 +244,7 @@ export class MainView extends UI.Panel.PanelWithSidebar implements SDK.TargetMan
     mediaModel.removeEventListener(Events.PLAYER_EVENTS_ADDED, this.eventsAdded, this);
     mediaModel.removeEventListener(Events.PLAYER_MESSAGES_LOGGED, this.messagesLogged, this);
     mediaModel.removeEventListener(Events.PLAYER_ERRORS_RAISED, this.errorsRaised, this);
-    mediaModel.removeEventListener(Events.PLAYERS_CREATED, this.playersCreated, this);
-  }
-
-  private onPlayerCreated(playerID: string): void {
-    this.sidebar.addMediaElementItem(playerID);
-    this.detailPanels.set(playerID, new PlayerDetailView());
-    this.downloadStore.addPlayer(playerID);
+    mediaModel.removeEventListener(Events.PLAYER_CREATED, this.playerCreated, this);
   }
 
   private propertiesChanged(event: Common.EventTarget.EventTargetEvent<Protocol.Media.PlayerPropertiesChangedEvent>):
@@ -274,18 +315,64 @@ export class MainView extends UI.Panel.PanelWithSidebar implements SDK.TargetMan
     this.detailPanels.get(playerID)?.onEvent(event);
   }
 
-  private playersCreated(event: Common.EventTarget.EventTargetEvent<Protocol.Media.PlayerId[]>): void {
-    for (const playerID of event.data) {
-      this.onPlayerCreated(playerID);
+  selectPlayerByDOMNodeId(domNodeId: Protocol.DOM.BackendNodeId): void {
+    const playerId = this.#domNodeIdsToPlayerIds.get(domNodeId);
+    if (!playerId) {
+      return;
     }
+    const player = this.#playerIdsToPlayers.get(playerId);
+    if (player) {
+      this.sidebar.selectPlayerById(player.playerId);
+    }
+  }
+
+  waitForInitialPlayers(): Promise<void> {
+    return this.#initialPlayersLoadedPromise;
+  }
+
+  private playerCreated(event: Common.EventTarget.EventTargetEvent<Protocol.Media.Player>): void {
+    const player = event.data;
+    this.#playerIdsToPlayers.set(player.playerId, player);
+    if (player.domNodeId) {
+      this.#domNodeIdsToPlayerIds.set(player.domNodeId, player.playerId);
+    }
+
+    if (this.splitWidget().showMode() !== UI.SplitWidget.ShowMode.BOTH) {
+      this.splitWidget().showBoth();
+    }
+    this.sidebar.addMediaElementItem(player.playerId);
+    this.detailPanels.set(player.playerId, new PlayerDetailView());
+    this.downloadStore.addPlayer(player.playerId);
+
+    if (this.detailPanels.size === 1) {
+      this.#placeholder.header = i18nString(UIStrings.noPlayerDetailsSelected);
+      this.#placeholder.text = i18nString(UIStrings.selectToViewDetails);
+    }
+
+    this.#initialPlayersLoadedPromiseResolve();
   }
 
   markPlayerForDeletion(playerID: string): void {
     // TODO(tmathmeyer): send this to chromium to save the storage space there too.
     this.deletedPlayers.add(playerID);
     this.detailPanels.delete(playerID);
+    const player = this.#playerIdsToPlayers.get(playerID);
+    if (player?.domNodeId) {
+      this.#domNodeIdsToPlayerIds.delete(player.domNodeId);
+    }
+    this.#playerIdsToPlayers.delete(playerID);
     this.sidebar.deletePlayer(playerID);
     this.downloadStore.deletePlayer(playerID);
+    if (this.detailPanels.size === 0) {
+      this.#placeholder.header = i18nString(UIStrings.noMediaPlayer);
+      this.#placeholder.text = i18nString(UIStrings.mediaPlayerDescription);
+      this.splitWidget().hideSidebar();
+      const mainWidget = this.splitWidget().mainWidget();
+      if (mainWidget) {
+        mainWidget.detachChildWidgets();
+      }
+      this.#placeholder.show(this.mainElement());
+    }
   }
 
   markOtherPlayersForDeletion(playerID: string): void {

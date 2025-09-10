@@ -20,7 +20,13 @@ export const NativeFunctions = [
   },
   {
     name: "isNaN",
-    signatures: [["number"]]
+    signatures: [["number"]],
+    receivers: ["Window","NumberConstructor"]
+  },
+  {
+    name: "isNaN",
+    signatures: [["x","?options"]],
+    receivers: ["MLGraphBuilder"]
   },
   {
     name: "isFinite",
@@ -60,6 +66,11 @@ export const NativeFunctions = [
     name: "toString",
     signatures: [["?radix"]],
     receivers: ["Number","BigInt"]
+  },
+  {
+    name: "get",
+    signatures: [["name"],["?options"]],
+    receivers: ["CookieStore"]
   },
   {
     name: "get",
@@ -107,16 +118,6 @@ export const NativeFunctions = [
     receivers: ["Clients","BackgroundFetchManager"]
   },
   {
-    name: "get",
-    signatures: [["name"],["?options"]],
-    receivers: ["CookieStore"]
-  },
-  {
-    name: "get",
-    signatures: [["instrumentKey"]],
-    receivers: ["PaymentInstruments"]
-  },
-  {
     name: "set",
     signatures: [["v"]],
     receivers: ["PropertyDescriptor"]
@@ -124,7 +125,12 @@ export const NativeFunctions = [
   {
     name: "set",
     signatures: [["array","?offset"]],
-    receivers: ["Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    receivers: ["Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","BigInt64Array","BigUint64Array"]
+  },
+  {
+    name: "set",
+    signatures: [["options"],["cookieInit"],["name","value"]],
+    receivers: ["CookieStore"]
   },
   {
     name: "set",
@@ -159,7 +165,7 @@ export const NativeFunctions = [
   {
     name: "set",
     signatures: [["key","value"]],
-    receivers: ["Map","WeakMap"]
+    receivers: ["Map","WeakMap","CrashReportStorage"]
   },
   {
     name: "set",
@@ -167,19 +173,9 @@ export const NativeFunctions = [
     receivers: ["CSSFontFeatureValuesMap"]
   },
   {
-    name: "set",
-    signatures: [["cookieInit"],["name","value"]],
-    receivers: ["CookieStore"]
-  },
-  {
-    name: "set",
-    signatures: [["instrumentKey","details"]],
-    receivers: ["PaymentInstruments"]
-  },
-  {
     name: "toLocaleString",
     signatures: [["?locales","?options"]],
-    receivers: ["Date","ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Number","BigInt","BigInt64Array","BigUint64Array"]
+    receivers: ["Date","ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Number","Float16Array","BigInt","BigInt64Array","BigUint64Array"]
   },
   {
     name: "hasOwnProperty",
@@ -225,7 +221,7 @@ export const NativeFunctions = [
   {
     name: "create",
     signatures: [["?options"]],
-    receivers: ["CredentialsContainer","AIRewriterFactory","AISummarizerFactory","AIWriterFactory","AILanguageDetectorFactory","AITranslatorFactory"]
+    receivers: ["CredentialsContainer"]
   },
   {
     name: "defineProperty",
@@ -358,7 +354,7 @@ export const NativeFunctions = [
   {
     name: "indexOf",
     signatures: [["searchElement","?fromIndex"]],
-    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "lastIndexOf",
@@ -368,7 +364,7 @@ export const NativeFunctions = [
   {
     name: "lastIndexOf",
     signatures: [["searchElement","?fromIndex"]],
-    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "localeCompare",
@@ -411,7 +407,7 @@ export const NativeFunctions = [
   {
     name: "slice",
     signatures: [["?start","?end"]],
-    receivers: ["String","ReadonlyArray","ConcatArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    receivers: ["String","ReadonlyArray","ConcatArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "slice",
@@ -710,6 +706,11 @@ export const NativeFunctions = [
   },
   {
     name: "parse",
+    signatures: [["serializedOrigin"]],
+    receivers: ["Origin"]
+  },
+  {
+    name: "parse",
     signatures: [["url","?base"]],
     receivers: ["URL"]
   },
@@ -752,7 +753,7 @@ export const NativeFunctions = [
   {
     name: "every",
     signatures: [["predicate","?thisArg"]],
-    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "every",
@@ -762,7 +763,7 @@ export const NativeFunctions = [
   {
     name: "some",
     signatures: [["predicate","?thisArg"]],
-    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "some",
@@ -772,7 +773,7 @@ export const NativeFunctions = [
   {
     name: "forEach",
     signatures: [["callbackfn","?thisArg"]],
-    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","AudioParamMap","CSSNumericArray","CSSTransformValue","CSSUnparsedValue","CustomStateSet","DOMTokenList","EventCounts","FontFaceSet","FormData","Headers","Highlight","HighlightRegistry","MIDIInputMap","MIDIOutputMap","MediaKeyStatusMap","NodeList","NodeListOf","RTCStatsReport","StylePropertyMapReadOnly","URLSearchParams","Map","ReadonlyMap","Set","ReadonlySet","BigInt64Array","BigUint64Array"]
+    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","AudioParamMap","CSSNumericArray","CSSTransformValue","CSSUnparsedValue","CustomStateSet","DOMTokenList","EventCounts","FontFaceSet","FormData","Headers","Highlight","HighlightRegistry","MIDIInputMap","MIDIOutputMap","MediaKeyStatusMap","NodeList","NodeListOf","RTCStatsReport","StylePropertyMapReadOnly","URLSearchParams","ViewTransitionTypeSet","Float16Array","Map","ReadonlyMap","Set","ReadonlySet","BigInt64Array","BigUint64Array"]
   },
   {
     name: "forEach",
@@ -782,7 +783,7 @@ export const NativeFunctions = [
   {
     name: "map",
     signatures: [["callbackfn","?thisArg"]],
-    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "map",
@@ -792,7 +793,7 @@ export const NativeFunctions = [
   {
     name: "filter",
     signatures: [["predicate","?thisArg"]],
-    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "filter",
@@ -802,7 +803,7 @@ export const NativeFunctions = [
   {
     name: "reduce",
     signatures: [["callbackfn","?initialValue"]],
-    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    receivers: ["ReadonlyArray","Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "reduce",
@@ -825,7 +826,7 @@ export const NativeFunctions = [
   {
     name: "sort",
     signatures: [["?compareFn"]],
-    receivers: ["Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    receivers: ["Array","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "splice",
@@ -928,7 +929,7 @@ export const NativeFunctions = [
   {
     name: "fill",
     signatures: [["value","?start","?end"]],
-    receivers: ["Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Array","BigInt64Array","BigUint64Array"]
+    receivers: ["Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "fill",
@@ -943,7 +944,7 @@ export const NativeFunctions = [
   {
     name: "find",
     signatures: [["predicate","?thisArg"]],
-    receivers: ["Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Array","ReadonlyArray","BigInt64Array","BigUint64Array"]
+    receivers: ["Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","Float16Array","Array","ReadonlyArray","BigInt64Array","BigUint64Array"]
   },
   {
     name: "find",
@@ -969,8 +970,8 @@ export const NativeFunctions = [
   },
   {
     name: "from",
-    signatures: [["arrayLike","?mapfn","?thisArg"]],
-    receivers: ["Int8ArrayConstructor","Uint8ArrayConstructor","Uint8ClampedArrayConstructor","Int16ArrayConstructor","Uint16ArrayConstructor","Int32ArrayConstructor","Uint32ArrayConstructor","Float32ArrayConstructor","Float64ArrayConstructor","BigInt64ArrayConstructor","BigUint64ArrayConstructor"]
+    signatures: [["arrayLike","?mapfn","?thisArg"],["elements","?mapfn","?thisArg"]],
+    receivers: ["Int8ArrayConstructor","Uint8ArrayConstructor","Uint8ClampedArrayConstructor","Int16ArrayConstructor","Uint16ArrayConstructor","Int32ArrayConstructor","Uint32ArrayConstructor","Float32ArrayConstructor","Float64ArrayConstructor","Float16ArrayConstructor","BigInt64ArrayConstructor","BigUint64ArrayConstructor"]
   },
   {
     name: "from",
@@ -1002,7 +1003,7 @@ export const NativeFunctions = [
   {
     name: "addEventListener",
     signatures: [["type","listener","?options"]],
-    receivers: ["AbortSignal","SharedWorker","Worker","ServiceWorker","Animation","AudioBufferSourceNode","AudioContext","AudioDecoder","AudioEncoder","AudioScheduledSourceNode","AudioWorkletNode","BaseAudioContext","BroadcastChannel","CSSAnimation","CSSTransition","CanvasCaptureMediaStreamTrack","ConstantSourceNode","Document","Element","EventSource","FileReader","FontFaceSet","Window","HTMLElement","MathMLElement","SVGElement","HTMLAnchorElement","HTMLAreaElement","HTMLAudioElement","HTMLBRElement","HTMLBaseElement","HTMLBodyElement","HTMLButtonElement","HTMLCanvasElement","HTMLDListElement","HTMLDataElement","HTMLDataListElement","HTMLDetailsElement","HTMLDialogElement","HTMLDirectoryElement","HTMLDivElement","HTMLDocument","HTMLEmbedElement","HTMLFieldSetElement","HTMLFontElement","HTMLFormElement","HTMLFrameElement","HTMLFrameSetElement","HTMLHRElement","HTMLHeadElement","HTMLHeadingElement","HTMLHtmlElement","HTMLIFrameElement","HTMLImageElement","HTMLInputElement","HTMLLIElement","HTMLLabelElement","HTMLLegendElement","HTMLLinkElement","HTMLMapElement","HTMLMarqueeElement","HTMLMediaElement","HTMLMenuElement","HTMLMetaElement","HTMLMeterElement","HTMLModElement","HTMLOListElement","HTMLObjectElement","HTMLOptGroupElement","HTMLOptionElement","HTMLOutputElement","HTMLParagraphElement","HTMLParamElement","HTMLPictureElement","HTMLPreElement","HTMLProgressElement","HTMLQuoteElement","HTMLScriptElement","HTMLSelectElement","HTMLSlotElement","HTMLSourceElement","HTMLSpanElement","HTMLStyleElement","HTMLTableCaptionElement","HTMLTableCellElement","HTMLTableColElement","HTMLTableDataCellElement","HTMLTableElement","HTMLTableHeaderCellElement","HTMLTableRowElement","HTMLTableSectionElement","HTMLTemplateElement","HTMLTextAreaElement","HTMLTimeElement","HTMLTitleElement","HTMLTrackElement","HTMLUListElement","HTMLUnknownElement","HTMLVideoElement","IDBDatabase","IDBOpenDBRequest","IDBRequest","IDBTransaction","MIDIAccess","MIDIInput","MIDIOutput","MIDIPort","MediaDevices","MediaKeySession","MediaQueryList","MediaRecorder","MediaSource","MediaStream","MediaStreamTrack","MessagePort","Notification","OfflineAudioContext","OffscreenCanvas","OscillatorNode","PaymentRequest","PaymentResponse","Performance","PermissionStatus","PictureInPictureWindow","RTCDTMFSender","RTCDataChannel","RTCDtlsTransport","RTCIceTransport","RTCPeerConnection","RTCSctpTransport","RemotePlayback","SVGAElement","SVGAnimateElement","SVGAnimateMotionElement","SVGAnimateTransformElement","SVGAnimationElement","SVGCircleElement","SVGClipPathElement","SVGComponentTransferFunctionElement","SVGDefsElement","SVGDescElement","SVGEllipseElement","SVGFEBlendElement","SVGFEColorMatrixElement","SVGFEComponentTransferElement","SVGFECompositeElement","SVGFEConvolveMatrixElement","SVGFEDiffuseLightingElement","SVGFEDisplacementMapElement","SVGFEDistantLightElement","SVGFEDropShadowElement","SVGFEFloodElement","SVGFEFuncAElement","SVGFEFuncBElement","SVGFEFuncGElement","SVGFEFuncRElement","SVGFEGaussianBlurElement","SVGFEImageElement","SVGFEMergeElement","SVGFEMergeNodeElement","SVGFEMorphologyElement","SVGFEOffsetElement","SVGFEPointLightElement","SVGFESpecularLightingElement","SVGFESpotLightElement","SVGFETileElement","SVGFETurbulenceElement","SVGFilterElement","SVGForeignObjectElement","SVGGElement","SVGGeometryElement","SVGGradientElement","SVGGraphicsElement","SVGImageElement","SVGLineElement","SVGLinearGradientElement","SVGMPathElement","SVGMarkerElement","SVGMaskElement","SVGMetadataElement","SVGPathElement","SVGPatternElement","SVGPolygonElement","SVGPolylineElement","SVGRadialGradientElement","SVGRectElement","SVGSVGElement","SVGScriptElement","SVGSetElement","SVGStopElement","SVGStyleElement","SVGSwitchElement","SVGSymbolElement","SVGTSpanElement","SVGTextContentElement","SVGTextElement","SVGTextPathElement","SVGTextPositioningElement","SVGTitleElement","SVGUseElement","SVGViewElement","ScreenOrientation","ScriptProcessorNode","ServiceWorkerContainer","ServiceWorkerRegistration","ShadowRoot","SourceBuffer","SourceBufferList","SpeechSynthesis","SpeechSynthesisUtterance","TextTrack","TextTrackCue","TextTrackList","VTTCue","VideoDecoder","VideoEncoder","VisualViewport","WakeLockSentinel","WebSocket","XMLDocument","XMLHttpRequest","XMLHttpRequestEventTarget","XMLHttpRequestUpload","DedicatedWorkerGlobalScope","ServiceWorkerGlobalScope","SharedWorkerGlobalScope","WorkerGlobalScope","Highlight"]
+    receivers: ["AbortSignal","SharedWorker","Worker","ServiceWorker","Animation","AudioBufferSourceNode","AudioContext","AudioDecoder","AudioEncoder","AudioScheduledSourceNode","AudioWorkletNode","BaseAudioContext","BroadcastChannel","CSSAnimation","CSSTransition","CanvasCaptureMediaStreamTrack","ConstantSourceNode","CookieStore","Document","Element","EventSource","FileReader","FontFaceSet","Window","HTMLElement","MathMLElement","SVGElement","HTMLAnchorElement","HTMLAreaElement","HTMLAudioElement","HTMLBRElement","HTMLBaseElement","HTMLBodyElement","HTMLButtonElement","HTMLCanvasElement","HTMLDListElement","HTMLDataElement","HTMLDataListElement","HTMLDetailsElement","HTMLDialogElement","HTMLDirectoryElement","HTMLDivElement","HTMLDocument","HTMLEmbedElement","HTMLFieldSetElement","HTMLFontElement","HTMLFormElement","HTMLFrameElement","HTMLFrameSetElement","HTMLHRElement","HTMLHeadElement","HTMLHeadingElement","HTMLHtmlElement","HTMLIFrameElement","HTMLImageElement","HTMLInputElement","HTMLLIElement","HTMLLabelElement","HTMLLegendElement","HTMLLinkElement","HTMLMapElement","HTMLMarqueeElement","HTMLMediaElement","HTMLMenuElement","HTMLMetaElement","HTMLMeterElement","HTMLModElement","HTMLOListElement","HTMLObjectElement","HTMLOptGroupElement","HTMLOptionElement","HTMLOutputElement","HTMLParagraphElement","HTMLParamElement","HTMLPictureElement","HTMLPreElement","HTMLProgressElement","HTMLQuoteElement","HTMLScriptElement","HTMLSelectElement","HTMLSlotElement","HTMLSourceElement","HTMLSpanElement","HTMLStyleElement","HTMLTableCaptionElement","HTMLTableCellElement","HTMLTableColElement","HTMLTableDataCellElement","HTMLTableElement","HTMLTableHeaderCellElement","HTMLTableRowElement","HTMLTableSectionElement","HTMLTemplateElement","HTMLTextAreaElement","HTMLTimeElement","HTMLTitleElement","HTMLTrackElement","HTMLUListElement","HTMLUnknownElement","HTMLVideoElement","IDBDatabase","IDBOpenDBRequest","IDBRequest","IDBTransaction","MIDIAccess","MIDIInput","MIDIOutput","MIDIPort","MediaDevices","MediaKeySession","MediaQueryList","MediaRecorder","MediaSource","MediaStream","MediaStreamTrack","MessageEventTarget","MessagePort","NavigationHistoryEntry","Notification","OfflineAudioContext","OffscreenCanvas","OscillatorNode","PaymentRequest","PaymentResponse","Performance","PermissionStatus","PictureInPictureWindow","RTCDTMFSender","RTCDataChannel","RTCDtlsTransport","RTCIceTransport","RTCPeerConnection","RTCSctpTransport","RemotePlayback","SVGAElement","SVGAnimateElement","SVGAnimateMotionElement","SVGAnimateTransformElement","SVGAnimationElement","SVGCircleElement","SVGClipPathElement","SVGComponentTransferFunctionElement","SVGDefsElement","SVGDescElement","SVGEllipseElement","SVGFEBlendElement","SVGFEColorMatrixElement","SVGFEComponentTransferElement","SVGFECompositeElement","SVGFEConvolveMatrixElement","SVGFEDiffuseLightingElement","SVGFEDisplacementMapElement","SVGFEDistantLightElement","SVGFEDropShadowElement","SVGFEFloodElement","SVGFEFuncAElement","SVGFEFuncBElement","SVGFEFuncGElement","SVGFEFuncRElement","SVGFEGaussianBlurElement","SVGFEImageElement","SVGFEMergeElement","SVGFEMergeNodeElement","SVGFEMorphologyElement","SVGFEOffsetElement","SVGFEPointLightElement","SVGFESpecularLightingElement","SVGFESpotLightElement","SVGFETileElement","SVGFETurbulenceElement","SVGFilterElement","SVGForeignObjectElement","SVGGElement","SVGGeometryElement","SVGGradientElement","SVGGraphicsElement","SVGImageElement","SVGLineElement","SVGLinearGradientElement","SVGMPathElement","SVGMarkerElement","SVGMaskElement","SVGMetadataElement","SVGPathElement","SVGPatternElement","SVGPolygonElement","SVGPolylineElement","SVGRadialGradientElement","SVGRectElement","SVGSVGElement","SVGScriptElement","SVGSetElement","SVGStopElement","SVGStyleElement","SVGSwitchElement","SVGSymbolElement","SVGTSpanElement","SVGTextContentElement","SVGTextElement","SVGTextPathElement","SVGTextPositioningElement","SVGTitleElement","SVGUseElement","SVGViewElement","ScreenOrientation","ScriptProcessorNode","ServiceWorkerContainer","ServiceWorkerRegistration","ShadowRoot","SourceBuffer","SourceBufferList","SpeechSynthesis","SpeechSynthesisUtterance","TextTrack","TextTrackCue","TextTrackList","VTTCue","VideoDecoder","VideoEncoder","VisualViewport","WakeLockSentinel","WebSocket","XMLDocument","XMLHttpRequest","XMLHttpRequestEventTarget","XMLHttpRequestUpload","DedicatedWorkerGlobalScope","ServiceWorkerGlobalScope","SharedWorkerGlobalScope","WorkerGlobalScope","Highlight"]
   },
   {
     name: "addEventListener",
@@ -1012,7 +1013,7 @@ export const NativeFunctions = [
   {
     name: "removeEventListener",
     signatures: [["type","listener","?options"]],
-    receivers: ["AbortSignal","SharedWorker","Worker","ServiceWorker","Animation","AudioBufferSourceNode","AudioContext","AudioDecoder","AudioEncoder","AudioScheduledSourceNode","AudioWorkletNode","BaseAudioContext","BroadcastChannel","CSSAnimation","CSSTransition","CanvasCaptureMediaStreamTrack","ConstantSourceNode","Document","Element","EventSource","FileReader","FontFaceSet","Window","HTMLElement","MathMLElement","SVGElement","HTMLAnchorElement","HTMLAreaElement","HTMLAudioElement","HTMLBRElement","HTMLBaseElement","HTMLBodyElement","HTMLButtonElement","HTMLCanvasElement","HTMLDListElement","HTMLDataElement","HTMLDataListElement","HTMLDetailsElement","HTMLDialogElement","HTMLDirectoryElement","HTMLDivElement","HTMLDocument","HTMLEmbedElement","HTMLFieldSetElement","HTMLFontElement","HTMLFormElement","HTMLFrameElement","HTMLFrameSetElement","HTMLHRElement","HTMLHeadElement","HTMLHeadingElement","HTMLHtmlElement","HTMLIFrameElement","HTMLImageElement","HTMLInputElement","HTMLLIElement","HTMLLabelElement","HTMLLegendElement","HTMLLinkElement","HTMLMapElement","HTMLMarqueeElement","HTMLMediaElement","HTMLMenuElement","HTMLMetaElement","HTMLMeterElement","HTMLModElement","HTMLOListElement","HTMLObjectElement","HTMLOptGroupElement","HTMLOptionElement","HTMLOutputElement","HTMLParagraphElement","HTMLParamElement","HTMLPictureElement","HTMLPreElement","HTMLProgressElement","HTMLQuoteElement","HTMLScriptElement","HTMLSelectElement","HTMLSlotElement","HTMLSourceElement","HTMLSpanElement","HTMLStyleElement","HTMLTableCaptionElement","HTMLTableCellElement","HTMLTableColElement","HTMLTableDataCellElement","HTMLTableElement","HTMLTableHeaderCellElement","HTMLTableRowElement","HTMLTableSectionElement","HTMLTemplateElement","HTMLTextAreaElement","HTMLTimeElement","HTMLTitleElement","HTMLTrackElement","HTMLUListElement","HTMLUnknownElement","HTMLVideoElement","IDBDatabase","IDBOpenDBRequest","IDBRequest","IDBTransaction","MIDIAccess","MIDIInput","MIDIOutput","MIDIPort","MediaDevices","MediaKeySession","MediaQueryList","MediaRecorder","MediaSource","MediaStream","MediaStreamTrack","MessagePort","Notification","OfflineAudioContext","OffscreenCanvas","OscillatorNode","PaymentRequest","PaymentResponse","Performance","PermissionStatus","PictureInPictureWindow","RTCDTMFSender","RTCDataChannel","RTCDtlsTransport","RTCIceTransport","RTCPeerConnection","RTCSctpTransport","RemotePlayback","SVGAElement","SVGAnimateElement","SVGAnimateMotionElement","SVGAnimateTransformElement","SVGAnimationElement","SVGCircleElement","SVGClipPathElement","SVGComponentTransferFunctionElement","SVGDefsElement","SVGDescElement","SVGEllipseElement","SVGFEBlendElement","SVGFEColorMatrixElement","SVGFEComponentTransferElement","SVGFECompositeElement","SVGFEConvolveMatrixElement","SVGFEDiffuseLightingElement","SVGFEDisplacementMapElement","SVGFEDistantLightElement","SVGFEDropShadowElement","SVGFEFloodElement","SVGFEFuncAElement","SVGFEFuncBElement","SVGFEFuncGElement","SVGFEFuncRElement","SVGFEGaussianBlurElement","SVGFEImageElement","SVGFEMergeElement","SVGFEMergeNodeElement","SVGFEMorphologyElement","SVGFEOffsetElement","SVGFEPointLightElement","SVGFESpecularLightingElement","SVGFESpotLightElement","SVGFETileElement","SVGFETurbulenceElement","SVGFilterElement","SVGForeignObjectElement","SVGGElement","SVGGeometryElement","SVGGradientElement","SVGGraphicsElement","SVGImageElement","SVGLineElement","SVGLinearGradientElement","SVGMPathElement","SVGMarkerElement","SVGMaskElement","SVGMetadataElement","SVGPathElement","SVGPatternElement","SVGPolygonElement","SVGPolylineElement","SVGRadialGradientElement","SVGRectElement","SVGSVGElement","SVGScriptElement","SVGSetElement","SVGStopElement","SVGStyleElement","SVGSwitchElement","SVGSymbolElement","SVGTSpanElement","SVGTextContentElement","SVGTextElement","SVGTextPathElement","SVGTextPositioningElement","SVGTitleElement","SVGUseElement","SVGViewElement","ScreenOrientation","ScriptProcessorNode","ServiceWorkerContainer","ServiceWorkerRegistration","ShadowRoot","SourceBuffer","SourceBufferList","SpeechSynthesis","SpeechSynthesisUtterance","TextTrack","TextTrackCue","TextTrackList","VTTCue","VideoDecoder","VideoEncoder","VisualViewport","WakeLockSentinel","WebSocket","XMLDocument","XMLHttpRequest","XMLHttpRequestEventTarget","XMLHttpRequestUpload","DedicatedWorkerGlobalScope","ServiceWorkerGlobalScope","SharedWorkerGlobalScope","WorkerGlobalScope","Highlight"]
+    receivers: ["AbortSignal","SharedWorker","Worker","ServiceWorker","Animation","AudioBufferSourceNode","AudioContext","AudioDecoder","AudioEncoder","AudioScheduledSourceNode","AudioWorkletNode","BaseAudioContext","BroadcastChannel","CSSAnimation","CSSTransition","CanvasCaptureMediaStreamTrack","ConstantSourceNode","CookieStore","Document","Element","EventSource","FileReader","FontFaceSet","Window","HTMLElement","MathMLElement","SVGElement","HTMLAnchorElement","HTMLAreaElement","HTMLAudioElement","HTMLBRElement","HTMLBaseElement","HTMLBodyElement","HTMLButtonElement","HTMLCanvasElement","HTMLDListElement","HTMLDataElement","HTMLDataListElement","HTMLDetailsElement","HTMLDialogElement","HTMLDirectoryElement","HTMLDivElement","HTMLDocument","HTMLEmbedElement","HTMLFieldSetElement","HTMLFontElement","HTMLFormElement","HTMLFrameElement","HTMLFrameSetElement","HTMLHRElement","HTMLHeadElement","HTMLHeadingElement","HTMLHtmlElement","HTMLIFrameElement","HTMLImageElement","HTMLInputElement","HTMLLIElement","HTMLLabelElement","HTMLLegendElement","HTMLLinkElement","HTMLMapElement","HTMLMarqueeElement","HTMLMediaElement","HTMLMenuElement","HTMLMetaElement","HTMLMeterElement","HTMLModElement","HTMLOListElement","HTMLObjectElement","HTMLOptGroupElement","HTMLOptionElement","HTMLOutputElement","HTMLParagraphElement","HTMLParamElement","HTMLPictureElement","HTMLPreElement","HTMLProgressElement","HTMLQuoteElement","HTMLScriptElement","HTMLSelectElement","HTMLSlotElement","HTMLSourceElement","HTMLSpanElement","HTMLStyleElement","HTMLTableCaptionElement","HTMLTableCellElement","HTMLTableColElement","HTMLTableDataCellElement","HTMLTableElement","HTMLTableHeaderCellElement","HTMLTableRowElement","HTMLTableSectionElement","HTMLTemplateElement","HTMLTextAreaElement","HTMLTimeElement","HTMLTitleElement","HTMLTrackElement","HTMLUListElement","HTMLUnknownElement","HTMLVideoElement","IDBDatabase","IDBOpenDBRequest","IDBRequest","IDBTransaction","MIDIAccess","MIDIInput","MIDIOutput","MIDIPort","MediaDevices","MediaKeySession","MediaQueryList","MediaRecorder","MediaSource","MediaStream","MediaStreamTrack","MessageEventTarget","MessagePort","NavigationHistoryEntry","Notification","OfflineAudioContext","OffscreenCanvas","OscillatorNode","PaymentRequest","PaymentResponse","Performance","PermissionStatus","PictureInPictureWindow","RTCDTMFSender","RTCDataChannel","RTCDtlsTransport","RTCIceTransport","RTCPeerConnection","RTCSctpTransport","RemotePlayback","SVGAElement","SVGAnimateElement","SVGAnimateMotionElement","SVGAnimateTransformElement","SVGAnimationElement","SVGCircleElement","SVGClipPathElement","SVGComponentTransferFunctionElement","SVGDefsElement","SVGDescElement","SVGEllipseElement","SVGFEBlendElement","SVGFEColorMatrixElement","SVGFEComponentTransferElement","SVGFECompositeElement","SVGFEConvolveMatrixElement","SVGFEDiffuseLightingElement","SVGFEDisplacementMapElement","SVGFEDistantLightElement","SVGFEDropShadowElement","SVGFEFloodElement","SVGFEFuncAElement","SVGFEFuncBElement","SVGFEFuncGElement","SVGFEFuncRElement","SVGFEGaussianBlurElement","SVGFEImageElement","SVGFEMergeElement","SVGFEMergeNodeElement","SVGFEMorphologyElement","SVGFEOffsetElement","SVGFEPointLightElement","SVGFESpecularLightingElement","SVGFESpotLightElement","SVGFETileElement","SVGFETurbulenceElement","SVGFilterElement","SVGForeignObjectElement","SVGGElement","SVGGeometryElement","SVGGradientElement","SVGGraphicsElement","SVGImageElement","SVGLineElement","SVGLinearGradientElement","SVGMPathElement","SVGMarkerElement","SVGMaskElement","SVGMetadataElement","SVGPathElement","SVGPatternElement","SVGPolygonElement","SVGPolylineElement","SVGRadialGradientElement","SVGRectElement","SVGSVGElement","SVGScriptElement","SVGSetElement","SVGStopElement","SVGStyleElement","SVGSwitchElement","SVGSymbolElement","SVGTSpanElement","SVGTextContentElement","SVGTextElement","SVGTextPathElement","SVGTextPositioningElement","SVGTitleElement","SVGUseElement","SVGViewElement","ScreenOrientation","ScriptProcessorNode","ServiceWorkerContainer","ServiceWorkerRegistration","ShadowRoot","SourceBuffer","SourceBufferList","SpeechSynthesis","SpeechSynthesisUtterance","TextTrack","TextTrackCue","TextTrackList","VTTCue","VideoDecoder","VideoEncoder","VisualViewport","WakeLockSentinel","WebSocket","XMLDocument","XMLHttpRequest","XMLHttpRequestEventTarget","XMLHttpRequestUpload","DedicatedWorkerGlobalScope","ServiceWorkerGlobalScope","SharedWorkerGlobalScope","WorkerGlobalScope","Highlight"]
   },
   {
     name: "removeEventListener",
@@ -1053,6 +1054,11 @@ export const NativeFunctions = [
     name: "finish",
     signatures: [["?descriptor"]],
     receivers: ["GPUCommandEncoder","GPURenderBundleEncoder"]
+  },
+  {
+    name: "pause",
+    signatures: [["?n"]],
+    receivers: ["Atomics"]
   },
   {
     name: "updatePlaybackRate",
@@ -1192,13 +1198,13 @@ export const NativeFunctions = [
   },
   {
     name: "decode",
-    signatures: [["?input","?options"]],
-    receivers: ["TextDecoder"]
+    signatures: [["?options"]],
+    receivers: ["ImageDecoder"]
   },
   {
     name: "decode",
-    signatures: [["?options"]],
-    receivers: ["ImageDecoder"]
+    signatures: [["?input","?options"]],
+    receivers: ["TextDecoder"]
   },
   {
     name: "encode",
@@ -1249,6 +1255,11 @@ export const NativeFunctions = [
     name: "disconnect",
     signatures: [["?output"],["destinationNode","?output","?input"],["destinationParam","?output"],["destination","?output","?input"]],
     receivers: ["AudioNode"]
+  },
+  {
+    name: "disconnect",
+    signatures: [["options"]],
+    receivers: ["IdentityCredential"]
   },
   {
     name: "disconnect",
@@ -1482,7 +1493,7 @@ export const NativeFunctions = [
   {
     name: "item",
     signatures: [["index"]],
-    receivers: ["CSSRuleList","CSSStyleDeclaration","DOMRectList","DOMStringList","DOMTokenList","FileList","HTMLCollectionBase","HTMLCollectionOf","HTMLSelectElement","MediaList","MimeTypeArray","NamedNodeMap","NodeList","NodeListOf","Plugin","PluginArray","SpeechRecognitionResult","SpeechRecognitionResultList","StyleSheetList","TouchList","HTMLCollection","SpeechGrammarList","SpeechRecognitionPhraseList","SQLResultSetRowList"]
+    receivers: ["CSSRuleList","CSSStyleDeclaration","DOMRectList","DOMStringList","DOMTokenList","FileList","HTMLCollectionBase","HTMLCollectionOf","HTMLSelectElement","MediaList","MimeTypeArray","NamedNodeMap","NodeList","NodeListOf","Plugin","PluginArray","SpeechRecognitionResult","SpeechRecognitionResultList","StyleSheetList","TouchList","HTMLCollection","SpeechGrammarList"]
   },
   {
     name: "item",
@@ -1533,6 +1544,11 @@ export const NativeFunctions = [
   },
   {
     name: "delete",
+    signatures: [["name"],["options"]],
+    receivers: ["CookieStore"]
+  },
+  {
+    name: "delete",
     signatures: [["name"]],
     receivers: ["FormData","StorageBucketManager"]
   },
@@ -1570,16 +1586,6 @@ export const NativeFunctions = [
     name: "delete",
     signatures: [["id"]],
     receivers: ["ContentIndex"]
-  },
-  {
-    name: "delete",
-    signatures: [["name"],["options"]],
-    receivers: ["CookieStore"]
-  },
-  {
-    name: "delete",
-    signatures: [["instrumentKey"]],
-    receivers: ["PaymentInstruments"]
   },
   {
     name: "matchAll",
@@ -1650,11 +1656,6 @@ export const NativeFunctions = [
     name: "has",
     signatures: [["value"]],
     receivers: ["Set","ReadonlySet","WeakSet","ReadonlySetLike"]
-  },
-  {
-    name: "has",
-    signatures: [["instrumentKey"]],
-    receivers: ["PaymentInstruments"]
   },
   {
     name: "open",
@@ -1769,7 +1770,7 @@ export const NativeFunctions = [
   },
   {
     name: "createImageData",
-    signatures: [["imagedata"],["sw","sh","?settings"]],
+    signatures: [["imageData"],["sw","sh","?settings"]],
     receivers: ["CanvasImageData"]
   },
   {
@@ -1789,7 +1790,13 @@ export const NativeFunctions = [
   },
   {
     name: "putImageData",
-    signatures: [["imagedata","dx","dy","?dirtyX","?dirtyY","?dirtyWidth","?dirtyHeight"]]
+    signatures: [["imageData","dx","dy","?dirtyX","?dirtyY","?dirtyWidth","?dirtyHeight"]],
+    receivers: ["CanvasImageData"]
+  },
+  {
+    name: "putImageData",
+    signatures: [["imagedata","dx","dy","?dirtyX","?dirtyY","?dirtyWidth","?dirtyHeight"]],
+    receivers: ["CanvasRenderingContext2D","OffscreenCanvasRenderingContext2D"]
   },
   {
     name: "arc",
@@ -1940,11 +1947,6 @@ export const NativeFunctions = [
     receivers: ["DOMMatrixReadOnly"]
   },
   {
-    name: "translate",
-    signatures: [["input"]],
-    receivers: ["LanguageTranslator"]
-  },
-  {
     name: "drawFocusIfNeeded",
     signatures: [["element"],["path","element"]]
   },
@@ -1998,6 +2000,11 @@ export const NativeFunctions = [
   },
   {
     name: "remove",
+    signatures: [["key"]],
+    receivers: ["CrashReportStorage"]
+  },
+  {
+    name: "remove",
     signatures: [["?options"]],
     receivers: ["FileSystemHandle"]
   },
@@ -2017,12 +2024,12 @@ export const NativeFunctions = [
   },
   {
     name: "read",
-    signatures: [["?formats"]],
+    signatures: [["?options"]],
     receivers: ["Clipboard"]
   },
   {
     name: "read",
-    signatures: [["view"]],
+    signatures: [["view","?options"]],
     receivers: ["ReadableStreamBYOBReader"]
   },
   {
@@ -2037,7 +2044,7 @@ export const NativeFunctions = [
   },
   {
     name: "write",
-    signatures: [["...text"],["text"]],
+    signatures: [["...text"],["text"],["text1","...text"]],
     receivers: ["Document"]
   },
   {
@@ -2066,6 +2073,46 @@ export const NativeFunctions = [
   {
     name: "initCompositionEvent",
     signatures: [["typeArg","?bubblesArg","?cancelableArg","?viewArg","?dataArg"],["type","?bubbles","?cancelable","?view","?data"]]
+  },
+  {
+    name: "getAll",
+    signatures: [["name"],["?options"]],
+    receivers: ["CookieStore"]
+  },
+  {
+    name: "getAll",
+    signatures: [["name"]],
+    receivers: ["FormData","URLSearchParams"]
+  },
+  {
+    name: "getAll",
+    signatures: [["?query","?count"],["?query_or_options","?count"]],
+    receivers: ["IDBIndex","IDBObjectStore"]
+  },
+  {
+    name: "getAll",
+    signatures: [["property"]],
+    receivers: ["StylePropertyMapReadOnly"]
+  },
+  {
+    name: "subscribe",
+    signatures: [["subscriptions"]],
+    receivers: ["CookieStoreManager"]
+  },
+  {
+    name: "subscribe",
+    signatures: [["?options"]],
+    receivers: ["PushManager"]
+  },
+  {
+    name: "subscribe",
+    signatures: [["?observer","?options"]],
+    receivers: ["Observable"]
+  },
+  {
+    name: "unsubscribe",
+    signatures: [["subscriptions"]],
+    receivers: ["CookieStoreManager"]
   },
   {
     name: "store",
@@ -2107,7 +2154,7 @@ export const NativeFunctions = [
   },
   {
     name: "createDocumentType",
-    signatures: [["qualifiedName","publicId","systemId"]]
+    signatures: [["name","publicId","systemId"],["qualifiedName","publicId","systemId"]]
   },
   {
     name: "createHTMLDocument",
@@ -2294,7 +2341,7 @@ export const NativeFunctions = [
   {
     name: "clear",
     signatures: [["mask"]],
-    receivers: ["WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "adoptNode",
@@ -2378,7 +2425,7 @@ export const NativeFunctions = [
   },
   {
     name: "importNode",
-    signatures: [["node","?deep"]]
+    signatures: [["node","?options"],["node","?deep"]]
   },
   {
     name: "queryCommandEnabled",
@@ -2406,11 +2453,17 @@ export const NativeFunctions = [
   },
   {
     name: "startViewTransition",
-    signatures: [["?callbackOptions"],["update"],["opts"]]
+    signatures: [["?callbackOptions"],["update"],["opts"]],
+    receivers: ["Document"]
+  },
+  {
+    name: "startViewTransition",
+    signatures: [["?update"],["opts"]],
+    receivers: ["Element"]
   },
   {
     name: "writeln",
-    signatures: [["...text"],["text"]]
+    signatures: [["...text"],["text"],["text1","...text"]]
   },
   {
     name: "elementFromPoint",
@@ -2562,7 +2615,7 @@ export const NativeFunctions = [
   },
   {
     name: "setHTMLUnsafe",
-    signatures: [["html"]],
+    signatures: [["html","?options"],["string"]],
     receivers: ["ShadowRoot"]
   },
   {
@@ -2611,7 +2664,13 @@ export const NativeFunctions = [
   },
   {
     name: "readAsText",
-    signatures: [["blob","?encoding"],["blob","?label"]]
+    signatures: [["blob","?encoding"]],
+    receivers: ["FileReader"]
+  },
+  {
+    name: "readAsText",
+    signatures: [["blob","?encoding"],["blob","?label"]],
+    receivers: ["FileReaderSync"]
   },
   {
     name: "getDirectory",
@@ -2758,26 +2817,6 @@ export const NativeFunctions = [
     receivers: ["StylePropertyMap"]
   },
   {
-    name: "getAll",
-    signatures: [["name"]],
-    receivers: ["FormData","URLSearchParams"]
-  },
-  {
-    name: "getAll",
-    signatures: [["?query","?count"]],
-    receivers: ["IDBIndex","IDBObjectStore"]
-  },
-  {
-    name: "getAll",
-    signatures: [["property"]],
-    receivers: ["StylePropertyMapReadOnly"]
-  },
-  {
-    name: "getAll",
-    signatures: [["name"],["?options"]],
-    receivers: ["CookieStore"]
-  },
-  {
     name: "playEffect",
     signatures: [["type","?params"]]
   },
@@ -2825,6 +2864,11 @@ export const NativeFunctions = [
     signatures: [["?type","?quality"]]
   },
   {
+    name: "requestClose",
+    signatures: [["?returnValue"]],
+    receivers: ["HTMLDialogElement"]
+  },
+  {
     name: "show",
     signatures: [["?detailsPromise"]],
     receivers: ["PaymentRequest"]
@@ -2835,7 +2879,7 @@ export const NativeFunctions = [
   },
   {
     name: "togglePopover",
-    signatures: [["?force"],["?options"]]
+    signatures: [["?options"]]
   },
   {
     name: "requestSubmit",
@@ -2993,13 +3037,7 @@ export const NativeFunctions = [
   },
   {
     name: "transaction",
-    signatures: [["storeNames","?mode","?options"]],
-    receivers: ["IDBDatabase"]
-  },
-  {
-    name: "transaction",
-    signatures: [["callback","?errorCallback","?successCallback"]],
-    receivers: ["Database"]
+    signatures: [["storeNames","?mode","?options"]]
   },
   {
     name: "cmp",
@@ -3021,7 +3059,7 @@ export const NativeFunctions = [
   },
   {
     name: "getAllKeys",
-    signatures: [["?query","?count"]]
+    signatures: [["?query","?count"],["?query_or_options","?count"]]
   },
   {
     name: "getKey",
@@ -3048,13 +3086,13 @@ export const NativeFunctions = [
   },
   {
     name: "includes",
-    signatures: [["searchString","?position"]],
-    receivers: ["String"]
+    signatures: [["searchElement","?fromIndex"]],
+    receivers: ["Float16Array","Array","ReadonlyArray","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
   },
   {
     name: "includes",
-    signatures: [["searchElement","?fromIndex"]],
-    receivers: ["Array","ReadonlyArray","Int8Array","Uint8Array","Uint8ClampedArray","Int16Array","Uint16Array","Int32Array","Uint32Array","Float32Array","Float64Array","BigInt64Array","BigUint64Array"]
+    signatures: [["searchString","?position"]],
+    receivers: ["String"]
   },
   {
     name: "createIndex",
@@ -3075,6 +3113,10 @@ export const NativeFunctions = [
   {
     name: "transferFromImageBitmap",
     signatures: [["bitmap"]]
+  },
+  {
+    name: "takePhoto",
+    signatures: [["?photoSettings"]]
   },
   {
     name: "observe",
@@ -3227,6 +3269,14 @@ export const NativeFunctions = [
     signatures: [["action","handler"]]
   },
   {
+    name: "setCameraActive",
+    signatures: [["active"]]
+  },
+  {
+    name: "setMicrophoneActive",
+    signatures: [["active"]]
+  },
+  {
     name: "setPositionState",
     signatures: [["?state"]]
   },
@@ -3315,12 +3365,12 @@ export const NativeFunctions = [
   {
     name: "disable",
     signatures: [["cap"]],
-    receivers: ["WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "enable",
     signatures: [["cap"]],
-    receivers: ["WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "setHeaderValue",
@@ -3359,12 +3409,16 @@ export const NativeFunctions = [
     signatures: [["scheme","url"]]
   },
   {
+    name: "setStatus",
+    signatures: [["status","?options"]]
+  },
+  {
     name: "appendChild",
     signatures: [["node"]]
   },
   {
     name: "cloneNode",
-    signatures: [["?deep"]]
+    signatures: [["?subtree"],["?deep"]]
   },
   {
     name: "compareDocumentPosition",
@@ -3549,26 +3603,6 @@ export const NativeFunctions = [
   {
     name: "permissionState",
     signatures: [["?options"]]
-  },
-  {
-    name: "subscribe",
-    signatures: [["?options"]],
-    receivers: ["PushManager"]
-  },
-  {
-    name: "subscribe",
-    signatures: [["?observer","?options"]],
-    receivers: ["Observable"]
-  },
-  {
-    name: "subscribe",
-    signatures: [["subscriptions"]],
-    receivers: ["CookieStoreManager"]
-  },
-  {
-    name: "unsubscribe",
-    signatures: [["subscriptions"]],
-    receivers: ["CookieStoreManager"]
   },
   {
     name: "insertDTMF",
@@ -3823,7 +3857,18 @@ export const NativeFunctions = [
   },
   {
     name: "initialize",
-    signatures: [["newItem"]]
+    signatures: [["newItem"]],
+    receivers: ["SVGLengthList","SVGNumberList","SVGPointList","SVGStringList","SVGTransformList"]
+  },
+  {
+    name: "initialize",
+    signatures: [["length"]],
+    receivers: ["CrashReportStorage"]
+  },
+  {
+    name: "initialize",
+    signatures: [["root"]],
+    receivers: ["CustomElementRegistry"]
   },
   {
     name: "insertItemBefore",
@@ -3948,6 +3993,10 @@ export const NativeFunctions = [
   {
     name: "extend",
     signatures: [["node","?offset"]]
+  },
+  {
+    name: "getComposedRanges",
+    signatures: [["?options"]]
   },
   {
     name: "getRangeAt",
@@ -4502,12 +4551,12 @@ export const NativeFunctions = [
   {
     name: "bufferData",
     signatures: [["target","size","usage"],["target","data","usage"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "bufferData",
     signatures: [["target","srcData","usage","srcOffset","?length"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "bufferSubData",
@@ -4517,12 +4566,12 @@ export const NativeFunctions = [
   {
     name: "bufferSubData",
     signatures: [["target","offset","data"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "bufferSubData",
     signatures: [["target","dstByteOffset","srcData","srcOffset","?length"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "compressedTexImage2D",
@@ -4532,12 +4581,12 @@ export const NativeFunctions = [
   {
     name: "compressedTexImage2D",
     signatures: [["target","level","internalformat","width","height","border","data"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "compressedTexImage2D",
     signatures: [["target","level","internalformat","width","height","border","imageSize","offset"],["target","level","internalformat","width","height","border","data","srcOffset","?srcLengthOverride"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "compressedTexSubImage2D",
@@ -4547,12 +4596,12 @@ export const NativeFunctions = [
   {
     name: "compressedTexSubImage2D",
     signatures: [["target","level","xoffset","yoffset","width","height","format","data"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "compressedTexSubImage2D",
     signatures: [["target","level","xoffset","yoffset","width","height","format","imageSize","offset"],["target","level","xoffset","yoffset","width","height","format","data","srcOffset","?srcLengthOverride"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "readPixels",
@@ -4562,12 +4611,12 @@ export const NativeFunctions = [
   {
     name: "readPixels",
     signatures: [["x","y","width","height","format","type","pixels"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "readPixels",
     signatures: [["x","y","width","height","format","type","offset"],["x","y","width","height","format","type","dstData","offset"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "texImage2D",
@@ -4582,12 +4631,12 @@ export const NativeFunctions = [
   {
     name: "texImage2D",
     signatures: [["target","level","internalformat","format","type","pixels"],["target","level","internalformat","format","type","image"],["target","level","internalformat","format","type","canvas"],["target","level","internalformat","format","type","offscreenCanvas"],["target","level","internalformat","format","type","video"],["target","level","internalformat","format","type","bitmap"],["target","level","internalformat","format","type","frame"],["target","level","internalformat","width","height","border","format","type","pixels"]],
-    receivers: ["WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "texImage2D",
     signatures: [["target","level","internalformat","width","height","border","format","type","offset"],["target","level","internalformat","width","height","border","format","type","data"],["target","level","internalformat","width","height","border","format","type","image"],["target","level","internalformat","width","height","border","format","type","canvas"],["target","level","internalformat","width","height","border","format","type","offscreenCanvas"],["target","level","internalformat","width","height","border","format","type","video"],["target","level","internalformat","width","height","border","format","type","frame"],["target","level","internalformat","width","height","border","format","type","bitmap"],["target","level","internalformat","width","height","border","format","type","srcData","srcOffset"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "texSubImage2D",
@@ -4602,12 +4651,12 @@ export const NativeFunctions = [
   {
     name: "texSubImage2D",
     signatures: [["target","level","xoffset","yoffset","format","type","pixels"],["target","level","xoffset","yoffset","format","type","image"],["target","level","xoffset","yoffset","format","type","canvas"],["target","level","xoffset","yoffset","format","type","offscreenCanvas"],["target","level","xoffset","yoffset","format","type","video"],["target","level","xoffset","yoffset","format","type","bitmap"],["target","level","xoffset","yoffset","format","type","frame"],["target","level","xoffset","yoffset","width","height","format","type","pixels"]],
-    receivers: ["WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "texSubImage2D",
     signatures: [["target","level","xoffset","yoffset","width","height","format","type","offset"],["target","level","xoffset","yoffset","width","height","format","type","data"],["target","level","xoffset","yoffset","width","height","format","type","image"],["target","level","xoffset","yoffset","width","height","format","type","canvas"],["target","level","xoffset","yoffset","width","height","format","type","offscreenCanvas"],["target","level","xoffset","yoffset","width","height","format","type","video"],["target","level","xoffset","yoffset","width","height","format","type","frame"],["target","level","xoffset","yoffset","width","height","format","type","bitmap"],["target","level","xoffset","yoffset","width","height","format","type","srcData","srcOffset"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform1fv",
@@ -4617,12 +4666,12 @@ export const NativeFunctions = [
   {
     name: "uniform1fv",
     signatures: [["location","v"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform1fv",
     signatures: [["location","v","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform1iv",
@@ -4632,12 +4681,12 @@ export const NativeFunctions = [
   {
     name: "uniform1iv",
     signatures: [["location","v"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform1iv",
     signatures: [["location","v","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform2fv",
@@ -4647,12 +4696,12 @@ export const NativeFunctions = [
   {
     name: "uniform2fv",
     signatures: [["location","v"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform2fv",
     signatures: [["location","v","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform2iv",
@@ -4662,12 +4711,12 @@ export const NativeFunctions = [
   {
     name: "uniform2iv",
     signatures: [["location","v"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform2iv",
     signatures: [["location","v","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform3fv",
@@ -4677,12 +4726,12 @@ export const NativeFunctions = [
   {
     name: "uniform3fv",
     signatures: [["location","v"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform3fv",
     signatures: [["location","v","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform3iv",
@@ -4692,12 +4741,12 @@ export const NativeFunctions = [
   {
     name: "uniform3iv",
     signatures: [["location","v"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform3iv",
     signatures: [["location","v","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform4fv",
@@ -4707,12 +4756,12 @@ export const NativeFunctions = [
   {
     name: "uniform4fv",
     signatures: [["location","v"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform4fv",
     signatures: [["location","v","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform4iv",
@@ -4722,12 +4771,12 @@ export const NativeFunctions = [
   {
     name: "uniform4iv",
     signatures: [["location","v"]],
-    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextOverloads","WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniform4iv",
     signatures: [["location","v","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniformMatrix2fv",
@@ -4742,12 +4791,12 @@ export const NativeFunctions = [
   {
     name: "uniformMatrix2fv",
     signatures: [["location","transpose","array"]],
-    receivers: ["WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniformMatrix2fv",
     signatures: [["location","transpose","array","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniformMatrix3fv",
@@ -4762,12 +4811,12 @@ export const NativeFunctions = [
   {
     name: "uniformMatrix3fv",
     signatures: [["location","transpose","array"]],
-    receivers: ["WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniformMatrix3fv",
     signatures: [["location","transpose","array","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniformMatrix4fv",
@@ -4782,12 +4831,12 @@ export const NativeFunctions = [
   {
     name: "uniformMatrix4fv",
     signatures: [["location","transpose","array"]],
-    receivers: ["WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "uniformMatrix4fv",
     signatures: [["location","transpose","array","srcOffset","?srcLength"]],
-    receivers: ["WebGL2RenderingContext"]
+    receivers: ["WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "activeTexture",
@@ -4985,7 +5034,7 @@ export const NativeFunctions = [
   {
     name: "getParameter",
     signatures: [["pname"]],
-    receivers: ["WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContext"]
+    receivers: ["WebGLRenderingContextWebGPU","WebGLRenderingContext","WebGL2RenderingContextBase","WebGL2RenderingContextWebGPU","WebGL2RenderingContext"]
   },
   {
     name: "getParameter",
@@ -5646,7 +5695,13 @@ export const NativeFunctions = [
   },
   {
     name: "finally",
-    signatures: [["?onfinally"]]
+    signatures: [["?onfinally"]],
+    receivers: ["Promise"]
+  },
+  {
+    name: "finally",
+    signatures: [["callback"]],
+    receivers: ["Observable"]
   },
   {
     name: "fromEntries",
@@ -5723,6 +5778,42 @@ export const NativeFunctions = [
     name: "move",
     signatures: [["new_entry_name"],["destination_directory","?new_entry_name"]],
     receivers: ["FileSystemFileHandle","FileSystemHandle"]
+  },
+  {
+    name: "try",
+    signatures: [["callbackFn","...args"]]
+  },
+  {
+    name: "findLast",
+    signatures: [["predicate","?thisArg"]]
+  },
+  {
+    name: "findLastIndex",
+    signatures: [["predicate","?thisArg"]]
+  },
+  {
+    name: "toSorted",
+    signatures: [["?compareFn"]]
+  },
+  {
+    name: "with",
+    signatures: [["index","value"]]
+  },
+  {
+    name: "f16round",
+    signatures: [["x"]]
+  },
+  {
+    name: "getFloat16",
+    signatures: [["byteOffset","?littleEndian"]]
+  },
+  {
+    name: "setFloat16",
+    signatures: [["byteOffset","value","?littleEndian"]]
+  },
+  {
+    name: "isError",
+    signatures: [["error"]]
   },
   {
     name: "addInitializer",
@@ -5897,24 +5988,8 @@ export const NativeFunctions = [
     signatures: [["byteOffset","value","?littleEndian"]]
   },
   {
-    name: "findLast",
-    signatures: [["predicate","?thisArg"]]
-  },
-  {
-    name: "findLastIndex",
-    signatures: [["predicate","?thisArg"]]
-  },
-  {
-    name: "toSorted",
-    signatures: [["?compareFn"]]
-  },
-  {
     name: "toSpliced",
     signatures: [["start","?deleteCount","...items"]]
-  },
-  {
-    name: "with",
-    signatures: [["index","value"]]
   },
   {
     name: "resize",
@@ -6007,6 +6082,14 @@ export const NativeFunctions = [
     receivers: ["Navigation"]
   },
   {
+    name: "addAnimation",
+    signatures: [["animation"]]
+  },
+  {
+    name: "removeAnimation",
+    signatures: [["animation"]]
+  },
+  {
     name: "Animation",
     signatures: [["?effect","?timeline"]]
   },
@@ -6015,11 +6098,19 @@ export const NativeFunctions = [
     signatures: [["?options"]]
   },
   {
+    name: "EventTrigger",
+    signatures: [["?options"]]
+  },
+  {
     name: "KeyframeEffect",
     signatures: [["source"],["target","keyframes","?options"]]
   },
   {
     name: "ScrollTimeline",
+    signatures: [["?options"]]
+  },
+  {
+    name: "TimelineTrigger",
     signatures: [["?options"]]
   },
   {
@@ -6468,6 +6559,10 @@ export const NativeFunctions = [
     signatures: [["?data"]]
   },
   {
+    name: "pseudo",
+    signatures: [["type"]]
+  },
+  {
     name: "parseHTMLUnsafe",
     signatures: [["html","?options"]]
   },
@@ -6560,6 +6655,22 @@ export const NativeFunctions = [
     signatures: [["node","child"]]
   },
   {
+    name: "patchBetween",
+    signatures: [["prev_child","next_child"]]
+  },
+  {
+    name: "patchAfter",
+    signatures: [["ref"]]
+  },
+  {
+    name: "patchBefore",
+    signatures: [["ref"]]
+  },
+  {
+    name: "QuotaExceededError",
+    signatures: [["?message","?options"]]
+  },
+  {
     name: "expand",
     signatures: [["?unit"]],
     receivers: ["Range"]
@@ -6622,10 +6733,6 @@ export const NativeFunctions = [
     signatures: [["type","?options"]]
   },
   {
-    name: "getComposedRanges",
-    signatures: [["?options"]]
-  },
-  {
     name: "AnimationEvent",
     signatures: [["type","?eventInitDict"]]
   },
@@ -6680,10 +6787,6 @@ export const NativeFunctions = [
   {
     name: "MouseEvent",
     signatures: [["type","?eventInitDict"]]
-  },
-  {
-    name: "initMutationEvent",
-    signatures: [["type","?bubbles","?cancelable","?relatedNode","?prevValue","?newValue","?attrName","?attrChange"]]
   },
   {
     name: "OverscrollEvent",
@@ -6751,7 +6854,13 @@ export const NativeFunctions = [
   },
   {
     name: "redirect",
-    signatures: [["url","?status"]]
+    signatures: [["url","?status"]],
+    receivers: ["Response"]
+  },
+  {
+    name: "redirect",
+    signatures: [["url","?options"]],
+    receivers: ["NavigationPrecommitController"]
   },
   {
     name: "Blob",
@@ -6900,11 +7009,6 @@ export const NativeFunctions = [
     signatures: [["?options"]]
   },
   {
-    name: "requestClose",
-    signatures: [["?returnValue"]],
-    receivers: ["HTMLDialogElement"]
-  },
-  {
     name: "reportEvent",
     signatures: [["event"]]
   },
@@ -6935,6 +7039,10 @@ export const NativeFunctions = [
   {
     name: "SubmitEvent",
     signatures: [["type","?eventInitDict"]]
+  },
+  {
+    name: "isTypeSupported",
+    signatures: [["type"]]
   },
   {
     name: "TrackEvent",
@@ -7050,7 +7158,7 @@ export const NativeFunctions = [
   },
   {
     name: "setValueAndClosePopup",
-    signatures: [["numberValue","stringValue"]]
+    signatures: [["numberValue","stringValue","is_keyboard_event"]]
   },
   {
     name: "setValue",
@@ -7081,6 +7189,10 @@ export const NativeFunctions = [
     signatures: [["options_bounds","children_updated"]]
   },
   {
+    name: "PatchEvent",
+    signatures: [["type","init"]]
+  },
+  {
     name: "allowsFeature",
     signatures: [["feature","?origin"]]
   },
@@ -7098,7 +7210,7 @@ export const NativeFunctions = [
   },
   {
     name: "Sanitizer",
-    signatures: [["?config"]]
+    signatures: [["?configuration"]]
   },
   {
     name: "allowElement",
@@ -7109,7 +7221,7 @@ export const NativeFunctions = [
     signatures: [["element"]]
   },
   {
-    name: "replaceWithChildrenElement",
+    name: "replaceElementWithChildren",
     signatures: [["element"]]
   },
   {
@@ -7139,6 +7251,18 @@ export const NativeFunctions = [
   {
     name: "TaskPriorityChangeEvent",
     signatures: [["type","eventInitDict"]]
+  },
+  {
+    name: "registerTool",
+    signatures: [["params"]]
+  },
+  {
+    name: "unregisterTool",
+    signatures: [["tool_name"]]
+  },
+  {
+    name: "SnapEvent",
+    signatures: [["type","?eventInitDict"]]
   },
   {
     name: "ByteLengthQueuingStrategy",
@@ -7229,8 +7353,28 @@ export const NativeFunctions = [
     signatures: [["?input","?options"],["input","baseURL","?options"]]
   },
   {
+    name: "generate",
+    signatures: [["component","groups"]]
+  },
+  {
     name: "compareComponent",
     signatures: [["component","left","right"]]
+  },
+  {
+    name: "Origin",
+    signatures: [["?serializedOrigin"]]
+  },
+  {
+    name: "fromURL",
+    signatures: [["serializedURL"]]
+  },
+  {
+    name: "isSameOrigin",
+    signatures: [["other"]]
+  },
+  {
+    name: "isSameSite",
+    signatures: [["other"]]
   },
   {
     name: "URLSearchParams",
@@ -7271,32 +7415,6 @@ export const NativeFunctions = [
   {
     name: "queryFeatureSupport",
     signatures: [["feature"]]
-  },
-  {
-    name: "availability",
-    signatures: [["?options"]]
-  },
-  {
-    name: "createOptionsAvailable",
-    signatures: [["options"]]
-  },
-  {
-    name: "languageAvailable",
-    signatures: [["languageTag"]]
-  },
-  {
-    name: "detect",
-    signatures: [["input","?options"]],
-    receivers: ["AILanguageDetector"]
-  },
-  {
-    name: "detect",
-    signatures: [["image"]],
-    receivers: ["BarcodeDetector","FaceDetector","TextDetector"]
-  },
-  {
-    name: "languagePairAvailable",
-    signatures: [["sourceLanguage","targetLanguage"]]
   },
   {
     name: "registerAnimator",
@@ -7438,12 +7556,12 @@ export const NativeFunctions = [
     signatures: [["textCluster","x","y","?options"]]
   },
   {
-    name: "transferToGPUTexture",
-    signatures: [["options"]]
+    name: "strokeTextCluster",
+    signatures: [["textCluster","x","y","?options"]]
   },
   {
-    name: "CanvasFilter",
-    signatures: [["init"]]
+    name: "transferToGPUTexture",
+    signatures: [["options"]]
   },
   {
     name: "beginLayer",
@@ -7466,12 +7584,28 @@ export const NativeFunctions = [
     signatures: [["vertex_buffer","uv_buffer","index_buffer","image"]]
   },
   {
-    name: "placeElement",
-    signatures: [["element","x","y"]]
+    name: "CanvasFilter",
+    signatures: [["init"]]
+  },
+  {
+    name: "drawElement",
+    signatures: [["element","x","y","?dwidth","?dheight"]]
+  },
+  {
+    name: "drawHTML",
+    signatures: [["element","x","y","?dwidth","?dheight"]]
+  },
+  {
+    name: "setHitTestRegions",
+    signatures: [["hitTestRegions"]]
   },
   {
     name: "Path2D",
     signatures: [["?path"]]
+  },
+  {
+    name: "ClipboardChangeEvent",
+    signatures: [["?eventInitDict"]]
   },
   {
     name: "ClipboardItem",
@@ -7490,6 +7624,10 @@ export const NativeFunctions = [
     signatures: [["type","init"]]
   },
   {
+    name: "userAgentAllowsProtocol",
+    signatures: [["protocol"]]
+  },
+  {
     name: "FederatedCredential",
     signatures: [["data"]]
   },
@@ -7500,10 +7638,6 @@ export const NativeFunctions = [
   {
     name: "getUserInfo",
     signatures: [["config"]]
-  },
-  {
-    name: "setStatus",
-    signatures: [["status","?options"]]
   },
   {
     name: "PasswordCredential",
@@ -7704,10 +7838,6 @@ export const NativeFunctions = [
     signatures: [["track"]]
   },
   {
-    name: "takePhoto",
-    signatures: [["?photoSettings"]]
-  },
-  {
     name: "getAllRecords",
     signatures: [["?options"]]
   },
@@ -7754,20 +7884,8 @@ export const NativeFunctions = [
     signatures: [["stream","?options"]]
   },
   {
-    name: "isTypeSupported",
-    signatures: [["type"]]
-  },
-  {
     name: "MediaMetadata",
     signatures: [["?init"]]
-  },
-  {
-    name: "setMicrophoneActive",
-    signatures: [["active"]]
-  },
-  {
-    name: "setCameraActive",
-    signatures: [["active"]]
   },
   {
     name: "appendEncodedChunks",
@@ -7831,7 +7949,7 @@ export const NativeFunctions = [
   },
   {
     name: "createContext",
-    signatures: [["?options"]]
+    signatures: [["?options"],["gpuDevice"]]
   },
   {
     name: "MLGraphBuilder",
@@ -7843,7 +7961,7 @@ export const NativeFunctions = [
   },
   {
     name: "constant",
-    signatures: [["desc","buffer"]]
+    signatures: [["tensor"],["desc","buffer"]]
   },
   {
     name: "argMin",
@@ -7914,11 +8032,19 @@ export const NativeFunctions = [
     signatures: [["x","?options"]]
   },
   {
+    name: "roundEven",
+    signatures: [["x","?options"]]
+  },
+  {
     name: "erf",
     signatures: [["x","?options"]]
   },
   {
     name: "identity",
+    signatures: [["x","?options"]]
+  },
+  {
+    name: "isInfinite",
     signatures: [["x","?options"]]
   },
   {
@@ -8166,14 +8292,6 @@ export const NativeFunctions = [
     signatures: [["timestamp"]]
   },
   {
-    name: "canTranslate",
-    signatures: [["options"]]
-  },
-  {
-    name: "createTranslator",
-    signatures: [["options"]]
-  },
-  {
     name: "AbortPaymentEvent",
     signatures: [["type","eventInitDict"]]
   },
@@ -8342,12 +8460,8 @@ export const NativeFunctions = [
     signatures: [["id"]]
   },
   {
-    name: "printJob",
+    name: "submitPrintJob",
     signatures: [["job_name","document","attributes"]]
-  },
-  {
-    name: "getEncryptedMatchKey",
-    signatures: [["reportCollector","options"]]
   },
   {
     name: "PushEvent",
@@ -8438,12 +8552,20 @@ export const NativeFunctions = [
     signatures: [["?barcodeDetectorOptions"]]
   },
   {
+    name: "detect",
+    signatures: [["image"]]
+  },
+  {
     name: "FaceDetector",
     signatures: [["?faceDetectorOptions"]]
   },
   {
     name: "contributeToHistogram",
     signatures: [["contribution"]]
+  },
+  {
+    name: "contributeToHistogramOnEvent",
+    signatures: [["event","contribution"]]
   },
   {
     name: "enableDebugMode",
@@ -8502,10 +8624,6 @@ export const NativeFunctions = [
     signatures: [["string","?weight"]]
   },
   {
-    name: "SpeechRecognitionContext",
-    signatures: [["phrases"]]
-  },
-  {
     name: "SpeechRecognitionErrorEvent",
     signatures: [["type","?eventInitDict"]]
   },
@@ -8514,24 +8632,22 @@ export const NativeFunctions = [
     signatures: [["type","?initDict"]]
   },
   {
-    name: "addItem",
-    signatures: [["item"]]
-  },
-  {
     name: "SpeechRecognitionPhrase",
     signatures: [["phrase","?boost"]]
   },
   {
-    name: "updateContext",
-    signatures: [["context"]]
+    name: "available",
+    signatures: [["options"]]
   },
   {
-    name: "onDeviceWebSpeechAvailable",
-    signatures: [["lang"]]
+    name: "install",
+    signatures: [["options"]],
+    receivers: ["SpeechRecognition"]
   },
   {
-    name: "installOnDeviceSpeechRecognition",
-    signatures: [["lang"]]
+    name: "install",
+    signatures: [["?install_url","?manifest_id"]],
+    receivers: ["Navigator"]
   },
   {
     name: "SpeechSynthesisErrorEvent",
@@ -8556,10 +8672,6 @@ export const NativeFunctions = [
   {
     name: "VirtualKeyboardGeometryChangeEvent",
     signatures: [["type"]]
-  },
-  {
-    name: "install",
-    signatures: [["?manifest_id","?install_url"]]
   },
   {
     name: "AnalyserNode",
@@ -8706,22 +8818,6 @@ export const NativeFunctions = [
     signatures: [["init"]]
   },
   {
-    name: "changeVersion",
-    signatures: [["oldVersion","newVersion","?callback","?errorCallback","?successCallback"]]
-  },
-  {
-    name: "readTransaction",
-    signatures: [["callback","?errorCallback","?successCallback"]]
-  },
-  {
-    name: "executeSql",
-    signatures: [["sqlStatement","?arguments","?callback","?errorCallback"]]
-  },
-  {
-    name: "openDatabase",
-    signatures: [["name","version","displayName","estimatedSize","?creationCallback"]]
-  },
-  {
     name: "clipControlEXT",
     signatures: [["origin","depth"]]
   },
@@ -8786,6 +8882,14 @@ export const NativeFunctions = [
     signatures: [["provokeMode"]]
   },
   {
+    name: "texHTML2D",
+    signatures: [["target","level","internalformat","format","type","element"]]
+  },
+  {
+    name: "texElement2D",
+    signatures: [["target","level","internalformat","format","type","element"]]
+  },
+  {
     name: "drawingBufferStorage",
     signatures: [["sizedformat","width","height"]]
   },
@@ -8835,7 +8939,7 @@ export const NativeFunctions = [
   },
   {
     name: "copyBufferToBuffer",
-    signatures: [["src","srcOffset","dst","dstOffset","size"]]
+    signatures: [["source","destination","?size"],["source","sourceOffset","destination","destinationOffset","?size"]]
   },
   {
     name: "copyBufferToTexture",
@@ -9066,10 +9170,6 @@ export const NativeFunctions = [
     signatures: [["?init"]]
   },
   {
-    name: "WebTransport",
-    signatures: [["url","?options"]]
-  },
-  {
     name: "USBAlternateInterface",
     signatures: [["deviceInterface","alternateSetting"]]
   },
@@ -9162,18 +9262,6 @@ export const NativeFunctions = [
     signatures: [["type","eventInitDict"]]
   },
   {
-    name: "XRGPUBinding",
-    signatures: [["session","device"]]
-  },
-  {
-    name: "createProjectionLayer",
-    signatures: [["init"]]
-  },
-  {
-    name: "getViewSubImage",
-    signatures: [["layer","view"]]
-  },
-  {
     name: "getPose",
     signatures: [["relative_to"]]
   },
@@ -9204,10 +9292,6 @@ export const NativeFunctions = [
   {
     name: "XRSessionEvent",
     signatures: [["type","eventInitDict"]]
-  },
-  {
-    name: "supportsSession",
-    signatures: [["mode"]]
   },
   {
     name: "isSessionSupported",

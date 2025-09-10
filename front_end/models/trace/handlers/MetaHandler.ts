@@ -7,14 +7,14 @@ import * as Helpers from '../helpers/helpers.js';
 import * as Types from '../types/types.js';
 
 // We track the renderer processes we see in each frame on the way through the trace.
-const rendererProcessesByFrameId: FrameProcessData = new Map();
+let rendererProcessesByFrameId: FrameProcessData = new Map();
 
 // We will often want to key data by Frame IDs, and commonly we'll care most
 // about the main frame's ID, so we store and expose that.
-let mainFrameId: string = '';
-let mainFrameURL: string = '';
+let mainFrameId = '';
+let mainFrameURL = '';
 
-const framesByProcessId = new Map<Types.Events.ProcessID, Map<string, Types.Events.TraceFrame>>();
+let framesByProcessId = new Map<Types.Events.ProcessID, Map<string, Types.Events.TraceFrame>>();
 
 // We will often want to key data by the browser process, GPU process and top
 // level renderer IDs, so keep a track on those.
@@ -22,12 +22,12 @@ let browserProcessId: Types.Events.ProcessID = Types.Events.ProcessID(-1);
 let browserThreadId: Types.Events.ThreadID = Types.Events.ThreadID(-1);
 let gpuProcessId: Types.Events.ProcessID = Types.Events.ProcessID(-1);
 let gpuThreadId: Types.Events.ThreadID = Types.Events.ThreadID(-1);
-let viewportRect: DOMRect|null = null;
+let viewportRect: {x: number, y: number, width: number, height: number}|null = null;
 let devicePixelRatio: number|null = null;
 
-const processNames: Map<Types.Events.ProcessID, Types.Events.ProcessName> = new Map();
+let processNames = new Map<Types.Events.ProcessID, Types.Events.ProcessName>();
 
-const topLevelRendererIds = new Set<Types.Events.ProcessID>();
+let topLevelRendererIds = new Set<Types.Events.ProcessID>();
 const traceBounds: Types.Timing.TraceWindowMicro = {
   min: Types.Timing.Micro(Number.POSITIVE_INFINITY),
   max: Types.Timing.Micro(Number.NEGATIVE_INFINITY),
@@ -44,18 +44,19 @@ const traceBounds: Types.Timing.TraceWindowMicro = {
  * Note that these Maps will have the same values in them; these are just keyed
  * differently to make look-ups easier.
  *
- * We also additionally maintain an array of only navigations that occured on
+ * We also additionally maintain an array of only navigations that occurred on
  * the main frame. In many places in the UI we only care about highlighting
  * main frame navigations, so calculating this list here is better than
  * filtering either of the below maps over and over again at the UI layer.
  */
-const navigationsByFrameId = new Map<string, Types.Events.NavigationStart[]>();
-const navigationsByNavigationId = new Map<string, Types.Events.NavigationStart>();
-const mainFrameNavigations: Types.Events.NavigationStart[] = [];
+let navigationsByFrameId = new Map<string, Types.Events.NavigationStart[]>();
+let navigationsByNavigationId = new Map<string, Types.Events.NavigationStart>();
+let finalDisplayUrlByNavigationId = new Map<string, string>();
+let mainFrameNavigations: Types.Events.NavigationStart[] = [];
 
 // Represents all the threads in the trace, organized by process. This is mostly for internal
 // bookkeeping so that during the finalize pass we can obtain the main and browser thread IDs.
-const threadsInProcess = new Map<Types.Events.ProcessID, Map<Types.Events.ThreadID, Types.Events.ThreadName>>();
+let threadsInProcess = new Map<Types.Events.ProcessID, Map<Types.Events.ThreadID, Types.Events.ThreadName>>();
 
 let traceStartedTimeFromTracingStartedEvent = Types.Timing.Micro(-1);
 const eventPhasesOfInterestForTraceBounds = new Set([
@@ -70,30 +71,32 @@ const eventPhasesOfInterestForTraceBounds = new Set([
 // - TracingStartedInPage
 // - TracingStartedInBrowser
 // - TracingSessionIdForWorker
+// - CpuProfile
 // These are all events which indicate this is a Chrome browser trace.
 let traceIsGeneric = true;
 const CHROME_WEB_TRACE_EVENTS = new Set([
   Types.Events.Name.TRACING_STARTED_IN_PAGE,
   Types.Events.Name.TRACING_SESSION_ID_FOR_WORKER,
   Types.Events.Name.TRACING_STARTED_IN_BROWSER,
-
+  Types.Events.Name.CPU_PROFILE,
 ]);
 
 export function reset(): void {
-  navigationsByFrameId.clear();
-  navigationsByNavigationId.clear();
-  processNames.clear();
-  mainFrameNavigations.length = 0;
+  navigationsByFrameId = new Map();
+  navigationsByNavigationId = new Map();
+  finalDisplayUrlByNavigationId = new Map();
+  processNames = new Map();
+  mainFrameNavigations = [];
 
   browserProcessId = Types.Events.ProcessID(-1);
   browserThreadId = Types.Events.ThreadID(-1);
   gpuProcessId = Types.Events.ProcessID(-1);
   gpuThreadId = Types.Events.ThreadID(-1);
   viewportRect = null;
-  topLevelRendererIds.clear();
-  threadsInProcess.clear();
-  rendererProcessesByFrameId.clear();
-  framesByProcessId.clear();
+  topLevelRendererIds = new Set();
+  threadsInProcess = new Map();
+  rendererProcessesByFrameId = new Map();
+  framesByProcessId = new Map();
 
   traceBounds.min = Types.Timing.Micro(Number.POSITIVE_INFINITY);
   traceBounds.max = Types.Timing.Micro(Number.NEGATIVE_INFINITY);
@@ -109,8 +112,8 @@ function updateRendererProcessByFrame(event: Types.Events.Event, frame: Types.Ev
 
   const rendererProcessInFrame = Platform.MapUtilities.getWithDefault(
       rendererProcessesByFrameId, frame.frame,
-      () =>
-          new Map<Types.Events.ProcessID, {frame: Types.Events.TraceFrame, window: Types.Timing.TraceWindowMicro}[]>());
+      () => new Map<
+          Types.Events.ProcessID, Array<{frame: Types.Events.TraceFrame, window: Types.Timing.TraceWindowMicro}>>());
   const rendererProcessInfo = Platform.MapUtilities.getWithDefault(rendererProcessInFrame, frame.processId, () => {
     return [];
   });
@@ -178,7 +181,7 @@ export function handleEvent(event: Types.Events.Event): void {
     const viewportY = rectAsArray[1];
     const viewportWidth = rectAsArray[2];
     const viewportHeight = rectAsArray[5];
-    viewportRect = new DOMRect(viewportX, viewportY, viewportWidth, viewportHeight);
+    viewportRect = {x: viewportX, y: viewportY, width: viewportWidth, height: viewportHeight};
     devicePixelRatio = event.args.data.dpr;
   }
 
@@ -236,17 +239,15 @@ export function handleEvent(event: Types.Events.Event): void {
           mainFrameURL = frame.url;
         }
       } else if (traceHasOutermostMainFrameFlag) {
-        // Less ideal: "guess" at the main thread by using this falg.
+        // Less ideal: "guess" at the main thread by using this flag.
         if (frame.isOutermostMainFrame) {
           mainFrameId = frame.frame;
           mainFrameURL = frame.url;
         }
-      } else {
         // Worst case: guess by seeing if the frame doesn't have a parent, and does have a URL.
-        if (!frame.parent && frame.url) {
-          mainFrameId = frame.frame;
-          mainFrameURL = frame.url;
-        }
+      } else if (!frame.parent && frame.url) {
+        mainFrameId = frame.frame;
+        mainFrameURL = frame.url;
       }
     }
 
@@ -305,6 +306,7 @@ export function handleEvent(event: Types.Events.Event): void {
       return;
     }
     navigationsByNavigationId.set(navigationId, event);
+    finalDisplayUrlByNavigationId.set(navigationId, event.args.data.documentLoaderURL);
 
     const frameId = event.args.frame;
     const existingFrameNavigations = navigationsByFrameId.get(frameId) || [];
@@ -313,6 +315,34 @@ export function handleEvent(event: Types.Events.Event): void {
     if (frameId === mainFrameId) {
       mainFrameNavigations.push(event);
     }
+    return;
+  }
+
+  // Update `finalDisplayUrlByNavigationId` to reflect the latest redirect for each navigation.
+  if (Types.Events.isResourceSendRequest(event)) {
+    if (event.args.data.resourceType !== 'Document') {
+      return;
+    }
+
+    const maybeNavigationId = event.args.data.requestId;
+    const navigation = navigationsByNavigationId.get(maybeNavigationId);
+    if (!navigation) {
+      return;
+    }
+
+    finalDisplayUrlByNavigationId.set(maybeNavigationId, event.args.data.url);
+    return;
+  }
+
+  // Update `finalDisplayUrlByNavigationId` to reflect history API navigations.
+  if (Types.Events.isDidCommitSameDocumentNavigation(event)) {
+    if (event.args.render_frame_host.frame_type !== 'PRIMARY_MAIN_FRAME') {
+      return;
+    }
+
+    const navigation = mainFrameNavigations.at(-1);
+    const key = navigation?.args.data?.navigationId ?? '';
+    finalDisplayUrlByNavigationId.set(key, event.args.url);
     return;
   }
 }
@@ -335,7 +365,13 @@ export async function finalize(): Promise<void> {
   // each particular renderer started and stopped being the main renderer
   // process.
   for (const [, processWindows] of rendererProcessesByFrameId) {
-    const processWindowValues = [...processWindows.values()].flat();
+    // Sort the windows by time; we cannot assume by default they arrive via
+    // events in time order. Because we set the window bounds per-process based
+    // on the time of the current + next window, we need them sorted in ASC
+    // order.
+    const processWindowValues = [...processWindows.values()].flat().sort((a, b) => {
+      return a.window.min - b.window.min;
+    });
     for (let i = 0; i < processWindowValues.length; i++) {
       const currentWindow = processWindowValues[i];
       const nextWindow = processWindowValues[i + 1];
@@ -376,7 +412,7 @@ export async function finalize(): Promise<void> {
   // the previous page. This doesn't matter too much except we often use this
   // URL as the visual name of the trace shown to the user (e.g. in the history
   // dropdown). We can be more accurate by finding the first main frame
-  // navigaton, and using its URL, if we have it.
+  // navigation, and using its URL, if we have it.
   // However, to avoid doing this in a case where the first navigation is far
   // into the trace's lifecycle, we only do this in situations where the first
   // navigation happened very soon (0.5 seconds) after the trace started
@@ -401,6 +437,19 @@ export interface MetaHandlerData {
   gpuProcessId: Types.Events.ProcessID;
   navigationsByFrameId: Map<string, Types.Events.NavigationStart[]>;
   navigationsByNavigationId: Map<string, Types.Events.NavigationStart>;
+  /**
+   * The user-visible URL displayed to users in the address bar.
+   * This captures:
+   *  - resolving all redirects
+   *  - history API pushState
+   *
+   * Given no redirects or history API usages, this is just the navigation event's documentLoaderURL.
+   *
+   * Note: empty string special case denotes the duration of the trace between the start
+   * and the first navigation. If there is no history API navigation during this time,
+   * there will be no value for empty string.
+   **/
+  finalDisplayUrlByNavigationId: Map<string, string>;
   threadsInProcess: Map<Types.Events.ProcessID, Map<Types.Events.ThreadID, Types.Events.ThreadName>>;
   mainFrameId: string;
   mainFrameURL: string;
@@ -417,7 +466,7 @@ export interface MetaHandlerData {
   frameByProcessId: Map<Types.Events.ProcessID, Map<string, Types.Events.TraceFrame>>;
   mainFrameNavigations: Types.Events.NavigationStart[];
   gpuThreadId?: Types.Events.ThreadID;
-  viewportRect?: DOMRect;
+  viewportRect?: {x: number, y: number, width: number, height: number};
   devicePixelRatio?: number;
 }
 
@@ -436,7 +485,8 @@ export interface MetaHandlerData {
 // https://developer.chrome.com/articles/renderingng-architecture/#threads
 // and https://web.dev/same-site-same-origin/
 export type FrameProcessData =
-    Map<string, Map<Types.Events.ProcessID, {frame: Types.Events.TraceFrame, window: Types.Timing.TraceWindowMicro}[]>>;
+    Map<string,
+        Map<Types.Events.ProcessID, Array<{frame: Types.Events.TraceFrame, window: Types.Timing.TraceWindowMicro}>>>;
 
 export function data(): MetaHandlerData {
   return {
@@ -452,6 +502,7 @@ export function data(): MetaHandlerData {
     mainFrameURL,
     navigationsByFrameId,
     navigationsByNavigationId,
+    finalDisplayUrlByNavigationId,
     threadsInProcess,
     rendererProcessesByFrame: rendererProcessesByFrameId,
     topLevelRendererIds,

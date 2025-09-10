@@ -1,6 +1,7 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import type * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -13,10 +14,10 @@ import threadsSidebarPaneStyles from './threadsSidebarPane.css.js';
 
 const UIStrings = {
   /**
-   *@description Text in Threads Sidebar Pane of the Sources panel
+   * @description Text in Threads Sidebar Pane of the Sources panel
    */
   paused: 'paused',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/sources/ThreadsSidebarPane.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -28,10 +29,12 @@ export class ThreadsSidebarPane extends UI.Widget.VBox implements
   private selectedModel: SDK.DebuggerModel.DebuggerModel|null;
 
   constructor() {
-    super(true);
+    super({
+      jslog: `${VisualLogging.section('sources.threads')}`,
+      useShadowDom: true,
+    });
     this.registerRequiredCSS(threadsSidebarPaneStyles);
 
-    this.contentElement.setAttribute('jslog', `${VisualLogging.section('sources.threads')}`);
     this.items = new UI.ListModel.ListModel();
     this.list = new UI.ListControl.ListControl(this.items, this, UI.ListControl.ListMode.NonViewport);
     const currentTarget = UI.Context.Context.instance().flavor(SDK.Target.Target);
@@ -52,13 +55,8 @@ export class ThreadsSidebarPane extends UI.Widget.VBox implements
     const title = element.createChild('div', 'thread-item-title');
     const pausedState = element.createChild('div', 'thread-item-paused-state');
     const icon = new IconButton.Icon.Icon();
-    icon.data = {
-      iconName: 'large-arrow-right-filled',
-      color: 'var(--icon-arrow-main-thread)',
-      width: '14px',
-      height: '14px',
-    };
-    icon.classList.add('selected-thread-icon');
+    icon.name = 'large-arrow-right-filled';
+    icon.classList.add('selected-thread-icon', 'small');
     element.appendChild(icon);
     element.tabIndex = -1;
     self.onInvokeElement(element, event => {
@@ -71,8 +69,7 @@ export class ThreadsSidebarPane extends UI.Widget.VBox implements
 
     function updateTitle(): void {
       const executionContext = debuggerModel.runtimeModel().defaultExecutionContext();
-      title.textContent =
-          executionContext && executionContext.label() ? executionContext.label() : debuggerModel.target().name();
+      title.textContent = executionContext?.label() ? executionContext.label() : debuggerModel.target().name();
     }
 
     function updatePausedState(): void {

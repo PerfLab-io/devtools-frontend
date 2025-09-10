@@ -27,6 +27,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as i18n from '../../../../core/i18n/i18n.js';
 import type * as Buttons from '../../../components/buttons/buttons.js';
@@ -50,11 +51,11 @@ const UIStrings = {
    */
   showDAfter: 'Show {PH1} after',
   /**
-   *@description In a data grid, for a list of items with omitted items, display all omitted items
-   *@example {50} PH1
+   * @description In a data grid, for a list of items with omitted items, display all omitted items
+   * @example {50} PH1
    */
   showAllD: 'Show all {PH1}',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/data_grid/ShowMoreDataGridNode.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -81,7 +82,7 @@ export class ShowMoreDataGridNode extends DataGridNode<ShowMoreDataGridNode> {
     this.showNext.addEventListener('click', this.showNextChunk.bind(this), false);
 
     this.showAll = UI.UIUtils.createTextButton('');
-    this.showAll.addEventListener('click', this.showAllInternal.bind(this), false);
+    this.showAll.addEventListener('click', this.#showAll.bind(this), false);
 
     this.showLast = UI.UIUtils.createTextButton(i18nString(UIStrings.showDAfter, {PH1: this.chunkSize}));
     this.showLast.addEventListener('click', this.showLastChunk.bind(this), false);
@@ -94,7 +95,7 @@ export class ShowMoreDataGridNode extends DataGridNode<ShowMoreDataGridNode> {
     void this.callback(this.startPosition, this.startPosition + this.chunkSize);
   }
 
-  private showAllInternal(): void {
+  #showAll(): void {
     void this.callback(this.startPosition, this.endPosition);
   }
 

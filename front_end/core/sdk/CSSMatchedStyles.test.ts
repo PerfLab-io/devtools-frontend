@@ -3,62 +3,17 @@
 // found in the LICENSE file.
 
 import * as Protocol from '../../generated/protocol.js';
+import {renderElementIntoDOM} from '../../testing/DOMHelpers.js';
 import {createTarget} from '../../testing/EnvironmentHelpers.js';
-import {describeWithMockConnection} from '../../testing/MockConnection.js';
+import {describeWithMockConnection, setMockConnectionResponseHandler} from '../../testing/MockConnection.js';
+import {getMatchedStyles, ruleMatch} from '../../testing/StyleHelpers.js';
 
 import * as SDK from './sdk.js';
-
-function ruleMatch(
-    selector: string, cssProperties: Protocol.CSS.CSSProperty[], range?: Protocol.CSS.SourceRange,
-    styleSheetId = '0' as Protocol.CSS.StyleSheetId): Protocol.CSS.RuleMatch {
-  return {
-    rule: {
-      selectorList: {selectors: [{text: selector}], text: selector},
-      origin: Protocol.CSS.StyleSheetOrigin.Regular,
-      style: {
-        cssProperties,
-        styleSheetId,
-        range,
-        shorthandEntries: [],
-      },
-    },
-    matchingSelectors: [0],
-  };
-}
-
-function createMatchedStyles(
-    payload: Partial<SDK.CSSMatchedStyles.CSSMatchedStylesPayload>, node?: SDK.DOMModel.DOMNode) {
-  if (!node) {
-    node = sinon.createStubInstance(SDK.DOMModel.DOMNode);
-    node.id = 1 as Protocol.DOM.NodeId;
-  }
-  return SDK.CSSMatchedStyles.CSSMatchedStyles.create({
-    cssModel: sinon.createStubInstance(SDK.CSSModel.CSSModel),
-    node,
-    inlinePayload: null,
-    attributesPayload: null,
-    matchedPayload: [],
-    pseudoPayload: [],
-    inheritedPayload: [],
-    inheritedPseudoPayload: [],
-    animationsPayload: [],
-    parentLayoutNodeId: undefined,
-    positionTryRules: [],
-    propertyRules: [],
-    cssPropertyRegistrations: [],
-    fontPaletteValuesRule: undefined,
-    activePositionFallbackIndex: -1,
-    animationStylesPayload: [],
-    transitionsStylePayload: null,
-    inheritedAnimatedPayload: [],
-    ...payload,
-  });
-}
 
 describe('CSSMatchedStyles', () => {
   describe('computeCSSVariable', () => {
     const testCssValueEquals = async (text: string, expectedValue: unknown) => {
-      const matchedStyles = await createMatchedStyles({
+      const matchedStyles = await getMatchedStyles({
         matchedPayload: [
           ruleMatch(
               'div',
@@ -129,7 +84,7 @@ describe('CSSMatchedStyles', () => {
       node.parentNode.parentNode.parentNode = sinon.createStubInstance(SDK.DOMModel.DOMNode);
       node.parentNode.parentNode.parentNode.id = 4 as Protocol.DOM.NodeId;
 
-      const matchedStyles = await createMatchedStyles({
+      const matchedStyles = await getMatchedStyles({
         node,
         matchedPayload: [ruleMatch('div', [{name: '--foo', value: 'foo1'}])],  // styleFoo1
         inheritedPayload: [
@@ -234,12 +189,11 @@ describe('CSSMatchedStyles', () => {
       const parent = sinon.createStubInstance(SDK.DOMModel.DOMNode);
       parent.id = 2 as Protocol.DOM.NodeId;
       node.parentNode = parent;
-      const matchedStyles = await createMatchedStyles(
-          {
-            matchedPayload: [ruleMatch('div', [{name: '--color', value: 'inherit'}])],
-            inheritedPayload: [{matchedCSSRules: [ruleMatch('div', [{name: '--color', value: 'inherited-color'}])]}],
-          },
-          node);
+      const matchedStyles = await getMatchedStyles({
+        matchedPayload: [ruleMatch('div', [{name: '--color', value: 'inherit'}])],
+        inheritedPayload: [{matchedCSSRules: [ruleMatch('div', [{name: '--color', value: 'inherited-color'}])]}],
+        node
+      });
       assert.strictEqual(
           matchedStyles.computeCSSVariable(matchedStyles.nodeStyles()[0], '--color')?.value, 'inherited-color');
     });
@@ -256,7 +210,7 @@ describe('CSSMatchedStyles', () => {
         const inheritedPayload = inheritedRules.map(
             ruleTexts => ({matchedCSSRules: ruleTexts.map((rule, i) => ruleToRuleMatch(rule, i + styleRules.length))}));
 
-        const matchedStyles = await createMatchedStyles({matchedPayload, inheritedPayload});
+        const matchedStyles = await getMatchedStyles({matchedPayload, inheritedPayload});
         return matchedStyles.computeCSSVariable(matchedStyles.nodeStyles()[0], name)?.value ?? null;
       }
 
@@ -390,12 +344,14 @@ describe('CSSMatchedStyles', () => {
        node.id = 1 as Protocol.DOM.NodeId;
        const startColumn = 0, endColumn = 1;
        const matchedPayload = [
-         ruleMatch('body', [{name: '--var', value: 'blue'}], {startLine: 0, startColumn, endLine: 0, endColumn}),
-         ruleMatch('*', [{name: 'color', value: 'var(--var)'}], {startLine: 1, startColumn, endLine: 1, endColumn}),
-         ruleMatch('*', [{name: '--var', value: 'red'}], {startLine: 2, startColumn, endLine: 2, endColumn}),
+         ruleMatch(
+             'body', [{name: '--var', value: 'blue'}], {range: {startLine: 0, startColumn, endLine: 0, endColumn}}),
+         ruleMatch(
+             '*', [{name: 'color', value: 'var(--var)'}], {range: {startLine: 1, startColumn, endLine: 1, endColumn}}),
+         ruleMatch('*', [{name: '--var', value: 'red'}], {range: {startLine: 2, startColumn, endLine: 2, endColumn}}),
        ];
        const inheritedPayload = [{matchedCSSRules: matchedPayload.slice(1)}];
-       const matchedStyles = await createMatchedStyles({
+       const matchedStyles = await getMatchedStyles({
          node,
          matchedPayload,
          inheritedPayload,
@@ -513,8 +469,8 @@ describe('CSSMatchedStyles', () => {
         // Value is undefined
         {name: '--unregistered-is-not-inherited', value: 'unset', expectedValue: undefined},
       ];
-      const matchedStyles = await createMatchedStyles(
-          {matchedPayload: [ruleMatch('div', properties)], inheritedPayload, cssPropertyRegistrations}, node);
+      const matchedStyles = await getMatchedStyles(
+          {matchedPayload: [ruleMatch('div', properties)], inheritedPayload, cssPropertyRegistrations, node});
       checkResolution(matchedStyles, properties);
     });
 
@@ -547,8 +503,8 @@ describe('CSSMatchedStyles', () => {
         // Value is undefined
         {name: '--unregistered-is-not-inherited', value: 'inherit', expectedValue: undefined},
       ];
-      const matchedStyles = await createMatchedStyles(
-          {matchedPayload: [ruleMatch('div', properties)], inheritedPayload, cssPropertyRegistrations}, node);
+      const matchedStyles = await getMatchedStyles(
+          {matchedPayload: [ruleMatch('div', properties)], inheritedPayload, cssPropertyRegistrations, node});
       checkResolution(matchedStyles, properties);
     });
 
@@ -581,8 +537,8 @@ describe('CSSMatchedStyles', () => {
         // Value is undefined
         {name: '--unregistered-is-not-inherited', value: 'initial', expectedValue: undefined},
       ];
-      const matchedStyles = await createMatchedStyles(
-          {matchedPayload: [ruleMatch('div', properties)], inheritedPayload, cssPropertyRegistrations}, node);
+      const matchedStyles = await getMatchedStyles(
+          {matchedPayload: [ruleMatch('div', properties)], inheritedPayload, cssPropertyRegistrations, node});
       checkResolution(matchedStyles, properties);
     });
 
@@ -621,13 +577,12 @@ describe('CSSMatchedStyles', () => {
         {name: 'font-family', value: 'revert'},
       ]);
       uaRule.rule.origin = Protocol.CSS.StyleSheetOrigin.UserAgent;
-      const matchedStyles = await createMatchedStyles(
-          {
-            matchedPayload: [uaRule, userRule, ruleMatch('div', properties)],
-            inheritedPayload,
-            cssPropertyRegistrations,
-          },
-          node);
+      const matchedStyles = await getMatchedStyles({
+        matchedPayload: [uaRule, userRule, ruleMatch('div', properties)],
+        inheritedPayload,
+        cssPropertyRegistrations,
+        node
+      });
       checkResolution(matchedStyles, properties);
     });
 
@@ -683,14 +638,13 @@ describe('CSSMatchedStyles', () => {
       oneMoreLayer.rule.layers = [{text: 'outer'}, {text: 'layer3'}];
       const uaRule = ruleMatch('div', [{name: 'font-variant', value: 'ua-font-variant'}]);
       uaRule.rule.origin = Protocol.CSS.StyleSheetOrigin.UserAgent;
-      const matchedStyles = await createMatchedStyles(
-          {
-            inlinePayload,
-            matchedPayload: [uaRule, oneMoreLayer, nextLayer, sameLayer, mainRule],
-            inheritedPayload,
-            cssPropertyRegistrations,
-          },
-          node);
+      const matchedStyles = await getMatchedStyles({
+        inlinePayload,
+        matchedPayload: [uaRule, oneMoreLayer, nextLayer, sameLayer, mainRule],
+        inheritedPayload,
+        cssPropertyRegistrations,
+        node,
+      });
       checkResolution(matchedStyles, properties);
 
       // Check for inline style
@@ -703,10 +657,135 @@ describe('CSSMatchedStyles', () => {
       assert.strictEqual(resolved?.value, 'author-origin');
     });
   });
+
+  it('can correctly resolve properties by name', async () => {
+    const node = sinon.createStubInstance(SDK.DOMModel.DOMNode);
+    node.id = 1 as Protocol.DOM.NodeId;
+    node.nodeType.returns(Node.ELEMENT_NODE);
+    const parent = sinon.createStubInstance(SDK.DOMModel.DOMNode);
+    parent.id = 2 as Protocol.DOM.NodeId;
+    parent.nodeType.returns(Node.ELEMENT_NODE);
+    node.parentNode = parent;
+    const matchedPayload = [
+      // Property is found in the same rule
+      ruleMatch('div', {'--a': 'A', '--b': 'B'}),
+      // ... in a sibling rule
+      ruleMatch('div', {'--c': 'C', '--d': 'D'}),
+    ];
+    const inheritedPayload = [{
+      matchedCSSRules: [
+        // ... in an inherited rule
+        ruleMatch('div', {'--e': 'E'}),
+        ruleMatch('div', {'--f': 'F'}),
+        ruleMatch('div', {'background-color': 'x'}),
+        ruleMatch('div', {color: 'y'}),
+      ]
+    }];
+    const matchedStyles = await getMatchedStyles({node, matchedPayload, inheritedPayload});
+
+    const styles = matchedStyles.nodeStyles();
+    assert.lengthOf(styles, 5);
+    assert.isNull(matchedStyles.resolveProperty('--z', styles[0]));
+    assert.strictEqual(matchedStyles.resolveProperty('--a', styles[0])?.value, 'A');
+    assert.strictEqual(matchedStyles.resolveProperty('--b', styles[0])?.value, 'B');
+    assert.strictEqual(matchedStyles.resolveProperty('--a', styles[1])?.value, 'A');
+    assert.strictEqual(matchedStyles.resolveProperty('--b', styles[1])?.value, 'B');
+    assert.strictEqual(matchedStyles.resolveProperty('--e', styles[0])?.value, 'E');
+    assert.strictEqual(matchedStyles.resolveProperty('--f', styles[0])?.value, 'F');
+    assert.strictEqual(matchedStyles.resolveProperty('--e', styles[1])?.value, 'E');
+    assert.strictEqual(matchedStyles.resolveProperty('--f', styles[1])?.value, 'F');
+    assert.strictEqual(matchedStyles.resolveProperty('color', styles[0])?.value, 'y');
+    assert.isNull(matchedStyles.resolveProperty('background-color', styles[0]));
+  });
+
+  it('evaluates variables with attr() calls in the same way as blink', async () => {
+    const attributes = [
+      {name: 'data-test-nonexistent', value: 'attr(data-nonexistent)'},
+      {name: 'data-test-nonexistent-raw-string', value: 'attr(data-nonexistent raw-string)'},
+      {name: 'data-test-empty', value: ''},
+      {name: 'data-test-self-loop', value: 'attr(data-test-self-loop)'},
+      {name: 'data-test-loop-1', value: 'attr(data-test-loop-2 type(<length>), 1px)'},
+      {name: 'data-test-loop-2', value: 'var(--test-loop-1, 2px)'},
+      {name: 'data-test-loop-indirect-2', value: 'attr(data-test-loop-1 type(<length>), 6px)'},
+      {name: 'data-test-number', value: '70'},
+      {name: 'data-test-length', value: 'attr(data-test-number in)'},
+      {name: 'data-test-bad-unit', value: 'attr(data-test-number parsecs, 2px)'},
+      {name: 'data-test-bad-type', value: 'attr(data-test-number type(<nomber>), 2)'},
+      {name: 'data-cant-parse', value: 'attr('},
+    ];
+    const variables = [
+      {name: '--test-missing', value: 'attr(data-nonexistent)'},
+      {name: '--test-missing-fallback', value: 'attr(data-nonexistent, 2px)'},
+      {name: '--test-missing-var-indirect', value: 'var(--test-missing, 2px)'},
+      {name: '--test-missing-attr-indirect-raw', value: 'attr(data-test-nonexistent, 2px)'},
+      {name: '--test-missing-attr-indirect', value: 'attr(data-test-nonexistent type(*), 2px)'},
+      {name: '--test-missing-raw-string', value: 'attr(data-nonexistent raw-string)'},
+      {name: '--test-missing-raw-string-fallback', value: 'attr(data-nonexistent raw-string, 2px)'},
+      {name: '--test-missing-raw-string-var-indirect', value: 'var(--test-missing-raw-string, 2px)'},
+      {name: '--test-missing-raw-string-attr-indirect', value: 'attr(data-test-nonexistent-raw-string, 2px)'},
+      {name: '--test-empty-any', value: 'attr(data-test-empty type(*))'},
+      {name: '--test-empty-number', value: 'attr(data-test-empty type(<number>))'},
+      {name: '--test-empty-any-fallback', value: 'attr(data-test-empty type(*), 2px)'},
+      {name: '--test-empty-number-fallback', value: 'attr(data-test-empty type(<number>), 2px)'},
+      {name: '--test-self-loop', value: 'attr(data-test-self-loop type(*))'},
+      {name: '--test-self-loop-raw', value: 'attr(data-test-self-loop)'},
+      {name: '--test-self-loop-fallback', value: 'attr(data-test-self-loop type(*), 2px)'},
+      {name: '--test-self-loop-fallback-2', value: 'var(--test-self-loop-fallback, 4px)'},
+      {name: '--test-self-loop-fallback-self', value: 'attr(data-test-self-loop type(*), attr(data-test-self-loop))'},
+      {name: '--test-loop-1', value: 'var(--test-loop-2, 3px)'},
+      {name: '--test-loop-2', value: 'attr(data-test-loop-1 type(<length>), 4px)'},
+      {name: '--test-loop-indirect-1', value: 'attr(data-test-loop-1 type(<length>), 5px)'},
+      {name: '--test-loop-indirect-2', value: 'attr(data-test-loop-indirect-2 type(<length>), 7px)'},
+      {name: '--test-number', value: 'attr(data-test-number type(<number>))'},
+      {name: '--test-number-to-length', value: 'attr(data-test-number in)'},
+      {
+        name: '--test-number-as-length',
+        value: 'attr(data-test-number type(<length>), var(--test-self-loop-fallback-2))'
+      },
+      {name: '--test-length', value: 'attr(data-test-length type(<length>))'},
+      {name: '--test-bad-unit-indirect', value: 'attr(data-test-bad-unit type(*), 4px)'},
+      {name: '--test-bad-type-indirect', value: 'attr(data-test-bad-type type(*), 4)'},
+      {name: '--test-cant-parse', value: 'attr(data-cant-parse type(*), red)'},
+    ];
+    // Create an element
+    const element = document.createElement('div');
+    for (const {name, value} of attributes) {
+      element.setAttribute(name, value);
+    }
+    for (const {name, value} of variables) {
+      element.style.setProperty(name, value);
+    }
+
+    renderElementIntoDOM(element);
+    const computedProperties = element.computedStyleMap();
+
+    const node = sinon.createStubInstance(SDK.DOMModel.DOMNode);
+    node.id = 1 as Protocol.DOM.NodeId;
+    node.nodeType.returns(Node.ELEMENT_NODE);
+    // Create a sinon stub to return the requested attribute
+    node.getAttribute.callsFake((name: string) => attributes.find(attr => attr.name === name)?.value);
+
+    const matchedStyles = await getMatchedStyles({
+      matchedPayload: [ruleMatch('div', variables)],
+      node,
+    });
+
+    for (const {name} of variables) {
+      const frontendComputedValue =
+          matchedStyles.computeCSSVariable(matchedStyles.nodeStyles()[0], name)?.value ?? null;
+      const backendComputedValue = computedProperties.get(name) ?? null;
+      if (backendComputedValue === null) {
+        assert.isNull(frontendComputedValue, `evaluating variable ${name}`);
+      } else {
+        assert.strictEqual(frontendComputedValue, backendComputedValue.toString(), `evaluating variable ${name}`);
+      }
+    }
+  });
 });
 
 describeWithMockConnection('NodeCascade', () => {
   it('correctly marks custom properties as Overloaded if they are registered as inherits: false', async () => {
+    setMockConnectionResponseHandler('CSS.getEnvironmentVariables', () => ({}));
     const target = createTarget();
     const cssModel = new SDK.CSSModel.CSSModel(target);
     const parentNode = sinon.createStubInstance(SDK.DOMModel.DOMNode);
@@ -741,7 +820,7 @@ describeWithMockConnection('NodeCascade', () => {
         syntax: '<color>',
       },
     ];
-    const matchedStyles = await createMatchedStyles({
+    const matchedStyles = await getMatchedStyles({
       cssModel,
       node,
       matchedPayload: [
@@ -769,7 +848,7 @@ describeWithMockConnection('NodeCascade', () => {
       active: true,
       styleSheetId: nestedRule.rule.styleSheetId,
     }];
-    const matchedStyles = await createMatchedStyles({
+    const matchedStyles = await getMatchedStyles({
       matchedPayload: [outerRule, nestedRule],
     });
 

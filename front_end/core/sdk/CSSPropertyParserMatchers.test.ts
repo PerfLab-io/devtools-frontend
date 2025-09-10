@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import * as Common from '../../core/common/common.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import {Printer} from '../../testing/PropertyParser.js';
 import type * as CodeMirror from '../../third_party/codemirror.next/codemirror.next.js';
@@ -52,8 +53,8 @@ function injectVariableSubstitutions(variables: Record<string, string>) {
       });
   sinon.stub(SDK.CSSPropertyParser.BottomUpTreeMatching.prototype, 'getComputedTextRange')
       .callsFake(function(
-          this: SDK.CSSPropertyParser.BottomUpTreeMatching, from: CodeMirror.SyntaxNode,
-          to: CodeMirror.SyntaxNode): string {
+          this: SDK.CSSPropertyParser.BottomUpTreeMatching, from: CodeMirror.SyntaxNode|undefined,
+          to: CodeMirror.SyntaxNode|undefined): string {
         injectChunk(this);
         return getComputedTextRange.call(this, from, to);
       });
@@ -65,7 +66,7 @@ function injectVariableSubstitutions(variables: Record<string, string>) {
                        if (!resolvedValue) {
                          return getMatch.call(this, node);
                        }
-                       return new SDK.CSSPropertyParser.VariableMatch(
+                       return new SDK.CSSPropertyParserMatchers.BaseVariableMatch(
                            this.ast.text(node), node, resolvedValue.varName, [], this, () => resolvedValue.value);
                      });
 }
@@ -94,8 +95,18 @@ describe('Matchers for SDK.CSSPropertyParser.BottomUpTreeMatching', () => {
 
   it('parses colors in logical border properties', () => {
     for (const success
-             of ['border-block-end', 'border-block-end-color', 'border-block-start', 'border-block-start-color',
-                 'border-inline-end', 'border-inline-end-color', 'border-inline-start', 'border-inline-start-color']) {
+             of ['border-inline', 'border-block', 'border-inline-color', 'border-block-color', 'border-block-end',
+                 'border-block-end-color', 'border-block-start', 'border-block-start-color', 'border-inline-end',
+                 'border-inline-end-color', 'border-inline-start', 'border-inline-start-color']) {
+      const {ast, match, text} = matchSingleValue(success, 'red', new SDK.CSSPropertyParserMatchers.ColorMatcher());
+      assert.exists(match, text);
+      assert.strictEqual(match.text, 'red');
+      assert.strictEqual(ast?.propertyName, success);
+    }
+  });
+
+  it('parses colors in SVG color properties', () => {
+    for (const success of ['flood-color', 'lighting-color', 'stop-color']) {
       const {ast, match, text} = matchSingleValue(success, 'red', new SDK.CSSPropertyParserMatchers.ColorMatcher());
       assert.exists(match, text);
       assert.strictEqual(match.text, 'red');
@@ -429,15 +440,20 @@ describe('Matchers for SDK.CSSPropertyParser.BottomUpTreeMatching', () => {
 
   it('parses light-dark correctly', () => {
     for (const fail of ['light-dark()', 'light-dark(red)', 'light-dark(var(--foo))']) {
-      const {match, text} = matchSingleValue('color', fail, new SDK.CSSPropertyParserMatchers.LightDarkColorMatcher());
+      const {match, text} = matchSingleValue(
+          'color', fail,
+          new SDK.CSSPropertyParserMatchers.LightDarkColorMatcher(
+              sinon.createStubInstance(SDK.CSSStyleDeclaration.CSSStyleDeclaration)));
       assert.isNull(match, text);
     }
 
     for (const succeed
              of ['light-dark(red, blue)', 'light-dark(var(--foo), red)', 'light-dark(red, var(--foo))',
                  'light-dark(var(--foo), var(--bar))']) {
-      const {ast, match, text} =
-          matchSingleValue('color', succeed, new SDK.CSSPropertyParserMatchers.LightDarkColorMatcher());
+      const {ast, match, text} = matchSingleValue(
+          'color', succeed,
+          new SDK.CSSPropertyParserMatchers.LightDarkColorMatcher(
+              sinon.createStubInstance(SDK.CSSStyleDeclaration.CSSStyleDeclaration)));
       assert.exists(ast, text);
       assert.exists(match, text);
 
@@ -449,9 +465,44 @@ describe('Matchers for SDK.CSSPropertyParser.BottomUpTreeMatching', () => {
     }
 
     // light-dark only applies to color properties
-    const {match, text} =
-        matchSingleValue('width', 'light-dark(red, blue)', new SDK.CSSPropertyParserMatchers.LightDarkColorMatcher());
+    const {match, text} = matchSingleValue(
+        'width', 'light-dark(red, blue)',
+        new SDK.CSSPropertyParserMatchers.LightDarkColorMatcher(
+            sinon.createStubInstance(SDK.CSSStyleDeclaration.CSSStyleDeclaration)));
     assert.isNull(match, text);
+  });
+
+  it('parses auto-base correctly', () => {
+    for (const fail of ['-internal-auto-base()', '-internal-auto-base(block)', '-internal-auto-base(var(--foo))']) {
+      const {match, text} = matchSingleValue('display', fail, new SDK.CSSPropertyParserMatchers.AutoBaseMatcher());
+      assert.isNull(match, text);
+    }
+
+    for (const [succeed, propertyName] of [
+             ['-internal-auto-base(red, blue)', 'color'],
+             ['-internal-auto-base(var(--foo), red)', 'color'],
+             ['-internal-auto-base(red, var(--foo))', 'color'],
+             ['-internal-auto-base(var(--foo), var(--bar))', 'color'],
+             ['-internal-auto-base(gray, coral)', 'background-color'],
+             ['-internal-auto-base(inline, block)', 'display'],
+             ['-internal-auto-base(center, right)', 'text-align'],
+             ['-internal-auto-base(serif, cursive)', 'font-family'],
+             ['-internal-auto-base(solid, dashed)', 'border-style'],
+             ['-internal-auto-base(0, 0.5em)', 'border-radius'],
+             ['-internal-auto-base(2px, 0.25em)', 'padding'],
+             ['-internal-auto-base(1en, 3pt)', 'margin'],
+    ]) {
+      const {ast, match, text} =
+          matchSingleValue(propertyName, succeed, new SDK.CSSPropertyParserMatchers.AutoBaseMatcher());
+      assert.exists(ast, text);
+      assert.exists(match, text);
+
+      const [auto, base] = succeed.slice('-internal-auto-base('.length, -1).split(', ');
+      assert.lengthOf(match.auto, 1);
+      assert.lengthOf(match.base, 1);
+      assert.strictEqual(ast.text(match.auto[0]), auto);
+      assert.strictEqual(ast.text(match.base[0]), base);
+    }
   });
 
   describe('AnchorFunctionMatcher', () => {
@@ -556,12 +607,11 @@ describe('Matchers for SDK.CSSPropertyParser.BottomUpTreeMatching', () => {
     });
   });
 
-  describe('SelectFunctionMatcher', () => {
+  describe('MathFunctionMatcher', () => {
     it('matches selecting functions', () => {
       const success = ['clamp(1px, 2px, 3px)', 'min(1, 2)', 'max(3, 4)'];
       for (const value of success) {
-        const {match, text} =
-            matchSingleValue('width', value, new SDK.CSSPropertyParserMatchers.SelectFunctionMatcher());
+        const {match, text} = matchSingleValue('width', value, new SDK.CSSPropertyParserMatchers.MathFunctionMatcher());
         assert.exists(match, text);
         assert.strictEqual(match.text, value);
         assert.strictEqual(match.func, value.substr(0, value.indexOf('(')));
@@ -570,17 +620,19 @@ describe('Matchers for SDK.CSSPropertyParser.BottomUpTreeMatching', () => {
 
       const failure = ['clomp(1px, 2px, 3px)', 'min()'];
       for (const value of failure) {
-        const {match, text} =
-            matchSingleValue('width', value, new SDK.CSSPropertyParserMatchers.SelectFunctionMatcher());
+        const {match, text} = matchSingleValue('width', value, new SDK.CSSPropertyParserMatchers.MathFunctionMatcher());
         assert.notExists(match, text);
       }
     });
   });
 
   it('matches lengths', () => {
-    const {match, text} = matchSingleValue('min-width', '100px', new SDK.CSSPropertyParserMatchers.LengthMatcher());
-    assert.exists(match, text);
-    assert.strictEqual(match.text, '100px');
+    for (const unit of SDK.CSSPropertyParserMatchers.LengthMatcher.LENGTH_UNITS) {
+      const {match, text} =
+          matchSingleValue('min-width', `100${unit}`, new SDK.CSSPropertyParserMatchers.LengthMatcher());
+      assert.exists(match, text);
+      assert.strictEqual(match.text, `100${unit}`);
+    }
   });
 
   it('match css keywords', () => {
@@ -622,6 +674,93 @@ describe('Matchers for SDK.CSSPropertyParser.BottomUpTreeMatching', () => {
     for (const value of bad) {
       const {match, text} = matchSingleValue('display', value, new SDK.CSSPropertyParserMatchers.FlexGridMatcher());
       assert.notExists(match, text);
+    }
+  });
+
+  it('match color channels for relative colors', () => {
+    function expectedColor(channel: string) {
+      switch (channel) {
+        case Common.Color.ColorChannel.L:
+          return new Common.Color.Lab(0.5, 0, 0.0, null, 'lab(0.5 0 0)');
+        case Common.Color.ColorChannel.A:
+          return new Common.Color.Lab(1, 0.5, 0, null);
+        case Common.Color.ColorChannel.C:
+          return new Common.Color.LCH(1, 0.5, 0, null);
+        case Common.Color.ColorChannel.H:
+          return new Common.Color.LCH(1, 1, 0.5, null);
+        case Common.Color.ColorChannel.R:
+          return new Common.Color.Legacy([0.5, 0, 0], Common.Color.Format.RGB);
+        case Common.Color.ColorChannel.G:
+          return new Common.Color.Legacy([0, 0.5, 0], Common.Color.Format.RGB);
+        case Common.Color.ColorChannel.B:
+          return new Common.Color.Legacy([0, 0, 0.5], Common.Color.Format.RGB);
+        case Common.Color.ColorChannel.ALPHA:
+          return new Common.Color.Legacy([0, 0, 0, 0.5], Common.Color.Format.RGBA);
+        case Common.Color.ColorChannel.S:
+          return new Common.Color.HSL(0.8, 0.5, 0.9, null);
+        case Common.Color.ColorChannel.W:
+          return new Common.Color.HWB(0, 0.5, 0, null);
+        case Common.Color.ColorChannel.X:
+          return new Common.Color.ColorFunction(Common.Color.Format.XYZ_D50, 0.5, 0, 0, null);
+        case Common.Color.ColorChannel.Y:
+          return new Common.Color.ColorFunction(Common.Color.Format.XYZ_D50, 0, 0.5, 0, null);
+        case Common.Color.ColorChannel.Z:
+          return new Common.Color.ColorFunction(Common.Color.Format.XYZ_D50, 0, 0, 0.5, null);
+        default:
+          throw new Error('Unexpected channel');
+      }
+    }
+    for (const good of ['r', 'g', 'b', 'alpha', 'x', 'y', 'z', 'l', 'c', 'h', 'a', 'b', 's', 'w']) {
+      const {match, text} = matchSingleValue(
+          'color', `calc(1 * ${good})`, new SDK.CSSPropertyParserMatchers.RelativeColorChannelMatcher());
+      assert.exists(match, text);
+      assert.strictEqual(match.text, good);
+
+      const expected = expectedColor(good);
+      const baseColor =
+          new SDK.CSSPropertyParserMatchers.ColorMatch(expected.getAuthoredText() ?? expected.asString(), match.node);
+      assert.strictEqual(
+          match.getColorChannelValue({baseColor, colorSpace: expected.format()})?.toFixed(1), '0.5', good);
+    }
+
+    const {match, text} =
+        matchSingleValue('color', 'calc(1 * r)', new SDK.CSSPropertyParserMatchers.RelativeColorChannelMatcher());
+    assert.exists(match, text);
+
+    const expected = expectedColor('y');
+    const baseColor =
+        new SDK.CSSPropertyParserMatchers.ColorMatch(expected.getAuthoredText() ?? expected.asString(), match.node);
+    assert.isNull(match.getColorChannelValue({baseColor, colorSpace: expected.format()}));
+  });
+
+  it('match env() functions', () => {
+    // Matched when the var resolves
+    for (const good of ['env(a)', 'env(a, d)', 'env(a /* aa */, b c)', 'env(a, b, c)']) {
+      const matchedStyles = sinon.createStubInstance(SDK.CSSMatchedStyles.CSSMatchedStyles);
+      matchedStyles.environmentVariable.callsFake(name => name === 'a' ? 'A' : 'B');
+      const {match, text} =
+          matchSingleValue('--env', good, new SDK.CSSPropertyParserMatchers.EnvFunctionMatcher(matchedStyles));
+      assert.exists(match, text);
+      assert.strictEqual(match.varName, 'a');
+      assert.strictEqual(match.value, 'A');
+    }
+    // Matched when the var is not resolved
+    for (const good of ['env(a)', 'env(a, d)', 'env(a /* aa */, b c)', 'env(a, b, c)']) {
+      const matchedStyles = sinon.createStubInstance(SDK.CSSMatchedStyles.CSSMatchedStyles);
+      matchedStyles.environmentVariable.callsFake(name => name === 'a' ? undefined : 'B');
+      const {match, text} =
+          matchSingleValue('--env', good, new SDK.CSSPropertyParserMatchers.EnvFunctionMatcher(matchedStyles));
+      assert.exists(match, text);
+      assert.strictEqual(match.varName, 'a');
+      assert.oneOf(match.value, [null, 'd', 'b c', 'b, c']);
+    }
+    // Not matched
+    for (const bad of ['env', 'env()']) {
+      const matchedStyles = sinon.createStubInstance(SDK.CSSMatchedStyles.CSSMatchedStyles);
+      const {match, ast, text} =
+          matchSingleValue('--env', bad, new SDK.CSSPropertyParserMatchers.EnvFunctionMatcher(matchedStyles));
+      assert.notExists(match, text);
+      assert.exists(ast, text);
     }
   });
 });

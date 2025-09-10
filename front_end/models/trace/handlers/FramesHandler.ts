@@ -24,24 +24,62 @@ import type {HandlerName} from './types.js';
  * In time we expect to migrate this code to a more "typical" handler.
  */
 
-const allEvents: Types.Events.Event[] = [];
 let model: TimelineFrameModel|null = null;
+let relevantFrameEvents: Types.Events.Event[] = [];
 
-export function reset(): void {
-  allEvents.length = 0;
+type FrameEvent = Types.Events.BeginFrame|Types.Events.DroppedFrame|Types.Events.RequestMainThreadFrame|
+                  Types.Events.BeginMainThreadFrame|Types.Events.Commit|Types.Events.CompositeLayers|
+                  Types.Events.ActivateLayerTree|Types.Events.NeedsBeginFrameChanged|Types.Events.DrawFrame;
+
+function isFrameEvent(event: Types.Events.Event): event is FrameEvent {
+  return (
+      Types.Events.isSetLayerId(event) || Types.Events.isBeginFrame(event) || Types.Events.isDroppedFrame(event) ||
+      Types.Events.isRequestMainThreadFrame(event) || Types.Events.isBeginMainThreadFrame(event) ||
+      Types.Events.isNeedsBeginFrameChanged(event) ||
+      // Note that "Commit" is the replacement for "CompositeLayers" so in a trace
+      // we wouldn't expect to see a combination of these. All "new" trace
+      // recordings use "Commit", but we can easily support "CompositeLayers" too
+      // to not break older traces being imported.
+      Types.Events.isCommit(event) || Types.Events.isCompositeLayers(event) ||
+      Types.Events.isActivateLayerTree(event) || Types.Events.isDrawFrame(event));
 }
 
+function entryIsTopLevel(entry: Types.Events.Event): boolean {
+  const devtoolsTimelineCategory = 'disabled-by-default-devtools.timeline';
+  return entry.name === Types.Events.Name.RUN_TASK && entry.cat.includes(devtoolsTimelineCategory);
+}
+
+const MAIN_FRAME_MARKERS = new Set<Types.Events.Name>([
+  Types.Events.Name.SCHEDULE_STYLE_RECALCULATION,
+  Types.Events.Name.INVALIDATE_LAYOUT,
+  Types.Events.Name.BEGIN_MAIN_THREAD_FRAME,
+  Types.Events.Name.SCROLL_LAYER,
+]);
+
+export function reset(): void {
+  model = null;
+  relevantFrameEvents = [];
+}
 export function handleEvent(event: Types.Events.Event): void {
-  allEvents.push(event);
+  // This might seem like a wide set of events to filter for, but these are all
+  // the types of events that we care about in the TimelineFrameModel class at
+  // the bottom of this file. Previously we would take a copy of an array of
+  // all trace events, but on a few test traces, this set of filtered events
+  // accounts for about 10% of the total events, so it's a big performance win
+  // to deal with a much smaller subset of the data.
+  if (isFrameEvent(event) || Types.Events.isLayerTreeHostImplSnapshot(event) || entryIsTopLevel(event) ||
+      MAIN_FRAME_MARKERS.has(event.name as Types.Events.Name) || Types.Events.isPaint(event)) {
+    relevantFrameEvents.push(event);
+  }
 }
 
 export async function finalize(): Promise<void> {
-  // Snapshot events can be emitted out of order, so we need to sort before
-  // building the frames model.
-  Helpers.Trace.sortTraceEventsInPlace(allEvents);
+  // We have to sort the events by timestamp, because the model code expects to
+  // process events in order.
+  Helpers.Trace.sortTraceEventsInPlace(relevantFrameEvents);
 
   const modelForTrace = new TimelineFrameModel(
-      allEvents,
+      relevantFrameEvents,
       rendererHandlerData(),
       auctionWorkletsData(),
       metaHandlerData(),
@@ -66,33 +104,9 @@ export function deps(): HandlerName[] {
   return ['Meta', 'Renderer', 'AuctionWorklets', 'LayerTree'];
 }
 
-type FrameEvent = Types.Events.BeginFrame|Types.Events.DroppedFrame|Types.Events.RequestMainThreadFrame|
-                  Types.Events.BeginMainThreadFrame|Types.Events.Commit|Types.Events.CompositeLayers|
-                  Types.Events.ActivateLayerTree|Types.Events.NeedsBeginFrameChanged|Types.Events.DrawFrame;
-
-function isFrameEvent(event: Types.Events.Event): event is FrameEvent {
-  return (
-      Types.Events.isSetLayerId(event) || Types.Events.isBeginFrame(event) || Types.Events.isDroppedFrame(event) ||
-      Types.Events.isRequestMainThreadFrame(event) || Types.Events.isBeginMainThreadFrame(event) ||
-      Types.Events.isNeedsBeginFrameChanged(event) ||
-      // Note that "Commit" is the replacement for "CompositeLayers" so in a trace
-      // we wouldn't expect to see a combination of these. All "new" trace
-      // recordings use "Commit", but we can easily support "CompositeLayers" too
-      // to not break older traces being imported.
-      Types.Events.isCommit(event) || Types.Events.isCompositeLayers(event) ||
-      Types.Events.isActivateLayerTree(event) || Types.Events.isDrawFrame(event));
-}
-
-function entryIsTopLevel(entry: Types.Events.Event): boolean {
-  const devtoolsTimelineCategory = 'disabled-by-default-devtools.timeline';
-  return entry.name === Types.Events.Name.RUN_TASK && entry.cat.includes(devtoolsTimelineCategory);
-}
-
 export class TimelineFrameModel {
   #frames: TimelineFrame[] = [];
-  #frameById: {
-    [x: number]: TimelineFrame,
-  } = {};
+  #frameById: Record<number, TimelineFrame> = {};
   #beginFrameQueue: TimelineFrameBeginFrameQueue = new TimelineFrameBeginFrameQueue();
   #lastFrame: TimelineFrame|null = null;
   #mainFrameCommitted = false;
@@ -275,11 +289,11 @@ export class TimelineFrameModel {
   }
 
   #addTraceEvents(
-      events: readonly Types.Events.Event[], threadData: {
+      events: readonly Types.Events.Event[], threadData: Array<{
         pid: Types.Events.ProcessID,
         tid: Types.Events.ThreadID,
         startTime: Types.Timing.Micro,
-      }[],
+      }>,
       mainFrameId: string): void {
     let j = 0;
     this.#activeThreadId = threadData.length && threadData[0].tid || null;
@@ -365,13 +379,6 @@ export class TimelineFrameModel {
   }
 }
 
-const MAIN_FRAME_MARKERS = new Set<Types.Events.Name>([
-  Types.Events.Name.SCHEDULE_STYLE_RECALCULATION,
-  Types.Events.Name.INVALIDATE_LAYOUT,
-  Types.Events.Name.BEGIN_MAIN_THREAD_FRAME,
-  Types.Events.Name.SCROLL_LAYER,
-]);
-
 /**
  * Legacy class that represents TimelineFrames that was ported from the old SDK.
  * This class is purposefully not exported as it breaks the abstraction that
@@ -391,7 +398,7 @@ class TimelineFrame implements Types.Events.LegacyTimelineFrame {
   pid = Types.Events.ProcessID(-1);
   tid = Types.Events.ThreadID(-1);
 
-  index: number = -1;
+  index = -1;
   startTime: Types.Timing.Micro;
   startTimeOffset: Types.Timing.Micro;
   endTime: Types.Timing.Micro;
@@ -498,9 +505,7 @@ export class TimelineFrameBeginFrameQueue {
   private queueFrames: number[] = [];
 
   // Maps frameSeqId to BeginFrameInfo.
-  private mapFrames: {
-    [x: number]: BeginFrameInfo,
-  } = {};
+  private mapFrames: Record<number, BeginFrameInfo> = {};
 
   // Add a BeginFrame to the queue, if it does not already exit.
   addFrameIfNotExists(seqId: number, startTime: Types.Timing.Micro, isDropped: boolean, isPartial: boolean): void {

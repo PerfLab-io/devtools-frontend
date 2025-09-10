@@ -9,14 +9,14 @@ import type * as Emulation from './emulation.js';
 
 const UIStrings = {
   /**
-   *@description Title of the Devices tab/tool. Devices refers to e.g. phones/tablets.
+   * @description Title of the Devices tab/tool. Devices refers to e.g. phones/tablets.
    */
   devices: 'Devices',
   /**
-   *@description Command that opens the device emulation view.
+   * @description Command that opens the device emulation view.
    */
   showDevices: 'Show Devices',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/settings/emulation/emulation-meta.ts', UIStrings);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);

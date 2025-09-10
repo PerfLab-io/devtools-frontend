@@ -9,14 +9,14 @@ import type * as QuickOpen from './quick_open.js';
 
 const UIStrings = {
   /**
-   *@description Title of action that opens a file
+   * @description Title of action that opens a file
    */
   openFile: 'Open file',
   /**
-   *@description Title of command that runs a Quick Open command
+   * @description Title of command that runs a Quick Open command
    */
   runCommand: 'Run command',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/quick_open/quick_open-meta.ts', UIStrings);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
 

@@ -236,112 +236,108 @@ describe('DataGrid', () => {
   });
 });
 
-describe('DOMExtension', () => {
-  describe('Document.adoptedStyleSheets monkey-patching', () => {
-    const adoptedStyleSheets: CSSStyleSheet[] = [];
-
-    beforeEach(() => {
-      adoptedStyleSheets.push(...document.adoptedStyleSheets);
-    });
-
-    afterEach(() => {
-      document.adoptedStyleSheets = adoptedStyleSheets;
-      adoptedStyleSheets.length = 0;
-    });
-
-    it('does not create `CSSStyleSheet` copies within `document`', () => {
-      const styleSheet = new CSSStyleSheet();
-
-      document.adoptedStyleSheets = [styleSheet];
-
-      assert.lengthOf(document.adoptedStyleSheets, 1);
-      assert.strictEqual(document.adoptedStyleSheets[0], styleSheet);
-    });
-
-    it('does not create `CSSStyleSheet` copies within an `<iframe>`', () => {
-      const iframe = renderElementIntoDOM(document.createElement('iframe'));
-      const iframeDocument = iframe.contentDocument!;
-      const styleSheet = new iframeDocument.defaultView!.CSSStyleSheet();
-
-      iframeDocument.adoptedStyleSheets = [styleSheet];
-
-      assert.lengthOf(iframeDocument.adoptedStyleSheets, 1);
-      assert.strictEqual(iframeDocument.adoptedStyleSheets[0], styleSheet);
-    });
-
-    it('correctly copies `CSSStyleSheet` instances across documents', () => {
-      const iframe = renderElementIntoDOM(document.createElement('iframe'));
-      const styleSheet = new iframe.contentDocument!.defaultView!.CSSStyleSheet();
-      styleSheet.insertRule('body { background: red; }');
-
-      document.adoptedStyleSheets = [styleSheet];
-
-      assert.lengthOf(document.adoptedStyleSheets, 1);
-      assert.notStrictEqual(document.adoptedStyleSheets[0], styleSheet);
-      assert.lengthOf(document.adoptedStyleSheets[0].cssRules, 1);
-      assert.strictEqual(document.adoptedStyleSheets[0].cssRules[0].cssText, 'body { background: red; }');
-    });
-
-    it('caches `CSSStyleSheet` copies', () => {
-      const iframe = renderElementIntoDOM(document.createElement('iframe'));
-      const styleSheet = new iframe.contentDocument!.defaultView!.CSSStyleSheet();
-
-      document.adoptedStyleSheets = [styleSheet, styleSheet];
-
-      assert.lengthOf(document.adoptedStyleSheets, 2);
-      assert.strictEqual(document.adoptedStyleSheets[0], document.adoptedStyleSheets[1]);
-    });
+describe('Node.prototype.deepInnerText', () => {
+  it('gets text from a simple element', () => {
+    const element = document.createElement('div');
+    element.textContent = 'Simple text';
+    renderElementIntoDOM(element);
+    assert.strictEqual(element.deepInnerText(), 'Simple text');
   });
 
-  describe('ShadowRoot.adoptedStyleSheets monkey-patching', () => {
-    it('does not create `CSSStyleSheet` copies within `document`', () => {
-      const shadowRoot = renderElementIntoDOM(document.createElement('div')).attachShadow({mode: 'open'});
-      const styleSheet = new CSSStyleSheet();
+  it('gets text from an element with multiple children', () => {
+    const element = document.createElement('div');
+    element.createChild('p').textContent = 'First child';
+    element.createChild('span').textContent = 'Second child';
+    renderElementIntoDOM(element);
+    assert.strictEqual(element.deepInnerText(), element.innerText);
+    assert.strictEqual(element.deepInnerText(), 'First child\n\nSecond child');
+  });
 
-      shadowRoot.adoptedStyleSheets = [styleSheet];
+  it('gets text from an element with nested children', () => {
+    const element = document.createElement('div');
+    element.appendChild(document.createTextNode('  Outer text. '));
+    const childDiv = element.createChild('div');
+    childDiv.textContent = '  Child text. ';  // innerText of childDiv would be "Child text. Grandchild text."
+    const grandchildSpan = childDiv.createChild('span');
+    grandchildSpan.textContent = 'Grandchild text.';
+    renderElementIntoDOM(element);
+    assert.strictEqual(element.deepInnerText(), element.innerText);
+    assert.strictEqual(element.deepInnerText(), 'Outer text.\nChild text. Grandchild text.');
+  });
 
-      assert.lengthOf(shadowRoot.adoptedStyleSheets, 1);
-      assert.strictEqual(shadowRoot.adoptedStyleSheets[0], styleSheet);
-    });
+  it('gets text from an element with a shadow DOM', () => {
+    const element = document.createElement('div');
+    const shadow = element.attachShadow({mode: 'open'});
+    shadow.createChild('p').textContent = 'Shadow text';
+    renderElementIntoDOM(element);
+    assert.strictEqual(element.deepInnerText(), 'Shadow text');
+  });
 
-    it('does not create `CSSStyleSheet` copies within an `<iframe>`', () => {
-      const iframe = renderElementIntoDOM(document.createElement('iframe'));
-      const iframeDocument = iframe.contentDocument!;
-      const shadowRoot =
-          iframeDocument.body.appendChild(iframeDocument.createElement('div')).attachShadow({mode: 'open'});
-      const styleSheet = new iframeDocument.defaultView!.CSSStyleSheet();
+  it('gets text from an element with a shadow DOM and slotted content', () => {
+    const element = document.createElement('div');
+    element.createChild('span').textContent = 'Slotted content';
 
-      shadowRoot.adoptedStyleSheets = [styleSheet];
+    const shadow = element.attachShadow({mode: 'open'});
+    shadow.appendChild(document.createTextNode('Shadow text before slot. '));
+    shadow.createChild('slot');
+    shadow.createChild('p').textContent = 'Shadow text after slot.';
 
-      assert.lengthOf(shadowRoot.adoptedStyleSheets, 1);
-      assert.strictEqual(shadowRoot.adoptedStyleSheets[0], styleSheet);
-    });
+    renderElementIntoDOM(element);
+    const expectedText = 'Shadow text before slot.\nSlotted content\nShadow text after slot.';
+    assert.strictEqual(element.deepInnerText(), expectedText);
+  });
 
-    it('correctly copies `CSSStyleSheet` instances across documents', () => {
-      const container = renderElementIntoDOM(document.createElement('div'));
-      const shadowRoot = container.appendChild(document.createElement('div')).attachShadow({mode: 'open'});
-      const iframe = container.appendChild(document.createElement('iframe'));
-      const styleSheet = new iframe.contentDocument!.defaultView!.CSSStyleSheet();
-      styleSheet.insertRule('body { background: red; }');
+  it('gets text from an element with multiple shadow DOMs and regular siblings', () => {
+    const element = document.createElement('div');
+    element.appendChild(document.createTextNode('Light DOM text before shadow 1. '));
+    const shadow1 = element.createChild('div').attachShadow({mode: 'open'});
+    const shadow1Paragraph1 = shadow1.createChild('p');
+    shadow1Paragraph1.createChild('span').textContent = 'Shadow 1';
+    shadow1Paragraph1.createChild('span').textContent = '(1)';
+    const shadow1Paragraph2 = shadow1.createChild('p');
+    shadow1Paragraph2.createChild('span').textContent = 'Shadow 1';
+    shadow1Paragraph2.createChild('span').textContent = '(2)';
+    element.appendChild(document.createTextNode(' Light DOM text between shadows. '));
+    const shadow2 = element.createChild('div').attachShadow({mode: 'open'});
+    shadow2.createChild('span').textContent = 'Shadow 2 text.';
+    element.appendChild(document.createTextNode(' Light DOM text after shadow 2.'));
 
-      shadowRoot.adoptedStyleSheets = [styleSheet];
+    renderElementIntoDOM(element);
+    const expectedText =
+        'Light DOM text before shadow 1.\nShadow 1(1)\nShadow 1(2)\nLight DOM text between shadows.\nShadow 2 text.\nLight DOM text after shadow 2.';
+    assert.strictEqual(element.deepInnerText(), expectedText);
+  });
 
-      assert.lengthOf(shadowRoot.adoptedStyleSheets, 1);
-      assert.notStrictEqual(shadowRoot.adoptedStyleSheets[0], styleSheet);
-      assert.lengthOf(shadowRoot.adoptedStyleSheets[0].cssRules, 1);
-      assert.strictEqual(shadowRoot.adoptedStyleSheets[0].cssRules[0].cssText, 'body { background: red; }');
-    });
+  it('returns empty string for an element with no text content', () => {
+    const element = document.createElement('div');
+    renderElementIntoDOM(element);
+    assert.strictEqual(element.deepInnerText(), '');
+  });
 
-    it('caches `CSSStyleSheet` copies', () => {
-      const container = renderElementIntoDOM(document.createElement('div'));
-      const shadowRoot = container.appendChild(document.createElement('div')).attachShadow({mode: 'open'});
-      const iframe = container.appendChild(document.createElement('iframe'));
-      const styleSheet = new iframe.contentDocument!.defaultView!.CSSStyleSheet();
+  it('ignores text content within SCRIPT tags', () => {
+    const element = document.createElement('div');
+    element.innerHTML = 'Visible text<script>console.log("script text")</script>';
+    renderElementIntoDOM(element);
+    assert.strictEqual(element.deepInnerText(), 'Visible text');
+  });
 
-      shadowRoot.adoptedStyleSheets = [styleSheet, styleSheet];
+  it('ignores text content within STYLE tags', () => {
+    const element = document.createElement('div');
+    element.innerHTML = 'Visible text<style>body { color: red; }</style>';
+    renderElementIntoDOM(element);
+    assert.strictEqual(element.deepInnerText(), 'Visible text');
+  });
 
-      assert.lengthOf(shadowRoot.adoptedStyleSheets, 2);
-      assert.strictEqual(shadowRoot.adoptedStyleSheets[0], shadowRoot.adoptedStyleSheets[1]);
-    });
+  it('gets text when called directly on a TextNode', () => {
+    const textNode = document.createTextNode('Direct text node content');
+    assert.strictEqual(textNode.deepInnerText(), 'Direct text node content');
+  });
+
+  it('handles elements that only contain other elements which produce text', () => {
+    const element = document.createElement('div');
+    const child = element.createChild('p');
+    child.textContent = 'Paragraph text';
+    renderElementIntoDOM(element);
+    assert.strictEqual(element.deepInnerText(), 'Paragraph text');
   });
 });

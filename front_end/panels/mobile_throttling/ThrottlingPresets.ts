@@ -7,19 +7,19 @@ import * as SDK from '../../core/sdk/sdk.js';
 
 const UIStrings = {
   /**
-   *@description Text for no network throttling
+   * @description Text for no network throttling
    */
   noThrottling: 'No CPU and no network throttling',
   /**
-   *@description Text in Throttling Presets of the Network panel
+   * @description Text in Throttling Presets of the Network panel
    */
   noInternetConnectivity: 'No internet connectivity',
   /**
-   *@description Text in Throttling Presets of the Network panel
+   * @description Text in Throttling Presets of the Network panel
    */
   lowTierMobile: 'Low-tier mobile',
   /**
-   *@description Text in Throttling Presets of the Network panel
+   * @description Text in Throttling Presets of the Network panel
    */
   slowGXCpuSlowdown: 'Slow 3G & 6x CPU slowdown',
   /**
@@ -28,11 +28,11 @@ const UIStrings = {
    */
   slowGXCpuSlowdownCalibrated: 'Slow 3G & {PH1}x CPU slowdown',
   /**
-   *@description Text in Throttling Presets of the Network panel
+   * @description Text in Throttling Presets of the Network panel
    */
   midtierMobile: 'Mid-tier mobile',
   /**
-   *@description Text in Throttling Presets of the Network panel
+   * @description Text in Throttling Presets of the Network panel
    */
   fastGXCpuSlowdown: 'Fast 3G & 4x CPU slowdown',
   /**
@@ -41,14 +41,14 @@ const UIStrings = {
    */
   fastGXCpuSlowdownCalibrated: 'Fast 3G & {PH1}x CPU slowdown',
   /**
-   *@description Text in Network Throttling Selector of the Network panel
+   * @description Text in Network Throttling Selector of the Network panel
    */
   custom: 'Custom',
   /**
-   *@description Text in Throttling Presets of the Network panel
+   * @description Text in Throttling Presets of the Network panel
    */
   checkNetworkAndPerformancePanels: 'Check Network and Performance panels',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/mobile_throttling/ThrottlingPresets.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -121,7 +121,7 @@ export class ThrottlingPresets {
     };
   }
 
-  static getMobilePresets(): (Conditions|PlaceholderConditions)[] {
+  static getMobilePresets(): Array<Conditions|PlaceholderConditions> {
     return [
       ThrottlingPresets.getMidTierMobileConditions(),
       ThrottlingPresets.getLowEndMobileConditions(),
@@ -188,9 +188,9 @@ export class ThrottlingPresets {
   ];
 }
 
-// @ts-ignore exported for Tests.js
+// @ts-expect-error exported for Tests.js
 globalThis.MobileThrottling = globalThis.MobileThrottling || {};
-// @ts-ignore exported for Tests.js
+// @ts-expect-error exported for Tests.js
 globalThis.MobileThrottling.networkPresets = ThrottlingPresets.networkPresets;
 
 export interface Conditions {
@@ -208,10 +208,10 @@ export interface NetworkThrottlingConditionsGroup {
 
 export interface MobileThrottlingConditionsGroup {
   title: string;
-  items: (Conditions|PlaceholderConditions)[];
+  items: Array<Conditions|PlaceholderConditions>;
 }
 
-export type ConditionsList = (Conditions|PlaceholderConditions|null)[];
+export type ConditionsList = Array<Conditions|PlaceholderConditions|null>;
 
 export interface PlaceholderConditions {
   title: string;

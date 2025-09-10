@@ -1,10 +1,11 @@
 // Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
-import type * as SDK from '../../core/sdk/sdk.js';
+import * as SDK from '../../core/sdk/sdk.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
@@ -13,25 +14,29 @@ import {ariaMetadata} from './ARIAMetadata.js';
 
 const UIStrings = {
   /**
-   *@description Text in ARIAAttributes View of the Accessibility panel
+   * @description Text in ARIAAttributes View of the Accessibility panel
    */
   ariaAttributes: 'ARIA Attributes',
   /**
-   *@description Text in ARIAAttributes View of the Accessibility panel
+   * @description Text in ARIAAttributes View of the Accessibility panel
    */
   noAriaAttributes: 'No ARIA attributes',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/accessibility/ARIAAttributesView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class ARIAAttributesPane extends AccessibilitySubPane {
   private readonly noPropertiesInfo: Element;
   private readonly treeOutline: UI.TreeOutline.TreeOutline;
+
   constructor() {
-    super(i18nString(UIStrings.ariaAttributes));
+    super({
+      title: i18nString(UIStrings.ariaAttributes),
+      viewId: 'aria-attributes',
+      jslog: `${VisualLogging.section('aria-attributes')}`,
+    });
 
     this.noPropertiesInfo = this.createInfo(i18nString(UIStrings.noAriaAttributes));
     this.treeOutline = this.createTreeOutline();
-    this.element.setAttribute('jslog', `${VisualLogging.section('aria-attributes')}`);
   }
 
   override setNode(node: SDK.DOMModel.DOMNode|null): void {
@@ -56,8 +61,12 @@ export class ARIAAttributesPane extends AccessibilitySubPane {
     this.treeOutline.element.classList.toggle('hidden', !foundAttributes);
   }
 
+  getTreeOutlineForTesting(): Readonly<UI.TreeOutline.TreeOutline>|undefined {
+    return this.treeOutline;
+  }
+
   private isARIAAttribute(attribute: SDK.DOMModel.Attribute): boolean {
-    return ATTRIBUTES.has(attribute.name);
+    return SDK.DOMModel.ARIA_ATTRIBUTES.has(attribute.name);
   }
 }
 
@@ -88,6 +97,10 @@ export class ARIAAttributesTreeElement extends UI.TreeOutline.TreeElement {
   override onattach(): void {
     this.populateListItem();
     this.listItemElement.addEventListener('click', this.mouseClick.bind(this));
+  }
+
+  getPromptForTesting(): Readonly<ARIAAttributePrompt>|undefined {
+    return this.prompt;
   }
 
   private populateListItem(): void {
@@ -136,7 +149,7 @@ export class ARIAAttributesTreeElement extends UI.TreeOutline.TreeElement {
     }
 
     const attributeName = (this.nameElement as HTMLSpanElement).textContent || '';
-    this.prompt = new ARIAAttributePrompt(ariaMetadata().valuesForProperty(attributeName), this);
+    this.prompt = new ARIAAttributePrompt(ariaMetadata().valuesForProperty(attributeName));
     this.prompt.setAutocompletionTimeout(0);
     const proxyElement =
         this.prompt.attachAndStartEditing(valueElement, blurListener.bind(this, previousContent)) as HTMLElement;
@@ -194,13 +207,11 @@ export class ARIAAttributesTreeElement extends UI.TreeOutline.TreeElement {
 
 export class ARIAAttributePrompt extends UI.TextPrompt.TextPrompt {
   private readonly ariaCompletions: string[];
-  private readonly treeElement: ARIAAttributesTreeElement;
-  constructor(ariaCompletions: string[], treeElement: ARIAAttributesTreeElement) {
+  constructor(ariaCompletions: string[]) {
     super();
     this.initialize(this.buildPropertyCompletions.bind(this));
 
     this.ariaCompletions = ariaCompletions;
-    this.treeElement = treeElement;
   }
 
   private async buildPropertyCompletions(expression: string, prefix: string, force?: boolean):
@@ -224,61 +235,3 @@ export class ARIAAttributePrompt extends UI.TextPrompt.TextPrompt {
     });
   }
 }
-
-// Keep this list in sync with https://w3c.github.io/aria/#state_prop_def
-const ATTRIBUTES = new Set<string>([
-  'role',
-  'aria-activedescendant',
-  'aria-atomic',
-  'aria-autocomplete',
-  'aria-braillelabel',
-  'aria-brailleroledescription',
-  'aria-busy',
-  'aria-checked',
-  'aria-colcount',
-  'aria-colindex',
-  'aria-colindextext',
-  'aria-colspan',
-  'aria-controls',
-  'aria-current',
-  'aria-describedby',
-  'aria-description',
-  'aria-details',
-  'aria-disabled',
-  'aria-dropeffect',
-  'aria-errormessage',
-  'aria-expanded',
-  'aria-flowto',
-  'aria-grabbed',
-  'aria-haspopup',
-  'aria-hidden',
-  'aria-invalid',
-  'aria-keyshortcuts',
-  'aria-label',
-  'aria-labelledby',
-  'aria-level',
-  'aria-live',
-  'aria-modal',
-  'aria-multiline',
-  'aria-multiselectable',
-  'aria-orientation',
-  'aria-owns',
-  'aria-placeholder',
-  'aria-posinset',
-  'aria-pressed',
-  'aria-readonly',
-  'aria-relevant',
-  'aria-required',
-  'aria-roledescription',
-  'aria-rowcount',
-  'aria-rowindex',
-  'aria-rowindextext',
-  'aria-rowspan',
-  'aria-selected',
-  'aria-setsize',
-  'aria-sort',
-  'aria-valuemax',
-  'aria-valuemin',
-  'aria-valuenow',
-  'aria-valuetext',
-]);

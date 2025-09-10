@@ -12,7 +12,7 @@ import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
 
 /**
- * @fileoverview using private properties isn't a Closure violation in tests.
+ * @file using private properties isn't a Closure violation in tests.
  */
 self.ElementsTestRunner = self.ElementsTestRunner || {};
 
@@ -30,7 +30,7 @@ ElementsTestRunner.selectNodeWithId = function(idValue, callback) {
 
 /**
  * @param {!Object} node
- * @return {!Promise.<undefined>}
+ * @returns {!Promise.<undefined>}
  */
 ElementsTestRunner.selectNode = function(node) {
   return Common.Revealer.reveal(node);
@@ -105,7 +105,7 @@ ElementsTestRunner.findNode = async function(matchFunction, callback) {
 
 /**
  * @param {function(!Element): boolean} matchFunction
- * @param {!Promise}
+ * @returns {!Promise}
  */
 ElementsTestRunner.findNodePromise = function(matchFunction) {
   return new Promise(resolve => ElementsTestRunner.findNode(matchFunction, resolve));
@@ -174,7 +174,7 @@ ElementsTestRunner.expandAndDumpEventListeners = function(eventListenersView, ca
 /**
  * @param {!EventListeners.EventListenersView.EventListenersView} eventListenersView
  * @param {boolean=} force
- * @return {!Promise}
+ * @returns {!Promise}
  */
 ElementsTestRunner.expandAndDumpEventListenersPromise = function(eventListenersView, force) {
   return new Promise(resolve => ElementsTestRunner.expandAndDumpEventListeners(eventListenersView, resolve, force));
@@ -188,7 +188,7 @@ ElementsTestRunner.computedStyleWidget = function() {
   return Elements.ElementsPanel.ElementsPanel.instance().computedStyleWidget;
 };
 
-ElementsTestRunner.dumpComputedStyle = async function(doNotAutoExpand, printInnerText) {
+ElementsTestRunner.dumpComputedStyle = async function(doNotAutoExpand) {
   const computed = ElementsTestRunner.computedStyleWidget();
   const treeOutline = computed.propertiesOutline.querySelector('devtools-tree-outline');
   const children = treeOutline.shadowRoot.querySelector('[role="treeitem"]');
@@ -229,7 +229,7 @@ ElementsTestRunner.dumpComputedStyle = async function(doNotAutoExpand, printInne
   }
 
   function text(node) {
-    return printInnerText ? node.innerText : node.textContent;
+    return node.innerText;
   }
 };
 
@@ -398,7 +398,7 @@ ElementsTestRunner.selectNodeAndWaitForStylesWithComputed = function(idValue, ca
 };
 
 ElementsTestRunner.firstElementsTreeOutline = function() {
-  return Elements.ElementsPanel.ElementsPanel.instance().treeOutlines.values().next().value;
+  return Elements.ElementsPanel.ElementsPanel.instance().getTreeOutlineForTesting();
 };
 
 ElementsTestRunner.filterMatchedStyles = function(text) {
@@ -471,11 +471,11 @@ ElementsTestRunner.dumpRenderedMatchedStyles = function() {
 };
 
 ElementsTestRunner.dumpSelectedElementStyles =
-    async function(excludeComputed, excludeMatched, omitLonghands, includeSelectorGroupMarks, printInnerText) {
+    async function(excludeComputed, excludeMatched, omitLonghands, includeSelectorGroupMarks) {
   const sectionBlocks = Elements.ElementsPanel.ElementsPanel.instance().stylesWidget.sectionBlocks;
 
   if (!excludeComputed) {
-    await ElementsTestRunner.dumpComputedStyle(false /* doNotAutoExpand */, printInnerText);
+    await ElementsTestRunner.dumpComputedStyle(false /* doNotAutoExpand */);
   }
 
   for (const block of sectionBlocks) {
@@ -494,16 +494,16 @@ ElementsTestRunner.dumpSelectedElementStyles =
         TestRunner.addResult('======== ' + text(section.element.previousSibling) + nodeDescription + ' ========');
       }
 
-      await printStyleSection(section, omitLonghands, includeSelectorGroupMarks, printInnerText);
+      await printStyleSection(section, omitLonghands, includeSelectorGroupMarks);
     }
   }
 
   function text(node) {
-    return printInnerText ? node.innerText : node.textContent;
+    return node.innerText;
   }
 };
 
-async function printStyleSection(section, omitLonghands, includeSelectorGroupMarks, printInnerText) {
+async function printStyleSection(section, omitLonghands, includeSelectorGroupMarks) {
   if (!section) {
     return;
   }
@@ -524,7 +524,7 @@ async function printStyleSection(section, omitLonghands, includeSelectorGroupMar
   const selector =
       section.titleElement.querySelector('.selector') || section.titleElement.querySelector('.keyframe-key');
   let selectorText = (includeSelectorGroupMarks ? buildMarkedSelectors(selector) : text(selector));
-  selectorText += text(selector.nextSibling);
+  selectorText += text(selector.nextSibling.nextSibling);
   const anchor = section.element.querySelector('.styles-section-subtitle');
 
   if (anchor) {
@@ -533,14 +533,14 @@ async function printStyleSection(section, omitLonghands, includeSelectorGroupMar
   }
 
   TestRunner.addResult(selectorText);
-  ElementsTestRunner.dumpStyleTreeOutline(section.propertiesTreeOutline, (omitLonghands ? 1 : 2), printInnerText);
+  ElementsTestRunner.dumpStyleTreeOutline(section.propertiesTreeOutline, (omitLonghands ? 1 : 2));
   if (!section.showAllButton.classList.contains('hidden')) {
     TestRunner.addResult(text(section.showAllButton));
   }
   TestRunner.addResult('');
 
   function text(node) {
-    return printInnerText ? node.innerText : node.textContent;
+    return node.innerText;
   }
 }
 
@@ -599,7 +599,7 @@ ElementsTestRunner.showEventListenersWidget = function() {
 };
 
 /**
- * @return {Promise}
+ * @returns {Promise}
  */
 ElementsTestRunner.showComputedStyles = function() {
   Elements.ElementsPanel.ElementsPanel.instance().sidebarPaneView.tabbedPane().selectTab('computed', true);
@@ -688,17 +688,16 @@ ElementsTestRunner.getFirstPropertyTreeItemForSection = function(section, proper
   return null;
 };
 
-ElementsTestRunner.dumpStyleTreeOutline = function(treeItem, depth, printInnerText) {
+ElementsTestRunner.dumpStyleTreeOutline = function(treeItem, depth) {
   const children = treeItem.rootElement().children();
 
   for (let i = 0; i < children.length; ++i) {
-    ElementsTestRunner.dumpStyleTreeItem(children[i], '', depth || 2, printInnerText);
+    ElementsTestRunner.dumpStyleTreeItem(children[i], '', depth || 2);
   }
 };
 
-ElementsTestRunner.dumpStyleTreeItem = function(treeItem, prefix, depth, printInnerText) {
-  const textContent = printInnerText ? treeItem.listItemElement.innerText :
-                                       TestRunner.textContentWithoutStyles(treeItem.listItemElement);
+ElementsTestRunner.dumpStyleTreeItem = function(treeItem, prefix, depth) {
+  const textContent = treeItem.listItemElement.innerText;
   if (textContent.indexOf(' width:') !== -1 || textContent.indexOf(' height:') !== -1) {
     return;
   }
@@ -832,62 +831,6 @@ ElementsTestRunner.dumpElementsTree = function(rootNode, depth, resultsArray) {
   const treeOutline = ElementsTestRunner.firstElementsTreeOutline();
   treeOutline.runPendingUpdates();
   print((rootNode ? treeOutline.findTreeElement(rootNode) : treeOutline.rootElement()), '', depth || 10000);
-};
-
-ElementsTestRunner.dumpDOMUpdateHighlights = function(rootNode, callback, depth) {
-  let hasHighlights = false;
-  TestRunner.addSniffer(Elements.ElementsTreeOutline.ElementsTreeOutline.prototype, 'updateModifiedNodes', didUpdate);
-
-  function didUpdate() {
-    const treeOutline = ElementsTestRunner.firstElementsTreeOutline();
-    print((rootNode ? treeOutline.findTreeElement(rootNode) : treeOutline.rootElement()), '', depth || 10000);
-
-    if (!hasHighlights) {
-      TestRunner.addResult('<No highlights>');
-    }
-
-    if (callback) {
-      callback();
-    }
-  }
-
-  function print(treeItem, prefix, depth) {
-    if (!treeItem.root) {
-      const elementXPath = Elements.DOMPath.xPath(treeItem.node(), true);
-      const highlightedElements = treeItem.listItemElement.querySelectorAll('.dom-update-highlight');
-
-      for (let i = 0; i < highlightedElements.length; ++i) {
-        const element = highlightedElements[i];
-        const classList = element.classList;
-        let xpath = elementXPath;
-
-        if (classList.contains('webkit-html-attribute-name')) {
-          xpath += '/@' + element.textContent + ' (empty)';
-        } else if (classList.contains('webkit-html-attribute-value')) {
-          const name = element.parentElement.querySelector('.webkit-html-attribute-name').textContent;
-          xpath += '/@' + name + ' ' + element.textContent;
-        } else if (classList.contains('webkit-html-text-node')) {
-          xpath += '/text() "' + element.textContent + '"';
-        }
-
-        TestRunner.addResult(prefix + xpath);
-        hasHighlights = true;
-      }
-    }
-
-    if (!treeItem.expanded) {
-      return;
-    }
-
-    const children = treeItem.children();
-    const newPrefix = (treeItem.root ? '' : prefix + '    ');
-
-    for (let i = 0; depth && children && i < children.length; ++i) {
-      if (!children[i].isClosingTag || !children[i].isClosingTag()) {
-        print(children[i], newPrefix, depth - 1);
-      }
-    }
-  }
 };
 
 ElementsTestRunner.expandElementsTree = function(callback) {
@@ -1262,24 +1205,6 @@ ElementsTestRunner.dumpInspectorGridHighlightsJSON = async function(idValues, ca
   const result = await TestRunner.OverlayAgent.getGridHighlightObjectsForTest(nodeIds);
   TestRunner.addResult(JSON.stringify(result, null, 2));
   callback();
-};
-
-ElementsTestRunner.dumpInspectorDistanceJSON = function(idValue, callback) {
-  ElementsTestRunner.nodeWithId(idValue, nodeResolved);
-
-  async function nodeResolved(node) {
-    const result = await TestRunner.OverlayAgent.getHighlightObjectForTest(node.id, true);
-    const info = result['distanceInfo'];
-    if (!info) {
-      TestRunner.addResult(`${idValue}: No distance info`);
-    } else {
-      if (info['style']) {
-        info['style'] = '<style data>';
-      }
-      TestRunner.addResult(idValue + JSON.stringify(info, null, 2));
-    }
-    callback();
-  }
 };
 
 ElementsTestRunner.dumpInspectorHighlightStyleJSON = async function(idValue) {

@@ -1,6 +1,7 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import type * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -12,28 +13,28 @@ import nodeConnectionsPanelStyles from './nodeConnectionsPanel.css.js';
 
 const UIStrings = {
   /**
-   *@description Text in Node Connections Panel of the Sources panel when debugging a Node.js app
+   * @description Text in Node Connections Panel of the Sources panel when debugging a Node.js app
    */
   nodejsDebuggingGuide: 'Node.js debugging guide',
   /**
-   *@description Text in Node Connections Panel of the Sources panel when debugging a Node.js app
-   *@example {Node.js debugging guide} PH1
+   * @description Text in Node Connections Panel of the Sources panel when debugging a Node.js app
+   * @example {Node.js debugging guide} PH1
    */
   specifyNetworkEndpointAnd:
       'Specify network endpoint and DevTools will connect to it automatically. Read {PH1} to learn more.',
   /**
-   *@description Placeholder text content in Node Connections Panel of the Sources panel when debugging a Node.js app
+   * @description Placeholder text content in Node Connections Panel of the Sources panel when debugging a Node.js app
    */
   noConnectionsSpecified: 'No connections specified',
   /**
-   *@description Text of add network target button in Node Connections Panel of the Sources panel when debugging a Node.js app
+   * @description Text of add network target button in Node Connections Panel of the Sources panel when debugging a Node.js app
    */
   addConnection: 'Add connection',
   /**
-   *@description Text in Node Connections Panel of the Sources panel when debugging a Node.js app
+   * @description Text in Node Connections Panel of the Sources panel when debugging a Node.js app
    */
   networkAddressEgLocalhost: 'Network address (e.g. localhost:9229)',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('entrypoints/node_app/NodeConnectionsPanel.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -83,9 +84,9 @@ export class NodeConnectionsView extends UI.Widget.VBox implements UI.ListWidget
   readonly #callback: (arg0: Adb.NetworkDiscoveryConfig) => void;
   readonly #list: UI.ListWidget.ListWidget<Adb.PortForwardingRule>;
   #editor: UI.ListWidget.Editor<Adb.PortForwardingRule>|null;
-  #networkDiscoveryConfig: {
+  #networkDiscoveryConfig: Array<{
     address: string,
-  }[];
+  }>;
   constructor(callback: (arg0: Adb.NetworkDiscoveryConfig) => void) {
     super();
     this.#callback = callback;
@@ -144,7 +145,7 @@ export class NodeConnectionsView extends UI.Widget.VBox implements UI.ListWidget
     return element;
   }
 
-  removeItemRequested(rule: Adb.PortForwardingRule, index: number): void {
+  removeItemRequested(_rule: Adb.PortForwardingRule, index: number): void {
     this.#networkDiscoveryConfig.splice(index, 1);
     this.#list.removeItem(index);
     this.#update();

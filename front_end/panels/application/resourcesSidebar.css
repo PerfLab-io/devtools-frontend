@@ -6,7 +6,7 @@
 
 .tree-outline {
   li.storage-group-list-item,
-  li.storage-group-list-item:not(:has(dt-checkbox)) {
+  li.storage-group-list-item:not(:has(devtools-checkbox)) {
     padding: 0 var(--sys-size-8) 0 var(--sys-size-3);
 
     &::before {
@@ -30,10 +30,6 @@
 
 .icons-container devtools-icon.red-icon {
   color: var(--icon-error);
-}
-
-.icons-container devtools-icon.warn-icon {
-  color: var(--icon-warning);
 }
 
 devtools-icon.navigator-file-tree-item {

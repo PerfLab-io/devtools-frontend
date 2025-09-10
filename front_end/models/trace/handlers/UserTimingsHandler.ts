@@ -10,13 +10,25 @@ import * as Types from '../types/types.js';
  * See UserTimings.md in this directory for some handy documentation on
  * UserTimings and the trace events we parse currently.
  **/
-let syntheticEvents: Types.Events.SyntheticEventPair<Types.Events.PairableAsync>[] = [];
-const performanceMeasureEvents: Types.Events.PerformanceMeasure[] = [];
-const performanceMarkEvents: Types.Events.PerformanceMark[] = [];
+let syntheticEvents: Array<Types.Events.SyntheticEventPair<Types.Events.PairableAsync>> = [];
 
-const consoleTimings: (Types.Events.ConsoleTimeBegin|Types.Events.ConsoleTimeEnd)[] = [];
+// There are two events dispatched for performance.measure calls: one to
+// represent the measured timing in the tracing clock (which we type as
+// PerformanceMeasure) and another one for the call itself (which we
+// type as UserTimingMeasure). The two events corresponding to the same
+// call are linked together by a common trace_id. The reason two events
+// are dispatched is because the first was originally added with the
+// implementation of the performance.measure API and it uses an
+// overridden timestamp and duration. To prevent breaking potential deps
+// created since then, a second event was added instead of changing the
+// params of the first.
+let measureTraceByTraceId = new Map<number, Types.Events.UserTimingMeasure>();
+let performanceMeasureEvents: Types.Events.PerformanceMeasure[] = [];
+let performanceMarkEvents: Types.Events.PerformanceMark[] = [];
 
-const timestampEvents: Types.Events.ConsoleTimeStamp[] = [];
+let consoleTimings: Array<Types.Events.ConsoleTimeBegin|Types.Events.ConsoleTimeEnd> = [];
+
+let timestampEvents: Types.Events.ConsoleTimeStamp[] = [];
 
 export interface UserTimingsData {
   /**
@@ -40,14 +52,20 @@ export interface UserTimingsData {
    * https://developer.mozilla.org/en-US/docs/Web/API/console/timeStamp
    */
   timestampEvents: readonly Types.Events.ConsoleTimeStamp[];
+  /**
+   * Events triggered to trace the call to performance.measure itself,
+   * cached by trace_id.
+   */
+  measureTraceByTraceId: Map<number, Types.Events.UserTimingMeasure>;
 }
 
 export function reset(): void {
-  syntheticEvents.length = 0;
-  performanceMeasureEvents.length = 0;
-  performanceMarkEvents.length = 0;
-  consoleTimings.length = 0;
-  timestampEvents.length = 0;
+  syntheticEvents = [];
+  performanceMeasureEvents = [];
+  performanceMarkEvents = [];
+  consoleTimings = [];
+  timestampEvents = [];
+  measureTraceByTraceId = new Map();
 }
 
 const resourceTimingNames = [
@@ -94,11 +112,49 @@ const navTimingNames = [
 // flame chart).
 const ignoredNames = [...resourceTimingNames, ...navTimingNames];
 
+function getEventTimings(event: Types.Events.SyntheticEventPair|Types.Events.ConsoleTimeStamp):
+    {start: Types.Timing.Micro, end: Types.Timing.Micro} {
+  if ('dur' in event) {
+    // It's a SyntheticEventPair.
+    return {start: event.ts, end: Types.Timing.Micro(event.ts + (event.dur ?? 0))};
+  }
+
+  if (Types.Events.isConsoleTimeStamp(event)) {
+    const {start, end} = event.args.data || {};
+    if (typeof start === 'number' && typeof end === 'number') {
+      return {start: Types.Timing.Micro(start), end: Types.Timing.Micro(end)};
+    }
+  }
+
+  // A ConsoleTimeStamp without start/end is just a point in time, so dur is 0.
+  return {start: event.ts, end: event.ts};
+}
+
+function getEventTrack(event: Types.Events.SyntheticEventPair|Types.Events.ConsoleTimeStamp): string|undefined {
+  if (event.cat === 'blink.user_timing') {
+    // This is a SyntheticUserTimingPair
+    const detailString =
+        ((event as Types.Events.SyntheticUserTimingPair).args.data.beginEvent.args as {detail?: string})?.detail;
+    if (detailString) {
+      const details = Helpers.Trace.parseDevtoolsDetails(detailString, 'devtools');
+      if (details && 'track' in details) {
+        return details.track;
+      }
+    }
+  } else if (Types.Events.isConsoleTimeStamp(event)) {
+    const track = event.args.data?.track;
+    return typeof track === 'string' ? track : undefined;
+  }
+
+  // SyntheticConsoleTimingPair does not have track info.
+  return undefined;
+}
+
 /**
  * Similar to the default {@see Helpers.Trace.eventTimeComparator}
  * but with a twist:
- * In case of equal start and end times, always put the second event
- * first.
+ * In case of equal start and end times, put the second event (within a
+ * track) first.
  *
  * Explanation:
  * User timing entries come as trace events dispatched when
@@ -110,39 +166,39 @@ const ignoredNames = [...resourceTimingNames, ...navTimingNames];
  * performance.measure calls usually are done in bottom-up direction:
  * calls for children first and for parent later (because the call
  * is usually done when the measured task is over). This means that
- * when two user timing events have the start and end time, usually the
- * second event is the parent of the first. Hence the switch.
+ * when two user timing events have the same start and end time, usually
+ * the second event is the parent of the first. Hence the switch.
  *
  */
-function userTimingComparator(
-    a: Helpers.Trace.TimeSpan, b: Helpers.Trace.TimeSpan, originalArray: Helpers.Trace.TimeSpan[]): number {
-  const aBeginTime = a.ts;
-  const bBeginTime = b.ts;
-  if (aBeginTime < bBeginTime) {
-    return -1;
+export function userTimingComparator<T extends Types.Events.SyntheticEventPair|Types.Events.ConsoleTimeStamp>(
+    a: T, b: T, originalArray: readonly T[]): number {
+  const {start: aStart, end: aEnd} = getEventTimings(a);
+  const {start: bStart, end: bEnd} = getEventTimings(b);
+  const timeDifference = Helpers.Trace.compareBeginAndEnd(aStart, bStart, aEnd, bEnd);
+  if (timeDifference) {
+    return timeDifference;
   }
-  if (aBeginTime > bBeginTime) {
-    return 1;
+
+  // Never re-order entries across different tracks.
+  const aTrack = getEventTrack(a);
+  const bTrack = getEventTrack(b);
+  if (aTrack !== bTrack) {
+    return 0;  // Preserve current positions.
   }
-  const aDuration = a.dur ?? 0;
-  const bDuration = b.dur ?? 0;
-  const aEndTime = aBeginTime + aDuration;
-  const bEndTime = bBeginTime + bDuration;
-  if (aEndTime > bEndTime) {
-    return -1;
-  }
-  if (aEndTime < bEndTime) {
-    return 1;
-  }
+
   // Prefer the event located in a further position in the original array.
-  return originalArray.indexOf(b) - originalArray.indexOf(a);
+  const aIndex = originalArray.indexOf(a);
+  const bIndex = originalArray.indexOf(b);
+  return bIndex - aIndex;
 }
 
 export function handleEvent(event: Types.Events.Event): void {
   if (ignoredNames.includes(event.name)) {
     return;
   }
-
+  if (Types.Events.isUserTimingMeasure(event)) {
+    measureTraceByTraceId.set(event.args.traceId, event);
+  }
   if (Types.Events.isPerformanceMeasure(event)) {
     performanceMeasureEvents.push(event);
     return;
@@ -162,6 +218,7 @@ export async function finalize(): Promise<void> {
   const asyncEvents = [...performanceMeasureEvents, ...consoleTimings];
   syntheticEvents = Helpers.Trace.createMatchedSortedSyntheticEvents(asyncEvents);
   syntheticEvents = syntheticEvents.sort((a, b) => userTimingComparator(a, b, [...syntheticEvents]));
+  timestampEvents = timestampEvents.sort((a, b) => userTimingComparator(a, b, [...timestampEvents]));
 }
 
 export function data(): UserTimingsData {
@@ -172,5 +229,6 @@ export function data(): UserTimingsData {
     // TODO(crbug/41484172): UserTimingsHandler.test.ts fails if this is not copied.
     performanceMarks: [...performanceMarkEvents],
     timestampEvents: [...timestampEvents],
+    measureTraceByTraceId: new Map(measureTraceByTraceId),
   };
 }

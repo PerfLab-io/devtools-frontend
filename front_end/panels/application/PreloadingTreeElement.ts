@@ -14,18 +14,18 @@ import type {ResourcesPanel} from './ResourcesPanel.js';
 
 const UIStrings = {
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   speculativeLoads: 'Speculative loads',
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   rules: 'Rules',
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   speculations: 'Speculations',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/application/PreloadingTreeElement.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -35,7 +35,7 @@ class PreloadingTreeElementBase<View extends PreloadingRuleSetView|PreloadingAtt
   #viewConstructor: {new(model: SDK.PreloadingModel.PreloadingModel): View};
   protected view?: View;
   #path: Platform.DevToolsPath.UrlString;
-  #selectedInternal: boolean;
+  #selected: boolean;
 
   constructor(
       panel: ResourcesPanel, viewConstructor: {new(model: SDK.PreloadingModel.PreloadingModel): View},
@@ -45,9 +45,9 @@ class PreloadingTreeElementBase<View extends PreloadingRuleSetView|PreloadingAtt
     this.#viewConstructor = viewConstructor;
     this.#path = path;
 
-    const icon = IconButton.Icon.create('arrow-up-down');
+    const icon = IconButton.Icon.create('speculative-loads');
     this.setLeadingIcons([icon]);
-    this.#selectedInternal = false;
+    this.#selected = false;
 
     // TODO(https://crbug.com/1384419): Set link
   }
@@ -60,14 +60,14 @@ class PreloadingTreeElementBase<View extends PreloadingRuleSetView|PreloadingAtt
     this.#model = model;
 
     // Show the view if the model was initialized after selection.
-    if (this.#selectedInternal && !this.view) {
+    if (this.#selected && !this.view) {
       this.onselect(false);
     }
   }
 
   override onselect(selectedByUser?: boolean): boolean {
     super.onselect(selectedByUser);
-    this.#selectedInternal = true;
+    this.#selected = true;
 
     if (!this.#model) {
       return false;
@@ -86,7 +86,7 @@ class PreloadingTreeElementBase<View extends PreloadingRuleSetView|PreloadingAtt
 export class PreloadingSummaryTreeElement extends ExpandableApplicationPanelTreeElement {
   #model?: SDK.PreloadingModel.PreloadingModel;
   #view?: PreloadingSummaryView;
-  #selectedInternal: boolean;
+  #selected: boolean;
 
   #ruleSet: PreloadingRuleSetTreeElement|null = null;
   #attempt: PreloadingAttemptTreeElement|null = null;
@@ -94,9 +94,9 @@ export class PreloadingSummaryTreeElement extends ExpandableApplicationPanelTree
   constructor(panel: ResourcesPanel) {
     super(panel, i18nString(UIStrings.speculativeLoads), '', '', 'preloading');
 
-    const icon = IconButton.Icon.create('arrow-up-down');
+    const icon = IconButton.Icon.create('speculative-loads');
     this.setLeadingIcons([icon]);
-    this.#selectedInternal = false;
+    this.#selected = false;
 
     // TODO(https://crbug.com/1384419): Set link
   }
@@ -125,14 +125,14 @@ export class PreloadingSummaryTreeElement extends ExpandableApplicationPanelTree
     this.#attempt.initialize(model);
 
     // Show the view if the model was initialized after selection.
-    if (this.#selectedInternal && !this.#view) {
+    if (this.#selected && !this.#view) {
       this.onselect(false);
     }
   }
 
   override onselect(selectedByUser?: boolean): boolean {
     super.onselect(selectedByUser);
-    this.#selectedInternal = true;
+    this.#selected = true;
 
     if (!this.#model) {
       return false;

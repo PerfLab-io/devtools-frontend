@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2011 Google Inc.  All rights reserved.
@@ -35,16 +36,17 @@
 
 import * as Common from '../../../core/common/common.js';
 import * as Host from '../../../core/host/host.js';
+import * as Root from '../../../core/root/root.js';
 
 let themeSupportInstance: ThemeSupport;
 
 const themeValueByTargetByName = new Map<Element|null, Map<string, string>>();
 
 export class ThemeSupport extends EventTarget {
-  private themeNameInternal = 'default';
+  #themeName = 'default';
   private computedStyleOfHTML = Common.Lazy.lazy(() => window.getComputedStyle(document.documentElement));
 
-  readonly #documentsToTheme: Set<Document> = new Set([document]);
+  readonly #documentsToTheme = new Set<Document>([document]);
 
   readonly #darkThemeMediaQuery: MediaQueryList;
   readonly #highContrastMediaQuery: MediaQueryList;
@@ -139,18 +141,8 @@ export class ThemeSupport extends EventTarget {
     return themeValue;
   }
 
-  hasTheme(): boolean {
-    return this.themeNameInternal !== 'default';
-  }
-
   themeName(): string {
-    return this.themeNameInternal;
-  }
-
-  appendStyle(node: Node, {cssContent}: {cssContent: string}): void {
-    const styleElement = document.createElement('style');
-    styleElement.textContent = cssContent;
-    node.appendChild(styleElement);
+    return this.#themeName;
   }
 
   #applyTheme(): void {
@@ -164,12 +156,11 @@ export class ThemeSupport extends EventTarget {
     const systemPreferredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default';
 
     const useSystemPreferred = this.setting.get() === 'systemPreferred' || isForcedColorsMode;
-    this.themeNameInternal = useSystemPreferred ? systemPreferredTheme : this.setting.get();
-    document.documentElement.classList.toggle('theme-with-dark-background', this.themeNameInternal === 'dark');
+    this.#themeName = useSystemPreferred ? systemPreferredTheme : this.setting.get();
+    document.documentElement.classList.toggle('theme-with-dark-background', this.#themeName === 'dark');
 
     const useChromeTheme = Common.Settings.moduleSetting('chrome-theme-colors').get();
-    const hostConfig = Common.Settings.Settings.instance().getHostConfig();
-    const isIncognito = !hostConfig || hostConfig.isOffTheRecord === true;
+    const isIncognito = Root.Runtime.hostConfig.isOffTheRecord === true;
     // Baseline is the name of Chrome's default color theme and there are two of these: default and grayscale.
     // The collective name for the rest of the color themes is dynamic.
     // In the baseline themes Chrome uses custom values for surface colors, whereas for dynamic themes these are color-mixed.

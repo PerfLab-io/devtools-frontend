@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import type * as Platform from '../../../core/platform/platform.js';
+import type * as SDK from '../../../core/sdk/sdk.js';
+import type * as Protocol from '../../../generated/protocol.js';
+import type * as Lantern from '../lantern/lantern.js';
+
 import type * as File from './File.js';
 
 export interface Configuration {
@@ -33,6 +38,13 @@ export interface Configuration {
    * attempt to gather or track invalidations.
    */
   maxInvalidationEventsPerEvent: number;
+  /**
+   * Determines if the AnimationFramesHandler should be enabled. Currently in
+   * DevTools we do not use it, so we disable it by default to avoid work that
+   * we do not use. If you disable it, you will still see `data.AnimationFrames`
+   * from the model, but the contents will be empty.
+   */
+  enableAnimationsFrameHandler: boolean;
 }
 
 export const defaults = (): Configuration => ({
@@ -40,6 +52,7 @@ export const defaults = (): Configuration => ({
   showAllEvents: false,
   debugMode: false,
   maxInvalidationEventsPerEvent: 20,
+  enableAnimationsFrameHandler: false,
 });
 
 /**
@@ -64,4 +77,21 @@ export interface ParseOptions {
    */
   isCPUProfile?: boolean;
   metadata?: File.MetaData;
+  resolveSourceMap?: (params: ResolveSourceMapParams) => Promise<SDK.SourceMap.SourceMap|null>;
+  logger?: {
+    start: (id: string) => void,
+    end: (id: string) => void,
+  };
+  lanternSettings?: Omit<Lantern.Types.Simulation.Settings, 'networkAnalysis'>;
+}
+
+export interface ResolveSourceMapParams {
+  scriptId: string;
+  scriptUrl: Platform.DevToolsPath.UrlString;
+  /** The url as resolved by any sourceUrl comment. */
+  sourceUrl: Platform.DevToolsPath.UrlString;
+  sourceMapUrl: Platform.DevToolsPath.UrlString;
+  frame: Protocol.Page.FrameId;
+  /** Set only if the raw source map was found on the provided metadata. Never set for source maps from data urls. */
+  cachedRawSourceMap?: SDK.SourceMap.SourceMapV3;
 }

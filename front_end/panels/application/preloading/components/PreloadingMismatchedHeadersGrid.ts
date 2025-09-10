@@ -1,6 +1,7 @@
 // Copyright 2023 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../../ui/legacy/components/data_grid/data_grid.js';
 
@@ -10,30 +11,26 @@ import * as LegacyWrapper from '../../../../ui/components/legacy_wrapper/legacy_
 import type * as UI from '../../../../ui/legacy/legacy.js';
 import * as Lit from '../../../../ui/lit/lit.js';
 
-import preloadingGridStylesRaw from './preloadingGrid.css.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const preloadingGridStyles = new CSSStyleSheet();
-preloadingGridStyles.replaceSync(preloadingGridStylesRaw.cssContent);
+import preloadingGridStyles from './preloadingGrid.css.js';
 
 const UIStrings = {
   /**
-   *@description The name of the HTTP request header.
+   * @description The name of the HTTP request header.
    */
   headerName: 'Header name',
   /**
-   *@description The value of the HTTP request header in initial navigation.
+   * @description The value of the HTTP request header in initial navigation.
    */
   initialNavigationValue: 'Value in initial navigation',
   /**
-   *@description The value of the HTTP request header in activation navigation.
+   * @description The value of the HTTP request header in activation navigation.
    */
   activationNavigationValue: 'Value in activation navigation',
   /**
-   *@description The string to indicate the value of the header is missing.
+   * @description The string to indicate the value of the header is missing.
    */
   missing: '(missing)',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings(
     'panels/application/preloading/components/PreloadingMismatchedHeadersGrid.ts', UIStrings);
 export const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -44,7 +41,6 @@ export class PreloadingMismatchedHeadersGrid extends LegacyWrapper.LegacyWrapper
   readonly #shadow = this.attachShadow({mode: 'open'});
   #data: SDK.PreloadingModel.PrerenderAttempt|null = null;
   connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [preloadingGridStyles];
     this.#render();
   }
 
@@ -64,6 +60,7 @@ export class PreloadingMismatchedHeadersGrid extends LegacyWrapper.LegacyWrapper
     // Disabled until https://crbug.com/1079231 is fixed.
     // clang-format off
       render(html`
+        <style>${preloadingGridStyles}</style>
         <div class="preloading-container">
           <devtools-data-grid striped inline>
             <table>

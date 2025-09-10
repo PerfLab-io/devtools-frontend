@@ -27,6 +27,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -40,36 +41,36 @@ import type {ProfilesPanel} from './ProfilesPanel.js';
 
 const UIStrings = {
   /**
-   *@description Text in Profile Launcher View of a profiler tool
+   * @description Text in Profile Launcher View of a profiler tool
    */
   selectJavascriptVmInstance: 'Select JavaScript VM instance',
   /**
-   *@description Text to load something
+   * @description Text to load something
    */
   load: 'Load profile',
   /**
-   *@description Control button text content in Profile Launcher View of a profiler tool
+   * @description Control button text content in Profile Launcher View of a profiler tool
    */
   takeSnapshot: 'Take snapshot',
   /**
-   *@description Text of an item that stops the running task
+   * @description Text of an item that stops the running task
    */
   stop: 'Stop',
   /**
-   *@description Control button text content in Profile Launcher View of a profiler tool
+   * @description Control button text content in Profile Launcher View of a profiler tool
    */
   start: 'Start',
   /**
-   *@description Profile type header element text content in Profile Launcher View of a profiler tool
+   * @description Profile type header element text content in Profile Launcher View of a profiler tool
    */
   selectProfilingType: 'Select profiling type',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/profiler/ProfileLauncherView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class ProfileLauncherView extends Common.ObjectWrapper.eventMixin<EventTypes, typeof UI.Widget.VBox>(
     UI.Widget.VBox) {
   readonly panel: ProfilesPanel;
-  private contentElementInternal: HTMLElement;
+  #contentElement: HTMLElement;
   readonly selectedProfileTypeSetting: Common.Settings.Setting<string>;
   profileTypeHeaderElement: HTMLElement;
   readonly profileTypeSelectorForm: HTMLElement;
@@ -90,16 +91,15 @@ export class ProfileLauncherView extends Common.ObjectWrapper.eventMixin<EventTy
 
     this.panel = profilesPanel;
     this.element.classList.add('profile-launcher-view');
-    this.contentElementInternal = this.element.createChild('div', 'profile-launcher-view-content vbox');
+    this.#contentElement = this.element.createChild('div', 'profile-launcher-view-content vbox');
 
-    const profileTypeSelectorElement = this.contentElementInternal.createChild('div', 'vbox');
+    const profileTypeSelectorElement = this.#contentElement.createChild('div', 'vbox');
     this.selectedProfileTypeSetting = Common.Settings.Settings.instance().createSetting('selected-profile-type', 'CPU');
     this.profileTypeHeaderElement = profileTypeSelectorElement.createChild('h1');
     this.profileTypeSelectorForm = profileTypeSelectorElement.createChild('form');
     UI.ARIAUtils.markAsRadioGroup(this.profileTypeSelectorForm);
 
-    const isolateSelectorElement =
-        this.contentElementInternal.createChild('div', 'vbox profile-isolate-selector-block');
+    const isolateSelectorElement = this.#contentElement.createChild('div', 'vbox profile-isolate-selector-block');
     isolateSelectorElement.createChild('h1').textContent = i18nString(UIStrings.selectJavascriptVmInstance);
     const isolateSelector = new IsolateSelector();
     const isolateSelectorElementChild = isolateSelectorElement.createChild('div', 'vbox profile-launcher-target-list');
@@ -107,7 +107,7 @@ export class ProfileLauncherView extends Common.ObjectWrapper.eventMixin<EventTy
     isolateSelector.show(isolateSelectorElementChild);
     isolateSelectorElement.appendChild(isolateSelector.totalMemoryElement());
 
-    const buttonsDiv = this.contentElementInternal.createChild('div', 'hbox profile-launcher-buttons');
+    const buttonsDiv = this.#contentElement.createChild('div', 'hbox profile-launcher-buttons');
     this.controlButton = UI.UIUtils.createTextButton('', this.controlButtonClicked.bind(this), {
       jslogContext: 'profiler.heap-toggle-recording',
       variant: Buttons.Button.Variant.PRIMARY,

@@ -27,6 +27,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -41,7 +42,7 @@ import requestCookiesViewStyles from './requestCookiesView.css.js';
 
 const UIStrings = {
   /**
-   *@description Text in Request Cookies View of the Network panel
+   * @description Text in Request Cookies View of the Network panel
    */
   thisRequestHasNoCookies: 'This request has no cookies.',
   /**
@@ -50,28 +51,28 @@ const UIStrings = {
    */
   requestCookies: 'Request Cookies',
   /**
-   *@description Tooltip to explain what request cookies are
+   * @description Tooltip to explain what request cookies are
    */
   cookiesThatWereSentToTheServerIn: 'Cookies that were sent to the server in the \'cookie\' header of the request',
   /**
-   *@description Label for showing request cookies that were not actually sent
+   * @description Label for showing request cookies that were not actually sent
    */
   showFilteredOutRequestCookies: 'show filtered out request cookies',
   /**
-   *@description Text in Request Headers View of the Network Panel
+   * @description Text in Request Headers View of the Network Panel
    */
   noRequestCookiesWereSent: 'No request cookies were sent.',
   /**
-   *@description Text in Request Cookies View of the Network panel
+   * @description Text in Request Cookies View of the Network panel
    */
   responseCookies: 'Response Cookies',
   /**
-   *@description Tooltip to explain what response cookies are
+   * @description Tooltip to explain what response cookies are
    */
   cookiesThatWereReceivedFromThe:
       'Cookies that were received from the server in the \'`set-cookie`\' header of the response',
   /**
-   *@description Label for response cookies with invalid syntax
+   * @description Label for response cookies with invalid syntax
    */
   malformedResponseCookies: 'Malformed Response Cookies',
   /**
@@ -93,7 +94,7 @@ const UIStrings = {
    * @description Title of a link to the developer documentation.
    */
   learnMore: 'Learn more',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/network/RequestCookiesView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -111,11 +112,10 @@ export class RequestCookiesView extends UI.Widget.Widget {
   private readonly malformedResponseCookiesList: HTMLElement;
 
   constructor(request: SDK.NetworkRequest.NetworkRequest) {
-    super();
+    super({jslog: `${VisualLogging.pane('cookies').track({resize: true})}`});
     this.registerRequiredCSS(requestCookiesViewStyles);
 
     this.element.classList.add('request-cookies-view');
-    this.element.setAttribute('jslog', `${VisualLogging.pane('cookies').track({resize: true})}`);
 
     this.request = request;
     this.showFilteredOutCookiesSetting = Common.Settings.Settings.instance().createSetting(
@@ -131,7 +131,7 @@ export class RequestCookiesView extends UI.Widget.Widget {
 
     const requestCookiesCheckbox = UI.SettingsUI.createSettingCheckbox(
         i18nString(UIStrings.showFilteredOutRequestCookies), this.showFilteredOutCookiesSetting);
-    requestCookiesCheckbox.checkboxElement.addEventListener('change', () => {
+    requestCookiesCheckbox.addEventListener('change', () => {
       this.refreshRequestCookiesView();
     });
     this.requestCookiesTitle.appendChild(requestCookiesCheckbox);
@@ -169,7 +169,7 @@ export class RequestCookiesView extends UI.Widget.Widget {
   }
 
   private getRequestCookies(): {
-    requestCookies: Array<SDK.Cookie.Cookie>,
+    requestCookies: SDK.Cookie.Cookie[],
     requestCookieToBlockedReasons: Map<SDK.Cookie.Cookie, SDK.CookieModel.BlockedReason[]>,
     requestCookieToExemptionReason: Map<SDK.Cookie.Cookie, SDK.CookieModel.ExemptionReason>,
   } {
@@ -200,10 +200,10 @@ export class RequestCookiesView extends UI.Widget.Widget {
   }
 
   private getResponseCookies(): {
-    responseCookies: Array<SDK.Cookie.Cookie>,
-    responseCookieToBlockedReasons: Map<SDK.Cookie.Cookie, Array<SDK.CookieModel.BlockedReason>>,
+    responseCookies: SDK.Cookie.Cookie[],
+    responseCookieToBlockedReasons: Map<SDK.Cookie.Cookie, SDK.CookieModel.BlockedReason[]>,
     responseCookieToExemptionReason: Map<SDK.Cookie.Cookie, SDK.CookieModel.ExemptionReason>,
-    malformedResponseCookies: Array<SDK.NetworkRequest.BlockedSetCookieWithReason>,
+    malformedResponseCookies: SDK.NetworkRequest.BlockedSetCookieWithReason[],
   } {
     let responseCookies: SDK.Cookie.Cookie[] = [];
     const responseCookieToBlockedReasons = new Map<SDK.Cookie.Cookie, SDK.CookieModel.BlockedReason[]>();
@@ -306,8 +306,8 @@ export class RequestCookiesView extends UI.Widget.Widget {
       for (const malformedCookie of malformedResponseCookies) {
         const listItem = this.malformedResponseCookiesList.createChild('span', 'cookie-line source-code');
         const icon = new IconButton.Icon.Icon();
-        icon.data = {iconName: 'cross-circle-filled', color: 'var(--icon-error)', width: '14px', height: '14px'};
-        icon.classList.add('cookie-warning-icon');
+        icon.name = 'cross-circle-filled';
+        icon.classList.add('cookie-warning-icon', 'small');
         listItem.appendChild(icon);
         UI.UIUtils.createTextChild(listItem, malformedCookie.cookieLine);
 

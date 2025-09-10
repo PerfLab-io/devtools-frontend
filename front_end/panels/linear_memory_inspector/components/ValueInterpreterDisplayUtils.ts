@@ -7,12 +7,12 @@ import * as Platform from '../../../core/platform/platform.js';
 
 const UIStrings = {
   /**
-   *@description Text that is shown in the LinearMemoryInspector if a value could not be correctly formatted
+   * @description Text that is shown in the LinearMemoryInspector if a value could not be correctly formatted
    *             for the requested mode (e.g. we do not floats to be represented as hexadecimal numbers).
    *             Abbreviation stands for 'not applicable'.
    */
   notApplicable: 'N/A',
-};
+} as const;
 const str_ =
     i18n.i18n.registerUIStrings('panels/linear_memory_inspector/components/ValueInterpreterDisplayUtils.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);

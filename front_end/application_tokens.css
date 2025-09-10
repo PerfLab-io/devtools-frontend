@@ -11,6 +11,8 @@
   * in design_system_tokens.css. Additions to this file should be an exception.
   */
 :root {
+  /* Colors */
+
   --icon-action: var(--sys-color-primary-bright);
   --icon-arrow-main-thread: var(--sys-color-primary-bright);
   --icon-checkmark-green: var(--sys-color-green-bright);
@@ -26,7 +28,6 @@
   --icon-file-image: var(--sys-color-green-bright);
   --icon-file-script: var(--sys-color-orange-bright);
   --icon-file-styles: var(--sys-color-purple-bright);
-  --icon-fold-marker: var(--sys-color-on-surface-subtle);
   --icon-folder-authored: var(--sys-color-orange);
   --icon-folder-primary: var(--sys-color-on-surface-subtle);
   --icon-folder-deployed: var(--sys-color-primary-bright);
@@ -117,8 +118,14 @@
 
   /* Color tokens for icons */
   --color-primary: rgb(11 87 208);
+  --legacy-accent-color: #1a73e8;
+  --legacy-focus-ring-inactive-shadow-color: #e0e0e0;
+  --legacy-input-validation-error: #db1600;
+  --legacy-selection-bg-color: var(--legacy-accent-color);
+  --legacy-focus-ring-inactive-shadow: 0 0 0 1px var(--legacy-focus-ring-inactive-shadow-color);
+  --legacy-focus-ring-active-shadow: 0 0 0 1px var(--sys-color-state-focus-ring);
 
-    /* Color for strokestyle of canvas in flame chart */
+  /* Color for strokestyle of canvas in flame chart */
   /* It is the same color as sys-color-primary but with a 10% opacity */
   --app-color-strokestyle: rgb(11 87 208 / 10%);
 
@@ -221,6 +228,13 @@
    */
   --app-color-ai-assistance-input-divider: rgb(0 0 0 / 10%);
 
+  /**
+  * Gradient colors for Google AI, used in the Global AI button in promotion enabled state
+  */
+  --app-color-google-ai-blue: #4285f4;
+  --app-color-google-ai-green: #2daeb8;
+  --app-gradient-google-ai: linear-gradient(46deg, var(--app-color-google-ai-blue) 32.34%, var(--app-color-google-ai-green) 98.11%);
+
   &.baseline-default {
     /**
      * Color for navigation drawers.
@@ -288,6 +302,16 @@
 
     /* Color tokens for icons */
     --color-primary: rgb(168 199 250);
+
+    /**
+    * Inherit the native form control colors when using a dark theme.
+    * Override them using CSS variables if needed.
+    */
+    color-scheme: dark;
+
+    --legacy-accent-color: #0e639c;
+    --legacy-focus-ring-inactive-shadow-color: #5a5a5a;
+    --legacy-focus-ring-inactive-shadow: 0 0 0 1px var(--legacy-focus-ring-inactive-shadow-color);
 
     /* Color for strokestyle of canvas in flame chart */
     /* It is the same color as sys-color-primary but with a 10% opacity */
@@ -384,4 +408,6 @@
     */
     --combobox-dropdown-arrow: var(--image-file-arrow-drop-down-dark);
   }
+
+  /* Colors end */
 }

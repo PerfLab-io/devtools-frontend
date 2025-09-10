@@ -8,7 +8,7 @@ import './EventSourceMessagesView.js';
 import './NetworkConfigView.js';
 import './NetworkDataGridNode.js';
 import './NetworkItemView.js';
-import './NetworkTimeCalculator.js';
+import '../../models/network_time_calculator/network_time_calculator.js';
 import './NetworkLogView.js';
 import './NetworkLogViewColumns.js';
 import './NetworkFrameGrouper.js';
@@ -22,6 +22,7 @@ import './RequestResponseView.js';
 import './RequestPreviewView.js';
 import './RequestTimingView.js';
 import './ResourceWebSocketFrameView.js';
+import './ResourceDirectSocketChunkView.js';
 import './SignedExchangeInfoView.js';
 import './NetworkOverview.js';
 import './NetworkPanel.js';
@@ -39,7 +40,6 @@ import * as NetworkManageCustomHeadersView from './NetworkManageCustomHeadersVie
 import * as NetworkOverview from './NetworkOverview.js';
 import * as NetworkPanel from './NetworkPanel.js';
 import * as NetworkSearchScope from './NetworkSearchScope.js';
-import * as NetworkTimeCalculator from './NetworkTimeCalculator.js';
 import * as NetworkWaterfallColumn from './NetworkWaterfallColumn.js';
 import * as RequestCookiesView from './RequestCookiesView.js';
 import * as RequestHTMLView from './RequestHTMLView.js';
@@ -48,6 +48,7 @@ import * as RequestPayloadView from './RequestPayloadView.js';
 import * as RequestPreviewView from './RequestPreviewView.js';
 import * as RequestResponseView from './RequestResponseView.js';
 import * as RequestTimingView from './RequestTimingView.js';
+import * as ResourceDirectSocketChunkView from './ResourceDirectSocketChunkView.js';
 import * as ResourceWebSocketFrameView from './ResourceWebSocketFrameView.js';
 import * as SignedExchangeInfoView from './SignedExchangeInfoView.js';
 
@@ -65,7 +66,6 @@ export {
   NetworkOverview,
   NetworkPanel,
   NetworkSearchScope,
-  NetworkTimeCalculator,
   NetworkWaterfallColumn,
   RequestCookiesView,
   RequestHTMLView,
@@ -74,6 +74,7 @@ export {
   RequestPreviewView,
   RequestResponseView,
   RequestTimingView,
+  ResourceDirectSocketChunkView,
   ResourceWebSocketFrameView,
   SignedExchangeInfoView,
 };

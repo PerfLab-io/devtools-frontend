@@ -1,6 +1,7 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as IconButton from '../../../components/icon_button/icon_button.js';
 import * as UI from '../../legacy.js';
@@ -9,12 +10,12 @@ import {getRegisteredProviders, Provider, registerProvider, type ProviderRegistr
 import {QuickOpenImpl} from './QuickOpen.js';
 
 export class HelpQuickOpen extends Provider {
-  private providers: {
+  private providers: Array<{
     prefix: string,
     iconName: string,
     title: string,
     jslogContext: string,
-  }[];
+  }>;
 
   constructor(jslogContext: string) {
     super(jslogContext);
@@ -47,11 +48,8 @@ export class HelpQuickOpen extends Provider {
     const provider = this.providers[itemIndex];
 
     const iconElement = new IconButton.Icon.Icon();
-    iconElement.data = {
-      iconName: provider.iconName,
-      color: 'var(--icon-default)',
-      width: '18px',
-    };
+    iconElement.name = provider.iconName;
+    iconElement.classList.add('large');
     titleElement.parentElement?.parentElement?.insertBefore(iconElement, titleElement.parentElement);
 
     UI.UIUtils.createTextChild(titleElement, provider.title);

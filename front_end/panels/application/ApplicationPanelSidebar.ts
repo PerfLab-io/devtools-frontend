@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2007, 2008, 2010 Apple Inc.  All rights reserved.
@@ -91,178 +92,178 @@ import {TrustTokensTreeElement} from './TrustTokensTreeElement.js';
 
 const UIStrings = {
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   application: 'Application',
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   storage: 'Storage',
   /**
-   *@description Text in Application Panelthat shows if no local storage
+   * @description Text in Application Panelthat shows if no local storage
    *             can be shown.
    */
   noLocalStorage: 'No local storage detected',
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   localStorage: 'Local storage',
   /**
-   *@description Text in the Application panel describing the local storage tab.
+   * @description Text in the Application panel describing the local storage tab.
    */
   localStorageDescription: 'On this page you can view, add, edit, and delete local storage key-value pairs.',
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   sessionStorage: 'Session storage',
   /**
-   *@description Text in Application Panel if no session storage can be shown.
+   * @description Text in Application Panel if no session storage can be shown.
    */
   noSessionStorage: 'No session storage detected',
   /**
-   *@description Text in the Application panel describing the session storage tab.
+   * @description Text in the Application panel describing the session storage tab.
    */
   sessionStorageDescription: 'On this page you can view, add, edit, and delete session storage key-value pairs.',
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   extensionStorage: 'Extension storage',
   /**
-   *@description Text in Application Panel if no extension storage can be shown
+   * @description Text in Application Panel if no extension storage can be shown
    */
   noExtensionStorage: 'No extension storage detected',
   /**
-   *@description Text in the Application panel describing the extension storage tab.
+   * @description Text in the Application panel describing the extension storage tab.
    */
   extensionStorageDescription: 'On this page you can view, add, edit, and delete extension storage key-value pairs.',
   /**
-   *@description Text for extension session storage in Application panel
+   * @description Text for extension session storage in Application panel
    */
   extensionSessionStorage: 'Session',
   /**
-   *@description Text for extension local storage in Application panel
+   * @description Text for extension local storage in Application panel
    */
   extensionLocalStorage: 'Local',
   /**
-   *@description Text for extension sync storage in Application panel
+   * @description Text for extension sync storage in Application panel
    */
   extensionSyncStorage: 'Sync',
   /**
-   *@description Text for extension managed storage in Application panel
+   * @description Text for extension managed storage in Application panel
    */
   extensionManagedStorage: 'Managed',
   /**
-   *@description Text for web cookies
+   * @description Text for web cookies
    */
   cookies: 'Cookies',
   /**
-   *@description Text in the Application Panel if no cookies are set
+   * @description Text in the Application Panel if no cookies are set
    */
   noCookies: 'No cookies set',
   /**
-   *@description Text for web cookies
+   * @description Text for web cookies
    */
   cookiesDescription: 'On this page you can view, add, edit, and delete cookies.',
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   backgroundServices: 'Background services',
   /**
-   *@description Text for rendering frames
+   * @description Text for rendering frames
    */
   frames: 'Frames',
   /**
-   *@description Text that appears on a button for the manifest resource type filter.
+   * @description Text that appears on a button for the manifest resource type filter.
    */
   manifest: 'Manifest',
   /**
-   *@description Text in App Manifest View of the Application panel
+   * @description Text in App Manifest View of the Application panel
    */
   noManifestDetected: 'No manifest detected',
   /**
-   *@description Description text on manifests in App Manifest View of the Application panel which describes the app manifest view tab
+   * @description Description text on manifests in App Manifest View of the Application panel which describes the app manifest view tab
    */
   manifestDescription:
       'A manifest defines how your app appears on phone’s home screens and what the app looks like on launch.',
   /**
-   *@description Text in App Manifest View of the Application panel
+   * @description Text in App Manifest View of the Application panel
    */
-  appManifest: 'App Manifest',
+  appManifest: 'Manifest',
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   indexeddb: 'IndexedDB',
   /**
-   *@description Text in Application Panel if no indexedDB is detected
+   * @description Text in Application Panel if no indexedDB is detected
    */
   noIndexeddb: 'No indexedDB detected',
   /**
-   *@description Text in the Application panel describing the extension storage tab.
+   * @description Text in the Application panel describing the extension storage tab.
    */
   indexeddbDescription: 'On this page you can view and delete indexedDB key-value pairs and databases.',
   /**
-   *@description A context menu item in the Application Panel Sidebar of the Application panel
+   * @description A context menu item in the Application Panel Sidebar of the Application panel
    */
   refreshIndexeddb: 'Refresh IndexedDB',
   /**
-   *@description Tooltip in Application Panel Sidebar of the Application panel
-   *@example {1.0} PH1
+   * @description Tooltip in Application Panel Sidebar of the Application panel
+   * @example {1.0} PH1
    */
   versionSEmpty: 'Version: {PH1} (empty)',
   /**
-   *@description Tooltip in Application Panel Sidebar of the Application panel
-   *@example {1.0} PH1
+   * @description Tooltip in Application Panel Sidebar of the Application panel
+   * @example {1.0} PH1
    */
   versionS: 'Version: {PH1}',
   /**
-   *@description Text to clear content
+   * @description Text to clear content
    */
   clear: 'Clear',
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
-   *@example {"key path"} PH1
+   * @description Text in Application Panel Sidebar of the Application panel
+   * @example {"key path"} PH1
    */
   keyPathS: 'Key path: {PH1}',
   /**
-   *@description Text in Application Panel Sidebar of the Application panel
+   * @description Text in Application Panel Sidebar of the Application panel
    */
   localFiles: 'Local Files',
   /**
-   *@description Tooltip in Application Panel Sidebar of the Application panel
-   *@example {https://example.com} PH1
+   * @description Tooltip in Application Panel Sidebar of the Application panel
+   * @example {https://example.com} PH1
    */
   cookiesUsedByFramesFromS: 'Cookies used by frames from {PH1}',
   /**
-   *@description Text in Frames View of the Application panel
+   * @description Text in Frames View of the Application panel
    */
   openedWindows: 'Opened Windows',
   /**
-   *@description Text in Frames View of the Application panel
+   * @description Text in Frames View of the Application panel
    */
   openedWindowsDescription: 'On this page you can view windows opened via window\.open\(\).',
   /**
-   *@description Label for plural of worker type: web workers
+   * @description Label for plural of worker type: web workers
    */
   webWorkers: 'Web Workers',
   /**
-   *@description Label in frame tree for unavailable document
+   * @description Label in frame tree for unavailable document
    */
   documentNotAvailable: 'No document detected',
   /**
-   *@description Description of content of unavailable document in Application panel
+   * @description Description of content of unavailable document in Application panel
    */
   theContentOfThisDocumentHasBeen:
       'The content of this document has been generated dynamically via \'document.write()\'.',
   /**
-   *@description Text in Frames View of the Application panel
+   * @description Text in Frames View of the Application panel
    */
   windowWithoutTitle: 'Window without title',
   /**
-   *@description Default name for worker
+   * @description Default name for worker
    */
   worker: 'worker',
   /**
-   *@description Description text for describing the dedicated worker tab.
+   * @description Description text for describing the dedicated worker tab.
    */
   workerDescription: 'On this page you can view dedicated workers that are created by the parent frame.',
   /**
@@ -284,15 +285,15 @@ const UIStrings = {
    */
   applicationSidebarPanel: 'Application panel sidebar',
   /**
-   *@description Tooltip in Application Panel Sidebar of the Application panel
-   *@example {https://example.com} PH1
+   * @description Tooltip in Application Panel Sidebar of the Application panel
+   * @example {https://example.com} PH1
    */
   thirdPartyPhaseout: 'Cookies from {PH1} may have been blocked due to third-party cookie phaseout.',
   /**
    * @description Description text in the Application Panel describing a frame's resources
    */
   resourceDescription: 'On this page you can view the frame\'s resources.'
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/application/ApplicationPanelSidebar.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -362,9 +363,7 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
   private extensionStorageModels: ExtensionStorageModel[];
   private extensionStorageTreeElements: Map<string, ExtensionStorageTreeElement>;
   private sharedStorageTreeElements: Map<string, SharedStorageTreeElement>;
-  private domains: {
-    [x: string]: boolean,
-  };
+  private domains: Record<string, boolean>;
   // Holds main frame target.
   private target?: SDK.Target.Target;
   private previousHoveredElement?: FrameTreeElement;
@@ -378,7 +377,7 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
     this.sidebarTree = new UI.TreeOutline.TreeOutlineInShadow(UI.TreeOutline.TreeVariant.NAVIGATION_TREE);
     this.sidebarTree.registerRequiredCSS(resourcesSidebarStyles);
     this.sidebarTree.element.classList.add('resources-sidebar');
-    this.sidebarTree.hideOverflow();
+    this.sidebarTree.setHideOverflow(true);
 
     this.sidebarTree.element.classList.add('filter-all');
     // Listener needs to have been set up before the elements are added
@@ -406,8 +405,7 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
         panel, i18nString(UIStrings.localStorage), i18nString(UIStrings.noLocalStorage),
         i18nString(UIStrings.localStorageDescription), 'local-storage');
     this.localStorageListTreeElement.setLink(
-        'https://developer.chrome.com/docs/devtools/storage/localstorage/?utm_source=devtools' as
-        Platform.DevToolsPath.UrlString);
+        'https://developer.chrome.com/docs/devtools/storage/localstorage/' as Platform.DevToolsPath.UrlString);
     const localStorageIcon = IconButton.Icon.create('table');
     this.localStorageListTreeElement.setLeadingIcons([localStorageIcon]);
 
@@ -416,8 +414,7 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
         panel, i18nString(UIStrings.sessionStorage), i18nString(UIStrings.noSessionStorage),
         i18nString(UIStrings.sessionStorageDescription), 'session-storage');
     this.sessionStorageListTreeElement.setLink(
-        'https://developer.chrome.com/docs/devtools/storage/sessionstorage/?utm_source=devtools' as
-        Platform.DevToolsPath.UrlString);
+        'https://developer.chrome.com/docs/devtools/storage/sessionstorage/' as Platform.DevToolsPath.UrlString);
     const sessionStorageIcon = IconButton.Icon.create('table');
     this.sessionStorageListTreeElement.setLeadingIcons([sessionStorageIcon]);
 
@@ -427,8 +424,7 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
         panel, i18nString(UIStrings.extensionStorage), i18nString(UIStrings.noExtensionStorage),
         i18nString(UIStrings.extensionStorageDescription), 'extension-storage');
     this.extensionStorageListTreeElement.setLink(
-        'https://developer.chrome.com/docs/extensions/reference/api/storage/?utm_source=devtools' as
-        Platform.DevToolsPath.UrlString);
+        'https://developer.chrome.com/docs/extensions/reference/api/storage/' as Platform.DevToolsPath.UrlString);
     const extensionStorageIcon = IconButton.Icon.create('table');
     this.extensionStorageListTreeElement.setLeadingIcons([extensionStorageIcon]);
 
@@ -436,16 +432,14 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
 
     this.indexedDBListTreeElement = new IndexedDBTreeElement(panel);
     this.indexedDBListTreeElement.setLink(
-        'https://developer.chrome.com/docs/devtools/storage/indexeddb/?utm_source=devtools' as
-        Platform.DevToolsPath.UrlString);
+        'https://developer.chrome.com/docs/devtools/storage/indexeddb/' as Platform.DevToolsPath.UrlString);
     storageTreeElement.appendChild(this.indexedDBListTreeElement);
 
     this.cookieListTreeElement = new ExpandableApplicationPanelTreeElement(
         panel, i18nString(UIStrings.cookies), i18nString(UIStrings.noCookies), i18nString(UIStrings.cookiesDescription),
         'cookies');
     this.cookieListTreeElement.setLink(
-        'https://developer.chrome.com/docs/devtools/storage/cookies/?utm_source=devtools' as
-        Platform.DevToolsPath.UrlString);
+        'https://developer.chrome.com/docs/devtools/storage/cookies/' as Platform.DevToolsPath.UrlString);
     const cookieIcon = IconButton.Icon.create('cookie');
     this.cookieListTreeElement.setLeadingIcons([cookieIcon]);
     storageTreeElement.appendChild(this.cookieListTreeElement);
@@ -568,8 +562,6 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
     this.sharedStorageTreeElementDispatcher =
         new Common.ObjectWrapper.ObjectWrapper<SharedStorageTreeElementDispatcher.EventTypes>();
 
-    // Work-around for crbug.com/1152713: Something is wrong with custom scrollbars and size containment.
-    // @ts-ignore
     this.contentElement.style.contain = 'layout style';
   }
 
@@ -641,15 +633,15 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
     for (const frame of SDK.ResourceTreeModel.ResourceTreeModel.frames()) {
       this.addCookieDocument(frame);
     }
-    const interestGroupModel = this.target && this.target.model(InterestGroupStorageModel);
+    const interestGroupModel = this.target?.model(InterestGroupStorageModel);
     if (interestGroupModel) {
       interestGroupModel.enable();
     }
 
     this.cacheStorageListTreeElement.initialize();
-    const backgroundServiceModel = this.target && this.target.model(BackgroundServiceModel) || null;
-    this.backgroundFetchTreeElement && this.backgroundFetchTreeElement.initialize(backgroundServiceModel);
-    this.backgroundSyncTreeElement && this.backgroundSyncTreeElement.initialize(backgroundServiceModel);
+    const backgroundServiceModel = this.target?.model(BackgroundServiceModel) || null;
+    this.backgroundFetchTreeElement.initialize(backgroundServiceModel);
+    this.backgroundSyncTreeElement.initialize(backgroundServiceModel);
     this.notificationsTreeElement.initialize(backgroundServiceModel);
     this.paymentHandlerTreeElement.initialize(backgroundServiceModel);
     this.periodicBackgroundSyncTreeElement.initialize(backgroundServiceModel);
@@ -758,7 +750,7 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
     const elementPath = [element as UI.TreeOutline.TreeElement | ApplicationPanelTreeElement];
     for (let parent = element.parent as UI.TreeOutline.TreeElement | ApplicationPanelTreeElement | null;
          parent && 'itemURL' in parent && parent.itemURL; parent = parent.parent) {
-      elementPath.push(parent as ApplicationPanelTreeElement);
+      elementPath.push(parent);
     }
 
     let i = selection.length - 1;
@@ -816,7 +808,7 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
   }
 
   private domStorageAdded(event: Common.EventTarget.EventTargetEvent<DOMStorage>): void {
-    const domStorage = (event.data as DOMStorage);
+    const domStorage = (event.data);
     this.addDOMStorage(domStorage);
   }
 
@@ -840,7 +832,7 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
   }
 
   private domStorageRemoved(event: Common.EventTarget.EventTargetEvent<DOMStorage>): void {
-    const domStorage = (event.data as DOMStorage);
+    const domStorage = (event.data);
     this.removeDOMStorage(domStorage);
   }
 
@@ -946,10 +938,8 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
       if (this.useTreeViewForExtensionStorage(extensionStorage) && parentListTreeElement.childCount() === 0) {
         this.extensionStorageListTreeElement?.removeChild(parentListTreeElement);
         this.extensionIdToStorageTreeParentElement.delete(extensionStorage.extensionId);
-      } else {
-        if (wasSelected) {
-          parentListTreeElement.select();
-        }
+      } else if (wasSelected) {
+        parentListTreeElement.select();
       }
     }
     this.extensionStorageTreeElements.delete(extensionStorage.key);
@@ -1007,14 +997,6 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
     this.resourcesSection.revealAndSelectFrame(frame);
   }
 
-  showFileSystem(view: UI.Widget.Widget): void {
-    this.innerShowView(view);
-  }
-
-  private innerShowView(view: UI.Widget.Widget): void {
-    this.panel.showView(view);
-  }
-
   showPreloadingRuleSetView(revealInfo: PreloadingHelper.PreloadingForward.RuleSetView): void {
     if (this.preloadingSummaryTreeElement) {
       this.preloadingSummaryTreeElement.expandAndRevealRuleSet(revealInfo);
@@ -1066,7 +1048,7 @@ export class BackgroundServiceTreeElement extends ApplicationPanelTreeElement {
   private serviceName: Protocol.BackgroundService.ServiceName;
   private view: BackgroundServiceView|null;
   private model: BackgroundServiceModel|null;
-  private selectedInternal: boolean;
+  #selected: boolean;
 
   constructor(storagePanel: ResourcesPanel, serviceName: Protocol.BackgroundService.ServiceName) {
     super(
@@ -1076,7 +1058,7 @@ export class BackgroundServiceTreeElement extends ApplicationPanelTreeElement {
     this.serviceName = serviceName;
 
     /* Whether the element has been selected. */
-    this.selectedInternal = false;
+    this.#selected = false;
 
     this.view = null;
 
@@ -1109,7 +1091,7 @@ export class BackgroundServiceTreeElement extends ApplicationPanelTreeElement {
   initialize(model: BackgroundServiceModel|null): void {
     this.model = model;
     // Show the view if the model was initialized after selection.
-    if (this.selectedInternal && !this.view) {
+    if (this.#selected && !this.view) {
       this.onselect(false);
     }
   }
@@ -1127,7 +1109,7 @@ export class BackgroundServiceTreeElement extends ApplicationPanelTreeElement {
 
   override onselect(selectedByUser?: boolean): boolean {
     super.onselect(selectedByUser);
-    this.selectedInternal = true;
+    this.#selected = true;
 
     if (!this.model) {
       return false;
@@ -1211,7 +1193,7 @@ export class AppManifestTreeElement extends ApplicationPanelTreeElement {
 
   onInvoke(): void {
     this.view.getManifestElement().scrollIntoView();
-    UI.ARIAUtils.alert(i18nString(UIStrings.onInvokeAlert, {PH1: this.listItemElement.title}));
+    UI.ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.onInvokeAlert, {PH1: this.listItemElement.title}));
   }
 
   showManifestView(): void {
@@ -1243,7 +1225,7 @@ export class ManifestChildTreeElement extends ApplicationPanelTreeElement {
   onInvoke(): void {
     (this.parent as AppManifestTreeElement)?.showManifestView();
     this.#sectionElement.scrollIntoView();
-    UI.ARIAUtils.alert(i18nString(UIStrings.onInvokeAlert, {PH1: this.listItemElement.title}));
+    UI.ARIAUtils.LiveAnnouncer.alert(i18nString(UIStrings.onInvokeAlert, {PH1: this.listItemElement.title}));
   }
   // direct focus to the corresponding element
   onInvokeElementKeydown(event: KeyboardEvent): void {
@@ -1252,7 +1234,7 @@ export class ManifestChildTreeElement extends ApplicationPanelTreeElement {
     }
     const checkBoxElement = this.#sectionFieldElement.querySelector('.mask-checkbox');
     let focusableElement: HTMLElement|null = this.#sectionFieldElement.querySelector('[tabindex="0"]');
-    if (checkBoxElement && checkBoxElement.shadowRoot) {
+    if (checkBoxElement?.shadowRoot) {
       focusableElement = checkBoxElement.shadowRoot.querySelector('input') || null;
     } else if (!focusableElement) {
       // special case for protocol handler section since it is a custom Element and has different structure than the others
@@ -1633,8 +1615,8 @@ export class IDBObjectStoreTreeElement extends ApplicationPanelTreeElement {
     }
     for (const [indexName, treeElement] of this.idbIndexTreeElements.entries()) {
       if (!indexNames.has(indexName)) {
-        this.removeChild((treeElement as IDBIndexTreeElement));
-        this.idbIndexTreeElements.delete((indexName as string));
+        this.removeChild((treeElement));
+        this.idbIndexTreeElements.delete((indexName));
       }
     }
 
@@ -1861,31 +1843,30 @@ export class ExtensionStorageTreeParentElement extends ApplicationPanelTreeEleme
 
 export class CookieTreeElement extends ApplicationPanelTreeElement {
   private readonly target: SDK.Target.Target;
-  private readonly cookieDomainInternal: string;
+  readonly #cookieDomain: string;
 
   constructor(
       storagePanel: ResourcesPanel, frame: SDK.ResourceTreeModel.ResourceTreeFrame,
       cookieUrl: Common.ParsedURL.ParsedURL) {
     super(storagePanel, cookieUrl.securityOrigin() || i18nString(UIStrings.localFiles), false, 'cookies-for-frame');
     this.target = frame.resourceTreeModel().target();
-    this.cookieDomainInternal = cookieUrl.securityOrigin();
-    this.tooltip = i18nString(UIStrings.cookiesUsedByFramesFromS, {PH1: this.cookieDomainInternal});
+    this.#cookieDomain = cookieUrl.securityOrigin();
+    this.tooltip = i18nString(UIStrings.cookiesUsedByFramesFromS, {PH1: this.#cookieDomain});
     const icon = IconButton.Icon.create('cookie');
     // Note that we cannot use `cookieDomainInternal` here since it contains scheme.
     if (IssuesManager.RelatedIssue.hasThirdPartyPhaseoutCookieIssueForDomain(cookieUrl.domain())) {
       icon.name = 'warning-filled';
-      icon.classList.add('warn-icon');
-      this.tooltip = i18nString(UIStrings.thirdPartyPhaseout, {PH1: this.cookieDomainInternal});
+      this.tooltip = i18nString(UIStrings.thirdPartyPhaseout, {PH1: this.#cookieDomain});
     }
     this.setLeadingIcons([icon]);
   }
 
   override get itemURL(): Platform.DevToolsPath.UrlString {
-    return 'cookies://' + this.cookieDomainInternal as Platform.DevToolsPath.UrlString;
+    return 'cookies://' + this.#cookieDomain as Platform.DevToolsPath.UrlString;
   }
 
   cookieDomain(): string {
-    return this.cookieDomainInternal;
+    return this.#cookieDomain;
   }
 
   override onattach(): void {
@@ -1896,14 +1877,14 @@ export class CookieTreeElement extends ApplicationPanelTreeElement {
   private handleContextMenuEvent(event: Event): void {
     const contextMenu = new UI.ContextMenu.ContextMenu(event);
     contextMenu.defaultSection().appendItem(
-        i18nString(UIStrings.clear), () => this.resourcesPanel.clearCookies(this.target, this.cookieDomainInternal),
+        i18nString(UIStrings.clear), () => this.resourcesPanel.clearCookies(this.target, this.#cookieDomain),
         {jslogContext: 'clear'});
     void contextMenu.show();
   }
 
   override onselect(selectedByUser?: boolean): boolean {
     super.onselect(selectedByUser);
-    this.resourcesPanel.showCookies(this.target, this.cookieDomainInternal);
+    this.resourcesPanel.showCookies(this.target, this.#cookieDomain);
     Host.userMetrics.panelShown(Host.UserMetrics.PanelCodes[Host.UserMetrics.PanelCodes.cookies]);
     return false;
   }
@@ -1911,14 +1892,12 @@ export class CookieTreeElement extends ApplicationPanelTreeElement {
 
 export class StorageCategoryView extends UI.Widget.VBox {
   private emptyWidget: UI.EmptyWidget.EmptyWidget;
-  private linkElement: HTMLElement|null;
 
   constructor() {
     super();
 
     this.element.classList.add('storage-view');
     this.emptyWidget = new UI.EmptyWidget.EmptyWidget('', '');
-    this.linkElement = null;
     this.emptyWidget.show(this.element);
   }
 
@@ -1931,17 +1910,7 @@ export class StorageCategoryView extends UI.Widget.VBox {
   }
 
   setLink(link: Platform.DevToolsPath.UrlString|null): void {
-    if (link && !this.linkElement) {
-      this.linkElement = this.emptyWidget.appendLink(link);
-    }
-    if (!link && this.linkElement) {
-      this.linkElement.classList.add('hidden');
-    }
-    if (link && this.linkElement) {
-      this.linkElement.setAttribute('href', link);
-      this.linkElement.setAttribute('title', link);
-      this.linkElement.classList.remove('hidden');
-    }
+    this.emptyWidget.link = link;
   }
 }
 
@@ -2177,7 +2146,6 @@ export class ResourcesSection implements SDK.TargetManager.Observer {
 export class FrameTreeElement extends ApplicationPanelTreeElement {
   private section: ResourcesSection;
   private frame: SDK.ResourceTreeModel.ResourceTreeFrame;
-  private frameId: string;
   private readonly categoryElements: Map<string, ExpandableApplicationPanelTreeElement>;
   private readonly treeElementForResource: Map<string, FrameResourceTreeElement>;
   private treeElementForWindow: Map<Protocol.Target.TargetID, FrameWindowTreeElement>;
@@ -2189,7 +2157,6 @@ export class FrameTreeElement extends ApplicationPanelTreeElement {
     super(section.panel, '', false, 'frame');
     this.section = section;
     this.frame = frame;
-    this.frameId = frame.id;
     this.categoryElements = new Map();
     this.treeElementForResource = new Map();
     this.treeElementForWindow = new Map();
@@ -2214,7 +2181,6 @@ export class FrameTreeElement extends ApplicationPanelTreeElement {
     this.setLeadingIcons([icon]);
     this.invalidateChildren();
 
-    this.frameId = frame.id;
     if (this.title !== frame.displayName()) {
       this.title = frame.displayName();
       UI.ARIAUtils.setLabel(this.listItemElement, this.title);

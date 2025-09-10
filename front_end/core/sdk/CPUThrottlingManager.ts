@@ -30,7 +30,7 @@ const UIStrings = {
    * @description Text label indicating why an option is not available, because the user's device is not fast enough to emulate a device.
    */
   calibrationErrorDeviceTooWeak: 'Device is not powerful enough',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('core/sdk/CPUThrottlingManager.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
@@ -39,14 +39,14 @@ let throttlingManagerInstance: CPUThrottlingManager;
 
 export class CPUThrottlingManager extends Common.ObjectWrapper.ObjectWrapper<EventTypes> implements
     SDKModelObserver<EmulationModel> {
-  #cpuThrottlingOptionInternal: CPUThrottlingOption;
+  #cpuThrottlingOption: CPUThrottlingOption;
   #calibratedThrottlingSetting: Common.Settings.Setting<CalibratedCPUThrottling>;
-  #hardwareConcurrencyInternal?: number;
+  #hardwareConcurrency?: number;
   #pendingMainTargetPromise?: (r: number) => void;
 
   private constructor() {
     super();
-    this.#cpuThrottlingOptionInternal = NoThrottlingOption;
+    this.#cpuThrottlingOption = NoThrottlingOption;
     this.#calibratedThrottlingSetting = Common.Settings.Settings.instance().createSetting<CalibratedCPUThrottling>(
         'calibrated-cpu-throttling', {}, Common.Settings.SettingStorageType.GLOBAL);
     this.#calibratedThrottlingSetting.addChangeListener(this.#onCalibratedSettingChanged, this);
@@ -63,21 +63,21 @@ export class CPUThrottlingManager extends Common.ObjectWrapper.ObjectWrapper<Eve
   }
 
   cpuThrottlingRate(): number {
-    return this.#cpuThrottlingOptionInternal.rate();
+    return this.#cpuThrottlingOption.rate();
   }
 
   cpuThrottlingOption(): CPUThrottlingOption {
-    return this.#cpuThrottlingOptionInternal;
+    return this.#cpuThrottlingOption;
   }
 
   #onCalibratedSettingChanged(): void {
     // If a calibrated option is selected, need to propagate new rate.
-    const currentOption = this.#cpuThrottlingOptionInternal;
+    const currentOption = this.#cpuThrottlingOption;
     if (!currentOption.calibratedDeviceType) {
       return;
     }
 
-    const rate = this.#cpuThrottlingOptionInternal.rate();
+    const rate = this.#cpuThrottlingOption.rate();
     if (rate === 0) {
       // This calibrated option is no longer valid.
       this.setCPUThrottlingOption(NoThrottlingOption);
@@ -91,23 +91,23 @@ export class CPUThrottlingManager extends Common.ObjectWrapper.ObjectWrapper<Eve
   }
 
   setCPUThrottlingOption(option: CPUThrottlingOption): void {
-    if (option === this.#cpuThrottlingOptionInternal) {
+    if (option === this.#cpuThrottlingOption) {
       return;
     }
 
-    this.#cpuThrottlingOptionInternal = option;
+    this.#cpuThrottlingOption = option;
     for (const emulationModel of TargetManager.instance().models(EmulationModel)) {
-      void emulationModel.setCPUThrottlingRate(this.#cpuThrottlingOptionInternal.rate());
+      void emulationModel.setCPUThrottlingRate(this.#cpuThrottlingOption.rate());
     }
-    this.dispatchEventToListeners(Events.RATE_CHANGED, this.#cpuThrottlingOptionInternal.rate());
+    this.dispatchEventToListeners(Events.RATE_CHANGED, this.#cpuThrottlingOption.rate());
   }
 
   setHardwareConcurrency(concurrency: number): void {
-    this.#hardwareConcurrencyInternal = concurrency;
+    this.#hardwareConcurrency = concurrency;
     for (const emulationModel of TargetManager.instance().models(EmulationModel)) {
       void emulationModel.setHardwareConcurrency(concurrency);
     }
-    this.dispatchEventToListeners(Events.HARDWARE_CONCURRENCY_CHANGED, this.#hardwareConcurrencyInternal);
+    this.dispatchEventToListeners(Events.HARDWARE_CONCURRENCY_CHANGED, this.#hardwareConcurrency);
   }
 
   hasPrimaryPageTargetSet(): boolean {
@@ -128,14 +128,14 @@ export class CPUThrottlingManager extends Common.ObjectWrapper.ObjectWrapper<Eve
     // If the main target hasn't attached yet, block callers until it appears.
     if (!target) {
       if (existingCallback) {
-        return new Promise(r => {
+        return await new Promise(r => {
           this.#pendingMainTargetPromise = (result: number) => {
             r(result);
             existingCallback(result);
           };
         });
       }
-      return new Promise(r => {
+      return await new Promise(r => {
         this.#pendingMainTargetPromise = r;
       });
     }
@@ -154,11 +154,11 @@ export class CPUThrottlingManager extends Common.ObjectWrapper.ObjectWrapper<Eve
   }
 
   modelAdded(emulationModel: EmulationModel): void {
-    if (this.#cpuThrottlingOptionInternal !== NoThrottlingOption) {
-      void emulationModel.setCPUThrottlingRate(this.#cpuThrottlingOptionInternal.rate());
+    if (this.#cpuThrottlingOption !== NoThrottlingOption) {
+      void emulationModel.setCPUThrottlingRate(this.#cpuThrottlingOption.rate());
     }
-    if (this.#hardwareConcurrencyInternal !== undefined) {
-      void emulationModel.setHardwareConcurrency(this.#hardwareConcurrencyInternal);
+    if (this.#hardwareConcurrency !== undefined) {
+      void emulationModel.setHardwareConcurrency(this.#hardwareConcurrency);
     }
 
     // If there are any callers blocked on a getHardwareConcurrency call, let's wake them now.

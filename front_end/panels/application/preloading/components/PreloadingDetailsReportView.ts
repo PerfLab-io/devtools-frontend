@@ -1,6 +1,7 @@
 // Copyright 2022 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-lit-render-outside-of-view */
 
 import '../../../../ui/components/report_view/report_view.js';
 import '../../../../ui/components/request_link_icon/request_link_icon.js';
@@ -20,86 +21,92 @@ import * as Lit from '../../../../ui/lit/lit.js';
 import * as VisualLogging from '../../../../ui/visual_logging/visual_logging.js';
 import * as PreloadingHelper from '../helper/helper.js';
 
-import preloadingDetailsReportViewStylesRaw from './preloadingDetailsReportView.css.js';
+import preloadingDetailsReportViewStyles from './preloadingDetailsReportView.css.js';
 import * as PreloadingString from './PreloadingString.js';
 import {prefetchFailureReason, prerenderFailureReason, ruleSetLocationShort} from './PreloadingString.js';
-
-// TODO(crbug.com/391381439): Fully migrate off of constructed style sheets.
-const preloadingDetailsReportViewStyles = new CSSStyleSheet();
-preloadingDetailsReportViewStyles.replaceSync(preloadingDetailsReportViewStylesRaw.cssContent);
 
 const {html} = Lit;
 
 const UIStrings = {
   /**
-   *@description Text in PreloadingDetailsReportView of the Application panel
+   * @description Text in PreloadingDetailsReportView of the Application panel if no element is selected. An element here is an item in a
+   * table of target URLs and additional prefetching states. https://developer.chrome.com/docs/devtools/application/debugging-speculation-rules
+   */
+  noElementSelected: 'No element selected',
+  /**
+   * @description Text in PreloadingDetailsReportView of the Application panel to prompt user to select an element in a table. An element here is an item in a
+   * table of target URLs and additional prefetching states. https://developer.chrome.com/docs/devtools/application/debugging-speculation-rules
    */
   selectAnElementForMoreDetails: 'Select an element for more details',
   /**
-   *@description Text in details
+   * @description Text in details
    */
   detailsDetailedInformation: 'Detailed information',
   /**
-   *@description Text in details
+   * @description Text in details
    */
   detailsAction: 'Action',
   /**
-   *@description Text in details
+   * @description Text in details
    */
   detailsStatus: 'Status',
   /**
-   *@description Text in details
+   * @description Text in details
+   */
+  detailsTargetHint: 'Target hint',
+  /**
+   * @description Text in details
    */
   detailsFailureReason: 'Failure reason',
   /**
-   *@description Header of rule set
+   * @description Header of rule set
    */
   detailsRuleSet: 'Rule set',
   /**
-   *@description Description: status
+   * @description Description: status
    */
   automaticallyFellBackToPrefetch: '(automatically fell back to prefetch)',
   /**
-   *@description Description: status
+   * @description Description: status
    */
   detailedStatusNotTriggered: 'Speculative load attempt is not yet triggered.',
   /**
-   *@description Description: status
+   * @description Description: status
    */
   detailedStatusPending: 'Speculative load attempt is eligible but pending.',
   /**
-   *@description Description: status
+   * @description Description: status
    */
   detailedStatusRunning: 'Speculative load is running.',
   /**
-   *@description Description: status
+   * @description Description: status
    */
   detailedStatusReady: 'Speculative load finished and the result is ready for the next navigation.',
   /**
-   *@description Description: status
+   * @description Description: status
    */
   detailedStatusSuccess: 'Speculative load finished and used for a navigation.',
   /**
-   *@description Description: status
+   * @description Description: status
    */
   detailedStatusFailure: 'Speculative load failed.',
   /**
-   *@description Description: status
+   * @description Description: status
    */
   detailedStatusFallbackToPrefetch: 'Speculative load failed, but fallback to prefetch succeeded.',
   /**
-   *@description button: Contents of button to inspect prerendered page
+   * @description button: Contents of button to inspect prerendered page
    */
   buttonInspect: 'Inspect',
   /**
-   *@description button: Title of button to inspect prerendered page
+   * @description button: Title of button to inspect prerendered page
    */
   buttonClickToInspect: 'Click to inspect prerendered page',
   /**
-   *@description button: Title of button to reveal rule set
+   * @description button: Title of button to reveal rule set
    */
   buttonClickToRevealRuleSet: 'Click to reveal rule set',
-};
+} as const;
 const str_ =
     i18n.i18n.registerUIStrings('panels/application/preloading/components/PreloadingDetailsReportView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -129,6 +136,16 @@ class PreloadingUIUtils {
         return i18n.i18n.lockedString('Internal error');
     }
   }
+
+  static detailedTargetHint(key: Protocol.Preload.PreloadingAttemptKey): string {
+    assertNotNullOrUndefined(key.targetHint);
+    switch (key.targetHint) {
+      case Protocol.Preload.SpeculationTargetHint.Blank:
+        return '_blank';
+      case Protocol.Preload.SpeculationTargetHint.Self:
+        return '_self';
+    }
+  }
 }
 
 export type PreloadingDetailsReportViewData = PreloadingDetailsReportViewDataInternal|null;
@@ -143,10 +160,6 @@ export class PreloadingDetailsReportView extends LegacyWrapper.LegacyWrapper.Wra
   readonly #shadow = this.attachShadow({mode: 'open'});
   #data: PreloadingDetailsReportViewData = null;
 
-  connectedCallback(): void {
-    this.#shadow.adoptedStyleSheets = [preloadingDetailsReportViewStyles];
-  }
-
   set data(data: PreloadingDetailsReportViewData) {
     this.#data = data;
     void this.#render();
@@ -158,10 +171,11 @@ export class PreloadingDetailsReportView extends LegacyWrapper.LegacyWrapper.Wra
         // Disabled until https://crbug.com/1079231 is fixed.
         // clang-format off
         Lit.render(html`
-          <div class="preloading-noselected">
-            <div>
-              <p>${i18nString(UIStrings.selectAnElementForMoreDetails)}</p>
-            </div>
+          <style>${preloadingDetailsReportViewStyles}</style>
+          <style>${UI.inspectorCommonStyles}</style>
+          <div class="empty-state">
+            <span class="empty-state-header">${i18nString(UIStrings.noElementSelected)}</span>
+            <span class="empty-state-description">${i18nString(UIStrings.selectAnElementForMoreDetails)}</span>
           </div>
         `, this.#shadow, {host: this});
         // clang-format on
@@ -177,6 +191,8 @@ export class PreloadingDetailsReportView extends LegacyWrapper.LegacyWrapper.Wra
       // Disabled until https://crbug.com/1079231 is fixed.
       // clang-format off
       Lit.render(html`
+        <style>${preloadingDetailsReportViewStyles}</style>
+        <style>${UI.inspectorCommonStyles}</style>
         <devtools-report
           .data=${{reportTitle: 'Speculative Loading Attempt'}}
           jslog=${VisualLogging.section('preloading-details')}>
@@ -185,6 +201,7 @@ export class PreloadingDetailsReportView extends LegacyWrapper.LegacyWrapper.Wra
           ${this.#url()}
           ${this.#action(isFallbackToPrefetch)}
           ${this.#status(isFallbackToPrefetch)}
+          ${this.#targetHint()}
           ${this.#maybePrefetchFailureReason()}
           ${this.#maybePrerenderFailureReason()}
 
@@ -247,9 +264,9 @@ export class PreloadingDetailsReportView extends LegacyWrapper.LegacyWrapper.Wra
 
     const action = PreloadingString.capitalizedAction(attempt.action);
 
-    let maybeFellback: Lit.LitTemplate = Lit.nothing;
+    let maybeFallback: Lit.LitTemplate = Lit.nothing;
     if (isFallbackToPrefetch) {
-      maybeFellback = html`${i18nString(UIStrings.automaticallyFellBackToPrefetch)}`;
+      maybeFallback = html`${i18nString(UIStrings.automaticallyFellBackToPrefetch)}`;
     }
 
     let maybeInspectButton: Lit.LitTemplate = Lit.nothing;
@@ -296,9 +313,7 @@ export class PreloadingDetailsReportView extends LegacyWrapper.LegacyWrapper.Wra
         <devtools-report-key>${i18nString(UIStrings.detailsAction)}</devtools-report-key>
         <devtools-report-value>
           <div class="text-ellipsis" title="">
-            ${action}
-            ${maybeFellback}
-            ${maybeInspectButton}
+            ${action} ${maybeFallback} ${maybeInspectButton}
           </div>
         </devtools-report-value>
     `;
@@ -337,6 +352,23 @@ export class PreloadingDetailsReportView extends LegacyWrapper.LegacyWrapper.Wra
         <devtools-report-key>${i18nString(UIStrings.detailsFailureReason)}</devtools-report-key>
         <devtools-report-value>
           ${failureDescription}
+        </devtools-report-value>
+    `;
+  }
+
+  #targetHint(): Lit.LitTemplate {
+    assertNotNullOrUndefined(this.#data);
+    const attempt = this.#data.pipeline.getOriginallyTriggered();
+    const hasTargetHint =
+        attempt.action === Protocol.Preload.SpeculationAction.Prerender && attempt.key.targetHint !== undefined;
+    if (!hasTargetHint) {
+      return Lit.nothing;
+    }
+
+    return html`
+        <devtools-report-key>${i18nString(UIStrings.detailsTargetHint)}</devtools-report-key>
+        <devtools-report-value>
+          ${PreloadingUIUtils.detailedTargetHint(attempt.key)}
         </devtools-report-value>
     `;
   }

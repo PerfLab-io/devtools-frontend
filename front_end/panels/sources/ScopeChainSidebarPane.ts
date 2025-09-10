@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
@@ -42,27 +43,27 @@ import scopeChainSidebarPaneStyles from './scopeChainSidebarPane.css.js';
 
 const UIStrings = {
   /**
-   *@description Loading indicator in Scope Sidebar Pane of the Sources panel
+   * @description Loading indicator in Scope Sidebar Pane of the Sources panel
    */
-  loading: 'Loading...',
+  loading: 'Loading…',
   /**
-   *@description Not paused message element text content in Call Stack Sidebar Pane of the Sources panel
+   * @description Not paused message element text content in Call Stack Sidebar Pane of the Sources panel
    */
   notPaused: 'Not paused',
   /**
-   *@description Empty placeholder in Scope Chain Sidebar Pane of the Sources panel
+   * @description Empty placeholder in Scope Chain Sidebar Pane of the Sources panel
    */
   noVariables: 'No variables',
   /**
-   *@description Text in the Sources panel Scope pane describing a closure scope.
-   *@example {func} PH1
+   * @description Text in the Sources panel Scope pane describing a closure scope.
+   * @example {func} PH1
    */
   closureS: 'Closure ({PH1})',
   /**
-   *@description Text that refers to closure as a programming term
+   * @description Text that refers to closure as a programming term
    */
   closure: 'Closure',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/sources/ScopeChainSidebarPane.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 let scopeChainSidebarPaneInstance: ScopeChainSidebarPane;
@@ -75,13 +76,15 @@ export class ScopeChainSidebarPane extends UI.Widget.VBox implements UI.ContextF
   #scopeChainModel: SourceMapScopes.ScopeChainModel.ScopeChainModel|null = null;
 
   private constructor() {
-    super(true);
+    super({
+      jslog: `${VisualLogging.section('sources.scope-chain')}`,
+      useShadowDom: true,
+    });
     this.registerRequiredCSS(scopeChainSidebarPaneStyles);
 
-    this.contentElement.setAttribute('jslog', `${VisualLogging.section('sources.scope-chain')}`);
     this.treeOutline = new ObjectUI.ObjectPropertiesSection.ObjectPropertiesSectionsTreeOutline();
     this.treeOutline.registerRequiredCSS(scopeChainSidebarPaneStyles);
-    this.treeOutline.hideOverflow();
+    this.treeOutline.setHideOverflow(true);
 
     this.treeOutline.setShowSelectionOnKeyboardFocus(/* show */ true);
     this.expandController =

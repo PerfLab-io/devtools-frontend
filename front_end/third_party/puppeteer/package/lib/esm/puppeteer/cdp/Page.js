@@ -69,7 +69,7 @@ import { Deferred } from '../util/Deferred.js';
 import { AsyncDisposableStack } from '../util/disposable.js';
 import { isErrorLike } from '../util/ErrorLike.js';
 import { Binding } from './Binding.js';
-import { CdpCDPSession } from './CDPSession.js';
+import { CdpCDPSession } from './CdpSession.js';
 import { isTargetClosedError } from './Connection.js';
 import { Coverage } from './Coverage.js';
 import { CdpDialog } from './Dialog.js';
@@ -138,7 +138,7 @@ export class CdpPage extends Page {
         this.#primaryTargetClient = client;
         this.#tabTargetClient = client.parentSession();
         assert(this.#tabTargetClient, 'Tab target session is not defined.');
-        this.#tabTarget = this.#tabTargetClient._target();
+        this.#tabTarget = this.#tabTargetClient.target();
         assert(this.#tabTarget, 'Tab target is not defined.');
         this.#primaryTarget = target;
         this.#targetManager = target._targetManager();
@@ -215,9 +215,10 @@ export class CdpPage extends Page {
         }
     }
     async #onActivation(newSession) {
+        // TODO: Remove assert once we have separate Event type for CdpCDPSession.
+        assert(newSession instanceof CdpCDPSession, 'CDPSession is not instance of CdpCDPSession');
         this.#primaryTargetClient = newSession;
-        assert(this.#primaryTargetClient instanceof CdpCDPSession, 'CDPSession is not instance of CDPSessionImpl');
-        this.#primaryTarget = this.#primaryTargetClient._target();
+        this.#primaryTarget = newSession.target();
         assert(this.#primaryTarget, 'Missing target on swap');
         this.#keyboard.updateClient(newSession);
         this.#mouse.updateClient(newSession);
@@ -230,7 +231,7 @@ export class CdpPage extends Page {
     }
     async #onSecondaryTarget(session) {
         assert(session instanceof CdpCDPSession);
-        if (session._target()._subtype() !== 'prerender') {
+        if (session.target()._subtype() !== 'prerender') {
             return;
         }
         this.#frameManager.registerSpeculativeSession(session).catch(debugError);
@@ -272,9 +273,9 @@ export class CdpPage extends Page {
     };
     #onAttachedToTarget = (session) => {
         assert(session instanceof CdpCDPSession);
-        this.#frameManager.onAttachedToTarget(session._target());
-        if (session._target()._getTargetInfo().type === 'worker') {
-            const worker = new CdpWebWorker(session, session._target().url(), session._target()._targetId, session._target().type(), this.#addConsoleMessage.bind(this), this.#handleException.bind(this));
+        this.#frameManager.onAttachedToTarget(session.target());
+        if (session.target()._getTargetInfo().type === 'worker') {
+            const worker = new CdpWebWorker(session, session.target().url(), session.target()._targetId, session.target().type(), this.#addConsoleMessage.bind(this), this.#handleException.bind(this), this.#frameManager.networkManager);
             this.#workers.set(session.id(), worker);
             this.emit("workercreated" /* PageEvent.WorkerCreated */, worker);
         }
@@ -297,6 +298,14 @@ export class CdpPage extends Page {
             }
         }
     }
+    async resize(params) {
+        const { windowId } = await this.#primaryTargetClient.send('Browser.getWindowForTarget');
+        await this.#primaryTargetClient.send('Browser.setContentsSize', {
+            windowId,
+            width: params.contentWidth,
+            height: params.contentHeight,
+        });
+    }
     async #onFileChooser(event) {
         const env_1 = { stack: [], error: void 0, hasError: false };
         try {
@@ -307,7 +316,7 @@ export class CdpPage extends Page {
             assert(frame, 'This should never happen.');
             // This is guaranteed to be an HTMLInputElement handle by the event.
             const handle = __addDisposableResource(env_1, (await frame.worlds[MAIN_WORLD].adoptBackendNode(event.backendNodeId)), false);
-            const fileChooser = new FileChooser(handle.move(), event);
+            const fileChooser = new FileChooser(handle.move(), event.mode !== 'selectSingle');
             for (const promise of this.#fileChooserDeferreds) {
                 promise.resolve(fileChooser);
             }
@@ -677,7 +686,7 @@ export class CdpPage extends Page {
         const history = await this.#primaryTargetClient.send('Page.getNavigationHistory');
         const entry = history.entries[history.currentIndex + delta];
         if (!entry) {
-            return null;
+            throw new Error('History entry to navigate to not found.');
         }
         const result = await Promise.all([
             this.waitForNavigation(options),
@@ -828,7 +837,7 @@ export class CdpPage extends Page {
         try {
             const _guard = __addDisposableResource(env_3, await this.browserContext().waitForScreenshotOperations(), false);
             const connection = this.#primaryTargetClient.connection();
-            assert(connection, 'Protocol error: Connection closed. Most likely the page has been closed.');
+            assert(connection, 'Connection closed. Most likely the page has been closed.');
             const runBeforeUnload = !!options.runBeforeUnload;
             if (runBeforeUnload) {
                 await this.#primaryTargetClient.send('Page.close');
@@ -908,6 +917,9 @@ function getIntersectionRect(clip, viewport) {
         height: Math.max(Math.min(clip.y + clip.height, viewport.y + viewport.height) - y, 0),
     };
 }
+/**
+ * @internal
+ */
 export function convertCookiesPartitionKeyFromPuppeteerToCdp(partitionKey) {
     if (partitionKey === undefined) {
         return undefined;

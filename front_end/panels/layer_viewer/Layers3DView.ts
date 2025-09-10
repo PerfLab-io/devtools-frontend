@@ -28,11 +28,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* eslint-disable rulesdir/no-imperative-dom-api */
+
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
 import type * as SDK from '../../core/sdk/sdk.js';
 import type * as Protocol from '../../generated/protocol.js';
+import * as Geometry from '../../models/geometry/geometry.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
@@ -50,28 +53,32 @@ import {Events as TransformControllerEvents, TransformController} from './Transf
 
 const UIStrings = {
   /**
-   *@description Text of a DOM element in DView of the Layers panel
+   * @description Text of a DOM element in DView of the Layers panel
    */
-  layerInformationIsNotYet: 'Layer information is not yet available.',
+  noLayerInformation: 'No layers detected yet',
   /**
-   *@description Accessibility label for canvas view in Layers tool
+   * @description Text of a DOM element in DView of the Layers panel that explains the panel
+   */
+  layerExplanation: 'On this page you will be able to view and inspect document layers.',
+  /**
+   * @description Accessibility label for canvas view in Layers tool
    */
   dLayersView: '3D Layers View',
   /**
-   *@description Text in DView of the Layers panel
+   * @description Text in DView of the Layers panel
    */
-  cantDisplayLayers: 'Can\'t display layers,',
+  cantDisplayLayers: 'Can\'t display layers',
   /**
-   *@description Text in DView of the Layers panel
+   * @description Text in DView of the Layers panel
    */
   webglSupportIsDisabledInYour: 'WebGL support is disabled in your browser.',
   /**
-   *@description Text in DView of the Layers panel
-   *@example {about:gpu} PH1
+   * @description Text in DView of the Layers panel
+   * @example {about:gpu} PH1
    */
   checkSForPossibleReasons: 'Check {PH1} for possible reasons.',
   /**
-   *@description Text for a checkbox in the toolbar of the Layers panel to show the area of slow scroll rect
+   * @description Text for a checkbox in the toolbar of the Layers panel to show the area of slow scroll rect
    */
   slowScrollRects: 'Slow scroll rects',
   /**
@@ -81,14 +88,14 @@ const UIStrings = {
    */
   paints: 'Paints',
   /**
-   *@description A context menu item in the DView of the Layers panel
+   * @description A context menu item in the DView of the Layers panel
    */
   resetView: 'Reset View',
   /**
-   *@description A context menu item in the DView of the Layers panel
+   * @description A context menu item in the DView of the Layers panel
    */
   showPaintProfiler: 'Show Paint Profiler',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/layer_viewer/Layers3DView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -106,14 +113,14 @@ const imageForTexture = new Map<WebGLTexture, HTMLImageElement>();
 
 export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, typeof UI.Widget.VBox>(UI.Widget.VBox)
     implements LayerView {
-  private readonly failBanner: UI.Widget.VBox;
+  private failBanner: UI.EmptyWidget.EmptyWidget;
   private readonly layerViewHost: LayerViewHost;
   private transformController: TransformController;
   private canvasElement: HTMLCanvasElement;
-  private lastSelection: {[x: string]: Selection|null};
+  private lastSelection: Record<string, Selection|null>;
   private layerTree: SDK.LayerTreeBase.LayerTreeBase|null;
   private readonly textureManager: LayerTextureManager;
-  private chromeTextures: (WebGLTexture|undefined)[];
+  private chromeTextures: Array<WebGLTexture|undefined>;
   private rects: Rectangle[];
   private snapshotLayers: Map<SDK.LayerTreeBase.Layer, SnapshotSelection>;
   private shaderProgram!: WebGLProgram|null;
@@ -136,18 +143,23 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
   private mouseDownY?: number;
 
   constructor(layerViewHost: LayerViewHost) {
-    super(true);
+    super({
+      jslog: `${VisualLogging.pane('layers-3d-view')}`,
+      useShadowDom: true,
+    });
     this.registerRequiredCSS(layers3DViewStyles);
-    this.element.setAttribute('jslog', `${VisualLogging.pane('layers-3d-view')}`);
 
     this.contentElement.classList.add('layers-3d-view');
-    this.failBanner = new UI.Widget.VBox();
-    this.failBanner.element.classList.add('full-widget-dimmed-banner');
-    UI.UIUtils.createTextChild(this.failBanner.element, i18nString(UIStrings.layerInformationIsNotYet));
+    this.failBanner = new UI.EmptyWidget.EmptyWidget(
+        i18nString(UIStrings.noLayerInformation), i18nString(UIStrings.layerExplanation));
 
     this.layerViewHost = layerViewHost;
     this.layerViewHost.registerView(this);
-    this.transformController = new TransformController(this.contentElement as HTMLElement);
+    // Install transform controller, but still allow drag events to set focus on the element, which is needed
+    // to correctly listen for keyboard shortcuts.
+    this.transformController =
+        new TransformController(this.contentElement, false, false /* preventDefaultOnMouseDown */);
+
     this.transformController.addEventListener(TransformControllerEvents.TRANSFORM_CHANGED, this.update, this);
 
     this.initToolbar();
@@ -353,7 +365,7 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
 
     let bounds;
     for (let i = 0; i < this.rects.length; ++i) {
-      bounds = UI.Geometry.boundsForTransformedPoints(scaleAndRotationMatrix, this.rects[i].vertices, bounds);
+      bounds = Geometry.boundsForTransformedPoints(scaleAndRotationMatrix, this.rects[i].vertices, bounds);
     }
 
     if (bounds) {
@@ -691,12 +703,10 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
     const borderAdjustment = ViewportBorderWidth / 2;
     const viewportWidth = viewportSize.width + 2 * borderAdjustment;
     if (this.chromeTextures[0] && this.chromeTextures[2]) {
-      const chromeTextureImage =
-          imageForTexture.get(this.chromeTextures[0] as WebGLTexture) || {naturalHeight: 0, naturalWidth: 0};
+      const chromeTextureImage = imageForTexture.get(this.chromeTextures[0]) || {naturalHeight: 0, naturalWidth: 0};
       const chromeHeight = chromeTextureImage.naturalHeight;
 
-      const middleTextureImage =
-          imageForTexture.get(this.chromeTextures[2] as WebGLTexture) || {naturalHeight: 0, naturalWidth: 0};
+      const middleTextureImage = imageForTexture.get(this.chromeTextures[2]) || {naturalHeight: 0, naturalWidth: 0};
       const middleFragmentWidth = viewportWidth - chromeTextureImage.naturalWidth - middleTextureImage.naturalWidth;
       let x = -borderAdjustment;
       const y = -chromeHeight;
@@ -757,14 +767,14 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
   }
 
   private innerUpdate(): void {
-    if (!this.layerTree || !this.layerTree.root()) {
+    if (!this.layerTree?.root()) {
       this.failBanner.show(this.contentElement);
       return;
     }
     const gl = this.initGLIfNecessary();
     if (!gl) {
-      this.failBanner.element.removeChildren();
-      this.failBanner.element.appendChild(this.webglDisabledBanner());
+      this.failBanner.detach();
+      this.failBanner = this.webglDisabledBanner();
       this.failBanner.show(this.contentElement);
       return;
     }
@@ -783,14 +793,13 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
     this.drawViewportAndChrome();
   }
 
-  private webglDisabledBanner(): Node {
-    const fragment = this.contentElement.ownerDocument.createDocumentFragment();
-    fragment.createChild('div').textContent = i18nString(UIStrings.cantDisplayLayers);
-    fragment.createChild('div').textContent = i18nString(UIStrings.webglSupportIsDisabledInYour);
-    fragment.appendChild(i18n.i18n.getFormatLocalizedString(
+  private webglDisabledBanner(): UI.EmptyWidget.EmptyWidget {
+    const emptyWidget = new UI.EmptyWidget.EmptyWidget(
+        i18nString(UIStrings.cantDisplayLayers), i18nString(UIStrings.webglSupportIsDisabledInYour));
+    emptyWidget.contentElement.appendChild(i18n.i18n.getFormatLocalizedString(
         str_, UIStrings.checkSForPossibleReasons,
         {PH1: UI.XLink.XLink.create('about:gpu', undefined, undefined, undefined, 'about-gpu')}));
-    return fragment;
+    return emptyWidget;
   }
 
   private selectionFromEventPoint(event: Event): Selection|null {
@@ -798,7 +807,7 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
     if (!this.layerTree) {
       return null;
     }
-    let closestIntersectionPoint: number = Infinity;
+    let closestIntersectionPoint = Infinity;
     let closestObject: Selection|null = null;
     const projectionMatrix =
         new WebKitCSSMatrix().scale(1, -1, -1).translate(-1, -1, 0).multiply(this.projectionMatrix);
@@ -1128,9 +1137,7 @@ export class LayerTextureManager {
 
   private updateLayer(layer: SDK.LayerTreeBase.Layer): Promise<void> {
     return Promise.all(layer.snapshots())
-        .then(
-            snapshots => this.setSnapshotsForLayer(
-                layer, snapshots.filter(snapshot => snapshot !== null) as SDK.PaintProfiler.SnapshotWithRect[]));
+        .then(snapshots => this.setSnapshotsForLayer(layer, snapshots.filter(snapshot => snapshot !== null)));
   }
 
   private updateTextures(): void {
@@ -1216,12 +1223,12 @@ export class Rectangle {
     // Vertices of the quad with transform matrix applied
     const points = [];
     for (i = 0; i < 4; ++i) {
-      points[i] = UI.Geometry.multiplyVectorByMatrixAndNormalize(
-          new UI.Geometry.Vector(this.vertices[i * 3], this.vertices[i * 3 + 1], this.vertices[i * 3 + 2]), matrix);
+      points[i] = Geometry.multiplyVectorByMatrixAndNormalize(
+          new Geometry.Vector(this.vertices[i * 3], this.vertices[i * 3 + 1], this.vertices[i * 3 + 2]), matrix);
     }
     // Calculating quad plane normal
-    const normal = UI.Geometry.crossProduct(
-        UI.Geometry.subtract(points[1], points[0]), UI.Geometry.subtract(points[2], points[1]));
+    const normal =
+        Geometry.crossProduct(Geometry.subtract(points[1], points[0]), Geometry.subtract(points[2], points[1]));
     // General form of the equation of the quad plane: A * x + B * y + C * z + D = 0
     const A = normal.x;
     const B = normal.y;
@@ -1230,14 +1237,13 @@ export class Rectangle {
     // Finding t from the equation
     const t = -(D + A * x0 + B * y0) / C;
     // Point of the intersection
-    const pt = new UI.Geometry.Vector(x0, y0, t);
+    const pt = new Geometry.Vector(x0, y0, t);
     // Vectors from the intersection point to vertices of the quad
-    const tVects = points.map(UI.Geometry.subtract.bind(null, pt));
+    const tVects = points.map(Geometry.subtract.bind(null, pt));
     // Intersection point lies inside of the polygon if scalar products of normal of the plane and
     // cross products of successive tVects are all nonstrictly above or all nonstrictly below zero
     for (i = 0; i < tVects.length; ++i) {
-      const product =
-          UI.Geometry.scalarProduct(normal, UI.Geometry.crossProduct(tVects[i], tVects[(i + 1) % tVects.length]));
+      const product = Geometry.scalarProduct(normal, Geometry.crossProduct(tVects[i], tVects[(i + 1) % tVects.length]));
       if (product < 0) {
         return undefined;
       }

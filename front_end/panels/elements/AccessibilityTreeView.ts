@@ -1,6 +1,7 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import type * as Common from '../../core/common/common.js';
 import * as SDK from '../../core/sdk/sdk.js';
@@ -53,7 +54,8 @@ export class AccessibilityTreeView extends UI.Widget.VBox implements
         deferredNode.resolve(domNode => {
           if (domNode) {
             this.inspectedDOMNode = domNode;
-            void ElementsPanel.instance().revealAndSelectNode(domNode, true, false);
+            void ElementsPanel.instance().revealAndSelectNode(
+                domNode, {showPanel: true, focusNode: true, highlightInOverlay: true});
           }
         });
       }
@@ -81,11 +83,11 @@ export class AccessibilityTreeView extends UI.Widget.VBox implements
     if (!this.root) {
       const frameId = SDK.FrameManager.FrameManager.instance().getOutermostFrame()?.id;
       if (!frameId) {
-        throw Error('No top frame');
+        throw new Error('No top frame');
       }
       this.root = await AccessibilityTreeUtils.getRootNode(frameId);
       if (!this.root) {
-        throw Error('No root');
+        throw new Error('No root');
       }
     }
     await this.renderTree();
@@ -147,6 +149,9 @@ export class AccessibilityTreeView extends UI.Widget.VBox implements
   treeUpdated({data}: Common.EventTarget
                   .EventTargetEvent<SDK.AccessibilityModel.EventTypes[SDK.AccessibilityModel.Events.TREE_UPDATED]>):
       void {
+    if (!this.isShowing()) {
+      return;
+    }
     if (!data.root) {
       void this.renderTree();
       return;

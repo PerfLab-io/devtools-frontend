@@ -15,31 +15,31 @@ import {
 
 const UIStrings = {
   /**
-   *@description Mobile throttling is disabled. The user can select this option to run mobile
+   * @description Mobile throttling is disabled. The user can select this option to run mobile
    *emulation at a normal speed instead of throttled.
    */
   disabled: 'Disabled',
   /**
-   *@description Title for a group of pre-decided configuration options for mobile throttling. These
+   * @description Title for a group of pre-decided configuration options for mobile throttling. These
    *are useful default options that users might want.
    */
   presets: 'Presets',
   /**
-   *@description Title for a group of advanced configuration options for mobile throttling, which
+   * @description Title for a group of advanced configuration options for mobile throttling, which
    *might not be applicable to every user or situation.
    */
   advanced: 'Advanced',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/mobile_throttling/MobileThrottlingSelector.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export class MobileThrottlingSelector {
-  private readonly populateCallback: (arg0: Array<MobileThrottlingConditionsGroup>) => ConditionsList;
+  private readonly populateCallback: (arg0: MobileThrottlingConditionsGroup[]) => ConditionsList;
   private readonly selectCallback: (arg0: number) => void;
   private readonly options: ConditionsList;
 
   constructor(
-      populateCallback: (arg0: Array<MobileThrottlingConditionsGroup>) => ConditionsList,
+      populateCallback: (arg0: MobileThrottlingConditionsGroup[]) => ConditionsList,
       selectCallback: (arg0: number) => void) {
     this.populateCallback = populateCallback;
     this.selectCallback = selectCallback;

@@ -14,10 +14,10 @@ import {instance} from './ProfileTypeRegistry.js';
 
 const UIStrings = {
   /**
-   *@description A context menu item in the Heap Profiler Panel of a profiler tool
+   * @description A context menu item in the Heap Profiler Panel of a profiler tool
    */
   revealInSummaryView: 'Reveal in Summary view',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/profiler/HeapProfilerPanel.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 let heapProfilerPanelInstance: HeapProfilerPanel;

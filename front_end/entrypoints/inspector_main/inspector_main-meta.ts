@@ -104,7 +104,7 @@ const UIStrings = {
    * "forces CSS prefers-color-scheme" color
    */
   toggleCssPrefersColorSchemeMedia: 'Toggle CSS media feature prefers-color-scheme',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('entrypoints/inspector_main/inspector_main-meta.ts', UIStrings);
 const i18nLazyString = i18n.i18n.getLazilyComputedLocalizedString.bind(undefined, str_);
 
@@ -268,6 +268,6 @@ UI.Toolbar.registerToolbarItem({
     const InspectorMain = await loadInspectorMainModule();
     return InspectorMain.OutermostTargetSelector.OutermostTargetSelector.instance();
   },
-  order: 98,
+  order: 97,
   location: UI.Toolbar.ToolbarItemLocation.MAIN_TOOLBAR_RIGHT,
 });

@@ -34,6 +34,7 @@
  * http://ejohn.org/files/jsdiff.js (released under the MIT license).
  */
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck This file is not checked by TypeScript Compiler as it has a lot of legacy code.
 
 import * as Platform from '../platform/platform.js';
@@ -242,12 +243,9 @@ Event.prototype.consume = function(preventDefault?: boolean): void {
   this.handled = true;
 };
 
-Node.prototype.deepTextContent = function(): string {
-  return this.childTextNodes()
-      .map(function(node) {
-        return node.textContent;
-      })
-      .join('');
+Node.prototype.deepTextContent = function(normalizeWhitespace = false): string {
+  const text = this.childTextNodes().map(node => node.textContent).join('');
+  return normalizeWhitespace ? text.replace(/\s+/g, ' ') : text;
 };
 
 Node.prototype.childTextNodes = function(): Node[] {
@@ -261,6 +259,41 @@ Node.prototype.childTextNodes = function(): Node[] {
     node = node.traverseNextTextNode(this);
   }
   return result;
+};
+
+function innerTextDescendants(node: Node): Node[] {
+  if (![Node.ELEMENT_NODE, Node.TEXT_NODE].includes(node.nodeType) || ['SCRIPT', 'STYLE'].includes(node.nodeName)) {
+    return [];
+  }
+  if (!(node instanceof HTMLElement)) {
+    return [node];
+  }
+  if (node instanceof HTMLSlotElement) {
+    return [...node.assignedNodes()].flatMap(innerTextDescendants);
+  }
+  if (node.shadowRoot) {
+    return [...node.shadowRoot.childNodes].flatMap(innerTextDescendants);
+  }
+  const result: Node[] = [];
+  let expanded = false;
+  for (const child of node.childNodes) {
+    const childResult = innerTextDescendants(child);
+    if (childResult.length > 1 || childResult.length === 1 && childResult[0] !== child) {
+      expanded = true;
+    }
+    result.push(...childResult);
+  }
+  if (!expanded) {
+    return [node];
+  }
+  return result;
+}
+
+Node.prototype.deepInnerText = function(): string {
+  return innerTextDescendants(this)
+      .map(n => n instanceof HTMLElement ? n.innerText : n.textContent.trim())
+      .filter(Boolean)
+      .join('\n');
 };
 
 Node.prototype.isAncestor = function(node: Node|null): boolean {
@@ -290,7 +323,7 @@ Node.prototype.isSelfOrDescendant = function(node: Node|null): boolean {
   return Boolean(node) && (node === this || this.isDescendant(node));
 };
 
-Node.prototype.traverseNextNode = function(stayWithin?: Node, skipShadowRoot: boolean = false): Node|null {
+Node.prototype.traverseNextNode = function(stayWithin?: Node, skipShadowRoot = false): Node|null {
   if (!skipShadowRoot && this.shadowRoot) {
     return this.shadowRoot;
   }
@@ -340,7 +373,7 @@ Node.prototype.traversePreviousNode = function(stayWithin?: Node): Node|null {
     return null;
   }
   let node: ChildNode|(ChildNode | null) = this.previousSibling;
-  while (node && node.lastChild) {
+  while (node?.lastChild) {
     node = node.lastChild;
   }
   if (node) {
@@ -399,81 +432,3 @@ DOMTokenList.prototype['toggle'] = function(token: string, force: boolean|undefi
   return originalToggle.call(this, token, Boolean(force));
 };
 })();
-
-// DevTools uses multiple documents when the main window is undocked, and the
-// device mode toolbar is enabled. Since `CSSStyleSheet` objects cannot be
-// shared across multiple documents, we override the `adoptedStyleSheets`
-// accessor here, and clone the `CSSStyleSheet` objects under hood on-demand.
-//
-// NOTE: Since `adoptedStyleSheets` is an `ObservableArray`, which can be
-// mutated in place, we need to override both the setter and the getter, and
-// for the latter, we need to return a proxy that intercepts mutations to the
-// array-indexed properties.
-interface AdoptedStyleSheetsPropertyDescriptor {
-  get(this: DocumentOrShadowRoot): CSSStyleSheet[];
-  set(this: DocumentOrShadowRoot, styleSheets: CSSStyleSheet[]): boolean;
-}
-interface CSSStyleSheetConstructor {
-  new(options?: CSSStyleSheetInit): CSSStyleSheet;
-}
-const styleSheetWithConstructorMap = new WeakMap<CSSStyleSheet, WeakMap<CSSStyleSheetConstructor, CSSStyleSheet>>();
-
-/**
- * Returns the `styleSheet` as if it was created by the given `constructor`. If the `styleSheet`
- * is an instance of the given `constructor`, this is a no-op, otherwise a copy will be created
- * and the rules will be inserted manually (loosing source map information unfortunately).
- */
-function styleSheetWithConstructor(styleSheet: CSSStyleSheet, constructor: CSSStyleSheetConstructor): CSSStyleSheet {
-  let styleSheetCache = styleSheetWithConstructorMap.get(styleSheet);
-  if (styleSheetCache) {
-    const cachedSheet = styleSheetCache.get(constructor);
-    if (cachedSheet) {
-      return cachedSheet;
-    }
-  } else {
-    styleSheetCache = new WeakMap();
-    styleSheetWithConstructorMap.set(styleSheet, styleSheetCache);
-  }
-
-  if (styleSheet.constructor !== constructor) {
-    const clonedStyleSheet = new constructor();
-    for (const {cssText} of styleSheet.cssRules) {
-      clonedStyleSheet.insertRule(cssText);
-    }
-    styleSheet = clonedStyleSheet;
-  }
-  styleSheetCache.set(constructor, styleSheet);
-  return styleSheet;
-}
-
-for (const constructor of [Document, ShadowRoot]) {
-  const originalAdoptedStyleSheets = Object.getOwnPropertyDescriptor(constructor.prototype, 'adoptedStyleSheets') as
-      AdoptedStyleSheetsPropertyDescriptor;
-  Object.defineProperty(constructor.prototype, 'adoptedStyleSheets', {
-    configurable: true,
-    enumerable: true,
-    get(this: Document|ShadowRoot): CSSStyleSheet[] {
-      const target = originalAdoptedStyleSheets.get.call(this);
-      const {defaultView} = ('defaultView' in this) ? this : this.host.ownerDocument;
-      if (defaultView === null) {
-        throw new ReferenceError('Unable to determine `CSSStyleSheet` constructor');
-      }
-      return new Proxy(target, {
-        set(target, propertyKey, value, receiver) {
-          if (propertyKey === String(propertyKey >>> 0)) {
-            value = styleSheetWithConstructor(value, defaultView.CSSStyleSheet);
-          }
-          return Reflect.set(target, propertyKey, value, receiver);
-        },
-      });
-    },
-    set(this: Document|ShadowRoot, styleSheets: CSSStyleSheet[]) {
-      const {defaultView} = ('defaultView' in this) ? this : this.host.ownerDocument;
-      if (defaultView === null) {
-        throw new ReferenceError('Unable to determine `CSSStyleSheet` constructor');
-      }
-      originalAdoptedStyleSheets.set.call(
-          this, styleSheets.map(styleSheet => styleSheetWithConstructor(styleSheet, defaultView.CSSStyleSheet)));
-    }
-  });
-}

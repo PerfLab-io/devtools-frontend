@@ -1,6 +1,7 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
@@ -8,6 +9,7 @@ import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
 import type * as Protocol from '../../generated/protocol.js';
 import * as EmulationModel from '../../models/emulation/emulation.js';
+import * as Geometry from '../../models/geometry/geometry.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
@@ -17,7 +19,7 @@ import {MediaQueryInspector} from './MediaQueryInspector.js';
 
 const UIStrings = {
   /**
-   *@description Bottom resizer element title in Device Mode View of the Device Toolbar
+   * @description Bottom resizer element title in Device Mode View of the Device Toolbar
    */
   doubleclickForFullHeight: 'Double-click for full height',
   /**
@@ -50,7 +52,7 @@ const UIStrings = {
    * Translation of this phrase should be limited to 10 characters.
    */
   laptopL: 'Laptop L',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/emulation/DeviceModeView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -83,7 +85,7 @@ export class DeviceModeView extends UI.Widget.VBox {
     x: number,
     y: number,
   }|null;
-  private resizeStart?: UI.Geometry.Size;
+  private resizeStart?: Geometry.Size;
   private cachedCssScreenRect?: EmulationModel.DeviceModeModel.Rect;
   private cachedCssVisiblePageRect?: EmulationModel.DeviceModeModel.Rect;
   private cachedOutlineRect?: EmulationModel.DeviceModeModel.Rect;
@@ -94,7 +96,7 @@ export class DeviceModeView extends UI.Widget.VBox {
   private handleHeight?: number;
 
   constructor() {
-    super(true);
+    super({useShadowDom: true});
 
     this.blockElementToWidth = new WeakMap();
 
@@ -213,7 +215,7 @@ export class DeviceModeView extends UI.Widget.VBox {
   private onResizeStart(): void {
     this.slowPositionStart = null;
     const rect = this.model.screenRect();
-    this.resizeStart = new UI.Geometry.Size(rect.width, rect.height);
+    this.resizeStart = new Geometry.Size(rect.width, rect.height);
   }
 
   private onResizeUpdate(widthFactor: number, heightFactor: number, event: {
@@ -399,7 +401,7 @@ export class DeviceModeView extends UI.Widget.VBox {
     const zoomFactor = UI.ZoomManager.ZoomManager.instance().zoomFactor();
     const rect = element.getBoundingClientRect();
     const availableSize =
-        new UI.Geometry.Size(Math.max(rect.width * zoomFactor, 1), Math.max(rect.height * zoomFactor, 1));
+        new Geometry.Size(Math.max(rect.width * zoomFactor, 1), Math.max(rect.height * zoomFactor, 1));
     this.model.setAvailableSize(availableSize, availableSize);
   }
 
@@ -407,8 +409,8 @@ export class DeviceModeView extends UI.Widget.VBox {
     const zoomFactor = UI.ZoomManager.ZoomManager.instance().zoomFactor();
     const rect = this.contentArea.getBoundingClientRect();
     const availableSize =
-        new UI.Geometry.Size(Math.max(rect.width * zoomFactor, 1), Math.max(rect.height * zoomFactor, 1));
-    const preferredSize = new UI.Geometry.Size(
+        new Geometry.Size(Math.max(rect.width * zoomFactor, 1), Math.max(rect.height * zoomFactor, 1));
+    const preferredSize = new Geometry.Size(
         Math.max((rect.width - 2 * (this.handleWidth || 0)) * zoomFactor, 1),
         Math.max((rect.height - (this.handleHeight || 0)) * zoomFactor, 1));
     this.model.setAvailableSize(availableSize, preferredSize);
@@ -473,7 +475,7 @@ export class DeviceModeView extends UI.Widget.VBox {
       // Cap the height to not hit the GPU limit.
       // https://crbug.com/1260828
       canvas.height = Math.min((1 << 14), Math.floor(outlineRect.height));
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', {willReadFrequently: true});
       if (!ctx) {
         throw new Error('Could not get 2d context from canvas.');
       }
@@ -486,7 +488,7 @@ export class DeviceModeView extends UI.Widget.VBox {
         await this.paintImage(ctx, this.model.screenImage(), screenRect.relativeTo(outlineRect));
       }
       ctx.drawImage(pageImage, Math.floor(contentLeft), Math.floor(contentTop));
-      this.saveScreenshot((canvas as HTMLCanvasElement));
+      this.saveScreenshot((canvas));
     };
   }
 
@@ -515,13 +517,13 @@ export class DeviceModeView extends UI.Widget.VBox {
       // Cap the height to not hit the GPU limit.
       // https://crbug.com/1260828
       canvas.height = Math.min((1 << 14), Math.floor(pageImage.naturalHeight));
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', {willReadFrequently: true});
       if (!ctx) {
         throw new Error('Could not get 2d context for base64 screenshot.');
       }
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(pageImage, 0, 0);
-      this.saveScreenshot((canvas as HTMLCanvasElement));
+      this.saveScreenshot((canvas));
     };
   }
 
@@ -564,7 +566,7 @@ export class DeviceModeView extends UI.Widget.VBox {
 }
 
 export class Ruler extends UI.Widget.VBox {
-  private contentElementInternal: HTMLElement;
+  #contentElement: HTMLElement;
   private readonly horizontal: boolean;
   private scale: number;
   private count: number;
@@ -573,12 +575,10 @@ export class Ruler extends UI.Widget.VBox {
   private renderedScale!: number|undefined;
   private renderedZoomFactor!: number|undefined;
   constructor(horizontal: boolean, applyCallback: (arg0: number) => void) {
-    super();
+    super({jslog: `${VisualLogging.deviceModeRuler().track({click: true})}`});
     this.element.classList.add('device-mode-ruler');
-    this.element.setAttribute('jslog', `${VisualLogging.deviceModeRuler().track({click: true})}`);
-    this.contentElementInternal =
-        this.element.createChild('div', 'device-mode-ruler-content').createChild('div', 'device-mode-ruler-inner') as
-        HTMLDivElement;
+    this.#contentElement =
+        this.element.createChild('div', 'device-mode-ruler-content').createChild('div', 'device-mode-ruler-inner');
     this.horizontal = horizontal;
     this.scale = 1;
     this.count = 0;
@@ -597,10 +597,10 @@ export class Ruler extends UI.Widget.VBox {
 
   update(): void {
     const zoomFactor = UI.ZoomManager.ZoomManager.instance().zoomFactor();
-    const size = this.horizontal ? this.contentElementInternal.offsetWidth : this.contentElementInternal.offsetHeight;
+    const size = this.horizontal ? this.#contentElement.offsetWidth : this.#contentElement.offsetHeight;
 
     if (this.scale !== this.renderedScale || zoomFactor !== this.renderedZoomFactor) {
-      this.contentElementInternal.removeChildren();
+      this.#contentElement.removeChildren();
       this.count = 0;
       this.renderedScale = this.scale;
       this.renderedZoomFactor = zoomFactor;
@@ -627,7 +627,7 @@ export class Ruler extends UI.Widget.VBox {
 
     for (let i = count; i < this.count; i++) {
       if (!(i % step)) {
-        const lastChild = this.contentElementInternal.lastChild;
+        const lastChild = this.#contentElement.lastChild;
         if (lastChild) {
           lastChild.remove();
         }
@@ -638,7 +638,7 @@ export class Ruler extends UI.Widget.VBox {
       if (i % step) {
         continue;
       }
-      const marker = this.contentElementInternal.createChild('div', 'device-mode-ruler-marker');
+      const marker = this.#contentElement.createChild('div', 'device-mode-ruler-marker');
       if (i) {
         if (this.horizontal) {
           marker.style.left = (5 * i) * this.scale / zoomFactor + 'px';

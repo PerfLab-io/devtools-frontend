@@ -14,7 +14,7 @@ import {
   addDecorationToEvent,
   buildGroupStyle,
   buildTrackHeader,
-  getFormattedTime,
+  getDurationString,
 } from './AppenderUtils.js';
 import {
   type CompatibilityTracksAppender,
@@ -36,7 +36,7 @@ const UIStrings = {
   onIgnoreList: 'On ignore list ({rule})',
   /**
    * @description Refers to the "Main frame", meaning the top level frame. See https://www.w3.org/TR/html401/present/frames.html
-   * @example{example.com} PH1
+   * @example {example.com} PH1
    */
   mainS: 'Main — {PH1}',
   /**
@@ -49,87 +49,87 @@ const UIStrings = {
    */
   frameS: 'Frame — {PH1}',
   /**
-   *@description A web worker in the page. See https://developer.mozilla.org/en-US/docs/Web/API/Worker
-   *@example {https://google.com} PH1
+   * @description A web worker in the page. See https://developer.mozilla.org/en-US/docs/Web/API/Worker
+   * @example {https://google.com} PH1
    */
   workerS: '`Worker` — {PH1}',
   /**
-   *@description A web worker in the page. See https://developer.mozilla.org/en-US/docs/Web/API/Worker
-   *@example {FormatterWorker} PH1
-   *@example {https://google.com} PH2
+   * @description A web worker in the page. See https://developer.mozilla.org/en-US/docs/Web/API/Worker
+   * @example {FormatterWorker} PH1
+   * @example {https://google.com} PH2
    */
   workerSS: '`Worker`: {PH1} — {PH2}',
   /**
-   *@description Label for a web worker exclusively allocated for a purpose.
+   * @description Label for a web worker exclusively allocated for a purpose.
    */
   dedicatedWorker: 'Dedicated `Worker`',
   /**
-   *@description A generic name given for a thread running in the browser (sequence of programmed instructions).
+   * @description A generic name given for a thread running in the browser (sequence of programmed instructions).
    * The placeholder is an enumeration given to the thread.
-   *@example {1} PH1
+   * @example {1} PH1
    */
   threadS: 'Thread {PH1}',
   /**
-   *@description Rasterization in computer graphics.
+   * @description Rasterization in computer graphics.
    */
   raster: 'Raster',
   /**
-   *@description Threads used for background tasks.
+   * @description Threads used for background tasks.
    */
   threadPool: 'Thread pool',
   /**
-   *@description Name for a thread that rasterizes graphics in a website.
-   *@example {2} PH1
+   * @description Name for a thread that rasterizes graphics in a website.
+   * @example {2} PH1
    */
   rasterizerThreadS: 'Rasterizer thread {PH1}',
   /**
-   *@description Text in Timeline Flame Chart Data Provider of the Performance panel
-   *@example {2} PH1
+   * @description Text in Timeline Flame Chart Data Provider of the Performance panel
+   * @example {2} PH1
    */
   threadPoolThreadS: 'Thread pool worker {PH1}',
   /**
-   *@description Title of a bidder auction worklet with known URL in the timeline flame chart of the Performance panel
-   *@example {https://google.com} PH1
+   * @description Title of a bidder auction worklet with known URL in the timeline flame chart of the Performance panel
+   * @example {https://google.com} PH1
    */
   bidderWorkletS: 'Bidder Worklet — {PH1}',
   /**
-   *@description Title of a bidder auction worklet in the timeline flame chart of the Performance panel with an unknown URL
+   * @description Title of a bidder auction worklet in the timeline flame chart of the Performance panel with an unknown URL
    */
   bidderWorklet: 'Bidder Worklet',
 
   /**
-   *@description Title of a seller auction worklet in the timeline flame chart of the Performance panel with an unknown URL
+   * @description Title of a seller auction worklet in the timeline flame chart of the Performance panel with an unknown URL
    */
   sellerWorklet: 'Seller Worklet',
 
   /**
-   *@description Title of an auction worklet in the timeline flame chart of the Performance panel with an unknown URL
+   * @description Title of an auction worklet in the timeline flame chart of the Performance panel with an unknown URL
    */
   unknownWorklet: 'Auction Worklet',
 
   /**
-   *@description Title of control thread of a service process for an auction worklet in the timeline flame chart of the Performance panel with an unknown URL
+   * @description Title of control thread of a service process for an auction worklet in the timeline flame chart of the Performance panel with an unknown URL
    */
   workletService: 'Auction Worklet service',
 
   /**
-   *@description Title of a seller auction worklet with known URL in the timeline flame chart of the Performance panel
-   *@example {https://google.com} PH1
+   * @description Title of a seller auction worklet with known URL in the timeline flame chart of the Performance panel
+   * @example {https://google.com} PH1
    */
   sellerWorkletS: 'Seller Worklet — {PH1}',
 
   /**
-   *@description Title of an auction worklet with known URL in the timeline flame chart of the Performance panel
-   *@example {https://google.com} PH1
+   * @description Title of an auction worklet with known URL in the timeline flame chart of the Performance panel
+   * @example {https://google.com} PH1
    */
   unknownWorkletS: 'Auction Worklet — {PH1}',
 
   /**
-   *@description Title of control thread of a service process for an auction worklet with known URL in the timeline flame chart of the Performance panel
+   * @description Title of control thread of a service process for an auction worklet with known URL in the timeline flame chart of the Performance panel
    * @example {https://google.com} PH1
    */
   workletServiceS: 'Auction Worklet service — {PH1}',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/ThreadAppender.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -152,11 +152,11 @@ export class ThreadAppender implements TrackAppender {
   #threadId: Trace.Types.Events.ThreadID;
   #threadDefaultName: string;
   #expanded = false;
-  #headerAppended: boolean = false;
+  #headerAppended = false;
   readonly threadType: Trace.Handlers.Threads.ThreadType = Trace.Handlers.Threads.ThreadType.MAIN_THREAD;
   readonly isOnMainFrame: boolean;
   #showAllEventsEnabled = Root.Runtime.experiments.isEnabled('timeline-show-all-events');
-  #url: string = '';
+  #url = '';
   #headerNestingLevel: number|null = null;
   constructor(
       compatibilityBuilder: CompatibilityTracksAppender, parsedTrace: Trace.Handlers.Types.ParsedTrace,
@@ -208,11 +208,11 @@ export class ThreadAppender implements TrackAppender {
    * this thread.
    * @param trackStartLevel the horizontal level of the flame chart events where
    * the track's events will start being appended.
-   * @param expanded wether the track should be rendered expanded.
+   * @param expanded whether the track should be rendered expanded.
    * @returns the first available level to append more data after having
    * appended the track's events.
    */
-  appendTrackAtLevel(trackStartLevel: number, expanded: boolean = false): number {
+  appendTrackAtLevel(trackStartLevel: number, expanded = false): number {
     if (this.#entries.length === 0) {
       return trackStartLevel;
     }
@@ -460,7 +460,7 @@ export class ThreadAppender implements TrackAppender {
    */
   #appendNodesAtLevel(
       nodes: Iterable<Trace.Helpers.TreeHelpers.TraceEntryNode>, startingLevel: number,
-      parentIsIgnoredListed: boolean = false): number {
+      parentIsIgnoredListed = false): number {
     const invisibleEntries =
         ModificationsManager.ModificationsManager.activeManager()?.getEntriesFilter().invisibleEntries() ?? [];
     let maxDepthInTree = startingLevel;
@@ -486,9 +486,9 @@ export class ThreadAppender implements TrackAppender {
       //    URLs).
       // This means that all of the ignore listed calls are ignored (not
       // appended), except if it is the bottom call of an ignored stack.
-      // This is becaue to represent ignore listed stack frames, we add
+      // This is because to represent ignore listed stack frames, we add
       // a flame chart entry with the length and position of the bottom
-      // frame, which is distictively marked to denote an ignored listed
+      // frame, which is distinctively marked to denote an ignored listed
       // stack.
       const skipEventDueToIgnoreListing = entryIsIgnoreListed && parentIsIgnoredListed;
       if (entryIsVisible && !skipEventDueToIgnoreListing) {
@@ -547,6 +547,9 @@ export class ThreadAppender implements TrackAppender {
       if (event.callFrame.functionName === '(idle)') {
         return Utils.EntryStyles.getCategoryStyles().idle.getComputedColorValue();
       }
+      if (event.callFrame.functionName === '(program)') {
+        return Utils.EntryStyles.getCategoryStyles().other.getComputedColorValue();
+      }
       if (event.callFrame.scriptId === '0') {
         // If we can not match this frame to a script, return the
         // generic "scripting" color.
@@ -574,13 +577,13 @@ export class ThreadAppender implements TrackAppender {
   setPopoverInfo(event: Trace.Types.Events.Event, info: PopoverInfo): void {
     if (Trace.Types.Events.isParseHTML(event)) {
       const startLine = event.args['beginData']['startLine'];
-      const endLine = event.args['endData'] && event.args['endData']['endLine'];
+      const endLine = event.args['endData']?.['endLine'];
       const eventURL = event.args['beginData']['url'] as Platform.DevToolsPath.UrlString;
       const url = Bindings.ResourceUtils.displayNameForURL(eventURL);
       const range = (endLine !== -1 || endLine === startLine) ? `${startLine}...${endLine}` : startLine;
       info.title += ` - ${url} [${range}]`;
     }
     const selfTime = this.#parsedTrace.Renderer.entryToNode.get(event)?.selfTime;
-    info.formattedTime = getFormattedTime(event.dur, selfTime);
+    info.formattedTime = getDurationString(event.dur, selfTime);
   }
 }

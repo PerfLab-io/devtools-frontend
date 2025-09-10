@@ -12,69 +12,67 @@ import type {LoadNetworkResourceResult} from './InspectorFrontendHostAPI.js';
 
 const UIStrings = {
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   systemError: 'System error',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   connectionError: 'Connection error',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   certificateError: 'Certificate error',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   httpError: 'HTTP error',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   cacheError: 'Cache error',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   signedExchangeError: 'Signed Exchange error',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   ftpError: 'FTP error',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   certificateManagerError: 'Certificate manager error',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   dnsResolverError: 'DNS resolver error',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   unknownError: 'Unknown error',
   /**
-   *@description Phrase used in error messages that carry a network error name
-   *@example {404} PH1
-   *@example {net::ERR_INSUFFICIENT_RESOURCES} PH2
+   * @description Phrase used in error messages that carry a network error name
+   * @example {404} PH1
+   * @example {net::ERR_INSUFFICIENT_RESOURCES} PH2
    */
   httpErrorStatusCodeSS: 'HTTP error: status code {PH1}, {PH2}',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   invalidUrl: 'Invalid URL',
   /**
-   *@description Name of an error category used in error messages
+   * @description Name of an error category used in error messages
    */
   decodingDataUrlFailed: 'Decoding Data URL failed',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('core/host/ResourceLoader.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export const ResourceLoader = {};
 
 let _lastStreamId = 0;
 
-const _boundStreams: {
-  [x: number]: Common.StringOutputStream.OutputStream,
-} = {};
+const _boundStreams: Record<number, Common.StringOutputStream.OutputStream> = {};
 
 export const bindOutputStream = function(stream: Common.StringOutputStream.OutputStream): number {
   _boundStreams[++_lastStreamId] = stream;
@@ -98,23 +96,22 @@ export interface LoadErrorDescription {
 }
 
 export const load = function(
-    url: string, headers: {
-      [x: string]: string,
-    }|null,
+    url: string, headers: Record<string, string>|null,
     callback: (
-        arg0: boolean, arg1: {
-          [x: string]: string,
-        },
-        arg2: string, arg3: LoadErrorDescription) => void,
+        arg0: boolean,
+        arg1: Record<string, string>,
+        arg2: string,
+        arg3: LoadErrorDescription,
+        ) => void,
     allowRemoteFilePaths: boolean): void {
   const stream = new Common.StringOutputStream.StringOutputStream();
   loadAsStream(url, headers, stream, mycallback, allowRemoteFilePaths);
 
   function mycallback(
-      success: boolean, headers: {
-        [x: string]: string,
-      },
-      errorDescription: LoadErrorDescription): void {
+      success: boolean,
+      headers: Record<string, string>,
+      errorDescription: LoadErrorDescription,
+      ): void {
     callback(success, headers, stream.data(), errorDescription);
   }
 };
@@ -231,16 +228,12 @@ function canBeRemoteFilePath(url: string): boolean {
 }
 
 export const loadAsStream = function(
-    url: string, headers: {
-      [x: string]: string,
-    }|null,
+    url: string,
+    headers: Record<string, string>|null,
     stream: Common.StringOutputStream.OutputStream,
-    callback?:
-        ((arg0: boolean, arg1: {
-           [x: string]: string,
-         },
-          arg2: LoadErrorDescription) => void),
-    allowRemoteFilePaths?: boolean): void {
+    callback?: ((arg0: boolean, arg1: Record<string, string>, arg2: LoadErrorDescription) => void),
+    allowRemoteFilePaths?: boolean,
+    ): void {
   const streamId = bindOutputStream(stream);
   const parsedURL = new Common.ParsedURL.ParsedURL(url);
   if (parsedURL.isDataURL()) {
@@ -279,11 +272,11 @@ export const loadAsStream = function(
 
   function dataURLDecodeSuccessful(text: string): void {
     streamWrite(streamId, text);
-    finishedCallback(({statusCode: 200} as LoadNetworkResourceResult));
+    finishedCallback(({statusCode: 200}));
   }
 
   function dataURLDecodeFailed(_xhrStatus: Error): void {
     const messageOverride: string = i18nString(UIStrings.decodingDataUrlFailed);
-    finishedCallback(({statusCode: 404, messageOverride} as LoadNetworkResourceResult));
+    finishedCallback(({statusCode: 404, messageOverride}));
   }
 };

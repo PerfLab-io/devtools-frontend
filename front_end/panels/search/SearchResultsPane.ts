@@ -1,6 +1,7 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -15,21 +16,21 @@ import type {SearchResult} from './SearchScope.js';
 
 const UIStrings = {
   /**
-   *@description Accessibility label for number of matches in each file in search results pane
-   *@example {2} PH1
+   * @description Accessibility label for number of matches in each file in search results pane
+   * @example {2} PH1
    */
   matchesCountS: 'Matches Count {PH1}',
   /**
-   *@description Search result label for results in the Search tool
-   *@example {2} PH1
+   * @description Search result label for results in the Search tool
+   * @example {2} PH1
    */
   lineS: 'Line {PH1}',
   /**
-   *@description Text in Search Results Pane of the Search tab
-   *@example {2} PH1
+   * @description Text in Search Results Pane of the Search tab
+   * @example {2} PH1
    */
   showDMore: 'Show {PH1} more',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/search/SearchResultsPane.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -41,14 +42,14 @@ export class SearchResultsPane extends UI.Widget.VBox {
   private matchesExpandedCount: number;
 
   constructor(searchConfig: Workspace.SearchConfig.SearchConfig) {
-    super(true);
+    super({useShadowDom: true});
     this.searchConfig = searchConfig;
 
     this.searchResults = [];
     this.treeElements = [];
     this.treeOutline = new UI.TreeOutline.TreeOutlineInShadow();
     this.treeOutline.registerRequiredCSS(searchResultsPaneStyles);
-    this.treeOutline.hideOverflow();
+    this.treeOutline.setHideOverflow(true);
 
     this.contentElement.appendChild(this.treeOutline.element);
 

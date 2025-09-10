@@ -7,7 +7,6 @@ import './NodeLink.js';
 import type {ViewportInsightModel} from '../../../../models/trace/insights/Viewport.js';
 import type * as Trace from '../../../../models/trace/trace.js';
 import * as Lit from '../../../../ui/lit/lit.js';
-import type * as Overlays from '../../overlays/overlays.js';
 
 import {BaseInsightComponent} from './BaseInsightComponent.js';
 
@@ -15,11 +14,10 @@ const {html} = Lit;
 
 export class Viewport extends BaseInsightComponent<ViewportInsightModel> {
   static override readonly litTagName = Lit.StaticHtml.literal`devtools-performance-viewport`;
-  override internalName: string = 'viewport';
+  override internalName = 'viewport';
 
-  override createOverlays(): Overlays.Overlays.TimelineOverlay[] {
-    // TODO(b/351757418): create overlay for synthetic input delay events
-    return [];
+  protected override hasAskAiSupport(): boolean {
+    return true;
   }
 
   override getEstimatedSavingsTime(): Trace.Types.Timing.Milli|null {

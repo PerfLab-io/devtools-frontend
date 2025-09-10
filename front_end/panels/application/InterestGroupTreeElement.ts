@@ -15,13 +15,13 @@ import type {ResourcesPanel} from './ResourcesPanel.js';
 
 const UIStrings = {
   /**
-   *@description Label for an item in the Application Panel Sidebar of the Application panel
+   * @description Label for an item in the Application Panel Sidebar of the Application panel
    * An interest group is an ad targeting group stored on the browser that can
    * be used to show a certain set of advertisements in the future as the
    * outcome of a FLEDGE auction. (https://developer.chrome.com/blog/fledge-api/)
    */
   interestGroups: 'Interest groups',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/application/InterestGroupTreeElement.ts', UIStrings);
 export const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 

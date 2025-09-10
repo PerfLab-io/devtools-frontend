@@ -39,11 +39,8 @@ export function stackTraceInEvent(event: Types.Events.Event): Types.Events.CallF
   if (Types.Events.isUpdateLayoutTree(event)) {
     return event.args.beginData?.stackTrace || null;
   }
-  if (Types.Extensions.isSyntheticExtensionEntry(event)) {
-    return stackTraceInEvent(event.rawSourceEvent);
-  }
-  if (Types.Events.isSyntheticUserTiming(event)) {
-    return stackTraceInEvent(event.rawSourceEvent);
+  if (Types.Events.isLayout(event)) {
+    return event.args.beginData.stackTrace ?? null;
   }
   if (Types.Events.isFunctionCall(event)) {
     const data = event.args.data;
@@ -109,27 +106,44 @@ export function addEventToProcessThread<T extends Types.Events.Event>(
   eventsInProcessThread.set(event.pid, eventsInThread);
 }
 
-export interface TimeSpan {
-  ts: Types.Timing.Micro;
-  dur?: Types.Timing.Micro;
-}
-export function eventTimeComparator(a: TimeSpan, b: TimeSpan): -1|0|1 {
-  const aBeginTime = a.ts;
-  const bBeginTime = b.ts;
+export function compareBeginAndEnd(aBeginTime: number, bBeginTime: number, aEndTime: number, bEndTime: number): -1|0|1 {
   if (aBeginTime < bBeginTime) {
     return -1;
   }
   if (aBeginTime > bBeginTime) {
     return 1;
   }
-  const aDuration = a.dur ?? 0;
-  const bDuration = b.dur ?? 0;
-  const aEndTime = aBeginTime + aDuration;
-  const bEndTime = bBeginTime + bDuration;
+
   if (aEndTime > bEndTime) {
     return -1;
   }
   if (aEndTime < bEndTime) {
+    return 1;
+  }
+
+  return 0;
+}
+
+export function eventTimeComparator(a: Types.Events.Event, b: Types.Events.Event): -1|0|1 {
+  const aBeginTime = a.ts;
+  const bBeginTime = b.ts;
+  const aDuration = a.dur ?? 0;
+  const bDuration = b.dur ?? 0;
+  const aEndTime = aBeginTime + aDuration;
+  const bEndTime = bBeginTime + bDuration;
+  const timeDifference = compareBeginAndEnd(aBeginTime, bBeginTime, aEndTime, bEndTime);
+  if (timeDifference) {
+    return timeDifference;
+  }
+
+  // If times are equal, prioritize profile calls over trace events,
+  // since an exactly equal timestamp with a trace event is likely
+  // indicates that the SamplesIntegrator meant to parent the trace
+  // event with the profile call.
+  if (Types.Events.isProfileCall(a) && !Types.Events.isProfileCall(b)) {
+    return -1;
+  }
+  if (Types.Events.isProfileCall(b) && !Types.Events.isProfileCall(a)) {
     return 1;
   }
   return 0;
@@ -138,7 +152,7 @@ export function eventTimeComparator(a: TimeSpan, b: TimeSpan): -1|0|1 {
  * Sorts all the events in place, in order, by their start time. If they have
  * the same start time, orders them by longest first.
  */
-export function sortTraceEventsInPlace(events: {ts: Types.Timing.Micro, dur?: Types.Timing.Micro}[]): void {
+export function sortTraceEventsInPlace(events: Types.Events.Event[]): void {
   events.sort(eventTimeComparator);
 }
 
@@ -147,7 +161,7 @@ export function sortTraceEventsInPlace(events: {ts: Types.Timing.Micro, dur?: Ty
  * ordered input arrays.
  */
 export function mergeEventsInOrder<T1 extends Types.Events.Event, T2 extends Types.Events.Event>(
-    eventsArray1: readonly T1[], eventsArray2: readonly T2[]): (T1|T2)[] {
+    eventsArray1: readonly T1[], eventsArray2: readonly T2[]): Array<T1|T2> {
   const result = [];
   let i = 0;
   let j = 0;
@@ -173,6 +187,30 @@ export function mergeEventsInOrder<T1 extends Types.Events.Event, T2 extends Typ
   return result;
 }
 
+export function parseDevtoolsDetails(timingDetail: string, key: string): Types.Extensions.DevToolsObj|
+    Types.Extensions.ExtensionTrackEntryPayloadDeeplink|null {
+  try {
+    // Attempt to parse the detail as an object that might be coming from a
+    // DevTools Perf extension.
+    // Wrapped in a try-catch because timingDetail might either:
+    // 1. Not be `json.parse`-able (it should, but just in case...)
+    // 2. Not be an object - in which case the `in` check will error.
+    // If we hit either of these cases, we just ignore this mark and move on.
+    const detailObj = JSON.parse(timingDetail);
+    if (!(key in detailObj)) {
+      return null;
+    }
+    if (!Types.Extensions.isValidExtensionPayload(detailObj[key])) {
+      return null;
+    }
+    return detailObj[key];
+  } catch {
+    // No need to worry about this error, just discard this event and don't
+    // treat it as having any useful information for the purposes of extensions.
+    return null;
+  }
+}
+
 export function getNavigationForTraceEvent(
     event: Types.Events.Event,
     eventFrameId: string,
@@ -195,16 +233,16 @@ export function getNavigationForTraceEvent(
   return navigations[eventNavigationIndex];
 }
 
-export function extractId(event: Types.Events.PairableAsync|
-                          Types.Events.SyntheticEventPair<Types.Events.PairableAsync>): string|undefined {
+export function extractId(
+    event: Types.Events.PairableAsync|Types.Events.SyntheticEventPair<Types.Events.PairableAsync>): string|undefined {
   return event.id ?? event.id2?.global ?? event.id2?.local;
 }
 
 export function activeURLForFrameAtTime(
     frameId: string, time: Types.Timing.Micro,
-    rendererProcessesByFrame:
-        Map<string,
-            Map<Types.Events.ProcessID, {frame: Types.Events.TraceFrame, window: Types.Timing.TraceWindowMicro}[]>>):
+    rendererProcessesByFrame: Map<
+        string,
+        Map<Types.Events.ProcessID, Array<{frame: Types.Events.TraceFrame, window: Types.Timing.TraceWindowMicro}>>>):
     string|null {
   const processData = rendererProcessesByFrame.get(frameId);
   if (!processData) {
@@ -256,11 +294,11 @@ export function makeProfileCall(
  * if provided, though currently only coming from Animations. Traces may contain multiple instant events so we need to
  * account for that.
  *
- * @returns {Map<string, MatchingPairableAsyncEvents>} Map of the animation's ID to it's matching events.
+ * @returns Map of the animation's ID to it's matching events.
  */
 export function matchEvents(unpairedEvents: Types.Events.PairableAsync[]): Map<string, MatchingPairableAsyncEvents> {
   // map to store begin and end of the event
-  const matchedPairs: Map<string, MatchingPairableAsyncEvents> = new Map();
+  const matchedPairs = new Map<string, MatchingPairableAsyncEvents>();
 
   // looking for start and end
   for (const event of unpairedEvents) {
@@ -313,11 +351,12 @@ export function createSortedSyntheticEvents<T extends Types.Events.PairableAsync
       instant?: Types.Events.PairableAsyncInstant[],
     }>,
     syntheticEventCallback?: (syntheticEvent: Types.Events.SyntheticEventPair<T>) => void,
-    ): Types.Events.SyntheticEventPair<T>[] {
+    ): Array<Types.Events.SyntheticEventPair<T>> {
   const syntheticEvents: Types.Events.SyntheticEventPair<T>[] = [];
   let currentAnimationFrame: Types.Events.SyntheticEventPair<T> & {
     phases?: Array<Types.Events.SyntheticEventPair<T>>,
   } = {} as Types.Events.SyntheticEventPair<T>;
+  const syntheticEvents: Array<Types.Events.SyntheticEventPair<T>> = [];
   for (const [id, eventsTriplet] of matchedPairs.entries()) {
     const beginEvent = eventsTriplet.begin;
     const endEvent = eventsTriplet.end;
@@ -399,7 +438,7 @@ export function createSortedSyntheticEvents<T extends Types.Events.PairableAsync
 
 export function createMatchedSortedSyntheticEvents<T extends Types.Events.PairableAsync>(
     unpairedAsyncEvents: T[], syntheticEventCallback?: (syntheticEvent: Types.Events.SyntheticEventPair<T>) => void):
-    Types.Events.SyntheticEventPair<T>[] {
+    Array<Types.Events.SyntheticEventPair<T>> {
   const matchedPairs = matchEvents(unpairedAsyncEvents);
   const syntheticEvents = createSortedSyntheticEvents<T>(matchedPairs, syntheticEventCallback);
   return syntheticEvents;
@@ -434,6 +473,13 @@ export function getZeroIndexedLineAndColumnForEvent(event: Types.Events.Event): 
         columnNumber: typeof columnNumber === 'number' ? columnNumber - 1 : undefined,
       };
     }
+    case Types.Events.Name.PROFILE_CALL: {
+      const callFrame = (event as Types.Events.SyntheticProfileCall).callFrame;
+      return {
+        lineNumber: typeof lineNumber === 'number' ? callFrame.lineNumber - 1 : undefined,
+        columnNumber: typeof columnNumber === 'number' ? callFrame.columnNumber - 1 : undefined,
+      };
+    }
     default: {
       return numbers;
     }
@@ -451,7 +497,7 @@ export function getZeroIndexedLineAndColumnForEvent(event: Types.Events.Event): 
  * stack. If you want to obtain the whole stack trace you might need to
  * use the @see Trace.Extras.StackTraceForEvent util.
  */
-export function getZeroIndexedStackTraceForEvent(event: Types.Events.Event): Types.Events.CallFrame[]|null {
+export function getZeroIndexedStackTraceInEventPayload(event: Types.Events.Event): Types.Events.CallFrame[]|null {
   const stack = stackTraceInEvent(event);
   if (!stack) {
     return null;
@@ -461,6 +507,7 @@ export function getZeroIndexedStackTraceForEvent(event: Types.Events.Event): Typ
       case Types.Events.Name.SCHEDULE_STYLE_RECALCULATION:
       case Types.Events.Name.INVALIDATE_LAYOUT:
       case Types.Events.Name.FUNCTION_CALL:
+      case Types.Events.Name.LAYOUT:
       case Types.Events.Name.UPDATE_LAYOUT_TREE: {
         return makeZeroBasedCallFrame(callFrame);
       }
@@ -539,14 +586,11 @@ export function frameIDForEvent(event: Types.Events.Event): string|null {
 
 const DevToolsTimelineEventCategory = 'disabled-by-default-devtools.timeline';
 export function isTopLevelEvent(event: Types.Events.Event): boolean {
-  if (event.name === 'JSRoot' && event.cat === 'toplevel') {
-    // This is used in TimelineJSProfile to insert a fake event prior to the
-    // CPU Profile in order to ensure the trace isn't truncated. So if we see
-    // this, we want to treat it as a top level event.
-    // TODO(crbug.com/341234884): do we need this?
-    return true;
-  }
   return event.cat.includes(DevToolsTimelineEventCategory) && event.name === Types.Events.Name.RUN_TASK;
+}
+
+export function isExtensionUrl(url: string): boolean {
+  return url.startsWith('extensions:') || url.startsWith('chrome-extension:');
 }
 
 function topLevelEventIndexEndingAfter(events: Types.Events.Event[], time: Types.Timing.Micro): number {
@@ -625,7 +669,7 @@ export interface ForEachEventConfig {
  * 9. End A
  *
  * By default, async events are skipped. This behaviour can be
- * overriden making use of the config.ignoreAsyncEvents parameter.
+ * overridden making use of the config.ignoreAsyncEvents parameter.
  */
 export function forEachEvent(
     events: Types.Events.Event[],
@@ -699,11 +743,6 @@ export function eventHasCategory(event: Types.Events.Event, category: string): b
   return parsedCategoriesForEvent.has(category);
 }
 
-export function nodeIdForInvalidationEvent(event: Types.Events.InvalidationTrackingEvent): Protocol.DOM.BackendNodeId|
-    null {
-  return event.args.data.nodeId ?? null;
-}
-
 /**
  * This compares Types.Events.CallFrame with Protocol.Runtime.CallFrame and checks for equality.
  */
@@ -717,3 +756,115 @@ export function isMatchingCallFrame(
 export function eventContainsTimestamp(event: Types.Events.Event, ts: Types.Timing.Micro): boolean {
   return event.ts <= ts && event.ts + (event.dur || 0) >= ts;
 }
+
+export function extractSampleTraceId(event: Types.Events.Event): number|null {
+  if (!event.args) {
+    return null;
+  }
+  if ('beginData' in event.args) {
+    const beginData = event.args['beginData'] as {sampleTraceId?: number};
+    return beginData.sampleTraceId ?? null;
+  }
+  return event.args?.sampleTraceId ?? event.args?.data?.sampleTraceId ?? null;
+}
+
+// This exactly matches EntryStyles.visibleTypes. See the runtime verification in maybeInitSylesMap.
+// TODO(crbug.com/410884528)
+export const VISIBLE_TRACE_EVENT_TYPES = new Set<Types.Events.Name>([
+  Types.Events.Name.ABORT_POST_TASK_CALLBACK,
+  Types.Events.Name.ANIMATION,
+  Types.Events.Name.ASYNC_TASK,
+  Types.Events.Name.BACKGROUND_DESERIALIZE,
+  Types.Events.Name.CACHE_MODULE,
+  Types.Events.Name.CACHE_SCRIPT,
+  Types.Events.Name.CANCEL_ANIMATION_FRAME,
+  Types.Events.Name.CANCEL_IDLE_CALLBACK,
+  Types.Events.Name.COMMIT,
+  Types.Events.Name.COMPILE_CODE,
+  Types.Events.Name.COMPILE_MODULE,
+  Types.Events.Name.COMPILE,
+  Types.Events.Name.COMPOSITE_LAYERS,
+  Types.Events.Name.COMPUTE_INTERSECTION,
+  Types.Events.Name.CONSOLE_TIME,
+  Types.Events.Name.CPPGC_SWEEP,
+  Types.Events.Name.CRYPTO_DO_DECRYPT_REPLY,
+  Types.Events.Name.CRYPTO_DO_DECRYPT,
+  Types.Events.Name.CRYPTO_DO_DIGEST_REPLY,
+  Types.Events.Name.CRYPTO_DO_DIGEST,
+  Types.Events.Name.CRYPTO_DO_ENCRYPT_REPLY,
+  Types.Events.Name.CRYPTO_DO_ENCRYPT,
+  Types.Events.Name.CRYPTO_DO_SIGN_REPLY,
+  Types.Events.Name.CRYPTO_DO_SIGN,
+  Types.Events.Name.CRYPTO_DO_VERIFY_REPLY,
+  Types.Events.Name.CRYPTO_DO_VERIFY,
+  Types.Events.Name.DECODE_IMAGE,
+  Types.Events.Name.EMBEDDER_CALLBACK,
+  Types.Events.Name.EVALUATE_MODULE,
+  Types.Events.Name.EVALUATE_SCRIPT,
+  Types.Events.Name.EVENT_DISPATCH,
+  Types.Events.Name.EVENT_TIMING,
+  Types.Events.Name.FINALIZE_DESERIALIZATION,
+  Types.Events.Name.FIRE_ANIMATION_FRAME,
+  Types.Events.Name.FIRE_IDLE_CALLBACK,
+  Types.Events.Name.FUNCTION_CALL,
+  Types.Events.Name.GC_COLLECT_GARBARGE,
+  Types.Events.Name.GC,
+  Types.Events.Name.GPU_TASK,
+  Types.Events.Name.HANDLE_POST_MESSAGE,
+  Types.Events.Name.HIT_TEST,
+  Types.Events.Name.JS_SAMPLE,
+  Types.Events.Name.LAYERIZE,
+  Types.Events.Name.LAYOUT,
+  Types.Events.Name.MAJOR_GC,
+  Types.Events.Name.MINOR_GC,
+  Types.Events.Name.OPTIMIZE_CODE,
+  Types.Events.Name.PAINT_SETUP,
+  Types.Events.Name.PAINT,
+  Types.Events.Name.PARSE_AUTHOR_STYLE_SHEET,
+  Types.Events.Name.PARSE_HTML,
+  Types.Events.Name.PRE_PAINT,
+  Types.Events.Name.PROFILE_CALL,
+  Types.Events.Name.PROGRAM,
+  Types.Events.Name.RASTER_TASK,
+  Types.Events.Name.REQUEST_ANIMATION_FRAME,
+  Types.Events.Name.REQUEST_IDLE_CALLBACK,
+  Types.Events.Name.RESOURCE_FINISH,
+  Types.Events.Name.RESOURCE_RECEIVE_DATA,
+  Types.Events.Name.RESOURCE_RECEIVE_RESPONSE,
+  Types.Events.Name.RESOURCE_SEND_REQUEST,
+  Types.Events.Name.RESOURCE_WILL_SEND_REQUEST,
+  Types.Events.Name.RUN_MICROTASKS,
+  Types.Events.Name.RUN_POST_TASK_CALLBACK,
+  Types.Events.Name.RUN_TASK,
+  Types.Events.Name.SCHEDULE_POST_MESSAGE,
+  Types.Events.Name.SCHEDULE_POST_TASK_CALLBACK,
+  Types.Events.Name.SCHEDULE_STYLE_RECALCULATION,
+  Types.Events.Name.SCROLL_LAYER,
+  Types.Events.Name.START_PROFILING,
+  Types.Events.Name.STREAMING_COMPILE_SCRIPT_PARSING,
+  Types.Events.Name.STREAMING_COMPILE_SCRIPT_WAITING,
+  Types.Events.Name.STREAMING_COMPILE_SCRIPT,
+  Types.Events.Name.SYNTHETIC_LAYOUT_SHIFT_CLUSTER,
+  Types.Events.Name.SYNTHETIC_LAYOUT_SHIFT,
+  Types.Events.Name.TIME_STAMP,
+  Types.Events.Name.TIMER_FIRE,
+  Types.Events.Name.TIMER_INSTALL,
+  Types.Events.Name.TIMER_REMOVE,
+  Types.Events.Name.UPDATE_LAYER_TREE,
+  Types.Events.Name.UPDATE_LAYOUT_TREE,
+  Types.Events.Name.USER_TIMING,
+  Types.Events.Name.V8_CONSOLE_RUN_TASK,
+  Types.Events.Name.WASM_CACHED_MODULE,
+  Types.Events.Name.WASM_COMPILED_MODULE,
+  Types.Events.Name.WASM_MODULE_CACHE_HIT,
+  Types.Events.Name.WASM_MODULE_CACHE_INVALID,
+  Types.Events.Name.WASM_STREAM_FROM_RESPONSE_CALLBACK,
+  Types.Events.Name.WEB_SOCKET_CREATE,
+  Types.Events.Name.WEB_SOCKET_DESTROY,
+  Types.Events.Name.WEB_SOCKET_RECEIVE_HANDSHAKE_REQUEST,
+  Types.Events.Name.WEB_SOCKET_RECEIVE,
+  Types.Events.Name.WEB_SOCKET_SEND_HANDSHAKE_REQUEST,
+  Types.Events.Name.WEB_SOCKET_SEND,
+  Types.Events.Name.XHR_LOAD,
+  Types.Events.Name.XHR_READY_STATE_CHANGED,
+]);

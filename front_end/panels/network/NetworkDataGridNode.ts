@@ -1,6 +1,7 @@
 // Copyright 2021 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 /*
  * Copyright (C) 2007, 2008 Apple Inc.  All rights reserved.
@@ -44,42 +45,41 @@ import * as Protocol from '../../generated/protocol.js';
 import * as Bindings from '../../models/bindings/bindings.js';
 import type * as HAR from '../../models/har/har.js';
 import * as Logs from '../../models/logs/logs.js';
-import * as Workspace from '../../models/workspace/workspace.js';
+import type * as NetworkTimeCalculator from '../../models/network_time_calculator/network_time_calculator.js';
 import * as NetworkForward from '../../panels/network/forward/forward.js';
-import * as FloatingButton from '../../ui/components/floating_button/floating_button.js';
+import * as Buttons from '../../ui/components/buttons/buttons.js';
 import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as DataGrid from '../../ui/legacy/components/data_grid/data_grid.js';
 import * as PerfUI from '../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
+import {render} from '../../ui/lit/lit.js';
 import {PanelUtils} from '../utils/utils.js';
-
-import type {NetworkTimeCalculator} from './NetworkTimeCalculator.js';
 
 const UIStrings = {
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   redirect: 'Redirect',
   /**
-   *@description Content of the request method column in the network log view. Some requests require an additional request to check permissions, and this additional request is called 'Preflight Request', see https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request. In the request method column we use, for example, 'POST + Preflight' to indicate that the request method was 'POST' and the request was accompanied by a preflight request. Since the column is short, the translation for Preflight in this context should ideally also be short.
-   *@example {GET} PH1
+   * @description Content of the request method column in the network log view. Some requests require an additional request to check permissions, and this additional request is called 'Preflight Request', see https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request. In the request method column we use, for example, 'POST + Preflight' to indicate that the request method was 'POST' and the request was accompanied by a preflight request. Since the column is short, the translation for Preflight in this context should ideally also be short.
+   * @example {GET} PH1
    */
   sPreflight: '{PH1} + Preflight',
   /**
-   *@description Name of a network initiator type
+   * @description Name of a network initiator type
    */
   preflight: 'Preflight',
   /**
-   *@description Title for a link element in the network log view
+   * @description Title for a link element in the network log view
    */
   selectPreflightRequest: 'Select preflight request',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   failed: '(failed)',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   data: '(data)',
   /**
@@ -88,41 +88,65 @@ const UIStrings = {
    */
   canceled: '(canceled)',
   /**
-   *@description Reason in Network Data Grid Node of the Network panel
+   * @description Reason in Network Data Grid Node of the Network panel
    */
   other: 'other',
   /**
-   *@description Reason in Network Data Grid Node of the Network panel
+   * @description Reason in Network Data Grid Node of the Network panel
    */
   csp: 'csp',
   /**
-   *@description Reason in Network Data Grid Node of the Network panel
+   * @description Reason in Network Data Grid Node of the Network panel
    */
   origin: 'origin',
   /**
-   *@description Reason in Network Data Grid Node of the Network panel
+   * @description Reason why a request was blocked shown in the Network panel
+   */
+  coepFrameResourceNeedsCoepHeader: 'COEP-framed resource needs COEP header',
+  /**
+   * @description Reason why a request was blocked shown in the Network panel
+   */
+  coopSandboxedIframeCannotNavigateToCoopPage: 'Sandboxed iframe\'s popup cannot navigate to COOP page',
+  /**
+   * @description Reason why a request was blocked shown in the Network panel
+   */
+  corpNotSameOrigin: 'CORP not "same-origin"',
+  /**
+   * @description Reason why a request was blocked shown in the Network panel
+   */
+  corpNotSameSite: 'CORP not "same-site"',
+  /**
+   * @description Reason why a request was blocked shown in the Network panel
+   */
+  corpNotSameOriginAfterDefaultedToSameOriginByCoep: 'CORP not "same-origin" after defaulted to "same-origin" by COEP',
+  /**
+   * @description Noun. Shown in a table cell as the reason why a network request failed. "integrity" here refers to the integrity of the network request itself in a cryptographic sense: signature verification might have failed, for instance.
+   */
+  integrity: 'integrity',
+  /**
+   * @description Reason in Network Data Grid Node of the Network panel
    */
   devtools: 'devtools',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
-   *@example {mixed-content} PH1
+   * @description Text in Network Data Grid Node of the Network panel
+   * @example {mixed-content} PH1
    */
   blockeds: '(blocked:{PH1})',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   blockedTooltip: 'This request was blocked due to misconfigured response headers, click to view the headers',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   corsError: 'CORS error',
   /**
-   *@description Tooltip providing the cors error code
-   *@example {PreflightDisallowedRedirect} PH1
+   * @description Tooltip providing the cors error code
+   * @example {PreflightDisallowedRedirect} PH1
    */
   crossoriginResourceSharingErrorS: 'Cross-Origin Resource Sharing error: {PH1}',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   finished: 'Finished',
   /**
@@ -145,160 +169,177 @@ const UIStrings = {
    */
   push: 'Push / ',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   parser: 'Parser',
   /**
-   *@description Label for a group of JavaScript files
+   * @description Label for a group of JavaScript files
    */
   script: 'Script',
   /**
-   *@description Cell title in Network Data Grid Node of the Network panel
+   * @description Cell title in Network Data Grid Node of the Network panel
    */
   preload: 'Preload',
   /**
-   *@description Cell title in Network Data Grid Node of the Network panel
+   * @description Cell title in Network Data Grid Node of the Network panel
    */
   earlyHints: 'early-hints',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   signedexchange: 'signed-exchange',
   /**
-   *@description Title for a link element in the network log view
+   * @description Title for a link element in the network log view
    */
   selectTheRequestThatTriggered: 'Select the request that triggered this preflight',
   /**
-   *@description Text for other types of items
+   * @description Text for other types of items
    */
   otherC: 'Other',
   /**
-   *@description Text of a DOM element in Network Data Grid Node of the Network panel
+   * @description Text of a DOM element in Network Data Grid Node of the Network panel
    */
   memoryCache: '(memory cache)',
   /**
-   *@description Cell title in Network Data Grid Node of the Network panel. Indicates that the response came from memory cache.
-   *@example {50 B} PH1
+   * @description Cell title in Network Data Grid Node of the Network panel. Indicates that the response came from memory cache.
+   * @example {50 B} PH1
    */
   servedFromMemoryCacheResource: 'Served from memory cache, resource size: {PH1}',
   /**
-   *@description Text of a DOM element in Network Data Grid Node of the Network panel
+   * @description Text of a DOM element in Network Data Grid Node of the Network panel
    */
   serviceWorker: '(`ServiceWorker`)',
   /**
-   *@description Cell title in Network Data Grid Node of the Network panel
-   *@example {4 B} PH1
+   * @description Cell title in Network Data Grid Node of the Network panel
+   * @example {4 B} PH1
+   * @example {10 B} PH2
+   */
+  servedFromNetwork: '{PH1} transferred over network, resource size: {PH2}',
+  /**
+   * @description Cell title in Network Data Grid Node of the Network panel
+   * @example {4 B} PH1
+   * @example {10 B} PH2
+   */
+  servedFromNetworkMissingServiceWorkerRoute:
+      '{PH1} transferred over network, resource size: {PH2}, no matching ServiceWorker routes',
+  /**
+   * @description Cell title in Network Data Grid Node of the Network panel
+   * @example {4 B} PH1
    */
   servedFromServiceWorkerResource: 'Served from `ServiceWorker`, resource size: {PH1}',
   /**
-   *@description Cell title in Network Data Grid Node of the Network panel
-   *@example {4 B} PH1
+   * @description Cell title in Network Data Grid Node of the Network panel
+   * @example {4 B} PH1
    */
   servedFromSignedHttpExchange: 'Served from Signed HTTP Exchange, resource size: {PH1}',
   /**
-   *@description Cell title in Network Data Grid Node of the Network panel. Indicates that the response came from preloaded web bundle. See https://web.dev/web-bundles/
-   *@example {4 B} PH1
+   * @description Cell title in Network Data Grid Node of the Network panel. Indicates that the response came from preloaded web bundle. See https://web.dev/web-bundles/
+   * @example {4 B} PH1
    */
   servedFromWebBundle: 'Served from Web Bundle, resource size: {PH1}',
   /**
-   *@description Text of a DOM element in Network Data Grid Node of the Network panel
+   * @description Text of a DOM element in Network Data Grid Node of the Network panel
    */
   prefetchCache: '(prefetch cache)',
   /**
-   *@description Cell title in Network Data Grid Node of the Network panel
-   *@example {4 B} PH1
+   * @description Cell title in Network Data Grid Node of the Network panel
+   * @example {4 B} PH1
    */
   servedFromPrefetchCacheResource: 'Served from prefetch cache, resource size: {PH1}',
   /**
-   *@description Text of a DOM element in Network Data Grid Node of the Network panel
+   * @description Text of a DOM element in Network Data Grid Node of the Network panel
    */
   diskCache: '(disk cache)',
   /**
-   *@description Cell title in Network Data Grid Node of the Network panel
-   *@example {10 B} PH1
+   * @description Cell title in Network Data Grid Node of the Network panel
+   * @example {10 B} PH1
    */
   servedFromDiskCacheResourceSizeS: 'Served from disk cache, resource size: {PH1}',
   /**
-   *@description Cell title in Network Data Grid Node of the Network panel
-   *@example {1} PH1
-   *@example {4 B} PH2
+   * @description Cell title in Network Data Grid Node of the Network panel
+   * @example {1} PH1
+   * @example {4 B} PH2
    */
   matchedToServiceWorkerRouter: 'Matched to `ServiceWorker router`#{PH1}, resource size: {PH2}',
 
   /**
-   *@description Cell title in Network Data Grid Node of the Network panel
-   *@example {1} PH1
-   *@example {4 B} PH2
-   *@example {12 B} PH3
+   * @description Cell title in Network Data Grid Node of the Network panel
+   * @example {1} PH1
+   * @example {4 B} PH2
+   * @example {12 B} PH3
    */
   matchedToServiceWorkerRouterWithNetworkSource:
       'Matched to `ServiceWorker router`#{PH1}, {PH2} transferred over network, resource size: {PH3}',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   pending: 'Pending',
   /**
-   *@description Text describing the depth of a top level node in the network datagrid
+   * @description Text describing the depth of a top level node in the network datagrid
    */
   level: 'level 1',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   webBundleError: 'Web Bundle error',
   /**
-   *@description Alternative text for the web bundle inner request icon in Network Data Grid Node of the Network panel
+   * @description Alternative text for the web bundle inner request icon in Network Data Grid Node of the Network panel
    * Indicates that the response came from preloaded web bundle. See https://web.dev/web-bundles/
    */
   webBundleInnerRequest: 'Served from Web Bundle',
   /**
-   *@description Text in Network Data Grid Node of the Network panel
+   * @description Text in Network Data Grid Node of the Network panel
    */
   webBundle: '(Web Bundle)',
   /**
-   *@description Tooltip text for subtitles of Time cells in Network request rows. Latency is the time difference
+   * @description Tooltip text for subtitles of Time cells in Network request rows. Latency is the time difference
    * between the time a response to a network request is received and the time the request is started.
    */
   timeSubtitleTooltipText: 'Latency (response received time - start time)',
   /**
-   *@description Tooltip text giving the reason why a specific HTTP transport protocol has been used
+   * @description Tooltip text giving the reason why a specific HTTP transport protocol has been used
    */
   alternativeJobWonWithoutRace:
       '`Chrome` used a `HTTP/3` connection induced by an \'`Alt-Svc`\' header without racing against establishing a connection using a different `HTTP` version.',
   /**
-   *@description Tooltip text giving the reason why a specific HTTP transport protocol has been used
+   * @description Tooltip text giving the reason why a specific HTTP transport protocol has been used
    */
   alternativeJobWonRace:
       '`Chrome` used a `HTTP/3` connection induced by an \'`Alt-Svc`\' header because it won a race against establishing a connection using a different `HTTP` version.',
   /**
-   *@description Tooltip text giving the reason why a specific HTTP transport protocol has been used
+   * @description Tooltip text giving the reason why a specific HTTP transport protocol has been used
    */
   mainJobWonRace: '`Chrome` used this protocol because it won a race against establishing a `HTTP/3` connection.',
   /**
-   *@description Tooltip text giving the reason why a specific HTTP transport protocol has been used
+   * @description Tooltip text giving the reason why a specific HTTP transport protocol has been used
    */
   mappingMissing:
       '`Chrome` did not use an alternative `HTTP` version because no alternative protocol information was available when the request was issued, but an \'`Alt-Svc`\' header was present in the response.',
   /**
-   *@description Tooltip text giving the reason why a specific HTTP transport protocol has been used
+   * @description Tooltip text giving the reason why a specific HTTP transport protocol has been used
    */
   broken: '`Chrome` did not try to establish a `HTTP/3` connection because it was marked as broken.',
   /**
-   *@description Tooltip text giving the reason why a specific HTTP transport protocol has been used
+   * @description Tooltip text giving the reason why a specific HTTP transport protocol has been used
    */
   dnsAlpnH3JobWonWithoutRace:
       '`Chrome` used a `HTTP/3` connection due to the `DNS record` indicating `HTTP/3` support. There was no race against establishing a connection using a different `HTTP` version.',
   /**
-   *@description Tooltip text giving the reason why a specific HTTP transport protocol has been used
+   * @description Tooltip text giving the reason why a specific HTTP transport protocol has been used
    */
   dnsAlpnH3JobWonRace:
       '`Chrome` used a `HTTP/3` connection due to the `DNS record` indicating `HTTP/3` support, which won a race against establishing a connection using a different `HTTP` version.',
   /**
-   *@description Tooltip to explain the resource's initial priority
-   *@example {High} PH1
-   *@example {Low} PH2
+   * @description Tooltip to explain the resource's initial priority
+   * @example {High} PH1
+   * @example {Low} PH2
    */
   initialPriorityToolTip: '{PH1}, Initial priority: {PH2}',
-};
+  /**
+   * @description Tooltip to explain why the request has an IPP icon
+   */
+  responseIsIpProtectedToolTip: 'This request was sent through IP Protection proxies.',
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/network/NetworkDataGridNode.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -308,8 +349,14 @@ export const enum Events {
   RequestActivated = 'RequestActivated',
 }
 
+export const enum RequestPanelBehavior {
+  ShowPanel = 'ShowPanel',
+  HidePanel = 'HidePanel',
+  Unchanged = 'Unchanged',
+}
+
 export interface RequestActivatedEvent {
-  showPanel: boolean;
+  showPanel: RequestPanelBehavior;
   takeFocus?: boolean;
   tab?: NetworkForward.UIRequestLocation.UIRequestTabs;
 }
@@ -332,9 +379,9 @@ export interface NetworkLogViewInterface extends Common.EventTarget.EventTarget<
   addFilmStripFrames(times: number[]): void;
   selectFilmStripFrame(time: number): void;
   clearFilmStripFrame(): void;
-  timeCalculator(): NetworkTimeCalculator;
-  calculator(): NetworkTimeCalculator;
-  setCalculator(x: NetworkTimeCalculator): void;
+  timeCalculator(): NetworkTimeCalculator.NetworkTimeCalculator;
+  calculator(): NetworkTimeCalculator.NetworkTimeCalculator;
+  setCalculator(x: NetworkTimeCalculator.NetworkTimeCalculator): void;
   flatNodesList(): NetworkNode[];
   updateNodeBackground(): void;
   updateNodeSelectedClass(isSelected: boolean): void;
@@ -427,7 +474,7 @@ export class NetworkNode extends DataGrid.SortableDataGrid.SortableDataGridNode<
   }
 
   updateBackgroundColor(): void {
-    const element = (this.existingElement() as HTMLElement | null);
+    const element = (this.existingElement());
     if (!element) {
       return;
     }
@@ -440,14 +487,14 @@ export class NetworkNode extends DataGrid.SortableDataGrid.SortableDataGridNode<
     this.updateBackgroundColor();
   }
 
-  override select(supressSelectedEvent?: boolean): void {
-    super.select(supressSelectedEvent);
+  override select(suppressSelectedEvent?: boolean): void {
+    super.select(suppressSelectedEvent);
     this.updateBackgroundColor();
     this.parentViewInternal.updateNodeSelectedClass(/* isSelected */ true);
   }
 
-  override deselect(supressSelectedEvent?: boolean): void {
-    super.deselect(supressSelectedEvent);
+  override deselect(suppressSelectedEvent?: boolean): void {
+    super.deselect(suppressSelectedEvent);
     this.updateBackgroundColor();
     this.parentViewInternal.updateNodeSelectedClass(/* isSelected */ false);
   }
@@ -533,9 +580,7 @@ export class NetworkNode extends DataGrid.SortableDataGrid.SortableDataGridNode<
   }
 }
 
-export const _backgroundColors: {
-  [x: string]: string,
-} = {
+export const _backgroundColors: Record<string, string> = {
   Default: '--color-grid-default',
   Stripe: '--color-grid-stripe',
   Navigation: '--network-grid-navigation-color',
@@ -550,7 +595,6 @@ export const _backgroundColors: {
 };
 
 export class NetworkRequestNode extends NetworkNode {
-  private nameCell: Element|null;
   private initiatorCell: Element|null;
   private requestInternal: SDK.NetworkRequest.NetworkRequest;
   private readonly isNavigationRequestInternal: boolean;
@@ -561,7 +605,6 @@ export class NetworkRequestNode extends NetworkNode {
 
   constructor(parentView: NetworkLogViewInterface, request: SDK.NetworkRequest.NetworkRequest) {
     super(parentView);
-    this.nameCell = null;
     this.initiatorCell = null;
     this.requestInternal = request;
     this.isNavigationRequestInternal = false;
@@ -651,8 +694,8 @@ export class NetworkRequestNode extends NetworkNode {
       return !aHasInitiatorCell ? -1 : 1;
     }
     // `a` and `b` are guaranteed NetworkRequestNodes with present initiatorCell elements.
-    const networkRequestNodeA = (a as NetworkRequestNode);
-    const networkRequestNodeB = (b as NetworkRequestNode);
+    const networkRequestNodeA = (a);
+    const networkRequestNodeB = (b);
 
     const aText = networkRequestNodeA.linkifiedInitiatorAnchor ?
         networkRequestNodeA.linkifiedInitiatorAnchor.textContent || '' :
@@ -760,17 +803,29 @@ export class NetworkRequestNode extends NetworkNode {
     return aURL > bURL ? 1 : -1;
   }
 
-  static ResponseHeaderStringComparator(propertyName: string, a: NetworkNode, b: NetworkNode): number {
-    // TODO(allada) Handle this properly for group nodes.
+  static HeaderStringComparator(
+      getHeaderValue: (request: SDK.NetworkRequest.NetworkRequest, propertyName: string) => string | undefined,
+      propertyName: string, a: NetworkNode, b: NetworkNode): number {
     const aRequest = a.requestOrFirstKnownChildRequest();
     const bRequest = b.requestOrFirstKnownChildRequest();
     if (!aRequest || !bRequest) {
       return !aRequest ? -1 : 1;
     }
-    const aValue = String(aRequest.responseHeaderValue(propertyName) || '');
-    const bValue = String(bRequest.responseHeaderValue(propertyName) || '');
+    // Use the provided callback to get the header value
+    const aValue = String(getHeaderValue(aRequest, propertyName) || '');
+    const bValue = String(getHeaderValue(bRequest, propertyName) || '');
     return aValue.localeCompare(bValue) || aRequest.identityCompare(bRequest);
   }
+
+  static readonly ResponseHeaderStringComparator = NetworkRequestNode.HeaderStringComparator.bind(
+      null,
+      (req: SDK.NetworkRequest.NetworkRequest, name: string) => req.responseHeaderValue(name),
+  );
+
+  static readonly RequestHeaderStringComparator = NetworkRequestNode.HeaderStringComparator.bind(
+      null,
+      (req: SDK.NetworkRequest.NetworkRequest, name: string) => req.requestHeaderValue(name),
+  );
 
   static ResponseHeaderNumberComparator(propertyName: string, a: NetworkNode, b: NetworkNode): number {
     // TODO(allada) Handle this properly for group nodes.
@@ -907,7 +962,6 @@ export class NetworkRequestNode extends NetworkNode {
   }
 
   override createCells(element: Element): void {
-    this.nameCell = null;
     this.initiatorCell = null;
 
     element.classList.toggle('network-warning-row', this.isWarning());
@@ -1051,33 +1105,33 @@ export class NetworkRequestNode extends NetworkNode {
         break;
       }
       default: {
-        this.setTextAndTitle(cell, this.requestInternal.responseHeaderValue(columnId) || '');
+        const columnConfig = this.dataGrid?.columns[columnId];
+        if (columnConfig) {
+          let headerName = '';
+          let headerValue = '';
+          if (columnConfig.id.startsWith('request-header-')) {
+            headerName = columnId.substring('request-header-'.length);
+            headerValue = this.requestInternal.requestHeaderValue(headerName) || '';
+          } else {
+            headerName = columnId.substring('response-header-'.length);
+            headerValue = this.requestInternal.responseHeaderValue(headerName) || '';
+          }
+          this.setTextAndTitle(cell, headerValue);
+        } else {
+          this.setTextAndTitle(cell, '');
+        }
         break;
       }
     }
   }
 
-  private arrayLength(array: Array<unknown>|null): string {
+  private arrayLength(array: unknown[]|null): string {
     return array ? String(array.length) : '';
   }
 
-  override select(supressSelectedEvent?: boolean): void {
-    super.select(supressSelectedEvent);
+  override select(suppressSelectedEvent?: boolean): void {
+    super.select(suppressSelectedEvent);
     this.parentView().dispatchEventToListeners(Events.RequestSelected, this.requestInternal);
-  }
-
-  highlightMatchedSubstring(regexp: RegExp|null): Object[] {
-    if (!regexp || !this.nameCell || this.nameCell.textContent === null) {
-      return [];
-    }
-    // Ensure element is created.
-    this.element();
-    const domChanges: UI.UIUtils.HighlightChange[] = [];
-    const matchInfo = this.nameCell.textContent.match(regexp);
-    if (matchInfo) {
-      UI.UIUtils.highlightSearchResult(this.nameCell, matchInfo.index || 0, matchInfo[0].length, domChanges);
-    }
-    return domChanges;
   }
 
   private openInNewTab(): void {
@@ -1095,19 +1149,28 @@ export class NetworkRequestNode extends NetworkNode {
       const leftPadding = this.leftPadding ? this.leftPadding + 'px' : '';
       cell.style.setProperty('padding-left', leftPadding);
       cell.tabIndex = -1;
-      this.nameCell = cell;
       cell.addEventListener('dblclick', this.openInNewTab.bind(this), false);
-      cell.addEventListener('mousedown', () => {
+      cell.addEventListener('mousedown', (event: MouseEvent) => {
         // When the request panel isn't visible yet, firing the RequestActivated event
         // doesn't make it visible if no request is selected. So we'll select it first.
         this.select();
-        this.parentView().dispatchEventToListeners(Events.RequestActivated, {showPanel: true});
+        // Only open panel on mousedown with left mouse button.
+        const showPanel = event.button ? RequestPanelBehavior.Unchanged : RequestPanelBehavior.ShowPanel;
+        this.parentView().dispatchEventToListeners(Events.RequestActivated, {showPanel});
       });
       cell.addEventListener('focus', () => this.parentView().resetFocus());
 
       // render icons
+      if (this.requestInternal.isIpProtectionUsed()) {
+        const ippIcon = IconButton.Icon.create('shield', 'icon');
+        ippIcon.title = i18nString(UIStrings.responseIsIpProtectedToolTip);
+        ippIcon.style.color = 'var(--sys-color-on-surface-subtle);';
+        cell.appendChild(ippIcon);
+      }
+
       const iconElement = PanelUtils.getIconForNetworkRequest(this.requestInternal);
-      cell.appendChild(iconElement);
+      // eslint-disable-next-line rulesdir/no-lit-render-outside-of-view
+      render(iconElement, cell);
 
       // render Ask AI button
       const aiButtonContainer = this.createAiButtonIfAvailable();
@@ -1119,12 +1182,9 @@ export class NetworkRequestNode extends NetworkNode {
     if (columnId === 'name') {
       const webBundleInnerRequestInfo = this.requestInternal.webBundleInnerRequestInfo();
       if (webBundleInnerRequestInfo) {
-        const iconData = {
-          iconName: 'bundle',
-          color: 'var(--icon-info)',
-        };
-        const secondIconElement = PanelUtils.createIconElement(iconData, i18nString(UIStrings.webBundleInnerRequest));
-        secondIconElement.classList.add('icon');
+        const secondIconElement = IconButton.Icon.create('bundle', 'icon');
+        secondIconElement.style.color = 'var(--icon-info)';
+        secondIconElement.title = i18nString(UIStrings.webBundleInnerRequest);
 
         const networkManager = SDK.NetworkManager.NetworkManager.forRequest(this.requestInternal);
         if (webBundleInnerRequestInfo.bundleRequestId && networkManager) {
@@ -1205,30 +1265,34 @@ export class NetworkRequestNode extends NetworkNode {
           break;
         case Protocol.Network.BlockedReason.CoepFrameResourceNeedsCoepHeader:
           displayShowHeadersLink = true;
-          reason = i18n.i18n.lockedString('CoepFrameResourceNeedsCoepHeader');
+          reason = i18nString(UIStrings.coepFrameResourceNeedsCoepHeader);
           break;
         case Protocol.Network.BlockedReason.CoopSandboxedIframeCannotNavigateToCoopPage:
           displayShowHeadersLink = true;
-          reason = i18n.i18n.lockedString('CoopSandboxedIframeCannotNavigateToCoopPage');
+          reason = i18nString(UIStrings.coopSandboxedIframeCannotNavigateToCoopPage);
           break;
         case Protocol.Network.BlockedReason.CorpNotSameOrigin:
           displayShowHeadersLink = true;
-          reason = i18n.i18n.lockedString('NotSameOrigin');
+          reason = i18nString(UIStrings.corpNotSameOrigin);
           break;
         case Protocol.Network.BlockedReason.CorpNotSameSite:
           displayShowHeadersLink = true;
-          reason = i18n.i18n.lockedString('NotSameSite');
+          reason = i18nString(UIStrings.corpNotSameSite);
           break;
         case Protocol.Network.BlockedReason.CorpNotSameOriginAfterDefaultedToSameOriginByCoep:
           displayShowHeadersLink = true;
-          reason = i18n.i18n.lockedString('NotSameOriginAfterDefaultedToSameOriginByCoep');
+          reason = i18nString(UIStrings.corpNotSameOriginAfterDefaultedToSameOriginByCoep);
+          break;
+        case Protocol.Network.BlockedReason.SriMessageSignatureMismatch:
+          displayShowHeadersLink = true;
+          reason = i18nString(UIStrings.integrity);
           break;
       }
       if (displayShowHeadersLink) {
         this.setTextAndTitleAsLink(
             cell, i18nString(UIStrings.blockeds, {PH1: reason}), i18nString(UIStrings.blockedTooltip), () => {
               this.parentView().dispatchEventToListeners(Events.RequestActivated, {
-                showPanel: true,
+                showPanel: RequestPanelBehavior.ShowPanel,
                 tab: NetworkForward.UIRequestLocation.UIRequestTabs.HEADERS_COMPONENT,
               });
             });
@@ -1244,6 +1308,8 @@ export class NetworkRequestNode extends NetworkNode {
       const statusText = this.requestInternal.getInferredStatusText();
       this.appendSubtitle(cell, statusText);
       UI.Tooltip.Tooltip.install(cell, this.requestInternal.statusCode + ' ' + statusText);
+    } else if (this.requestInternal.statusText) {
+      this.setTextAndTitle(cell, this.requestInternal.statusText);
     } else if (this.requestInternal.finished) {
       this.setTextAndTitle(cell, i18nString(UIStrings.finished));
     } else if (this.requestInternal.preserved) {
@@ -1312,18 +1378,12 @@ export class NetworkRequestNode extends NetworkNode {
     const initiator = Logs.NetworkLog.NetworkLog.instance().initiatorInfoForRequest(request);
 
     const timing = request.timing;
-    if (timing && timing.pushStart) {
+    if (timing?.pushStart) {
       cell.appendChild(document.createTextNode(i18nString(UIStrings.push)));
     }
     switch (initiator.type) {
       case SDK.NetworkRequest.InitiatorType.PARSER: {
-        const uiSourceCode = Workspace.Workspace.WorkspaceImpl.instance().uiSourceCodeForURL(initiator.url);
-        const displayName = uiSourceCode?.displayName();
-        const text = displayName !== undefined && initiator.lineNumber !== undefined ?
-            `${displayName}:${initiator.lineNumber}` :
-            undefined;
         cell.appendChild(Components.Linkifier.Linkifier.linkifyURL(initiator.url, {
-          text,
           lineNumber: initiator.lineNumber,
           columnNumber: initiator.columnNumber,
           userMetric: this.#getLinkifierMetric(),
@@ -1351,7 +1411,7 @@ export class NetworkRequestNode extends NetworkNode {
       case SDK.NetworkRequest.InitiatorType.SCRIPT: {
         const target = SDK.NetworkManager.NetworkManager.forRequest(request)?.target() || null;
         const linkifier = this.parentView().linkifier();
-        if (initiator.stack) {
+        if (initiator.stack?.callFrames.length) {
           this.linkifiedInitiatorAnchor = linkifier.linkifyStackTraceTopFrame(target, initiator.stack);
         } else {
           this.linkifiedInitiatorAnchor = linkifier.linkifyScriptLocation(
@@ -1406,20 +1466,20 @@ export class NetworkRequestNode extends NetworkNode {
   }
 
   private renderSizeCell(cell: HTMLElement): void {
-    const resourceSize = i18n.ByteUtilities.bytesToString(this.requestInternal.resourceSize);
+    const resourceSize = i18n.ByteUtilities.formatBytesToKb(this.requestInternal.resourceSize);
 
     if (this.requestInternal.cachedInMemory()) {
       UI.UIUtils.createTextChild(cell, i18nString(UIStrings.memoryCache));
       UI.Tooltip.Tooltip.install(cell, i18nString(UIStrings.servedFromMemoryCacheResource, {PH1: resourceSize}));
       cell.classList.add('network-dim-cell');
-    } else if (this.requestInternal.serviceWorkerRouterInfo) {
-      const {serviceWorkerRouterInfo} = this.requestInternal;
-      // If `serviceWorkerRouterInfo.ruleIdMatched` is undefined,store 0 to indicate invalid ID.
-      const ruleIdMatched = serviceWorkerRouterInfo.ruleIdMatched ?? 0;
+    } else if (this.requestInternal.hasMatchingServiceWorkerRouter()) {
+      const ruleIdMatched = this.requestInternal.serviceWorkerRouterInfo?.ruleIdMatched as number;
+      const matchedSourceType =
+          this.requestInternal.serviceWorkerRouterInfo?.matchedSourceType as Protocol.Network.ServiceWorkerRouterSource;
       UI.UIUtils.createTextChild(cell, i18n.i18n.lockedString('(ServiceWorker router)'));
       let tooltipText;
-      if (serviceWorkerRouterInfo.matchedSourceType === Protocol.Network.ServiceWorkerRouterSource.Network) {
-        const transferSize = i18n.ByteUtilities.bytesToString(this.requestInternal.transferSize);
+      if (matchedSourceType === Protocol.Network.ServiceWorkerRouterSource.Network) {
+        const transferSize = i18n.ByteUtilities.formatBytesToKb(this.requestInternal.transferSize);
         tooltipText = i18nString(
             UIStrings.matchedToServiceWorkerRouterWithNetworkSource,
             {PH1: ruleIdMatched, PH2: transferSize, PH3: resourceSize});
@@ -1428,6 +1488,14 @@ export class NetworkRequestNode extends NetworkNode {
       }
       UI.Tooltip.Tooltip.install(cell, tooltipText);
       cell.classList.add('network-dim-cell');
+    } else if (this.requestInternal.serviceWorkerRouterInfo) {
+      // ServiceWorker routers are registered, but the request fallbacks to network
+      // because no matching router rules found.
+      const transferSize = i18n.ByteUtilities.formatBytesToKb(this.requestInternal.transferSize);
+      UI.UIUtils.createTextChild(cell, transferSize);
+      UI.Tooltip.Tooltip.install(
+          cell,
+          i18nString(UIStrings.servedFromNetworkMissingServiceWorkerRoute, {PH1: transferSize, PH2: resourceSize}));
     } else if (this.requestInternal.fetchedViaServiceWorker) {
       UI.UIUtils.createTextChild(cell, i18nString(UIStrings.serviceWorker));
       UI.Tooltip.Tooltip.install(cell, i18nString(UIStrings.servedFromServiceWorkerResource, {PH1: resourceSize}));
@@ -1449,9 +1517,9 @@ export class NetworkRequestNode extends NetworkNode {
       UI.Tooltip.Tooltip.install(cell, i18nString(UIStrings.servedFromDiskCacheResourceSizeS, {PH1: resourceSize}));
       cell.classList.add('network-dim-cell');
     } else {
-      const transferSize = i18n.ByteUtilities.bytesToString(this.requestInternal.transferSize);
+      const transferSize = i18n.ByteUtilities.formatBytesToKb(this.requestInternal.transferSize);
       UI.UIUtils.createTextChild(cell, transferSize);
-      UI.Tooltip.Tooltip.install(cell, `${transferSize} transferred over network, resource size: ${resourceSize}`);
+      UI.Tooltip.Tooltip.install(cell, i18nString(UIStrings.servedFromNetwork, {PH1: transferSize, PH2: resourceSize}));
     }
     this.appendSubtitle(cell, resourceSize);
   }
@@ -1488,10 +1556,7 @@ export class NetworkRequestNode extends NetworkNode {
       const action = UI.ActionRegistry.ActionRegistry.instance().getAction('drjones.network-floating-button');
       const aiButtonContainer = document.createElement('span');
       aiButtonContainer.classList.add('ai-button-container');
-      const floatingButton = new FloatingButton.FloatingButton.FloatingButton({
-        title: action.title(),
-        iconName: 'smart-assistant',
-      });
+      const floatingButton = Buttons.FloatingButton.create('smart-assistant', action.title(), 'ask-ai');
       floatingButton.addEventListener('click', ev => {
         ev.stopPropagation();
         this.select();
@@ -1527,8 +1592,8 @@ export class NetworkGroupNode extends NetworkNode {
     }
   }
 
-  override select(supressSelectedEvent?: boolean): void {
-    super.select(supressSelectedEvent);
+  override select(suppressSelectedEvent?: boolean): void {
+    super.select(suppressSelectedEvent);
     const firstChildNode = (this.traverseNextNode(false, undefined, true) as NetworkNode);
     const request = firstChildNode?.request();
     if (request) {

@@ -1,6 +1,7 @@
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as i18n from '../../core/i18n/i18n.js';
 import * as DataGrid from '../../ui/legacy/components/data_grid/data_grid.js';
@@ -13,23 +14,23 @@ import type {PlayerEvent} from './MediaModel.js';
 
 const UIStrings = {
   /**
-   *@description Text for timestamps of items
+   * @description Text for timestamps of items
    */
   timestamp: 'Timestamp',
   /**
-   *@description The column header for event names.
+   * @description The column header for event names.
    */
   eventName: 'Event name',
   /**
-   *@description Text for the value of something
+   * @description Text for the value of something
    */
   value: 'Value',
   /**
-   *@description The accessible name of a table that displays information about events that occurred
+   * @description The accessible name of a table that displays information about events that occurred
    * while a video/media player was present on the page.
    */
   eventDisplay: 'Event display',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/media/EventDisplayTable.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export interface EventDisplayColumnConfig {
@@ -75,10 +76,8 @@ export class PlayerEventsView extends UI.Widget.VBox {
   private firstEventTime: number;
 
   constructor() {
-    super();
+    super({jslog: `${VisualLogging.pane('events')}`});
     this.registerRequiredCSS(eventDisplayTableStyles);
-
-    this.element.setAttribute('jslog', `${VisualLogging.pane('events')}`);
 
     // Set up element styles.
 
@@ -118,7 +117,6 @@ export class PlayerEventsView extends UI.Widget.VBox {
       displayName: i18nString(UIStrings.eventDisplay),
       columns: gridColumnDescs,
       deleteCallback: undefined,
-      editCallback: undefined,
       refreshCallback: undefined,
     });
     datagrid.asWidget().contentElement.classList.add('no-border-top-datagrid');
@@ -131,14 +129,14 @@ export class PlayerEventsView extends UI.Widget.VBox {
     }
 
     event = this.subtractFirstEventTime(event);
-    const stringified = event.value as string;
+    const stringified = event.value;
     try {
       const json = JSON.parse(stringified);
       event.event = json.event;
       delete json['event'];
       event.value = json;
       const node = new EventNode(event);
-      const scroll = this.dataGrid.scrollContainer as HTMLElement;
+      const scroll = this.dataGrid.scrollContainer;
       const isAtBottom = scroll.scrollTop === (scroll.scrollHeight - scroll.offsetHeight);
       this.dataGrid.rootNode().appendChild(node as DataGrid.DataGrid.DataGridNode<EventNode>);
       if (isAtBottom) {

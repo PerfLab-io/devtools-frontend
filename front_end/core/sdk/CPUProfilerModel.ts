@@ -39,42 +39,39 @@ import {Capability, type Target} from './Target.js';
 
 const UIStrings = {
   /**
-   *@description Name of a profile. Placeholder is either a user-supplied name or a number automatically assigned to the profile.
-   *@example {2} PH1
+   * @description Name of a profile. Placeholder is either a user-supplied name or a number automatically assigned to the profile.
+   * @example {2} PH1
    */
   profileD: 'Profile {PH1}',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('core/sdk/CPUProfilerModel.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 export class CPUProfilerModel extends SDKModel<EventTypes> implements ProtocolProxyApi.ProfilerDispatcher {
-  #isRecording: boolean;
   #nextAnonymousConsoleProfileNumber: number;
   #anonymousConsoleProfileIdToTitle: Map<string, string>;
   readonly #profilerAgent: ProtocolProxyApi.ProfilerApi;
-  #preciseCoverageDeltaUpdateCallback:
-      ((arg0: number, arg1: string, arg2: Array<Protocol.Profiler.ScriptCoverage>) => Promise<void>)|null;
-  readonly #debuggerModelInternal: DebuggerModel;
+  #preciseCoverageDeltaUpdateCallback: ((arg0: number, arg2: Protocol.Profiler.ScriptCoverage[]) => Promise<void>)|null;
+  readonly #debuggerModel: DebuggerModel;
   readonly registeredConsoleProfileMessages: ProfileFinishedData[] = [];
 
   constructor(target: Target) {
     super(target);
-    this.#isRecording = false;
     this.#nextAnonymousConsoleProfileNumber = 1;
     this.#anonymousConsoleProfileIdToTitle = new Map();
     this.#profilerAgent = target.profilerAgent();
     this.#preciseCoverageDeltaUpdateCallback = null;
     target.registerProfilerDispatcher(this);
     void this.#profilerAgent.invoke_enable();
-    this.#debuggerModelInternal = (target.model(DebuggerModel) as DebuggerModel);
+    this.#debuggerModel = (target.model(DebuggerModel) as DebuggerModel);
   }
 
   runtimeModel(): RuntimeModel {
-    return this.#debuggerModelInternal.runtimeModel();
+    return this.#debuggerModel.runtimeModel();
   }
 
   debuggerModel(): DebuggerModel {
-    return this.#debuggerModelInternal;
+    return this.#debuggerModel;
   }
 
   consoleProfileStarted({id, location, title}: Protocol.Profiler.ConsoleProfileStartedEvent): void {
@@ -100,7 +97,7 @@ export class CPUProfilerModel extends SDKModel<EventTypes> implements ProtocolPr
   }
 
   private createEventDataFrom(id: string, scriptLocation: Protocol.Debugger.Location, title?: string): EventData {
-    const debuggerLocation = Location.fromPayload(this.#debuggerModelInternal, scriptLocation);
+    const debuggerLocation = Location.fromPayload(this.#debuggerModel, scriptLocation);
     const globalId = this.target().id() + '.' + id;
     return {
       id: globalId,
@@ -110,26 +107,19 @@ export class CPUProfilerModel extends SDKModel<EventTypes> implements ProtocolPr
     };
   }
 
-  isRecordingProfile(): boolean {
-    return this.#isRecording;
-  }
-
   startRecording(): Promise<unknown> {
-    this.#isRecording = true;
     const intervalUs = 100;
     void this.#profilerAgent.invoke_setSamplingInterval({interval: intervalUs});
     return this.#profilerAgent.invoke_start();
   }
 
   stopRecording(): Promise<Protocol.Profiler.Profile|null> {
-    this.#isRecording = false;
     return this.#profilerAgent.invoke_stop().then(response => response.profile || null);
   }
 
   startPreciseCoverage(
       jsCoveragePerBlock: boolean,
-      preciseCoverageDeltaUpdateCallback:
-          ((arg0: number, arg1: string, arg2: Array<Protocol.Profiler.ScriptCoverage>) => Promise<void>)|
+      preciseCoverageDeltaUpdateCallback: ((arg0: number, arg2: Protocol.Profiler.ScriptCoverage[]) => Promise<void>)|
       null): Promise<unknown> {
     const callCount = false;
     this.#preciseCoverageDeltaUpdateCallback = preciseCoverageDeltaUpdateCallback;
@@ -140,11 +130,11 @@ export class CPUProfilerModel extends SDKModel<EventTypes> implements ProtocolPr
 
   async takePreciseCoverage(): Promise<{
     timestamp: number,
-    coverage: Array<Protocol.Profiler.ScriptCoverage>,
+    coverage: Protocol.Profiler.ScriptCoverage[],
   }> {
     const r = await this.#profilerAgent.invoke_takePreciseCoverage();
-    const timestamp = (r && r.timestamp) || 0;
-    const coverage = (r && r.result) || [];
+    const timestamp = (r?.timestamp) || 0;
+    const coverage = (r?.result) || [];
     return {timestamp, coverage};
   }
 
@@ -153,9 +143,9 @@ export class CPUProfilerModel extends SDKModel<EventTypes> implements ProtocolPr
     return this.#profilerAgent.invoke_stopPreciseCoverage();
   }
 
-  preciseCoverageDeltaUpdate({timestamp, occasion, result}: Protocol.Profiler.PreciseCoverageDeltaUpdateEvent): void {
+  preciseCoverageDeltaUpdate({timestamp, result}: Protocol.Profiler.PreciseCoverageDeltaUpdateEvent): void {
     if (this.#preciseCoverageDeltaUpdateCallback) {
-      void this.#preciseCoverageDeltaUpdateCallback(timestamp, occasion, result);
+      void this.#preciseCoverageDeltaUpdateCallback(timestamp, result);
     }
   }
 }

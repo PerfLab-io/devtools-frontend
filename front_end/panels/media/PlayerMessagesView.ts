@@ -1,6 +1,7 @@
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import '../../ui/legacy/legacy.js';
 
@@ -14,62 +15,62 @@ import playerMessagesViewStyles from './playerMessagesView.css.js';
 
 const UIStrings = {
   /**
-   *@description A context menu item in the Console View of the Console panel
+   * @description A context menu item in the Console View of the Console panel
    */
   default: 'Default',
   /**
-   *@description Text in Network Throttling Selector of the Network panel
+   * @description Text in Network Throttling Selector of the Network panel
    */
   custom: 'Custom',
   /**
-   *@description Text for everything
+   * @description Text for everything
    */
   all: 'All',
   /**
-   *@description Text for errors
+   * @description Text for errors
    */
   error: 'Error',
   /**
-   *@description Text to indicate an item is a warning
+   * @description Text to indicate an item is a warning
    */
   warning: 'Warning',
   /**
-   *@description Sdk console message message level info of level Labels in Console View of the Console panel
+   * @description Sdk console message message level info of level Labels in Console View of the Console panel
    */
   info: 'Info',
   /**
-   *@description Debug log level
+   * @description Debug log level
    */
   debug: 'Debug',
   /**
-   *@description Label for selecting between the set of log levels to show.
+   * @description Label for selecting between the set of log levels to show.
    */
   logLevel: 'Log level:',
   /**
-   *@description Default text for user-text-entry for searching log messages.
+   * @description Default text for user-text-entry for searching log messages.
    */
   filterByLogMessages: 'Filter by log messages',
   /**
-   *@description The label for the group name that this error belongs to.
+   * @description The label for the group name that this error belongs to.
    */
   errorGroupLabel: 'Error Group:',
   /**
-   *@description The label for the numeric code associated with this error.
+   * @description The label for the numeric code associated with this error.
    */
   errorCodeLabel: 'Error Code:',
   /**
-   *@description The label for extra data associated with an error.
+   * @description The label for extra data associated with an error.
    */
   errorDataLabel: 'Data:',
   /**
-   *@description The label for the stacktrace associated with the error.
+   * @description The label for the stacktrace associated with the error.
    */
   errorStackLabel: 'Stacktrace:',
   /**
-   *@description The label for a root cause error associated with this error.
+   * @description The label for a root cause error associated with this error.
    */
   errorCauseLabel: 'Caused by:',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/media/PlayerMessagesView.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -98,8 +99,7 @@ class MessageLevelSelector implements UI.SoftDropDown.Delegate<SelectableLevel> 
   private readonly itemMap: Map<number, SelectableLevel>;
   private hiddenLevels: string[];
   private bitFieldValue: MessageLevelBitfield;
-  private readonly savedBitFieldValue: MessageLevelBitfield;
-  private readonly defaultTitleInternal: Common.UIString.LocalizedString;
+  readonly #defaultTitle: Common.UIString.LocalizedString;
   private readonly customTitle: Common.UIString.LocalizedString;
   private readonly allTitle: Common.UIString.LocalizedString;
   elementsForItems: WeakMap<SelectableLevel, HTMLElement>;
@@ -112,9 +112,8 @@ class MessageLevelSelector implements UI.SoftDropDown.Delegate<SelectableLevel> 
     this.hiddenLevels = [];
 
     this.bitFieldValue = MessageLevelBitfield.DEFAULT;
-    this.savedBitFieldValue = MessageLevelBitfield.DEFAULT;
 
-    this.defaultTitleInternal = i18nString(UIStrings.default);
+    this.#defaultTitle = i18nString(UIStrings.default);
     this.customTitle = i18nString(UIStrings.custom);
     this.allTitle = i18nString(UIStrings.all);
 
@@ -122,7 +121,7 @@ class MessageLevelSelector implements UI.SoftDropDown.Delegate<SelectableLevel> 
   }
 
   defaultTitle(): Common.UIString.LocalizedString {
-    return this.defaultTitleInternal;
+    return this.#defaultTitle;
   }
 
   setDefault(dropdown: UI.SoftDropDown.SoftDropDown<SelectableLevel>): void {
@@ -131,7 +130,7 @@ class MessageLevelSelector implements UI.SoftDropDown.Delegate<SelectableLevel> 
 
   populate(): void {
     this.items.insert(this.items.length, {
-      title: this.defaultTitleInternal,
+      title: this.#defaultTitle,
       overwrite: true,
       stringValue: '',
       value: MessageLevelBitfield.DEFAULT,
@@ -183,8 +182,8 @@ class MessageLevelSelector implements UI.SoftDropDown.Delegate<SelectableLevel> 
     this.hiddenLevels = [];
     for (const [key, item] of this.itemMap) {
       if (!item.overwrite) {
-        const elementForItem = this.elementsForItems.get(item as SelectableLevel);
-        if (elementForItem && elementForItem.firstChild) {
+        const elementForItem = this.elementsForItems.get(item);
+        if (elementForItem?.firstChild) {
           elementForItem.firstChild.remove();
         }
         if (elementForItem && key & this.bitFieldValue) {
@@ -206,7 +205,7 @@ class MessageLevelSelector implements UI.SoftDropDown.Delegate<SelectableLevel> 
     }
 
     if (this.bitFieldValue === MessageLevelBitfield.DEFAULT) {
-      return this.defaultTitleInternal;
+      return this.#defaultTitle;
     }
 
     if (this.bitFieldValue === MessageLevelBitfield.ALL) {
@@ -256,10 +255,8 @@ export class PlayerMessagesView extends UI.Widget.VBox {
   private messageLevelSelector?: MessageLevelSelector;
 
   constructor() {
-    super();
+    super({jslog: `${VisualLogging.pane('messages')}`});
     this.registerRequiredCSS(playerMessagesViewStyles);
-
-    this.element.setAttribute('jslog', `${VisualLogging.pane('messages')}`);
 
     this.headerPanel = this.contentElement.createChild('div', 'media-messages-header');
     this.bodyPanel = this.contentElement.createChild('div', 'media-messages-body');
@@ -330,7 +327,7 @@ export class PlayerMessagesView extends UI.Widget.VBox {
     for (const message of messages) {
       if (userString === '') {
         message.classList.remove('media-messages-message-filtered');
-      } else if (message.textContent && message.textContent.includes(userString)) {
+      } else if (message.textContent?.includes(userString)) {
         message.classList.remove('media-messages-message-filtered');
       } else {
         message.classList.add('media-messages-message-filtered');

@@ -3,8 +3,8 @@
 // found in the LICENSE file.
 
 export class AsyncScope {
-  static scopes: Set<AsyncScope> = new Set();
-  static abortSignal: AbortSignal;
+  static scopes = new Set<AsyncScope>();
+  static abortSignal: AbortSignal|undefined;
   private asyncStack: Array<{description?: string, frames: string[]}> = [];
 
   get descriptions(): string[] {

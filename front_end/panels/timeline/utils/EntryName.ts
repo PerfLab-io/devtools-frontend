@@ -10,46 +10,46 @@ import {getEventStyle} from './EntryStyles.js';
 
 const UIStrings = {
   /**
-   *@description Text shown for an entry in the flame chart that has no explict name.
+   * @description Text shown for an entry in the flame chart that has no explicit name.
    */
   anonymous: '(anonymous)',
   /**
-   *@description Text used to show an EventDispatch event which has a type associated with it
-   *@example {click} PH1
+   * @description Text used to show an EventDispatch event which has a type associated with it
+   * @example {click} PH1
    */
   eventDispatchS: 'Event: {PH1}',
   /**
-   *@description Text shown for an entry in the flame chart that represents a frame.
+   * @description Text shown for an entry in the flame chart that represents a frame.
    */
   frame: 'Frame',
   /**
-   *@description Text in Timeline Flame Chart Data Provider of the Performance panel
+   * @description Text in Timeline Flame Chart Data Provider of the Performance panel
    */
   wsConnectionOpened: 'WebSocket opened',
   /**
-   *@description Text in Timeline Flame Chart Data Provider of the Performance panel
-   *@example {ws://example.com} PH1
+   * @description Text in Timeline Flame Chart Data Provider of the Performance panel
+   * @example {ws://example.com} PH1
    */
   wsConnectionOpenedWithUrl: 'WebSocket opened: {PH1}',
   /**
-   *@description Text in Timeline Flame Chart Data Provider of the Performance panel
+   * @description Text in Timeline Flame Chart Data Provider of the Performance panel
    */
   wsConnectionClosed: 'WebSocket closed',
   /**
-   *@description Text in Timeline Flame Chart Data Provider of the Performance panel
+   * @description Text in Timeline Flame Chart Data Provider of the Performance panel
    */
   layoutShift: 'Layout shift',
-};
+} as const;
 
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/utils/EntryName.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
 /**
  * Calculates the display name for a given entry.
- * @param parsedTrace - If the trace data is provided
+ * @param parsedTrace If the trace data is provided
  * as the second argument it can be used to find source map resolved names for
  * profile calls.
- * Use this function to customise the user visible name for an entry. If no
+ * Use this function to customize the user visible name for an entry. If no
  * custom name is found, we will fallback to the `name` property in the trace
  * entry.
  */

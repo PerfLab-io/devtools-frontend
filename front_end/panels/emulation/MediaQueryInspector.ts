@@ -1,6 +1,7 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+/* eslint-disable rulesdir/no-imperative-dom-api */
 
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
@@ -19,7 +20,7 @@ const UIStrings = {
    * Takes the user to the source code where this media query actually came from.
    */
   revealInSourceCode: 'Reveal in source code',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('panels/emulation/MediaQueryInspector.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 export class MediaQueryInspector extends UI.Widget.Widget implements
@@ -36,10 +37,12 @@ export class MediaQueryInspector extends UI.Widget.Widget implements
   constructor(
       getWidthCallback: () => number, setWidthCallback: (arg0: number) => void,
       mediaThrottler: Common.Throttler.Throttler) {
-    super(true);
+    super({
+      jslog: `${VisualLogging.mediaInspectorView().track({click: true})}`,
+      useShadowDom: true,
+    });
     this.registerRequiredCSS(mediaQueryInspectorStyles);
     this.contentElement.classList.add('media-inspector-view');
-    this.contentElement.setAttribute('jslog', `${VisualLogging.mediaInspectorView().track({click: true})}`);
     this.contentElement.addEventListener('click', this.onMediaQueryClicked.bind(this), false);
     this.contentElement.addEventListener('contextmenu', this.onContextMenu.bind(this), false);
     this.mediaThrottler = mediaThrottler;
@@ -118,7 +121,7 @@ export class MediaQueryInspector extends UI.Widget.Widget implements
   }
 
   private onContextMenu(event: Event): void {
-    if (!this.cssModel || !this.cssModel.isEnabled()) {
+    if (!this.cssModel?.isEnabled()) {
       return;
     }
 
@@ -178,7 +181,7 @@ export class MediaQueryInspector extends UI.Widget.Widget implements
     const filtered = [];
     for (let i = 0; i < models.length; ++i) {
       const last = filtered[filtered.length - 1];
-      if (!last || !last.equals(models[i])) {
+      if (!last?.equals(models[i])) {
         filtered.push(models[i]);
       }
     }
@@ -205,7 +208,7 @@ export class MediaQueryInspector extends UI.Widget.Widget implements
 
     let allEqual: (boolean|undefined) = this.cachedQueryModels && this.cachedQueryModels.length === queryModels.length;
     for (let i = 0; allEqual && i < queryModels.length; ++i) {
-      allEqual = allEqual && this.cachedQueryModels && this.cachedQueryModels[i].equals(queryModels[i]);
+      allEqual = allEqual && this.cachedQueryModels?.[i].equals(queryModels[i]);
     }
     if (allEqual) {
       return;
@@ -230,7 +233,7 @@ export class MediaQueryInspector extends UI.Widget.Widget implements
       locations: SDK.CSSModel.CSSLocation[],
     }|null = null;
     for (const model of this.cachedQueryModels) {
-      if (lastMarker && lastMarker.model.dimensionsEqual(model)) {
+      if (lastMarker?.model.dimensionsEqual(model)) {
         lastMarker.active = lastMarker.active || model.active();
       } else {
         lastMarker = {
@@ -352,24 +355,24 @@ export const enum Section {
 
 export class MediaQueryUIModel {
   private cssMedia: SDK.CSSMedia.CSSMedia;
-  private readonly minWidthExpressionInternal: SDK.CSSMedia.CSSMediaQueryExpression|null;
-  private readonly maxWidthExpressionInternal: SDK.CSSMedia.CSSMediaQueryExpression|null;
-  private readonly activeInternal: boolean;
-  private readonly sectionInternal: Section;
-  private rawLocationInternal?: SDK.CSSModel.CSSLocation|null;
+  readonly #minWidthExpression: SDK.CSSMedia.CSSMediaQueryExpression|null;
+  readonly #maxWidthExpression: SDK.CSSMedia.CSSMediaQueryExpression|null;
+  readonly #active: boolean;
+  readonly #section: Section;
+  #rawLocation?: SDK.CSSModel.CSSLocation|null;
   constructor(
       cssMedia: SDK.CSSMedia.CSSMedia, minWidthExpression: SDK.CSSMedia.CSSMediaQueryExpression|null,
       maxWidthExpression: SDK.CSSMedia.CSSMediaQueryExpression|null, active: boolean) {
     this.cssMedia = cssMedia;
-    this.minWidthExpressionInternal = minWidthExpression;
-    this.maxWidthExpressionInternal = maxWidthExpression;
-    this.activeInternal = active;
+    this.#minWidthExpression = minWidthExpression;
+    this.#maxWidthExpression = maxWidthExpression;
+    this.#active = active;
     if (maxWidthExpression && !minWidthExpression) {
-      this.sectionInternal = Section.MAX;
+      this.#section = Section.MAX;
     } else if (minWidthExpression && maxWidthExpression) {
-      this.sectionInternal = Section.MIN_MAX;
+      this.#section = Section.MIN_MAX;
     } else {
-      this.sectionInternal = Section.MIN;
+      this.#section = Section.MIN;
     }
   }
 
@@ -477,7 +480,7 @@ export class MediaQueryUIModel {
   }
 
   section(): Section {
-    return this.sectionInternal;
+    return this.#section;
   }
 
   mediaText(): string {
@@ -485,21 +488,21 @@ export class MediaQueryUIModel {
   }
 
   rawLocation(): SDK.CSSModel.CSSLocation|null {
-    if (!this.rawLocationInternal) {
-      this.rawLocationInternal = this.cssMedia.rawLocation();
+    if (!this.#rawLocation) {
+      this.#rawLocation = this.cssMedia.rawLocation();
     }
-    return this.rawLocationInternal;
+    return this.#rawLocation;
   }
 
   minWidthExpression(): SDK.CSSMedia.CSSMediaQueryExpression|null {
-    return this.minWidthExpressionInternal;
+    return this.#minWidthExpression;
   }
 
   maxWidthExpression(): SDK.CSSMedia.CSSMediaQueryExpression|null {
-    return this.maxWidthExpressionInternal;
+    return this.#maxWidthExpression;
   }
 
   active(): boolean {
-    return this.activeInternal;
+    return this.#active;
   }
 }

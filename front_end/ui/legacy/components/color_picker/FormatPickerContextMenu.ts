@@ -9,11 +9,11 @@ import * as UI from '../../legacy.js';
 
 const UIStrings = {
   /**
-   *@description Tooltip text describing that a color was clipped after conversion to match the target gamut
-   *@example {rgb(255 255 255)} PH1
+   * @description Tooltip text describing that a color was clipped after conversion to match the target gamut
+   * @example {rgb(255 255 255)} PH1
    */
   colorClippedTooltipText: 'This color was clipped to match the format\'s gamut. The actual result was {PH1}',
-};
+} as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/color_picker/FormatPickerContextMenu.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
 
@@ -27,10 +27,10 @@ export class FormatPickerContextMenu {
   }
 
   async show(e: Event, onSelect: OnSelectFn): Promise<void> {
-    let resolveShowPromise: (() => void)|undefined = undefined;
-    const showPromise = new Promise<void>(resolve => {
-      resolveShowPromise = resolve;
-    });
+    const {
+      resolve,
+      promise: showPromise,
+    } = Promise.withResolvers<void>();
 
     const legacyFormats = [
       Common.Color.Format.HEX,
@@ -55,7 +55,7 @@ export class FormatPickerContextMenu {
       Common.Color.Format.XYZ_D50,
       Common.Color.Format.XYZ_D65,
     ];
-    const menu = new UI.ContextMenu.ContextMenu(e, {onSoftMenuClosed: () => resolveShowPromise?.()});
+    const menu = new UI.ContextMenu.ContextMenu(e, {onSoftMenuClosed: () => resolve()});
     const legacySection = menu.section('legacy');
     const wideSection = menu.section('wide');
     const colorFunctionSection = menu.section('color-function').appendSubMenuItem('color()', false, 'color').section();
@@ -109,12 +109,8 @@ export class FormatPickerContextMenu {
     let icon = undefined;
     if (newColor.isGamutClipped()) {
       icon = new IconButton.Icon.Icon();
-      icon.data = {
-        iconName: 'warning',
-        color: 'var(--icon-default)',
-        width: '16px',
-        height: '16px',
-      };
+      icon.name = 'warning';
+      icon.classList.add('medium');
       icon.style.marginLeft = '1px';
       icon.style.marginTop = '-1px';
       icon.style.minWidth = '16px';

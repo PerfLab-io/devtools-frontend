@@ -6,14 +6,14 @@
 
 :host {
   display: block;
-  padding: 5px 10px;
+  padding: 5px 8px;
 }
 
 .metrics {
   display: grid;
   align-items: end;
   grid-template-columns: repeat(3, 1fr) 0.5fr;
-  grid-row-gap: 5px;
+  row-gap: 5px;
 }
 
 .row-border {

@@ -9,15 +9,16 @@ import("../visibility.gni")
 
 devtools_module("trace") {
   sources = [
+    "EventsSerializer.ts",
     "LanternComputationData.ts",
     "ModelImpl.ts",
     "Processor.ts",
-    "TracingManager.ts",
   ]
 
   deps = [
     "../../core/common:bundle",
     "../../core/platform:bundle",
+    "../../core/root:bundle",
     "../../core/sdk:bundle",
     "../../generated:protocol",
     "../cpu_profile:bundle",
@@ -26,7 +27,6 @@ devtools_module("trace") {
     "helpers:bundle",
     "insights:bundle",
     "lantern:bundle",
-    "root-causes:bundle",
     "types:bundle",
   ]
 }
@@ -34,14 +34,21 @@ devtools_module("trace") {
 devtools_entrypoint("bundle") {
   entrypoint = "trace.ts"
 
-  deps = [ ":trace" ]
+  deps = [
+    ":trace",
+    "extras:bundle",
+    "handlers:bundle",
+    "helpers:bundle",
+    "insights:bundle",
+    "lantern:bundle",
+    "types:bundle",
+  ]
 
   visibility = [
     ":*",
     "../../../test/interactions/*",
     "../../core/sdk:unittests",
     "../../legacy_test_runner/*",
-    "../../panels/ai_assistance/*",
     "../../panels/lighthouse/*",
     "../../panels/network/*",
     "../../panels/recorder/*",
@@ -51,7 +58,8 @@ devtools_entrypoint("bundle") {
     "../../testing/*",
     "../../ui/components/docs/*",
     "../../ui/legacy/components/utils/*",
-    "../timeline_model/*",
+    "../ai_assistance/*",
+    "../live-metrics/*",
     "./*",
   ]
 
@@ -62,9 +70,9 @@ ts_library("unittests") {
   testonly = true
 
   sources = [
+    "EventsSerializer.test.ts",
     "ModelImpl.test.ts",
     "Processor.test.ts",
-    "TracingManager.test.ts",
   ]
 
   deps = [
