@@ -645,7 +645,7 @@ export class TabbedPane extends Common.ObjectWrapper.eventMixin<EventTypes, type
   }
 
   removeTabs(): void {
-    this.headerElementInternal.remove();
+    this.headerElement().remove();
   }
 
   private createDropDownButton(): HTMLDivElement {
