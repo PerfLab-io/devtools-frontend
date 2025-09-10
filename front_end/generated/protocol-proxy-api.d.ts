@@ -591,7 +591,7 @@ declare namespace ProtocolProxyApi {
 
   export interface BrowserApi {
     /**
-     * Set permission settings for given origin.
+     * Set permission settings for given requesting and embedding origins.
      */
     invoke_setPermission(params: Protocol.Browser.SetPermissionRequest): Promise<Protocol.ProtocolResponseWithError>;
 
@@ -2367,10 +2367,10 @@ declare namespace ProtocolProxyApi {
 
     /**
      * Called whenever a player is created, or when a new agent joins and receives
-     * a list of active players. If an agent is restored, it will receive the full
-     * list of player ids and all events again.
+     * a list of active players. If an agent is restored, it will receive one
+     * event for each active player.
      */
-    playersCreated(params: Protocol.Media.PlayersCreatedEvent): void;
+    playerCreated(params: Protocol.Media.PlayerCreatedEvent): void;
 
   }
 
@@ -2439,6 +2439,17 @@ declare namespace ProtocolProxyApi {
   }
 
   export interface NetworkApi {
+    /**
+     * Returns enum representing if IP Proxy of requests is available
+     * or reason it is not active.
+     */
+    invoke_getIPProtectionProxyStatus(): Promise<Protocol.Network.GetIPProtectionProxyStatusResponse>;
+
+    /**
+     * Sets bypass IP Protection Proxy boolean.
+     */
+    invoke_setIPProtectionProxyBypassEnabled(params: Protocol.Network.SetIPProtectionProxyBypassEnabledRequest): Promise<Protocol.ProtocolResponseWithError>;
+
     /**
      * Sets a list of content encodings that will be accepted. Empty list means no encoding is accepted.
      */
@@ -3068,7 +3079,8 @@ declare namespace ProtocolProxyApi {
      *
      * To generate bundle id for proxy mode:
      * 1. Generate 32 random bytes.
-     * 2. Add a specific suffix 0x00 at the end.
+     * 2. Add a specific suffix at the end following the documentation
+     *    https://github.com/WICG/isolated-web-apps/blob/main/Scheme.md#suffix
      * 3. Encode the entire sequence using Base32 without padding.
      *
      * If Chrome is not in IWA dev

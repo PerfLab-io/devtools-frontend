@@ -9,6 +9,7 @@ import * as AiCodeCompletion from '../../models/ai_code_completion/ai_code_compl
 import type * as Workspace from '../../models/workspace/workspace.js';
 import * as CodeMirror from '../../third_party/codemirror.next/codemirror.next.js';
 import * as TextEditor from '../../ui/components/text_editor/text_editor.js';
+import * as SourceFrame from '../../ui/legacy/components/source_frame/source_frame.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import * as PanelCommon from '../common/common.js';
@@ -17,9 +18,12 @@ import {Plugin} from './Plugin.js';
 
 const AI_CODE_COMPLETION_CHARACTER_LIMIT = 20_000;
 const DISCLAIMER_TOOLTIP_ID = 'sources-ai-code-completion-disclaimer-tooltip';
+const CITATIONS_TOOLTIP_ID = 'sources-ai-code-completion-citations-tooltip';
 
 export class AiCodeCompletionPlugin extends Plugin {
   #aidaClient?: Host.AidaClient.AidaClient;
+  #aidaAvailability?: Host.AidaClient.AidaAccessPreconditions;
+  #boundOnAidaAvailabilityChange: () => Promise<void>;
   #aiCodeCompletion?: AiCodeCompletion.AiCodeCompletion.AiCodeCompletion;
   #aiCodeCompletionSetting = Common.Settings.Settings.instance().createSetting('ai-code-completion-enabled', false);
   #aiCodeCompletionTeaserDismissedSetting =
@@ -31,6 +35,10 @@ export class AiCodeCompletionPlugin extends Plugin {
   #aiCodeCompletionDisclaimer?: PanelCommon.AiCodeCompletionDisclaimer;
   #aiCodeCompletionDisclaimerContainer = document.createElement('div');
   #aiCodeCompletionDisclaimerToolbarItem = new UI.Toolbar.ToolbarItem(this.#aiCodeCompletionDisclaimerContainer);
+  #aiCodeCompletionCitations: Host.AidaClient.Citation[] = [];
+  #aiCodeCompletionCitationsToolbar?: PanelCommon.AiCodeCompletionSummaryToolbar;
+  #aiCodeCompletionCitationsToolbarContainer = document.createElement('div');
+  #aiCodeCompletionCitationsToolbarAttached = false;
 
   #boundEditorKeyDown: (event: Event) => Promise<void>;
   #boundOnAiCodeCompletionSettingChanged: () => void;
@@ -42,6 +50,10 @@ export class AiCodeCompletionPlugin extends Plugin {
     }
     this.#boundEditorKeyDown = this.#editorKeyDown.bind(this);
     this.#boundOnAiCodeCompletionSettingChanged = this.#onAiCodeCompletionSettingChanged.bind(this);
+    this.#boundOnAidaAvailabilityChange = this.#onAidaAvailabilityChange.bind(this);
+    Host.AidaClient.HostConfigTracker.instance().addEventListener(
+        Host.AidaClient.Events.AIDA_AVAILABILITY_CHANGED, this.#boundOnAidaAvailabilityChange);
+    void this.#onAidaAvailabilityChange();
     const showTeaser = !this.#aiCodeCompletionSetting.get() && !this.#aiCodeCompletionTeaserDismissedSetting.get();
     if (showTeaser) {
       this.#teaser = new PanelCommon.AiCodeCompletionTeaser({onDetach: this.#detachAiCodeCompletionTeaser.bind(this)});
@@ -55,12 +67,10 @@ export class AiCodeCompletionPlugin extends Plugin {
   override dispose(): void {
     this.#teaser = undefined;
     this.#aiCodeCompletionSetting.removeChangeListener(this.#boundOnAiCodeCompletionSettingChanged);
+    Host.AidaClient.HostConfigTracker.instance().removeEventListener(
+        Host.AidaClient.Events.AIDA_AVAILABILITY_CHANGED, this.#boundOnAidaAvailabilityChange);
     this.#editor?.removeEventListener('keydown', this.#boundEditorKeyDown);
-    this.#aiCodeCompletion?.removeEventListener(
-        AiCodeCompletion.AiCodeCompletion.Events.REQUEST_TRIGGERED, this.#onAiRequestTriggered, this);
-    this.#aiCodeCompletion?.removeEventListener(
-        AiCodeCompletion.AiCodeCompletion.Events.RESPONSE_RECEIVED, this.#onAiResponseReceived, this);
-    this.#aiCodeCompletion?.remove();
+    this.#cleanupAiCodeCompletion();
     super.dispose();
   }
 
@@ -69,6 +79,9 @@ export class AiCodeCompletionPlugin extends Plugin {
     this.#editor.addEventListener('keydown', this.#boundEditorKeyDown);
     this.#aiCodeCompletionSetting.addChangeListener(this.#boundOnAiCodeCompletionSettingChanged);
     this.#onAiCodeCompletionSettingChanged();
+    if (editor.state.doc.length === 0) {
+      this.#addTeaserPluginToCompartmentImmediate(editor.editor);
+    }
   }
 
   override editorExtension(): CodeMirror.Extension {
@@ -89,8 +102,8 @@ export class AiCodeCompletionPlugin extends Plugin {
     if (this.#teaser) {
       if (update.docChanged) {
         update.view.dispatch({effects: this.#teaserCompartment.reconfigure([])});
-        this.#addTeaserPluginToCompartment(update);
-      } else if (update.selectionSet) {
+        this.#addTeaserPluginToCompartment(update.view);
+      } else if (update.selectionSet && update.state.doc.length > 0) {
         update.view.dispatch({effects: this.#teaserCompartment.reconfigure([])});
       }
     } else if (this.#aiCodeCompletion) {
@@ -141,6 +154,7 @@ export class AiCodeCompletionPlugin extends Plugin {
               if (suggestion?.rpcGlobalId && suggestion?.sampleId) {
                 this.#aiCodeCompletion?.registerUserAcceptance(suggestion.rpcGlobalId, suggestion.sampleId);
               }
+              this.#onAiCodeCompletionSuggestionAccepted();
             }
             return accepted;
           }
@@ -168,20 +182,25 @@ export class AiCodeCompletionPlugin extends Plugin {
     }
   }
 
-  #addTeaserPluginToCompartment = Common.Debouncer.debounce((update: CodeMirror.ViewUpdate) => {
+  #addTeaserPluginToCompartment = Common.Debouncer.debounce((view: CodeMirror.EditorView) => {
     if (this.#teaserDisplayTimeout) {
       window.clearTimeout(this.#teaserDisplayTimeout);
       this.#teaserDisplayTimeout = undefined;
     }
     this.#teaserDisplayTimeout = window.setTimeout(() => {
-      if (this.#teaser) {
-        update.view.dispatch(
-            {effects: this.#teaserCompartment.reconfigure([aiCodeCompletionTeaserExtension(this.#teaser)])});
-      }
+      this.#addTeaserPluginToCompartmentImmediate(view);
     }, AiCodeCompletion.AiCodeCompletion.DELAY_BEFORE_SHOWING_RESPONSE_MS);
   }, AiCodeCompletion.AiCodeCompletion.AIDA_REQUEST_DEBOUNCE_TIMEOUT_MS);
 
-  #setAiCodeCompletion(): void {
+  #addTeaserPluginToCompartmentImmediate = (view: CodeMirror.EditorView): void => {
+    if (!this.#teaser) {
+      return;
+    }
+
+    view.dispatch({effects: this.#teaserCompartment.reconfigure([aiCodeCompletionTeaserExtension(this.#teaser)])});
+  };
+
+  #setupAiCodeCompletion(): void {
     if (!this.#editor) {
       return;
     }
@@ -192,30 +211,88 @@ export class AiCodeCompletionPlugin extends Plugin {
       this.#detachAiCodeCompletionTeaser();
       this.#teaser = undefined;
     }
-    this.#aiCodeCompletion =
-        new AiCodeCompletion.AiCodeCompletion.AiCodeCompletion({aidaClient: this.#aidaClient}, this.#editor);
-    this.#aiCodeCompletion.addEventListener(
-        AiCodeCompletion.AiCodeCompletion.Events.REQUEST_TRIGGERED, this.#onAiRequestTriggered, this);
-    this.#aiCodeCompletion.addEventListener(
-        AiCodeCompletion.AiCodeCompletion.Events.RESPONSE_RECEIVED, this.#onAiResponseReceived, this);
+    if (!this.#aiCodeCompletion) {
+      this.#aiCodeCompletion = new AiCodeCompletion.AiCodeCompletion.AiCodeCompletion(
+          {aidaClient: this.#aidaClient}, this.#editor, AiCodeCompletion.AiCodeCompletion.Panel.SOURCES);
+      this.#aiCodeCompletion.addEventListener(
+          AiCodeCompletion.AiCodeCompletion.Events.REQUEST_TRIGGERED, this.#onAiRequestTriggered, this);
+      this.#aiCodeCompletion.addEventListener(
+          AiCodeCompletion.AiCodeCompletion.Events.RESPONSE_RECEIVED, this.#onAiResponseReceived, this);
+    }
+    this.#createAiCodeCompletionDisclaimer();
+    this.#createAiCodeCompletionCitationsToolbar();
   }
 
   #createAiCodeCompletionDisclaimer(): void {
+    if (this.#aiCodeCompletionDisclaimer) {
+      return;
+    }
     this.#aiCodeCompletionDisclaimer = new PanelCommon.AiCodeCompletionDisclaimer();
     this.#aiCodeCompletionDisclaimer.disclaimerTooltipId = DISCLAIMER_TOOLTIP_ID;
     this.#aiCodeCompletionDisclaimer.show(this.#aiCodeCompletionDisclaimerContainer, undefined, true);
   }
 
+  #createAiCodeCompletionCitationsToolbar(): void {
+    if (this.#aiCodeCompletionCitationsToolbar) {
+      return;
+    }
+    this.#aiCodeCompletionCitationsToolbar =
+        new PanelCommon.AiCodeCompletionSummaryToolbar({citationsTooltipId: CITATIONS_TOOLTIP_ID, hasTopBorder: true});
+    this.#aiCodeCompletionCitationsToolbar.show(this.#aiCodeCompletionCitationsToolbarContainer, undefined, true);
+  }
+
+  #attachAiCodeCompletionCitationsToolbar(): void {
+    if (this.#editor) {
+      this.#editor.dispatch({
+        effects: SourceFrame.SourceFrame.addSourceFrameInfobar.of(
+            {element: this.#aiCodeCompletionCitationsToolbarContainer, order: 100})
+      });
+      this.#aiCodeCompletionCitationsToolbarAttached = true;
+    }
+  }
+
+  #removeAiCodeCompletionCitationsToolbar(): void {
+    if (this.#editor) {
+      this.#editor.dispatch({
+        effects: SourceFrame.SourceFrame.removeSourceFrameInfobar.of(
+            {element: this.#aiCodeCompletionCitationsToolbarContainer})
+      });
+      this.#aiCodeCompletionCitationsToolbarAttached = false;
+    }
+  }
+
   #onAiCodeCompletionSettingChanged(): void {
     if (this.#aiCodeCompletionSetting.get()) {
-      this.#setAiCodeCompletion();
-      this.#createAiCodeCompletionDisclaimer();
+      this.#setupAiCodeCompletion();
     } else if (this.#aiCodeCompletion) {
-      this.#aiCodeCompletion.remove();
-      this.#aiCodeCompletion = undefined;
-      this.#aiCodeCompletionDisclaimerContainer.removeChildren();
-      this.#aiCodeCompletionDisclaimer = undefined;
+      this.#cleanupAiCodeCompletion();
     }
+  }
+
+  async #onAidaAvailabilityChange(): Promise<void> {
+    const currentAidaAvailability = await Host.AidaClient.AidaClient.checkAccessPreconditions();
+    if (currentAidaAvailability !== this.#aidaAvailability) {
+      this.#aidaAvailability = currentAidaAvailability;
+      if (this.#aidaAvailability === Host.AidaClient.AidaAccessPreconditions.AVAILABLE) {
+        this.#onAiCodeCompletionSettingChanged();
+      } else if (this.#aiCodeCompletion) {
+        this.#cleanupAiCodeCompletion();
+      }
+    }
+  }
+
+  #cleanupAiCodeCompletion(): void {
+    this.#aiCodeCompletion?.removeEventListener(
+        AiCodeCompletion.AiCodeCompletion.Events.REQUEST_TRIGGERED, this.#onAiRequestTriggered, this);
+    this.#aiCodeCompletion?.removeEventListener(
+        AiCodeCompletion.AiCodeCompletion.Events.RESPONSE_RECEIVED, this.#onAiResponseReceived, this);
+    this.#aiCodeCompletion?.remove();
+    this.#aiCodeCompletion = undefined;
+    this.#aiCodeCompletionCitations = [];
+    this.#aiCodeCompletionDisclaimerContainer.removeChildren();
+    this.#aiCodeCompletionDisclaimer = undefined;
+    this.#removeAiCodeCompletionCitationsToolbar();
+    this.#aiCodeCompletionCitationsToolbar = undefined;
   }
 
   #onAiRequestTriggered = (): void => {
@@ -224,11 +301,25 @@ export class AiCodeCompletionPlugin extends Plugin {
     }
   };
 
-  #onAiResponseReceived = (): void => {
-    if (this.#aiCodeCompletionDisclaimer) {
-      this.#aiCodeCompletionDisclaimer.loading = false;
+  #onAiResponseReceived =
+      (event: Common.EventTarget.EventTargetEvent<AiCodeCompletion.AiCodeCompletion.ResponseReceivedEvent>): void => {
+        this.#aiCodeCompletionCitations = event.data.citations ?? [];
+        if (this.#aiCodeCompletionDisclaimer) {
+          this.#aiCodeCompletionDisclaimer.loading = false;
+        }
+      };
+
+  #onAiCodeCompletionSuggestionAccepted(): void {
+    if (!this.#aiCodeCompletionCitationsToolbar || this.#aiCodeCompletionCitations.length === 0) {
+      return;
     }
-  };
+    const citations =
+        this.#aiCodeCompletionCitations.map(citation => citation.uri).filter((uri): uri is string => Boolean(uri));
+    this.#aiCodeCompletionCitationsToolbar.updateCitations(citations);
+    if (!this.#aiCodeCompletionCitationsToolbarAttached && citations.length > 0) {
+      this.#attachAiCodeCompletionCitationsToolbar();
+    }
+  }
 
   #detachAiCodeCompletionTeaser(): void {
     this.#editor?.dispatch({
@@ -341,6 +432,15 @@ export function aiCodeCompletionTeaserExtension(teaser: PanelCommon.AiCodeComple
     }
   }, {
     decorations: v => v.decorations,
+    eventHandlers: {
+      mousedown(event: MouseEvent): boolean {
+        // Required for mouse click to propagate to the "Don't show again" span in teaser.
+        if (event.target instanceof Node && teaser.contentElement.contains(event.target)) {
+          return true;
+        }
+        return false;
+      },
+    },
   });
   return teaserPlugin;
 }

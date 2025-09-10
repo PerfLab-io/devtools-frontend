@@ -44,7 +44,6 @@ import {
 } from './TimelineSelection.js';
 import {AggregatedTimelineTreeView, TimelineTreeView} from './TimelineTreeView.js';
 import type {TimelineMarkerStyle} from './TimelineUIUtils.js';
-import {keyForTraceConfig} from './TrackConfiguration.js';
 import * as Utils from './utils/utils.js';
 
 const UIStrings = {
@@ -188,9 +187,13 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
 
   /**
    * Persist the visual configuration of the tracks/groups into memory.
+   * Note that the user cannot hide/show/re-order the network track; so storing
+   * its configuration like this is a little overkill. But we use the
+   * configuration to check if the network track is collapsed or expanded, and
+   * it's easier to use the same configuration types for both.
    */
-  #networkPersistedGroupConfigSetting: Common.Settings.Setting<PerfUI.FlameChart.PersistedConfigPerTrace>;
-  #mainPersistedGroupConfigSetting: Common.Settings.Setting<PerfUI.FlameChart.PersistedConfigPerTrace>;
+  #networkPersistedGroupConfigSetting: Common.Settings.Setting<PerfUI.FlameChart.PersistedGroupConfig[]|null>;
+  #mainPersistedGroupConfigSetting: Common.Settings.Setting<PerfUI.FlameChart.PersistedGroupConfig[]|null>;
 
   constructor(delegate: TimelineModeViewDelegate) {
     super({jslog: `${VisualLogging.section('timeline.flame-chart-view')}`});
@@ -219,12 +222,12 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
     this.networkSplitWidget.sidebarElement().style.zIndex = '120';
 
     this.#mainPersistedGroupConfigSetting =
-        Common.Settings.Settings.instance().createSetting<PerfUI.FlameChart.PersistedConfigPerTrace>(
-            'timeline-main-flame-group-config', {});
+        Common.Settings.Settings.instance().createSetting<PerfUI.FlameChart.PersistedGroupConfig[]|null>(
+            'timeline-persisted-main-flamechart-track-config', null);
 
     this.#networkPersistedGroupConfigSetting =
-        Common.Settings.Settings.instance().createSetting<PerfUI.FlameChart.PersistedConfigPerTrace>(
-            'timeline-network-flame-group-config', {});
+        Common.Settings.Settings.instance().createSetting<PerfUI.FlameChart.PersistedGroupConfig[]|null>(
+            'timeline-persisted-network-flamechart-track-config', null);
 
     this.mainDataProvider = new TimelineFlameChartDataProvider();
     this.mainDataProvider.setPersistedGroupConfigSetting(this.#mainPersistedGroupConfigSetting);
@@ -915,7 +918,8 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
       type: 'TIME_RANGE',
       label: '',
     };
-    ModificationsManager.activeManager()?.createAnnotation(this.#timeRangeSelectionAnnotation);
+    ModificationsManager.activeManager()?.createAnnotation(
+        this.#timeRangeSelectionAnnotation, {muteAriaNotifications: false, loadedFromFile: false});
   }
 
   /**
@@ -1163,7 +1167,8 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
       };
       // Before creating a new range, make sure to delete the empty ranges.
       ModificationsManager.activeManager()?.deleteEmptyRangeAnnotations();
-      ModificationsManager.activeManager()?.createAnnotation(this.#timeRangeSelectionAnnotation);
+      ModificationsManager.activeManager()?.createAnnotation(
+          this.#timeRangeSelectionAnnotation, {muteAriaNotifications: false, loadedFromFile: false});
     }
   }
 
@@ -1192,44 +1197,24 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
 
     this.#parsedTrace = newParsedTrace;
     this.#traceMetadata = traceMetadata;
-    if (traceMetadata?.visualTrackConfig) {
-      this.#addPersistedConfigToSettings(newParsedTrace, traceMetadata.visualTrackConfig);
-    }
     for (const dimmer of this.#flameChartDimmers) {
       dimmer.active = false;
       dimmer.mainChartIndices = [];
       dimmer.networkChartIndices = [];
     }
-    this.rebuildDataForTrace();
-  }
-
-  /**
-   * When the user imports a new trace and it has the visual config metadata, we add that data into the DevTools setting.
-   * NOTE: if the user has modifications for this trace already in memory,
-   * those are preferred over the modifications stored in the trace file itself.
-   */
-  #addPersistedConfigToSettings(
-      trace: Trace.Handlers.Types.ParsedTrace,
-      visualConfigForTrace: Trace.Types.File.PersistedTraceVisualConfig): void {
-    const key = keyForTraceConfig(trace);
-
-    if (visualConfigForTrace.main) {
-      const mainSetting = this.#mainPersistedGroupConfigSetting.get();
-      mainSetting[key] = mainSetting[key] ?? visualConfigForTrace.main;
-      this.#mainPersistedGroupConfigSetting.set(mainSetting);
-    }
-    if (visualConfigForTrace.network) {
-      const networkSetting = this.#networkPersistedGroupConfigSetting.get();
-      networkSetting[key] = networkSetting[key] ?? visualConfigForTrace.network;
-      this.#networkPersistedGroupConfigSetting.set(networkSetting);
-    }
+    this.rebuildDataForTrace({updateType: 'NEW_TRACE'});
   }
 
   /**
    * Resets the state of the UI data and initializes it again with the
    * current parsed trace.
+   * @param opts.updateType determines if we are redrawing because we need to show a new trace,
+   * or redraw an existing trace (if the user changed a setting).
+   * This distinction is needed because in the latter case we do not want to
+   * trigger some code such as Aria announcements for annotations if we are
+   * just redrawing.
    */
-  rebuildDataForTrace(): void {
+  rebuildDataForTrace(opts: {updateType: 'NEW_TRACE'|'REDRAW_EXISTING_TRACE'}): void {
     if (!this.#parsedTrace) {
       return;
     }
@@ -1248,12 +1233,11 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
     // any state in the flame charts. We then need to provide it with any
     // persisted group settings here, before it recalculates the timeline data
     // and draws the UI.
-    const mainChartConfig = this.#getPersistedConfigForTrace(this.#parsedTrace, this.#mainPersistedGroupConfigSetting);
+    const mainChartConfig = this.#mainPersistedGroupConfigSetting.get();
     if (mainChartConfig) {
       this.mainFlameChart.setPersistedConfig(mainChartConfig);
     }
-    const networkChartConfig =
-        this.#getPersistedConfigForTrace(this.#parsedTrace, this.#networkPersistedGroupConfigSetting);
+    const networkChartConfig = this.#networkPersistedGroupConfigSetting.get();
     if (networkChartConfig) {
       this.networkFlameChart.setPersistedConfig(networkChartConfig);
     }
@@ -1265,31 +1249,18 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
     this.resizeToPreferredHeights();
     this.setMarkers(this.#parsedTrace);
     this.dimThirdPartiesIfRequired();
-    ModificationsManager.activeManager()?.applyAnnotationsFromCache();
+    ModificationsManager.activeManager()?.applyAnnotationsFromCache(
+        {muteAriaNotifications: opts.updateType === 'REDRAW_EXISTING_TRACE'});
   }
 
   /**
    * Gets the persisted config (if the user has made any visual changes) in
    * order to save it to disk as part of the trace.
    */
-  getPersistedConfigMetadata(
-      trace: Trace.Handlers.Types.ParsedTrace,
-      ): Trace.Types.File.PersistedTraceVisualConfig {
-    const main = this.#getPersistedConfigForTrace(trace, this.#mainPersistedGroupConfigSetting);
-    const network = this.#getPersistedConfigForTrace(trace, this.#networkPersistedGroupConfigSetting);
+  getPersistedConfigMetadata(): Trace.Types.File.PersistedTraceVisualConfig {
+    const main = this.#mainPersistedGroupConfigSetting.get();
+    const network = this.#networkPersistedGroupConfigSetting.get();
     return {main, network};
-  }
-
-  #getPersistedConfigForTrace(
-      trace: Trace.Handlers.Types.ParsedTrace,
-      setting: Common.Settings.Setting<PerfUI.FlameChart.PersistedConfigPerTrace>):
-      PerfUI.FlameChart.PersistedGroupConfig[]|null {
-    const value = setting.get();
-    const key = trace.Meta.traceBounds.min;
-    if (value[key]) {
-      return value[key];
-    }
-    return null;
   }
 
   setInsights(
@@ -1355,6 +1326,15 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
     this.networkFlameChart.scheduleUpdate();
 
     this.#registerLoggableGroups();
+  }
+
+  hasHiddenTracks(): boolean {
+    const groups = [
+      ...this.mainFlameChart.timelineData()?.groups ?? [],
+      ...this.networkFlameChart.timelineData()?.groups ?? [],
+    ];
+
+    return groups.some(g => g.hidden);
   }
 
   #registerLoggableGroups(): void {
@@ -1614,17 +1594,27 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
     this.#overlays.bringLabelForward(overlay);
   }
 
+  enterMainChartTrackConfigurationMode(): void {
+    this.mainFlameChart.enterTrackConfigurationMode();
+  }
+
+  showAllMainChartTracks(): void {
+    this.mainFlameChart.showAllGroups();
+  }
+
   private onAddEntryLabelAnnotation(
       dataProvider: TimelineFlameChartDataProvider|TimelineFlameChartNetworkDataProvider,
       event: Common.EventTarget.EventTargetEvent<{entryIndex: number, withLinkCreationButton: boolean}>): void {
     const selection = dataProvider.createSelection(event.data.entryIndex);
     if (selectionIsEvent(selection)) {
       this.setSelectionAndReveal(selection);
-      ModificationsManager.activeManager()?.createAnnotation({
-        type: 'ENTRY_LABEL',
-        entry: selection.event,
-        label: '',
-      });
+      ModificationsManager.activeManager()?.createAnnotation(
+          {
+            type: 'ENTRY_LABEL',
+            entry: selection.event,
+            label: '',
+          },
+          {loadedFromFile: false, muteAriaNotifications: false});
       if (event.data.withLinkCreationButton) {
         this.onEntriesLinkAnnotationCreate(dataProvider, event.data.entryIndex, true);
       }
@@ -1644,7 +1634,8 @@ export class TimelineFlameChartView extends Common.ObjectWrapper.eventMixin<Even
                                     Trace.Types.File.EntriesLinkState.PENDING_TO_EVENT,
       });
       if (this.#linkSelectionAnnotation) {
-        ModificationsManager.activeManager()?.createAnnotation(this.#linkSelectionAnnotation);
+        ModificationsManager.activeManager()?.createAnnotation(
+            this.#linkSelectionAnnotation, {loadedFromFile: false, muteAriaNotifications: false});
       }
     }
   }
@@ -1935,17 +1926,17 @@ export const FlameChartStyle = {
 };
 
 export class TimelineFlameChartMarker implements PerfUI.FlameChart.FlameChartMarker {
-  private readonly startTimeInternal: number;
+  readonly #startTime: number;
   private readonly startOffset: number;
   private style: TimelineMarkerStyle;
   constructor(startTime: number, startOffset: number, style: TimelineMarkerStyle) {
-    this.startTimeInternal = startTime;
+    this.#startTime = startTime;
     this.startOffset = startOffset;
     this.style = style;
   }
 
   startTime(): number {
-    return this.startTimeInternal;
+    return this.#startTime;
   }
 
   color(): string {

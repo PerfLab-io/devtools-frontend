@@ -99,6 +99,15 @@ export function stubNoopSettings() {
   } as unknown as Common.Settings.Settings);
 }
 
+export function registerActions(actions: UIModule.ActionRegistration.ActionRegistration[]): void {
+  for (const action of actions) {
+    UI.ActionRegistration.maybeRemoveActionExtension(action.actionId);
+    UI.ActionRegistration.registerActionExtension(action);
+  }
+  const actionRegistryInstance = UI.ActionRegistry.ActionRegistry.instance({forceNew: true});
+  UI.ShortcutRegistry.ShortcutRegistry.instance({forceNew: true, actionRegistry: actionRegistryInstance});
+}
+
 export function registerNoopActions(actionIds: string[]): void {
   for (const actionId of actionIds) {
     UI.ActionRegistration.maybeRemoveActionExtension(actionId);
@@ -120,14 +129,12 @@ const REGISTERED_EXPERIMENTS = [
   'timeline-invalidation-tracking',
   Root.Runtime.ExperimentName.INSTRUMENTATION_BREAKPOINTS,
   Root.Runtime.ExperimentName.HEADER_OVERRIDES,
-  Root.Runtime.ExperimentName.HIGHLIGHT_ERRORS_ELEMENTS_PANEL,
   Root.Runtime.ExperimentName.USE_SOURCE_MAP_SCOPES,
   'font-editor',
   Root.Runtime.ExperimentName.TIMELINE_DEBUG_MODE,
   Root.Runtime.ExperimentName.FULL_ACCESSIBILITY_TREE,
   Root.Runtime.ExperimentName.TIMELINE_SHOW_POST_MESSAGE_EVENTS,
   Root.Runtime.ExperimentName.TIMELINE_SAVE_AS_GZ,
-  Root.Runtime.ExperimentName.TIMELINE_ASK_AI_FULL_BUTTON,
   Root.Runtime.ExperimentName.TIMELINE_ENHANCED_TRACES,
   Root.Runtime.ExperimentName.TIMELINE_COMPILED_SOURCES,
   Root.Runtime.ExperimentName.VERTICAL_DRAWER,
@@ -315,6 +322,8 @@ export async function initializeGlobalVars({reset = true} = {}) {
     createSettingValue(
         Common.Settings.SettingCategory.ELEMENTS, 'show-event-listeners-for-ancestors', true,
         Common.Settings.SettingType.BOOLEAN),
+    createSettingValue(Common.Settings.SettingCategory.ELEMENTS, 'global-ai-button-click-count', 0),
+    createSettingValue(Common.Settings.SettingCategory.ACCOUNT, 'receive-gdp-badges', false),
   ];
 
   Common.Settings.registerSettingsForTest(settings, reset);

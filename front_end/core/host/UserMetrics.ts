@@ -280,11 +280,6 @@ export class UserMetrics {
         EnumeratedHistogram.RecordingCopiedToClipboard, value, RecordingCopiedToClipboard.MAX_VALUE);
   }
 
-  cssHintShown(type: CSSHintType): void {
-    InspectorFrontendHostInstance.recordEnumeratedHistogram(
-        EnumeratedHistogram.CSSHintShown, type, CSSHintType.MAX_VALUE);
-  }
-
   lighthouseModeRun(type: LighthouseModeRun): void {
     InspectorFrontendHostInstance.recordEnumeratedHistogram(
         EnumeratedHistogram.LighthouseModeRun, type, LighthouseModeRun.MAX_VALUE);
@@ -537,7 +532,8 @@ export enum Action {
   AiAssistanceError = 181,
   AiAssistanceOpenedFromPerformanceInsight = 182,
   AiAssistanceOpenedFromPerformanceFullButton = 183,
-  MAX_VALUE = 184,
+  AiCodeCompletionResponseServedFromCache = 184,
+  MAX_VALUE = 185,
   /* eslint-enable @typescript-eslint/naming-convention */
 }
 
@@ -821,11 +817,9 @@ export enum DevtoolsExperiments {
   'instrumentation-breakpoints' = 61,
   'authored-deployed-grouping' = 63,
   'just-my-code' = 65,
-  'highlight-errors-elements-panel' = 73,
   'use-source-map-scopes' = 76,
   'timeline-show-postmessage-events' = 86,
   'timeline-save-as-gz' = 108,
-  'timeline-ask-ai-full-button' = 109,
   'timeline-enhanced-traces' = 90,
   'timeline-compiled-sources' = 91,
   'timeline-debug-mode' = 93,
@@ -1193,25 +1187,6 @@ export enum ManifestSectionCodes {
   'Window Controls Overlay' = 5,
   /* eslint-enable @typescript-eslint/naming-convention */
   MAX_VALUE = 6,
-}
-
-// The names here match the CSSRuleValidator names in CSSRuleValidator.ts.
-export const enum CSSHintType {
-  OTHER = 0,
-  ALIGN_CONTENT = 1,
-  FLEX_ITEM = 2,
-  FLEX_CONTAINER = 3,
-  GRID_CONTAINER = 4,
-  GRID_ITEM = 5,
-  FLEX_GRID = 6,
-  MULTICOL_FLEX_GRID = 7,
-  PADDING = 8,
-  POSITION = 9,
-  Z_INDEX = 10,
-  SIZING = 11,
-  FLEX_OR_GRID_ITEM = 12,
-  FONT_VARIATION_SETTINGS = 13,
-  MAX_VALUE = 14,
 }
 
 export const enum LighthouseModeRun {

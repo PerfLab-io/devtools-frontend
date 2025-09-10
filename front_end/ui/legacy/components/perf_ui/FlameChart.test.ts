@@ -254,6 +254,156 @@ describeWithEnvironment('FlameChart', () => {
     });
   });
 
+  describe('applying track configuration', () => {
+    it('applies existing track configuration', async () => {
+      class TrackConfigurationProvider extends FakeFlameChartProvider {
+        static data = PerfUI.FlameChart.FlameChartTimelineData.create({
+          entryLevels: [0, 1, 2],
+          entryStartTimes: [5, 60, 80],
+          entryTotalTimes: [50, 10, 10],
+          groups:
+              [
+                {
+                  name: 'Group0' as Platform.UIString.LocalizedString,
+                  startLevel: 0,
+                  style: defaultGroupStyle,
+                  hidden: false,
+                },
+                {
+                  name: 'Group1' as Platform.UIString.LocalizedString,
+                  startLevel: 1,
+                  style: defaultGroupStyle,
+                  hidden: true,
+                },
+                {
+                  name: 'Group2' as Platform.UIString.LocalizedString,
+                  startLevel: 2,
+                  style: defaultGroupStyle,
+                  hidden: true,
+                },
+              ],
+        });
+
+        override timelineData(): PerfUI.FlameChart.FlameChartTimelineData|null {
+          return TrackConfigurationProvider.data;
+        }
+      }
+
+      const persistedConfig: PerfUI.FlameChart.PersistedGroupConfig[] = [
+        {expanded: true, hidden: true, originalIndex: 0, visualIndex: 0, trackName: 'Group0'},
+        {expanded: true, hidden: true, originalIndex: 1, visualIndex: 1, trackName: 'Group1'},
+        {expanded: true, hidden: true, originalIndex: 2, visualIndex: 2, trackName: 'Group2'},
+      ];
+      const provider = new TrackConfigurationProvider();
+      const delegate = new MockFlameChartDelegate();
+      chartInstance = new PerfUI.FlameChart.FlameChart(provider, delegate);
+      chartInstance.setPersistedConfig(persistedConfig);
+      renderChart(chartInstance);
+      const data = chartInstance.timelineData();
+      assert.isOk(data);
+      // It should have applied the persisted config from above and each group
+      // is now hidden and expanded.
+      assert.isTrue(data.groups.every(g => g.expanded && g.hidden));
+    });
+
+    it('does not apply configuration if the group name does not match', async () => {
+      class TrackConfigurationProvider extends FakeFlameChartProvider {
+        static data = PerfUI.FlameChart.FlameChartTimelineData.create({
+          entryLevels: [0, 1, 2],
+          entryStartTimes: [5, 60, 80],
+          entryTotalTimes: [50, 10, 10],
+          groups:
+              [
+                {
+                  name: 'Group0' as Platform.UIString.LocalizedString,
+                  startLevel: 0,
+                  style: defaultGroupStyle,
+                  hidden: false,
+                },
+                {
+                  name: 'Group1' as Platform.UIString.LocalizedString,
+                  startLevel: 1,
+                  style: defaultGroupStyle,
+                  hidden: true,
+                },
+                {
+                  name: 'Group2' as Platform.UIString.LocalizedString,
+                  startLevel: 2,
+                  style: defaultGroupStyle,
+                  hidden: true,
+                },
+              ],
+        });
+
+        override timelineData(): PerfUI.FlameChart.FlameChartTimelineData|null {
+          return TrackConfigurationProvider.data;
+        }
+      }
+
+      const persistedConfig: PerfUI.FlameChart.PersistedGroupConfig[] = [
+        {expanded: true, hidden: true, originalIndex: 0, visualIndex: 0, trackName: 'WRONG NON-MATCHING GROUP NAME'},
+        {expanded: true, hidden: true, originalIndex: 1, visualIndex: 1, trackName: 'Group1'},
+        {expanded: true, hidden: true, originalIndex: 2, visualIndex: 2, trackName: 'Group2'},
+      ];
+      const provider = new TrackConfigurationProvider();
+      const delegate = new MockFlameChartDelegate();
+      chartInstance = new PerfUI.FlameChart.FlameChart(provider, delegate);
+      chartInstance.setPersistedConfig(persistedConfig);
+      renderChart(chartInstance);
+      const data = chartInstance.timelineData();
+      assert.isOk(data);
+      assert.isFalse(data.groups[0].hidden);  // Because the name does not match.
+      assert.isTrue(data.groups[1].hidden);
+      assert.isTrue(data.groups[2].hidden);
+    });
+  });
+
+  describe('showAllGroups', () => {
+    it('updates each group to be expanded', async () => {
+      class ShowAllGroupsTestProvider extends FakeFlameChartProvider {
+        static data = PerfUI.FlameChart.FlameChartTimelineData.create({
+          entryLevels: [0, 1, 2],
+          entryStartTimes: [5, 60, 80],
+          entryTotalTimes: [50, 10, 10],
+          groups:
+              [
+                {
+                  name: 'Test Group 0' as Platform.UIString.LocalizedString,
+                  startLevel: 0,
+                  style: defaultGroupStyle,
+                  hidden: true,
+                },
+                {
+                  name: 'Test Group 1' as Platform.UIString.LocalizedString,
+                  startLevel: 1,
+                  style: defaultGroupStyle,
+                  hidden: true,
+                },
+                {
+                  name: 'Test Group 2' as Platform.UIString.LocalizedString,
+                  startLevel: 2,
+                  style: defaultGroupStyle,
+                  hidden: true,
+                },
+              ],
+        });
+
+        override timelineData(): PerfUI.FlameChart.FlameChartTimelineData|null {
+          return ShowAllGroupsTestProvider.data;
+        }
+      }
+      const provider = new ShowAllGroupsTestProvider();
+      const delegate = new MockFlameChartDelegate();
+      chartInstance = new PerfUI.FlameChart.FlameChart(provider, delegate);
+      renderChart(chartInstance);
+      const data = chartInstance.timelineData();
+      assert.isOk(data);
+      assert.isTrue(data.groups.every(g => g.hidden === true));
+      chartInstance.showAllGroups();
+      assert.isTrue(data.groups.every(g => g.hidden === false));
+    });
+  });
+
   describe('updateLevelPositions', () => {
     class UpdateLevelPositionsTestProvider extends FakeFlameChartProvider {
       static data = PerfUI.FlameChart.FlameChartTimelineData.create({
@@ -1035,11 +1185,11 @@ describeWithEnvironment('FlameChart', () => {
       const rawCPUProfile = await TraceLoader.rawCPUProfile(this, 'node-fibonacci-website.cpuprofile.gz');
       const rawTrace = Trace.Helpers.SamplesIntegrator.SamplesIntegrator.createFakeTraceFromCpuProfile(
           rawCPUProfile, Trace.Types.Events.ThreadID(1));
-      const {parsedTrace} = await TraceLoader.executeTraceEngineOnFileContents(rawTrace);
+      const {parsedTraceFile} = await TraceLoader.executeTraceEngineOnFileContents(rawTrace);
 
       await renderFlameChartIntoDOM(this, {
         dataProvider: 'MAIN',
-        traceFile: parsedTrace,
+        fileNameOrParsedTrace: parsedTraceFile.parsedTrace,
         filterTracks(trackName) {
           return trackName.startsWith('Main');
         },
@@ -1053,7 +1203,7 @@ describeWithEnvironment('FlameChart', () => {
     it('renders the main thread correctly', async function() {
       await renderFlameChartIntoDOM(this, {
         dataProvider: 'MAIN',
-        traceFile: 'one-second-interaction.json.gz',
+        fileNameOrParsedTrace: 'one-second-interaction.json.gz',
         filterTracks(trackName) {
           return trackName.startsWith('Main');
         },
@@ -1067,7 +1217,7 @@ describeWithEnvironment('FlameChart', () => {
     it('renders iframe main threads correctly', async function() {
       await renderFlameChartIntoDOM(this, {
         dataProvider: 'MAIN',
-        traceFile: 'multiple-navigations-with-iframes.json.gz',
+        fileNameOrParsedTrace: 'multiple-navigations-with-iframes.json.gz',
         filterTracks(trackName) {
           return trackName.startsWith('Frame');
         },
@@ -1081,7 +1231,7 @@ describeWithEnvironment('FlameChart', () => {
     it('renders the rasterizer tracks, nested correctly', async function() {
       await renderFlameChartIntoDOM(this, {
         dataProvider: 'MAIN',
-        traceFile: 'web-dev.json.gz',
+        fileNameOrParsedTrace: 'web-dev.json.gz',
         filterTracks(trackName) {
           return trackName.startsWith('Raster');
         },
@@ -1095,7 +1245,7 @@ describeWithEnvironment('FlameChart', () => {
     it('renders tracks for workers', async function() {
       await renderFlameChartIntoDOM(this, {
         dataProvider: 'MAIN',
-        traceFile: 'two-workers.json.gz',
+        fileNameOrParsedTrace: 'two-workers.json.gz',
         filterTracks(trackName) {
           return trackName.startsWith('Worker');
         },
@@ -1113,7 +1263,7 @@ describeWithEnvironment('FlameChart', () => {
     it('renders threadpool groups correctly', async function() {
       await renderFlameChartIntoDOM(this, {
         dataProvider: 'MAIN',
-        traceFile: 'web-dev.json.gz',
+        fileNameOrParsedTrace: 'web-dev.json.gz',
         filterTracks(trackName) {
           return trackName.startsWith('Thread');
         },
@@ -1131,7 +1281,7 @@ describeWithEnvironment('FlameChart', () => {
   it('renders the interactions track correctly', async function() {
     await renderFlameChartIntoDOM(this, {
       dataProvider: 'MAIN',
-      traceFile: 'slow-interaction-button-click.json.gz',
+      fileNameOrParsedTrace: 'slow-interaction-button-click.json.gz',
       filterTracks(trackName) {
         return trackName.startsWith('Interactions');
       },
@@ -1147,7 +1297,7 @@ describeWithEnvironment('FlameChart', () => {
   it('candy stripes long interactions', async function() {
     await renderFlameChartIntoDOM(this, {
       dataProvider: 'MAIN',
-      traceFile: 'one-second-interaction.json.gz',
+      fileNameOrParsedTrace: 'one-second-interaction.json.gz',
       filterTracks(trackName) {
         return trackName.startsWith('Interactions');
       },
@@ -1163,7 +1313,7 @@ describeWithEnvironment('FlameChart', () => {
   it('renders the frames track with screenshots', async function() {
     const {flameChart} = await renderFlameChartIntoDOM(this, {
       dataProvider: 'MAIN',
-      traceFile: 'web-dev-screenshot-source-ids.json.gz',
+      fileNameOrParsedTrace: 'web-dev-screenshot-source-ids.json.gz',
       // This is a bit confusing: we filter out all tracks here because the
       // Frames track was never migrated to an appender, and therefore it
       // cannot be filtered using this helper.
@@ -1189,7 +1339,7 @@ describeWithEnvironment('FlameChart', () => {
   it('renders correctly with a vertical offset', async function() {
     const {flameChart, parsedTrace, dataProvider} = await renderFlameChartIntoDOM(this, {
       dataProvider: 'MAIN',
-      traceFile: 'web-dev.json.gz',
+      fileNameOrParsedTrace: 'web-dev.json.gz',
       filterTracks() {
         return true;
       },
@@ -1216,7 +1366,7 @@ describeWithEnvironment('FlameChart', () => {
   it('renders the animations track', async function() {
     await renderFlameChartIntoDOM(this, {
       dataProvider: 'MAIN',
-      traceFile: 'animation.json.gz',
+      fileNameOrParsedTrace: 'animation.json.gz',
       filterTracks(trackName) {
         return trackName.startsWith('Animation');
       },
@@ -1230,7 +1380,7 @@ describeWithEnvironment('FlameChart', () => {
   it('renders the GPU track', async function() {
     await renderFlameChartIntoDOM(this, {
       dataProvider: 'MAIN',
-      traceFile: 'threejs-gpu.json.gz',
+      fileNameOrParsedTrace: 'threejs-gpu.json.gz',
       filterTracks(trackName) {
         return trackName.startsWith('GPU');
       },
@@ -1244,7 +1394,7 @@ describeWithEnvironment('FlameChart', () => {
   it('renders the network track', async function() {
     const {flameChart} = await renderFlameChartIntoDOM(this, {
       dataProvider: 'NETWORK',
-      traceFile: 'web-dev.json.gz',
+      fileNameOrParsedTrace: 'web-dev.json.gz',
       customHeight: 350,
       customEndTime: 1020035221.509 as Trace.Types.Timing.Milli,
     });
@@ -1256,7 +1406,7 @@ describeWithEnvironment('FlameChart', () => {
   it('renders the user timing track', async function() {
     await renderFlameChartIntoDOM(this, {
       dataProvider: 'MAIN',
-      traceFile: 'timings-track.json.gz',
+      fileNameOrParsedTrace: 'timings-track.json.gz',
       filterTracks(trackName) {
         return trackName.startsWith('Timings');
       },
@@ -1270,7 +1420,7 @@ describeWithEnvironment('FlameChart', () => {
   it('renders the auction worklets track', async function() {
     await renderFlameChartIntoDOM(this, {
       dataProvider: 'MAIN',
-      traceFile: 'fenced-frame-fledge.json.gz',
+      fileNameOrParsedTrace: 'fenced-frame-fledge.json.gz',
       filterTracks(trackName) {
         return trackName.includes('Worklet');
       },
@@ -1286,7 +1436,7 @@ describeWithEnvironment('FlameChart', () => {
   it('renders the layout shifts track', async function() {
     await renderFlameChartIntoDOM(this, {
       dataProvider: 'MAIN',
-      traceFile: 'cls-single-frame.json.gz',
+      fileNameOrParsedTrace: 'cls-single-frame.json.gz',
       filterTracks(trackName) {
         return trackName.startsWith('LayoutShifts');
       },
@@ -1453,7 +1603,7 @@ describeWithEnvironment('FlameChart', () => {
       override entryColor(entryIndex: number): string {
         const color = colorPalette[entryIndex % paletteLength];
         return Extensions.ExtensionUI.extensionEntryColor(
-            {args: {color}} as Trace.Types.Extensions.SyntheticExtensionEntry);
+            {devtoolsObj: {color}} as Trace.Types.Extensions.SyntheticExtensionEntry);
       }
       override maxStackDepth(): number {
         return paletteLength + 1;

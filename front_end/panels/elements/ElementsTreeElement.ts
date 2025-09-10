@@ -40,6 +40,7 @@ import * as Platform from '../../core/platform/platform.js';
 import * as Root from '../../core/root/root.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Protocol from '../../generated/protocol.js';
+import * as Badges from '../../models/badges/badges.js';
 import type * as Elements from '../../models/elements/elements.js';
 import type * as IssuesManager from '../../models/issues_manager/issues_manager.js';
 import * as TextUtils from '../../models/text_utils/text_utils.js';
@@ -54,6 +55,7 @@ import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import * as Emulation from '../emulation/emulation.js';
+import * as Media from '../media/media.js';
 
 import * as ElementsComponents from './components/components.js';
 import {canGetJSPath, cssPath, jsPath, xPath} from './DOMPath.js';
@@ -347,10 +349,10 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   private gutterContainer: HTMLElement;
   private readonly decorationsElement: HTMLElement;
   private searchQuery: string|null;
-  private expandedChildrenLimitInternal: number;
+  #expandedChildrenLimit: number;
   private readonly decorationsThrottler: Common.Throttler.Throttler;
   private inClipboard: boolean;
-  private hoveredInternal: boolean;
+  #hovered: boolean;
   private editing: EditorHandles|null;
   private htmlEditElement?: HTMLElement;
   expandAllButtonElement: UI.TreeOutline.TreeElement|null;
@@ -384,11 +386,11 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     this.decorationsElement = this.gutterContainer.createChild('div', 'hidden');
 
     this.searchQuery = null;
-    this.expandedChildrenLimitInternal = InitialChildrenLimit;
+    this.#expandedChildrenLimit = InitialChildrenLimit;
     this.decorationsThrottler = new Common.Throttler.Throttler(100);
 
     this.inClipboard = false;
-    this.hoveredInternal = false;
+    this.#hovered = false;
 
     this.editing = null;
 
@@ -415,6 +417,22 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
       void this.updateScrollAdorner();
     }
     this.expandAllButtonElement = null;
+
+    if (this.nodeInternal.retained && !this.isClosingTag()) {
+      const icon = new IconButton.Icon.Icon();
+      icon.name = 'small-status-dot';
+      icon.style.color = 'var(--icon-error)';
+      icon.classList.add('extra-small');
+      icon.style.setProperty('vertical-align', 'middle');
+      this.setLeadingIcons([icon]);
+      this.listItemNode.classList.add('detached-elements-detached-node');
+      this.listItemNode.style.setProperty('display', '-webkit-box');
+      this.listItemNode.setAttribute('title', 'Retained Node');
+    }
+
+    if (this.nodeInternal.detached && !this.isClosingTag()) {
+      this.listItemNode.setAttribute('title', 'Detached Tree Node');
+    }
   }
 
   static animateOnDOMUpdate(treeElement: ElementsTreeElement): void {
@@ -485,7 +503,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   highlightSearchResults(searchQuery: string): void {
     this.searchQuery = searchQuery;
     if (!this.editing) {
-      this.highlightSearchResultsInternal();
+      this.#highlightSearchResults();
     }
   }
 
@@ -503,11 +521,11 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   }
 
   get hovered(): boolean {
-    return this.hoveredInternal;
+    return this.#hovered;
   }
 
   set hovered(isHovered: boolean) {
-    if (this.hoveredInternal === isHovered) {
+    if (this.#hovered === isHovered) {
       return;
     }
 
@@ -518,7 +536,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
       delete this.aiButtonContainer;
     }
 
-    this.hoveredInternal = isHovered;
+    this.#hovered = isHovered;
 
     if (this.listItemElement) {
       if (isHovered) {
@@ -585,11 +603,11 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   }
 
   expandedChildrenLimit(): number {
-    return this.expandedChildrenLimitInternal;
+    return this.#expandedChildrenLimit;
   }
 
   setExpandedChildrenLimit(expandedChildrenLimit: number): void {
-    this.expandedChildrenLimitInternal = expandedChildrenLimit;
+    this.#expandedChildrenLimit = expandedChildrenLimit;
   }
 
   createSlotLink(nodeShortcut: SDK.DOMModel.DOMNodeShortcut|null): void {
@@ -673,7 +691,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   }
 
   override onattach(): void {
-    if (this.hoveredInternal) {
+    if (this.#hovered) {
       this.createSelection();
       this.listItemElement.classList.add('hovered');
     }
@@ -1283,7 +1301,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     this.updateEditorHandles(attribute, config);
 
     const componentSelection = this.listItemElement.getComponentSelection();
-    componentSelection && componentSelection.selectAllChildren(elementForSelection);
+    componentSelection?.selectAllChildren(elementForSelection);
 
     return true;
   }
@@ -1308,7 +1326,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
         this.textNodeEditingCommitted.bind(this, textNode), this.editingCancelled.bind(this), null);
     this.updateEditorHandles(textNodeElement, config);
     const componentSelection = this.listItemElement.getComponentSelection();
-    componentSelection && componentSelection.selectAllChildren(textNodeElement);
+    componentSelection?.selectAllChildren(textNodeElement);
 
     return true;
   }
@@ -1342,7 +1360,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
       if ((event as KeyboardEvent).key !== ' ') {
         return;
       }
-      this.editing && this.editing.commit();
+      this.editing?.commit();
       event.consume(true);
     };
 
@@ -1378,7 +1396,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
         new UI.InplaceEditor.Config<string|null>(editingCommitted.bind(this), editingCancelled.bind(this), tagName);
     this.updateEditorHandles(tagNameElement, config);
     const componentSelection = this.listItemElement.getComponentSelection();
-    componentSelection && componentSelection.selectAllChildren(tagNameElement);
+    componentSelection?.selectAllChildren(tagNameElement);
     return true;
   }
 
@@ -1461,7 +1479,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
             // The relatedTarget is null when no element gains focus, e.g. switching windows.
             const relatedTarget = (event.relatedTarget as Node | null);
             if (relatedTarget && !relatedTarget.isSelfOrDescendant(editor)) {
-              this.editing && this.editing.commit();
+              this.editing?.commit();
             }
           },
         }),
@@ -1472,7 +1490,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     this.htmlEditElement.appendChild(editor);
     editor.editor.focus();
 
-    this.treeOutline && this.treeOutline.setMultilineEditing(this.editing);
+    this.treeOutline?.setMultilineEditing(this.editing);
 
     function resize(this: ElementsTreeElement): void {
       if (this.treeOutline && this.htmlEditElement) {
@@ -1586,6 +1604,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
 
     if (attributeName !== null && (attributeName.trim() || newText.trim()) && oldText !== newText) {
       this.nodeInternal.setAttribute(attributeName, newText, moveToNextAttributeIfNeeded.bind(this));
+      Badges.UserBadges.instance().recordAction(Badges.BadgeAction.DOM_ELEMENT_OR_ATTRIBUTE_EDITED);
       return;
     }
 
@@ -1644,6 +1663,8 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
       if (!treeOutline) {
         return;
       }
+
+      Badges.UserBadges.instance().recordAction(Badges.BadgeAction.DOM_ELEMENT_OR_ATTRIBUTE_EDITED);
       const newTreeItem = treeOutline.selectNodeAfterEdit(wasExpanded, error, newNode);
       // TODO(crbug.com/1172300) Ignored during the jsdoc to ts migration
       // @ts-expect-error
@@ -1731,7 +1752,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
       this.#applyIssueStyleAndTooltip(issue);
     }
 
-    this.highlightSearchResultsInternal();
+    this.#highlightSearchResults();
   }
 
   private computeLeftIndent(): number {
@@ -1759,10 +1780,10 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
       return;
     }
 
-    void this.decorationsThrottler.schedule(this.updateDecorationsInternal.bind(this));
+    void this.decorationsThrottler.schedule(this.#updateDecorations.bind(this));
   }
 
-  private updateDecorationsInternal(): Promise<void> {
+  #updateDecorations(): Promise<void> {
     if (!this.treeOutline) {
       return Promise.resolve();
     }
@@ -2100,7 +2121,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     const node = this.nodeInternal;
     const titleDOM = document.createDocumentFragment();
     const updateSearchHighlight = (): void => {
-      this.highlightSearchResultsInternal();
+      this.#highlightSearchResults();
     };
 
     switch (node.nodeType()) {
@@ -2366,7 +2387,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     Host.InspectorFrontendHost.InspectorFrontendHostInstance.copyText(lines.join('\n'));
   }
 
-  private highlightSearchResultsInternal(): void {
+  #highlightSearchResults(): void {
     this.hideSearchHighlights();
 
     if (!this.searchQuery) {
@@ -2488,10 +2509,10 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
   }
 
   private updateAdorners(context: OpeningTagContext): void {
-    void context.adornersThrottler.schedule(this.updateAdornersInternal.bind(null, context));
+    void context.adornersThrottler.schedule(this.#updateAdorners.bind(null, context));
   }
 
-  private updateAdornersInternal(context: OpeningTagContext): Promise<void> {
+  #updateAdorners(context: OpeningTagContext): Promise<void> {
     const adornerContainer = context.adornerContainer;
     if (!adornerContainer) {
       return Promise.resolve();
@@ -2564,6 +2585,9 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     const adorner = this.adorn(config);
     const onClick = async(): Promise<void> => {
       const {nodeIds} = await node.domModel().agent.invoke_forceShowPopover({nodeId, enable: adorner.isActive()});
+      if (adorner.isActive()) {
+        Badges.UserBadges.instance().recordAction(Badges.BadgeAction.MODERN_DOM_BADGE_CLICKED);
+      }
       for (const closedPopoverNodeId of nodeIds) {
         const node = this.node().domModel().nodeForId(closedPopoverNodeId);
         const treeElement = node && this.treeOutline?.treeElementByNode.get(node);
@@ -2600,6 +2624,9 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     const onClick = ((() => {
                        if (adorner.isActive()) {
                          node.domModel().overlayModel().highlightGridInPersistentOverlay(nodeId);
+                         if (isSubgrid) {
+                           Badges.UserBadges.instance().recordAction(Badges.BadgeAction.MODERN_DOM_BADGE_CLICKED);
+                         }
                        } else {
                          node.domModel().overlayModel().hideGridInPersistentOverlay(nodeId);
                        }
@@ -2641,6 +2668,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
     const onClick = ((() => {
                        if (adorner.isActive()) {
                          node.domModel().overlayModel().highlightGridInPersistentOverlay(nodeId);
+                         Badges.UserBadges.instance().recordAction(Badges.BadgeAction.MODERN_DOM_BADGE_CLICKED);
                        } else {
                          node.domModel().overlayModel().hideGridInPersistentOverlay(nodeId);
                        }
@@ -2769,6 +2797,7 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
                        const model = node.domModel().overlayModel();
                        if (adorner.isActive()) {
                          model.highlightContainerQueryInPersistentOverlay(nodeId);
+                         Badges.UserBadges.instance().recordAction(Badges.BadgeAction.MODERN_DOM_BADGE_CLICKED);
                        } else {
                          model.hideContainerQueryInPersistentOverlay(nodeId);
                        }
@@ -2806,10 +2835,17 @@ export class ElementsTreeElement extends UI.TreeOutline.TreeElement {
         ElementsComponents.AdornerManager.RegisteredAdorners.MEDIA);
     const adorner = this.adornMedia(config);
     adorner.classList.add('media');
-
-    const onClick = ((() => {
-                       void UI.ViewManager.ViewManager.instance().showView('medias');
-                     }) as EventListener);
+    const onClick = (async(): Promise<void> => {
+                      await UI.ViewManager.ViewManager.instance().showView('medias');
+                      const view = UI.ViewManager.ViewManager.instance().view('medias');
+                      if (view) {
+                        const widget = await view.widget();
+                        if (widget instanceof Media.MainView.MainView) {
+                          await widget.waitForInitialPlayers();
+                          widget.selectPlayerByDOMNodeId(node.backendNodeId());
+                        }
+                      }
+                    }) as EventListener;
 
     adorner.addInteraction(onClick, {
       isToggle: false,

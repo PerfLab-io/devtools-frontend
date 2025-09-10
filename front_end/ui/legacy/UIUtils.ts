@@ -41,10 +41,11 @@ import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
 import * as Root from '../../core/root/root.js';
+import * as Geometry from '../../models/geometry/geometry.js';
 import * as TextUtils from '../../models/text_utils/text_utils.js';
 import * as Buttons from '../components/buttons/buttons.js';
 import * as IconButton from '../components/icon_button/icon_button.js';
-import {Directives} from '../lit/lit.js';
+import * as Lit from '../lit/lit.js';
 import * as VisualLogging from '../visual_logging/visual_logging.js';
 
 import * as ActionRegistration from './ActionRegistration.js';
@@ -53,7 +54,6 @@ import * as ARIAUtils from './ARIAUtils.js';
 import checkboxTextLabelStyles from './checkboxTextLabel.css.js';
 import confirmDialogStyles from './confirmDialog.css.js';
 import {Dialog} from './Dialog.js';
-import {Size} from './Geometry.js';
 import {GlassPane, PointerEventsBehavior, SizeBehavior} from './GlassPane.js';
 import inlineButtonStyles from './inlineButton.css.js';
 import inspectorCommonStyles from './inspectorCommon.css.js';
@@ -61,7 +61,6 @@ import {KeyboardShortcut, Keys} from './KeyboardShortcut.js';
 import smallBubbleStyles from './smallBubble.css.js';
 import type {ToolbarButton} from './Toolbar.js';
 import {Tooltip} from './Tooltip.js';
-import type {TreeOutline} from './Treeoutline.js';
 import {Widget} from './Widget.js';
 import type {XWidget} from './XWidget.js';
 
@@ -73,6 +72,7 @@ declare global {
     'dt-small-bubble': DevToolsSmallBubble;
   }
 }
+const {Directives, render} = Lit;
 
 const UIStrings = {
   /**
@@ -247,8 +247,7 @@ class DragHandler {
 
     targetDocument.addEventListener('pointermove', this.elementDragMove, true);
     targetDocument.addEventListener('pointerup', this.elementDragEnd, true);
-    DragHandler.rootForMouseOut &&
-        DragHandler.rootForMouseOut.addEventListener('pointerout', this.mouseOutWhileDragging, {capture: true});
+    DragHandler.rootForMouseOut?.addEventListener('pointerout', this.mouseOutWhileDragging, {capture: true});
     if (this.dragEventsTargetDocumentTop && targetDocument !== this.dragEventsTargetDocumentTop) {
       this.dragEventsTargetDocumentTop.addEventListener('pointerup', this.elementDragEnd, true);
     }
@@ -300,7 +299,7 @@ class DragHandler {
       this.elementDragEnd(event);
       return;
     }
-    if (this.elementDraggingEventListener && this.elementDraggingEventListener(event)) {
+    if (this.elementDraggingEventListener?.(event)) {
       this.cancelDragEvents(event);
     }
   }
@@ -888,7 +887,7 @@ export function revertDomChanges(domChanges: HighlightChange[]): void {
   }
 }
 
-export function measurePreferredSize(element: Element, containerElement?: Element|null): Size {
+export function measurePreferredSize(element: Element, containerElement?: Element|null): Geometry.Size {
   const oldParent = element.parentElement;
   const oldNextSibling = element.nextSibling;
   containerElement = containerElement || element.ownerDocument.body;
@@ -902,7 +901,7 @@ export function measurePreferredSize(element: Element, containerElement?: Elemen
   } else {
     element.remove();
   }
-  return new Size(result.width, result.height);
+  return new Geometry.Size(result.width, result.height);
 }
 
 class InvokeOnceHandlers {
@@ -1775,16 +1774,15 @@ export function createInlineButton(toolbarButton: ToolbarButton): Element {
   return element;
 }
 
-export abstract class Renderer {
-  abstract render(object: Object, options?: Options): Promise<{
-    node: Node,
-    tree: TreeOutline|null,
-  }|null>;
+export interface RenderedObject {
+  element: HTMLElement;
+  forceSelect(): void;
+}
 
-  static async render(object: Object, options?: Options): Promise<{
-    node: Node,
-    tree: TreeOutline|null,
-  }|null> {
+export abstract class Renderer {
+  abstract render(object: Object, options?: Options): Promise<RenderedObject|null>;
+
+  static async render(object: Object, options?: Options): Promise<RenderedObject|null> {
     if (!object) {
       throw new Error('Can\'t render ' + object);
     }
@@ -1813,6 +1811,10 @@ export function formatTimestamp(timestamp: number, full: boolean): string {
 export interface Options {
   title?: string|Element;
   editable?: boolean;
+  /**
+   * Should the resulting object be expanded.
+   */
+  expand?: boolean;
 }
 
 export interface HighlightChange {
@@ -2184,4 +2186,95 @@ export function bindToAction(actionName: string): ReturnType<typeof Directives.r
     setEnabled(action.enabled());
     e.onclick = () => action.execute();
   });
+}
+
+class InterceptBindingDirective extends Lit.Directive.Directive {
+  static readonly #interceptedBindings = new WeakMap<Element, Map<string, (e: Event) => void>>();
+
+  constructor(part: Lit.Directive.PartInfo) {
+    super(part);
+    if (part.type !== Lit.Directive.PartType.EVENT) {
+      throw new Error('This directive is for event bindings only');
+    }
+  }
+
+  override update(part: Lit.Directive.EventPart, [listener]: [(e: Event) => void]): undefined {
+    let eventListeners = InterceptBindingDirective.#interceptedBindings.get(part.element);
+    if (!eventListeners) {
+      eventListeners = new Map();
+      InterceptBindingDirective.#interceptedBindings.set(part.element, eventListeners);
+    }
+    eventListeners.set(part.name, listener);
+
+    return this.render(listener);
+  }
+
+  render(_listener: (e: Event) => void): undefined {
+    return undefined;
+  }
+
+  static attachEventListeners(templateElement: Element, renderedElement: Element): void {
+    const eventListeners = InterceptBindingDirective.#interceptedBindings.get(templateElement);
+    if (!eventListeners) {
+      return;
+    }
+    for (const [name, listener] of eventListeners) {
+      renderedElement.addEventListener(name, listener);
+    }
+  }
+}
+
+export class HTMLElementWithLightDOMTemplate extends HTMLElement {
+  static readonly on = Lit.Directive.directive(InterceptBindingDirective);
+  readonly #mutationObserver = new MutationObserver(this.#onChange.bind(this));
+  #contentTemplate: HTMLTemplateElement|null = null;
+
+  constructor() {
+    super();
+    this.#mutationObserver.observe(this, {childList: true, attributes: true, subtree: true, characterData: true});
+  }
+
+  static cloneNode(node: Node): Node {
+    const clone = node.cloneNode(false);
+    for (const child of node.childNodes) {
+      clone.appendChild(HTMLElementWithLightDOMTemplate.cloneNode(child));
+    }
+    if (node instanceof Element && clone instanceof Element) {
+      InterceptBindingDirective.attachEventListeners(node, clone);
+    }
+    return clone;
+  }
+
+  set template(template: Lit.LitTemplate) {
+    if (!this.#contentTemplate) {
+      this.removeChildren();
+      this.#contentTemplate = this.createChild('template');
+      this.#mutationObserver.disconnect();
+      this.#mutationObserver.observe(
+          this.#contentTemplate.content, {childList: true, attributes: true, subtree: true, characterData: true});
+    }
+    // eslint-disable-next-line rulesdir/no-lit-render-outside-of-view
+    render(template, this.#contentTemplate.content);
+  }
+
+  #onChange(mutationList: MutationRecord[]): void {
+    this.onChange(mutationList);
+    for (const mutation of mutationList) {
+      this.removeNodes(mutation.removedNodes);
+      this.addNodes(mutation.addedNodes);
+      this.updateNode(mutation.target, mutation.attributeName);
+    }
+  }
+
+  protected onChange(_mutationList: MutationRecord[]): void {
+  }
+
+  protected updateNode(_node: Node, _attributeName: string|null): void {
+  }
+
+  protected addNodes(_nodes: NodeList|Node[]): void {
+  }
+
+  protected removeNodes(_nodes: NodeList): void {
+  }
 }

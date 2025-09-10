@@ -26,13 +26,17 @@ export class SlowCSSSelector extends BaseInsightComponent<SlowCSSSelectorInsight
   override internalName = 'slow-css-selector';
   #selectorLocations = new Map<string, Protocol.CSS.SourceRange[]>();
 
+  protected override hasAskAiSupport(): boolean {
+    return true;
+  }
+
   private async toSourceFileLocation(cssModel: SDK.CSSModel.CSSModel, selector: Trace.Types.Events.SelectorTiming):
       Promise<Linkifier.Linkifier.LinkifierData[]|undefined> {
     if (!cssModel) {
       return undefined;
     }
     const styleSheetHeader = cssModel.styleSheetHeaderForId(selector.style_sheet_id as Protocol.CSS.StyleSheetId);
-    if (!styleSheetHeader || !styleSheetHeader.resourceURL()) {
+    if (!styleSheetHeader?.resourceURL()) {
       return undefined;
     }
 

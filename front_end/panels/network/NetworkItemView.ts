@@ -34,6 +34,7 @@ import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
+import type * as NetworkTimeCalculator from '../../models/network_time_calculator/network_time_calculator.js';
 import * as NetworkForward from '../../panels/network/forward/forward.js';
 import * as IconButton from '../../ui/components/icon_button/icon_button.js';
 import * as LegacyWrapper from '../../ui/components/legacy_wrapper/legacy_wrapper.js';
@@ -43,7 +44,6 @@ import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 
 import * as NetworkComponents from './components/components.js';
 import {EventSourceMessagesView} from './EventSourceMessagesView.js';
-import type {NetworkTimeCalculator} from './NetworkTimeCalculator.js';
 import {RequestCookiesView} from './RequestCookiesView.js';
 import {RequestInitiatorView} from './RequestInitiatorView.js';
 import {RequestPayloadView} from './RequestPayloadView.js';
@@ -168,7 +168,7 @@ export class NetworkItemView extends UI.TabbedPane.TabbedPane {
   readonly #firstTab: NetworkForward.UIRequestLocation.UIRequestTabs;
 
   constructor(
-      request: SDK.NetworkRequest.NetworkRequest, calculator: NetworkTimeCalculator,
+      request: SDK.NetworkRequest.NetworkRequest, calculator: NetworkTimeCalculator.NetworkTimeCalculator,
       initialTab?: NetworkForward.UIRequestLocation.UIRequestTabs) {
     super();
     this.#request = request;
@@ -235,7 +235,7 @@ export class NetworkItemView extends UI.TabbedPane.TabbedPane {
       const signedExchangeInfo = request.signedExchangeInfo();
       if (signedExchangeInfo?.errors?.length) {
         const icon = new IconButton.Icon.Icon();
-        icon.data = {iconName: 'cross-circle-filled', color: 'var(--icon-error)'};
+        icon.name = 'cross-circle-filled';
         icon.classList.add('small');
         UI.Tooltip.Tooltip.install(icon, i18nString(UIStrings.signedexchangeError));
         this.setTabIcon(NetworkForward.UIRequestLocation.UIRequestTabs.PREVIEW, icon);
@@ -288,7 +288,7 @@ export class NetworkItemView extends UI.TabbedPane.TabbedPane {
     // the selected tab in the mean time. Show the previously selected tab in that
     // case instead, by simply doing nothing.
     if (this.#initialTab) {
-      this.selectTabInternal(this.#initialTab);
+      this.#selectTab(this.#initialTab);
       this.#initialTab = undefined;
     }
   }
@@ -343,13 +343,13 @@ export class NetworkItemView extends UI.TabbedPane.TabbedPane {
     if (trustTokenResult &&
         !NetworkComponents.RequestTrustTokensView.statusConsideredSuccess(trustTokenResult.status)) {
       const icon = new IconButton.Icon.Icon();
-      icon.data = {iconName: 'cross-circle-filled', color: 'var(--icon-error)'};
+      icon.name = 'cross-circle-filled';
       icon.classList.add('small');
       this.setTabIcon(NetworkForward.UIRequestLocation.UIRequestTabs.TRUST_TOKENS, icon);
     }
   }
 
-  private selectTabInternal(tabId: NetworkForward.UIRequestLocation.UIRequestTabs): void {
+  #selectTab(tabId: NetworkForward.UIRequestLocation.UIRequestTabs): void {
     if (!this.selectTab(tabId)) {
       // maybeAppendPayloadPanel might cause payload tab to appear asynchronously, so
       // it makes sense to retry on the next tick
@@ -373,12 +373,12 @@ export class NetworkItemView extends UI.TabbedPane.TabbedPane {
   }
 
   async revealResponseBody(position: SourceFrame.SourceFrame.RevealPosition): Promise<void> {
-    this.selectTabInternal(NetworkForward.UIRequestLocation.UIRequestTabs.RESPONSE);
+    this.#selectTab(NetworkForward.UIRequestLocation.UIRequestTabs.RESPONSE);
     await this.#responseView?.revealPosition(position);
   }
 
   revealHeader(section: NetworkForward.UIRequestLocation.UIHeaderSection, header: string|undefined): void {
-    this.selectTabInternal(NetworkForward.UIRequestLocation.UIRequestTabs.HEADERS_COMPONENT);
+    this.#selectTab(NetworkForward.UIRequestLocation.UIRequestTabs.HEADERS_COMPONENT);
     this.#headersViewComponent?.revealHeader(section, header);
   }
 

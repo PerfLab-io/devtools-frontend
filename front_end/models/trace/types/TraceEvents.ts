@@ -5,7 +5,6 @@
 import type * as Platform from '../../../core/platform/platform.js';
 import type * as Protocol from '../../../generated/protocol.js';
 
-import type {ExtensionTrackEntryPayloadDeeplink} from './Extensions.js';
 import type {Micro, Milli, Seconds, TraceWindowMicro} from './Timing.js';
 
 // Trace Events.
@@ -389,7 +388,7 @@ export interface SyntheticNetworkRequest extends Complete, SyntheticBased<Phase.
        *
        * Note, this is not the same as URL.protocol.
        *
-       * Example values (not exhaustive): http/0.9, http/1.0, http/1.1, http, h2, h3-Q050, data, blob
+       * Example values (not exhaustive): http/0.9, http/1.0, http/1.1, http, h2, h3-Q050, data, blob, file
        */
       protocol: string,
       redirects: SyntheticNetworkRedirect[],
@@ -997,10 +996,10 @@ export const NO_NAVIGATION = 'NO_NAVIGATION';
 export type NavigationId = string|typeof NO_NAVIGATION;
 
 /**
- * This is a synthetic Layout shift cluster. Not based on a raw event as there's no concept
- * of this as a trace event.
+ * This is a synthetic Layout shift cluster. The rawSourceEvent is the worst layout shift event
+ * in the cluster.
  */
-export interface SyntheticLayoutShiftCluster {
+export interface SyntheticLayoutShiftCluster extends SyntheticBased<Phase.COMPLETE> {
   name: 'SyntheticLayoutShiftCluster';
   clusterWindow: TraceWindowMicro;
   clusterCumulativeScore: number;
@@ -1115,7 +1114,8 @@ interface ResourceReceiveResponseTimingData {
   pushEnd: Milli;
   pushStart: Milli;
   receiveHeadersEnd: Milli;
-  receiveHeadersStart: Milli;
+  /** M116. */
+  receiveHeadersStart?: Milli;
   /** When the network service is about to handle a request, ie. just before going to the HTTP cache or going to the network for DNS/connection setup. */
   requestTime: Seconds;
   sendEnd: Milli;
@@ -1480,9 +1480,7 @@ export interface ConsoleTimeStamp extends Event {
       track?: string|number,
       trackGroup?: string|number,
       color?: string|number,
-      devtools?: {
-        link: ExtensionTrackEntryPayloadDeeplink,
-      },
+      devtools?: string,
       sampleTraceId?: number,
     },
   };
@@ -2620,7 +2618,7 @@ export interface RequestIdleCallback extends Instant {
     data: {
       frame: string,
       id: number,
-      timeout: number,
+      timeout: Milli,
       stackTrace?: CallFrame,
     },
 

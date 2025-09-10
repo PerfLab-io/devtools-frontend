@@ -9,11 +9,14 @@ import * as Host from '../../../core/host/host.js';
 import * as i18n from '../../../core/i18n/i18n.js';
 import * as Platform from '../../../core/platform/platform.js';
 import * as Root from '../../../core/root/root.js';
+import * as SDK from '../../../core/sdk/sdk.js';
 import * as TimelineUtils from '../../../panels/timeline/utils/utils.js';
-import {html, type TemplateResult} from '../../../ui/lit/lit.js';
 import * as Trace from '../../trace/trace.js';
 import {ConversationType} from '../AiHistoryStorage.js';
-import {PerformanceInsightFormatter, TraceEventFormatter} from '../data_formatters/PerformanceInsightFormatter.js';
+import {
+  PerformanceInsightFormatter,
+  TraceEventFormatter,
+} from '../data_formatters/PerformanceInsightFormatter.js';
 import {PerformanceTraceFormatter} from '../data_formatters/PerformanceTraceFormatter.js';
 import {debugLog} from '../debug.js';
 
@@ -51,57 +54,6 @@ const lockedString = i18n.i18n.lockedString;
  * TESTERS. Otherwise, a server-side preamble is used (see
  * chrome_preambles.gcl). Sync local changes with the server-side.
  */
-/* clang-format off */
-const insightPreamble = `You are an AI-powered web performance optimization expert, simulating a highly skilled Chrome DevTools user. Your goal is to provide actionable advice to web developers based on Chrome Performance Panel insights.
-
-You will be provided with an Insight from the Chrome Performance Panel. This Insight will contain information about the performance of the web site. It is your task to analyze the data available to you and suggest solutions to improve the performance of the page.
-
-You will be told the following information about the Insight:
-- **Insight Title:** The name of the performance issue detected by Chrome DevTools.
-- **Insight Summary:** A brief explanation of the performance problem and its potential impact on the user experience.
-- **Detailed Analysis:** Specific data points and observations from the Chrome Performance Panel, including timestamps, durations, resource URLs, and function call stacks. Use this data to pinpoint the root cause of the performance issue.
-
-You will be provided with a list of relevant URLs containing up-to-date information regarding web performance optimization. Treat these URLs as authoritative resources to supplement the Chrome DevTools data. Prioritize information from the provided URLs to ensure your recommendations are current and reflect best practices. Cross-reference information from the Chrome DevTools data with the external URLs to provide the most accurate and comprehensive analysis.
-
-Additionally, you may also be asked basic questions such as "What is LCP?". Ensure you give succinct, accurate answers to generic performance questions like this.
-
-*IMPORTANT*: All time units provided in the 'Detailed Analysis' are in milliseconds (ms). Ensure your response reflects this unit of measurement.
-
-## Step-by-step instructions
-
-- Utilize the provided functions (e.g., \`getMainThreadActivity\`, \`getNetworkActivitySummary\`) to retrieve detailed performance data. Prioritize function calls that provide context relevant to the Insight being analyzed.
-- Make sure you use \`getNetworkRequestDetail\` to get vital information about any network requests that you are referencing in your suggestions. Use this information to verify your assumptions.
-- Retrieve all necessary data through function calls before generating your response. Do not rely on assumptions or incomplete information.
-- Provide clear, actionable recommendations. Avoid technical jargon unless necessary, and explain any technical terms used.
-- If you see a generic task like "Task", "Evaluate script" or "(anonymous)" in the main thread activity, try to look at its children to see what actual functions executed and refer to those. When referencing main thread activity, be as specific as you can. Ensure you identify to the user relevant functions and which script they were defined in. Avoid referencing "Task", "Evaluate script" and "(anonymous)" nodes if possible and instead focus on their children.
-- Prioritize recommendations based on their potential impact on performance. Focus on the most significant bottlenecks.
-- Structure your response using markdown headings and bullet points for improved readability.
-- Your answer should contain the following sections:
-    1. **Analysis:** Based on the user's question, explain the observed performance issues, their impact on user experience, and the key metrics used to identify them. Include relevant timestamps and durations from the provided data. Avoid large paragraphs and use bullet points to keep this section digestable for the user. Include references to relevant main thread or network activity that is useful to help the user understand the analysis and provide them with additional context. Be specific: for example, rather than saying "optimize main thread activity", you can say "optimize main thread activity in the \`sleepFor\` function of \`render-blocking-script.js\`."
-    2. **Optimization Recommendations:** Provide 2-3 specific, actionable steps to address the identified performance issues. Prioritize the most impactful optimizations, focusing on those that will yield the greatest performance improvements. Provide a brief justification for each recommendation, explaining its potential impact. Keep each optimization recommendation concise, ideally within 1-2 sentences. Avoid lengthy explanations or detailed technical jargon unless absolutely necessary. Do not repeat optimizations that you have already suggested in previous responses.
-- Your response should immediately start with the "Analysis" section.
-- Be direct and to the point. Avoid unnecessary introductory phrases or filler content. Focus on delivering actionable advice efficiently.
-
-## Strict Constraints
-
-- Adhere to the following critical requirements:
-    - Execute \`getMainThreadActivity\` only once *per Insight context*. If the Insight changes, you may call this function again.
-    - Execute \`getNetworkActivitySummary\` only once *per Insight context*. If the Insight changes, you may call this function again.
-    - Ensure comprehensive data retrieval through function calls to provide accurate and complete recommendations.
-    - Before suggesting changing the format of an image, consider what format it is already in. For example, if the mime type is image/webp, do not suggest to the user that the image is converted to WebP, as the image is already in that format.
-    - Do not mention function names (e.g., \`getMainThreadActivity\`, \`getNetworkActivitySummary\`) in your output. These are internal implementation details.
-    - Do not mention that you are an AI, or refer to yourself in the third person. You are simulating a performance expert.
-    - If asked about sensitive topics (religion, race, politics, sexuality, gender, etc.), respond with: "My expertise is limited to website performance analysis. I cannot provide information on that topic.".
-    - Refrain from providing answers on non-web-development topics, such as legal, financial, medical, or personal advice.
-
-## Additional guidance for specific insights
-- If you are being asked any questions that relate to LCP, it is CRITICAL that you use \`getNetworkActivitySummary\` to get a summary of network requests.
-- If the LCP resource was fetched over the network, you MUST use the \`getNetworkRequestDetail\` function to find out more information before providing your analysis.
-- If the LCP resource was fetched over the network, pay attention to the network request's priority. Important resources for LCP should have a high priority. If the LCP resource's priority is not "high", suggest optimizations to the user to change this.
-- If you are asked about "LCP by Phase" and the "element render delay" phase makes up a large percentage of the time, that indicates that there was main thread activity that blocked the browser painting. In this case, inspect the main thread activity and include information on what functions caused the main thread to be busy. Thoroughly inspect the main thread activity so you can be accurate in your responses.
-- Only suggest image size and format optimizations as a solution if you are confident that the download time of the image was a major contribution to the performance problems you have investigated, or if the user specifically asks about image optimization techniques.
-`;
-/* clang-format on */
 
 /**
  * Preamble clocks in at ~970 tokens.
@@ -244,7 +196,7 @@ const callFrameDataFormatDescription = `Each call frame is presented in the foll
 
 Key definitions:
 
-* id: A unique numerical identifier for the call frame.
+* id: A unique numerical identifier for the call frame. Never mention this id in the output to the user.
 * name: A concise string describing the call frame (e.g., 'Evaluate Script', 'render', 'fetchData').
 * duration: The total execution time of the call frame, including its children.
 * selfTime: The time spent directly within the call frame, excluding its children's execution.
@@ -254,28 +206,12 @@ Key definitions:
 
 Example Call Tree:
 
-1;r-123;main;500;100;;
-2;r-124;update;200;50;;3
-3;r-125;animate;150;20;0;4-5;S
-4;r-126;calculatePosition;80;80;;
-5;r-127;applyStyles;50;50;;
+1;main;500;100;;
+2;update;200;50;;3
+3;animate;150;20;0;4-5;S
+4;calculatePosition;80;80;;
+5;applyStyles;50;50;;
 `;
-
-const mainThreadActivityFormatDescription =
-    `The tree is represented as a call frame with a root task and a series of children.
-The format of each callframe is:
-
-  'id;name;duration;selfTime;urlIndex;childRange;[S]'
-
-The fields are:
-
-* id: A unique numerical identifier for the call frame.
-* name: A concise string describing the call frame (e.g., 'Evaluate Script', 'render', 'fetchData').
-* duration: The total execution time of the call frame, including its children.
-* selfTime: The time spent directly within the call frame, excluding its children's execution.
-* urlIndex: Index referencing the "All URLs" list. Empty if no specific script URL is associated.
-* childRange: Specifies the direct children of this node using their IDs. If empty ('' or 'S' at the end), the node has no children. If a single number (e.g., '4'), the node has one child with that ID. If in the format 'firstId-lastId' (e.g., '4-5'), it indicates a consecutive range of child IDs from 'firstId' to 'lastId', inclusive.
-* S: **Optional marker.** The letter 'S' appears at the end of the line **only** for the single call frame selected by the user.`;
 
 enum ScorePriority {
   REQUIRED = 3,
@@ -285,16 +221,16 @@ enum ScorePriority {
 
 export class PerformanceTraceContext extends ConversationContext<TimelineUtils.AIContext.AgentFocus> {
   static full(
-      parsedTrace: Trace.Handlers.Types.ParsedTrace, insightSet: Trace.Insights.Types.InsightSet|null,
+      parsedTrace: Trace.Handlers.Types.ParsedTrace, insights: Trace.Insights.Types.TraceInsightSets,
       traceMetadata: Trace.Types.File.MetaData): PerformanceTraceContext {
-    return new PerformanceTraceContext(TimelineUtils.AIContext.AgentFocus.full(parsedTrace, insightSet, traceMetadata));
+    return new PerformanceTraceContext(TimelineUtils.AIContext.AgentFocus.full(parsedTrace, insights, traceMetadata));
   }
 
   static fromInsight(
-      parsedTrace: Trace.Handlers.Types.ParsedTrace, insight: Trace.Insights.Types.InsightModel,
-      insightSetBounds: Trace.Types.Timing.TraceWindowMicro): PerformanceTraceContext {
+      parsedTrace: Trace.Handlers.Types.ParsedTrace, insights: Trace.Insights.Types.TraceInsightSets,
+      traceMetadata: Trace.Types.File.MetaData, insight: Trace.Insights.Types.InsightModel): PerformanceTraceContext {
     return new PerformanceTraceContext(
-        TimelineUtils.AIContext.AgentFocus.fromInsight(parsedTrace, insight, insightSetBounds));
+        TimelineUtils.AIContext.AgentFocus.fromInsight(parsedTrace, insights, traceMetadata, insight));
   }
 
   static fromCallTree(callTree: TimelineUtils.AICallTree.AICallTree): PerformanceTraceContext {
@@ -311,7 +247,7 @@ export class PerformanceTraceContext extends ConversationContext<TimelineUtils.A
   override getOrigin(): string {
     const focus = this.#focus.data;
 
-    if (focus.type === 'full') {
+    if (focus.type === 'full' || focus.type === 'insight') {
       const {min, max} = focus.parsedTrace.Meta.traceBounds;
       return `trace-${min}-${max}`;
     }
@@ -343,11 +279,6 @@ export class PerformanceTraceContext extends ConversationContext<TimelineUtils.A
       return uuid;
     }
 
-    if (focus.type === 'insight') {
-      const {min, max} = focus.parsedTrace.Meta.traceBounds;
-      return `insight-${min}-${max}`;
-    }
-
     Platform.assertNever(focus, 'Unknown agent focus');
   }
 
@@ -355,16 +286,12 @@ export class PerformanceTraceContext extends ConversationContext<TimelineUtils.A
     return this.#focus;
   }
 
-  override getIcon(): TemplateResult {
-    return html`<devtools-icon name="performance" title="Performance"
-        style="color: var(--sys-color-on-surface-subtle);"></devtools-icon>`;
-  }
-
   override getTitle(): string {
     const focus = this.#focus.data;
 
-    if (focus.type === 'full') {
-      return `Trace: ${new URL(focus.parsedTrace.Meta.mainFrameURL).hostname}`;
+    if (focus.type === 'full' || focus.type === 'insight') {
+      const url = focus.insightSet?.url ?? new URL(focus.parsedTrace.Meta.mainFrameURL);
+      return `Trace: ${url.hostname}`;
     }
 
     if (focus.type === 'call-tree') {
@@ -373,10 +300,6 @@ export class PerformanceTraceContext extends ConversationContext<TimelineUtils.A
         return 'unknown';
       }
       return TimelineUtils.EntryName.nameForEntry(event);
-    }
-
-    if (focus.type === 'insight') {
-      return `Insight: ${focus.insight.title}`;
     }
 
     Platform.assertNever(focus, 'Unknown agent focus');
@@ -416,7 +339,7 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
   #conversationType: PerformanceConversationType;
   #formatter: PerformanceTraceFormatter|null = null;
   #lastInsightForEnhancedQuery: Trace.Insights.Types.InsightModel|undefined;
-  #eventsSerializer = new TimelineUtils.EventsSerializer.EventsSerializer();
+  #eventsSerializer = new Trace.EventsSerializer.EventsSerializer();
   #lastFocusHandledForContextDetails: TimelineUtils.AIContext.AgentFocus|null = null;
 
   constructor(opts: AgentOptions, conversationType: PerformanceConversationType) {
@@ -425,36 +348,19 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
   }
 
   /**
-   * Store results (as facts) for the functions that are pure and return the
-   * same data for the same insight.
-   * This fact is then passed into the request on all future
-   * queries for the conversation. This means that the LLM is far less likely to
-   * call the function again, because we have provided the same data as a
-   * fact. We cache based on the active insight to ensure that if the user
-   * changes which insight they are focusing we will call the function again.
-   * It's important that we store it as a Fact in the cache, because the AI
-   * Agent stores facts in a set, and we need to pass the same object through to
-   * make sure it isn't mistakenly duplicated in the request.
-   */
-  #functionCallCacheForInsight = new Map<Trace.Insights.Types.InsightModel, {
-    getNetworkActivitySummary?: Host.AidaClient.RequestFact,
-    getMainThreadActivity?: Host.AidaClient.RequestFact,
-  }>();
-
-  /**
-   * Similar to above, but only used for the "Full" trace focus.
+   * Cache of all function calls made by the agent. This allows us to include (as a
+   * fact) every function call to conversation requests, allowing the AI to access
+   * all the results rather than just the most recent.
+   *
+   * TODO(b/442392194): I'm not certain this is needed. I do see past function call
+   * responses in "historical_contexts", though I think it isn't including any
+   * parameters in the "functionCall" entries.
    *
    * The record key is the result of a function's displayInfoFromArgs.
    */
   #functionCallCacheForFocus =
       new Map<TimelineUtils.AIContext.AgentFocus, Record<string, Host.AidaClient.RequestFact>>();
 
-  /*
-  * Since don't know for sure if the model will request the main thread or network requests information,
-  * add the formats description to facts once the main thread activity or network requests need to be sent.
-  */
-  #mainThreadActivityDescriptionFact:
-      Host.AidaClient.RequestFact = {text: mainThreadActivityFormatDescription, metadata: {source: 'devtools'}};
   #networkDataDescriptionFact: Host.AidaClient.RequestFact = {
     text: TraceEventFormatter.networkDataFormatDescription,
     metadata: {source: 'devtools', score: ScorePriority.CRITICAL}
@@ -466,27 +372,23 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
   #traceFacts: Host.AidaClient.RequestFact[] = [];
 
   get preamble(): string {
-    if (this.#conversationType === ConversationType.PERFORMANCE_FULL) {
+    if (this.#conversationType === ConversationType.PERFORMANCE_FULL ||
+        this.#conversationType === ConversationType.PERFORMANCE_INSIGHT) {
       return fullTracePreamble;
     }
     if (this.#conversationType === ConversationType.PERFORMANCE_CALL_TREE) {
       return callTreePreamble;
     }
-    if (this.#conversationType === ConversationType.PERFORMANCE_INSIGHT) {
-      return insightPreamble;
-    }
     Platform.assertNever(this.#conversationType, 'Unexpected conversation type');
   }
 
   get clientFeature(): Host.AidaClient.ClientFeature {
-    if (this.#conversationType === ConversationType.PERFORMANCE_FULL) {
+    if (this.#conversationType === ConversationType.PERFORMANCE_FULL ||
+        this.#conversationType === ConversationType.PERFORMANCE_INSIGHT) {
       return Host.AidaClient.ClientFeature.CHROME_PERFORMANCE_FULL_AGENT;
     }
     if (this.#conversationType === ConversationType.PERFORMANCE_CALL_TREE) {
       return Host.AidaClient.ClientFeature.CHROME_PERFORMANCE_AGENT;
-    }
-    if (this.#conversationType === ConversationType.PERFORMANCE_INSIGHT) {
-      return Host.AidaClient.ClientFeature.CHROME_PERFORMANCE_INSIGHTS_AGENT;
     }
     Platform.assertNever(this.#conversationType, 'Unexpected conversation type');
   }
@@ -525,7 +427,7 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
   }
 
   #serializeFocus(focus: TimelineUtils.AIContext.AgentFocus): string {
-    if (focus.data.type === 'full') {
+    if (focus.data.type === 'full' || focus.data.type === 'insight') {
       if (!this.#formatter) {
         return '';
       }
@@ -535,11 +437,6 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
 
     if (focus.data.type === 'call-tree') {
       return focus.data.callTree.serialize();
-    }
-
-    if (focus.data.type === 'insight') {
-      const formatter = new PerformanceInsightFormatter(focus.data.parsedTrace, focus.data.insight);
-      return formatter.formatInsight();
     }
 
     Platform.assertNever(focus.data, 'Unknown agent focus');
@@ -559,7 +456,7 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
 
     this.#lastFocusHandledForContextDetails = focus;
 
-    if (focus.data.type === 'full') {
+    if (focus.data.type === 'full' || focus.data.type === 'insight') {
       yield {
         type: ResponseType.CONTEXT,
         title: lockedString(UIStringsNotTranslated.analyzingTrace),
@@ -577,20 +474,6 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
         details: [
           {
             title: 'Selected call tree',
-            text: this.#serializeFocus(focus),
-          },
-        ],
-      };
-    } else if (focus.data.type === 'insight') {
-      const activeInsight = focus.data.insight;
-      const title = `Analyzing insight: ${activeInsight.title}`;
-      yield {
-        type: ResponseType.CONTEXT,
-        title,
-        details: [
-          {
-            // Purposefully use the raw title in the details view, we don't need to repeat "Analyzing insight"
-            title: activeInsight.title,
             text: this.#serializeFocus(focus),
           },
         ],
@@ -660,8 +543,10 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
       // User clicks Insight B. We now need to send info on Insight B with the prompt.
       // User clicks Insight A. We should resend the Insight info with the prompt.
       const includeInsightInfo = focus.data.insight !== this.#lastInsightForEnhancedQuery;
-      const extraQuery =
-          `${includeInsightInfo ? this.#serializeFocus(focus) + '\n\n' : ''}# User question for you to answer:\n`;
+      const extraQuery = `${
+          includeInsightInfo ?
+              `User clicked on the ${focus.data.insight.insightKey} insight, and then asked a question.\n\n` :
+              ''}# User question for you to answer:\n`;
       this.#lastInsightForEnhancedQuery = focus.data.insight;
       return `${extraQuery}${query}`;
     }
@@ -678,18 +563,8 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
     // Clear any previous facts in case the user changed the active context.
     this.clearFacts();
 
-    if (this.#conversationType === ConversationType.PERFORMANCE_FULL) {
-      if (focus) {
-        this.#addFactsForFullTrace(focus);
-      }
-    } else if (this.#conversationType === ConversationType.PERFORMANCE_INSIGHT) {
-      const insight = focus?.data.type === 'insight' ? focus.data.insight : null;
-      const cachedFunctionCalls = insight ? this.#functionCallCacheForInsight.get(insight) : null;
-      if (cachedFunctionCalls) {
-        for (const fact of Object.values(cachedFunctionCalls)) {
-          this.addFact(fact);
-        }
-      }
+    if (focus?.data.type === 'full' || focus?.data.type === 'insight') {
+      this.#addFactsForFullTrace(focus);
     }
 
     return yield* super.run(initialQuery, options);
@@ -774,7 +649,7 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
   }
 
   #addFactsForFullTrace(focus: TimelineUtils.AIContext.AgentFocus): void {
-    if (focus.data.type !== 'full') {
+    if (focus.data.type !== 'full' && focus.data.type !== 'insight') {
       return;
     }
 
@@ -812,12 +687,13 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
     this.#functionCallCacheForFocus.set(focus, cache);
   }
 
-  #declareFunctionsForFullTrace(focus: TimelineUtils.AIContext.AgentFocus): void {
-    if (focus.data.type !== 'full') {
+  #declareFunctions(context: ConversationContext<TimelineUtils.AIContext.AgentFocus>): void {
+    const focus = context.getItem();
+    if (focus.data.type !== 'full' && focus.data.type !== 'insight') {
       return;
     }
 
-    const {parsedTrace, insightSet} = focus.data;
+    const {parsedTrace, insightSet, traceMetadata} = focus.data;
 
     this.declareFunction<{insightName: string}, {details: string}>('getInsightDetails', {
       description:
@@ -889,218 +765,218 @@ export class PerformanceAgent extends AiAgent<TimelineUtils.AIContext.AgentFocus
       },
     });
 
-    this.declareFunction<{min: Trace.Types.Timing.Micro, max: Trace.Types.Timing.Micro}, {activity: string}>(
-        'getMainThreadTrackSummary', {
-          description: 'Returns the main thread activity for the selected bounds. The result is a call tree.',
-          parameters: {
-            type: Host.AidaClient.ParametersTypes.OBJECT,
-            description: '',
-            nullable: false,
-            properties: {
-              min: {
-                type: Host.AidaClient.ParametersTypes.INTEGER,
-                description: 'The minimum time of the bounds, in microseconds',
-                nullable: false,
-              },
-              max: {
-                type: Host.AidaClient.ParametersTypes.INTEGER,
-                description: 'The maximum time of the bounds, in microseconds',
-                nullable: false,
-              },
-            },
-          },
-          displayInfoFromArgs: args => {
-            return {
-              title: lockedString(UIStringsNotTranslated.mainThreadActivity),
-              action: `getMainThreadTrackSummary({min: ${args.min}, max: ${args.max}})`
-            };
-          },
-          handler: async args => {
-            debugLog('Function call: getMainThreadTrackSummary');
-
-            if (!this.#formatter) {
-              throw new Error('missing formatter');
-            }
-
-            const min = Math.max(args.min ?? 0, parsedTrace.Meta.traceBounds.min) as Trace.Types.Timing.Micro;
-            const max = Math.min(args.max ?? Number.POSITIVE_INFINITY, parsedTrace.Meta.traceBounds.max) as
-                Trace.Types.Timing.Micro;
-            const activity = this.#formatter.formatMainThreadTrackSummary(min, max);
-            if (this.#isFunctionResponseTooLarge(activity)) {
-              return {
-                error: 'getMainThreadTrackSummary response is too large. Try investigating using other functions',
-              };
-            }
-
-            const key = `getMainThreadTrackSummary({min: ${min}, max: ${max}})`;
-            this.#cacheFunctionResult(focus, key, activity);
-            return {result: {activity}};
-          },
-
-        });
-  }
-
-  #declareFunctions(context: ConversationContext<TimelineUtils.AIContext.AgentFocus>): void {
-    const focus = context.getItem();
-
-    if (focus.data.type === 'full') {
-      this.#declareFunctionsForFullTrace(focus);
-      return;
-    }
-
-    if (focus.data.type !== 'insight') {
-      return;
-    }
-
-    const {parsedTrace, insight, insightSetBounds} = focus.data;
-
-    this.declareFunction<Record<never, unknown>, {
-      requests: string,
-    }>('getNetworkActivitySummary', {
-      description:
-          'Returns a summary of network activity for the selected insight. If you want to get more detailed information on a network request, you can pass the URL of a request into `getNetworkRequestDetail`.',
-      parameters: {
-        type: Host.AidaClient.ParametersTypes.OBJECT,
-        description: '',
-        nullable: true,
-        properties: {},
-      },
-      displayInfoFromArgs: () => {
-        return {
-          title: lockedString(UIStringsNotTranslated.networkActivitySummary),
-          action: 'getNetworkActivitySummary()'
-        };
-      },
-      handler: async () => {
-        debugLog('Function call: getNetworkActivitySummary');
-        if (!insight) {
-          return {error: 'No insight available'};
-        }
-        const requests = TimelineUtils.InsightAIContext.AIQueries.networkRequests(
-            insight,
-            insightSetBounds,
-            parsedTrace,
-        );
-        const formatted = TraceEventFormatter.networkRequests(requests, parsedTrace);
-
-        const byteCount = Platform.StringUtilities.countWtf8Bytes(formatted);
-        Host.userMetrics.performanceAINetworkSummaryResponseSize(byteCount);
-
-        if (this.#isFunctionResponseTooLarge(formatted)) {
-          return {
-            error: 'getNetworkActivitySummary response is too large. Try investigating using other functions',
-          };
-        }
-        const summaryFact: Host.AidaClient.RequestFact = {
-          text:
-              `This is the network summary for this insight. You can use this and not call getNetworkActivitySummary again:\n${
-                  formatted}`,
-          metadata: {source: 'getNetworkActivitySummary()'}
-        };
-        const cacheForInsight = this.#functionCallCacheForInsight.get(insight) ?? {};
-        cacheForInsight.getNetworkActivitySummary = summaryFact;
-        this.#functionCallCacheForInsight.set(insight, cacheForInsight);
-
-        this.addFact(this.#networkDataDescriptionFact);
-        return {result: {requests: formatted}};
-      },
-    });
-
-    this.declareFunction<Record<'url', string>, {
-      request: string,
-    }>('getNetworkRequestDetail', {
-      description:
-          'Returns detailed debugging information about a specific network request. Use this eagerly to gather information about a network request to improve your diagnosis and optimization recommendations',
-      parameters: {
-        type: Host.AidaClient.ParametersTypes.OBJECT,
-        description: '',
-        nullable: true,
-        properties: {
-          url: {
-            type: Host.AidaClient.ParametersTypes.STRING,
-            description: 'The URL of the network request',
-            nullable: false,
+    const createBounds =
+        (min: Trace.Types.Timing.Micro, max: Trace.Types.Timing.Micro): Trace.Types.Timing.TraceWindowMicro|null => {
+          if (min > max) {
+            return null;
           }
+
+          const clampedMin = Math.max(min ?? 0, parsedTrace.Meta.traceBounds.min);
+          const clampedMax = Math.min(max ?? Number.POSITIVE_INFINITY, parsedTrace.Meta.traceBounds.max);
+          if (clampedMin > clampedMax) {
+            return null;
+          }
+
+          return Trace.Helpers.Timing.traceWindowFromMicroSeconds(
+              clampedMin as Trace.Types.Timing.Micro, clampedMax as Trace.Types.Timing.Micro);
+        };
+
+    this.declareFunction<{min: Trace.Types.Timing.Micro, max: Trace.Types.Timing.Micro}, {
+      summary: string,
+    }>('getMainThreadTrackSummary', {
+      description:
+          'Returns a summary of the main thread for the given bounds. The result includes a top-down summary, bottom-up summary, third-parties summary, and a list of related insights for the events within the given bounds.',
+      parameters: {
+        type: Host.AidaClient.ParametersTypes.OBJECT,
+        description: '',
+        nullable: false,
+        properties: {
+          min: {
+            type: Host.AidaClient.ParametersTypes.INTEGER,
+            description: 'The minimum time of the bounds, in microseconds',
+            nullable: false,
+          },
+          max: {
+            type: Host.AidaClient.ParametersTypes.INTEGER,
+            description: 'The maximum time of the bounds, in microseconds',
+            nullable: false,
+          },
         },
       },
-      displayInfoFromArgs: params => {
+      displayInfoFromArgs: args => {
         return {
-          title: lockedString(`Investigating network request ${params.url}…`),
-          action: `getNetworkRequestDetail('${params.url}')`
+          title: lockedString(UIStringsNotTranslated.mainThreadActivity),
+          action: `getMainThreadTrackSummary({min: ${args.min}, max: ${args.max}})`
         };
       },
-      handler: async params => {
-        debugLog('Function call: getNetworkRequestDetail', params);
-        if (!insight) {
-          return {error: 'No insight available'};
-        }
-        const request = TimelineUtils.InsightAIContext.AIQueries.networkRequest(parsedTrace, params.url);
-        if (!request) {
-          return {error: 'Request not found'};
-        }
-        const formatted = TraceEventFormatter.networkRequests([request], parsedTrace, {verbose: true});
+      handler: async args => {
+        debugLog('Function call: getMainThreadTrackSummary');
 
-        const byteCount = Platform.StringUtilities.countWtf8Bytes(formatted);
-        Host.userMetrics.performanceAINetworkRequestDetailResponseSize(byteCount);
+        if (!this.#formatter) {
+          throw new Error('missing formatter');
+        }
 
-        if (this.#isFunctionResponseTooLarge(formatted)) {
+        const bounds = createBounds(args.min, args.max);
+        if (!bounds) {
+          return {error: 'invalid bounds'};
+        }
+
+        const summary = this.#formatter.formatMainThreadTrackSummary(bounds);
+        if (this.#isFunctionResponseTooLarge(summary)) {
           return {
-            error: 'getNetworkRequestDetail response is too large. Try investigating using other functions',
+            error:
+                'getMainThreadTrackSummary response is too large. Try investigating using other functions, or a more narrow bounds',
           };
         }
-        this.addFact(this.#networkDataDescriptionFact);
-        return {result: {request: formatted}};
+
+        const byteCount = Platform.StringUtilities.countWtf8Bytes(summary);
+        Host.userMetrics.performanceAIMainThreadActivityResponseSize(byteCount);
+
+        const key = `getMainThreadTrackSummary({min: ${bounds.min}, max: ${bounds.max}})`;
+        this.#cacheFunctionResult(focus, key, summary);
+        return {result: {summary}};
       },
+
     });
 
-    this.declareFunction<Record<never, unknown>, {activity: string}>('getMainThreadActivity', {
-      description: 'Returns the main thread activity for the selected insight.',
+    this.declareFunction<
+        {min: Trace.Types.Timing.Micro, max: Trace.Types.Timing.Micro}, {summary: string}>('getNetworkTrackSummary', {
+      description: 'Returns a summary of the network for the given bounds.',
       parameters: {
         type: Host.AidaClient.ParametersTypes.OBJECT,
         description: '',
-        nullable: true,
-        properties: {},
+        nullable: false,
+        properties: {
+          min: {
+            type: Host.AidaClient.ParametersTypes.INTEGER,
+            description: 'The minimum time of the bounds, in microseconds',
+            nullable: false,
+          },
+          max: {
+            type: Host.AidaClient.ParametersTypes.INTEGER,
+            description: 'The maximum time of the bounds, in microseconds',
+            nullable: false,
+          },
+        },
       },
-      displayInfoFromArgs: () => {
-        return {title: lockedString(UIStringsNotTranslated.mainThreadActivity), action: 'getMainThreadActivity()'};
+      displayInfoFromArgs: args => {
+        return {
+          title: lockedString(UIStringsNotTranslated.networkActivitySummary),
+          action: `getNetworkTrackSummary({min: ${args.min}, max: ${args.max}})`
+        };
       },
-      handler: async () => {
-        debugLog('Function call: getMainThreadActivity');
-        if (!insight) {
-          return {error: 'No insight available'};
-        }
-        const tree = TimelineUtils.InsightAIContext.AIQueries.mainThreadActivityForInsight(
-            insight,
-            insightSetBounds,
-            parsedTrace,
-        );
-        if (!tree) {
-          return {error: 'No main thread activity found'};
-        }
-        const activity = tree.serialize();
+      handler: async args => {
+        debugLog('Function call: getNetworkTrackSummary');
 
-        const byteCount = Platform.StringUtilities.countWtf8Bytes(activity);
-        Host.userMetrics.performanceAIMainThreadActivityResponseSize(byteCount);
+        if (!this.#formatter) {
+          throw new Error('missing formatter');
+        }
 
-        if (this.#isFunctionResponseTooLarge(activity)) {
+        const bounds = createBounds(args.min, args.max);
+        if (!bounds) {
+          return {error: 'invalid bounds'};
+        }
+
+        const summary = this.#formatter.formatNetworkTrackSummary(bounds);
+        if (this.#isFunctionResponseTooLarge(summary)) {
           return {
-            error: 'getMainThreadActivity response is too large. Try investigating using other functions',
+            error:
+                'getNetworkTrackSummary response is too large. Try investigating using other functions, or a more narrow bounds',
           };
         }
-        const activityFact: Host.AidaClient.RequestFact = {
-          text:
-              `This is the main thread activity for this insight. You can use this and not call getMainThreadActivity again:\n${
-                  activity}`,
-          metadata: {source: 'getMainThreadActivity()'},
-        };
-        const cacheForInsight = this.#functionCallCacheForInsight.get(insight) ?? {};
-        cacheForInsight.getMainThreadActivity = activityFact;
-        this.#functionCallCacheForInsight.set(insight, cacheForInsight);
 
-        this.addFact(this.#mainThreadActivityDescriptionFact);
-        return {result: {activity}};
+        const byteCount = Platform.StringUtilities.countWtf8Bytes(summary);
+        Host.userMetrics.performanceAINetworkSummaryResponseSize(byteCount);
+
+        const key = `getNetworkTrackSummary({min: ${bounds.min}, max: ${bounds.max}})`;
+        this.#cacheFunctionResult(focus, key, summary);
+        return {result: {summary}};
       },
 
     });
+
+    this.declareFunction<{eventKey: string}, {callTree: string}>('getDetailedCallTree', {
+      description: 'Returns a detailed call tree for the given main thread event.',
+      parameters: {
+        type: Host.AidaClient.ParametersTypes.OBJECT,
+        description: '',
+        nullable: false,
+        properties: {
+          eventKey: {
+            type: Host.AidaClient.ParametersTypes.STRING,
+            description: 'The key for the event.',
+            nullable: false,
+          },
+        },
+      },
+      displayInfoFromArgs: args => {
+        return {title: lockedString('Looking at call tree…'), action: `getDetailedCallTree(${args.eventKey})`};
+      },
+      handler: async args => {
+        debugLog('Function call: getDetailedCallTree');
+
+        if (!this.#formatter) {
+          throw new Error('missing formatter');
+        }
+
+        const event = this.#lookupEvent(args.eventKey as Trace.Types.File.SerializableKey);
+        if (!event) {
+          return {error: 'Invalid eventKey'};
+        }
+
+        const tree = TimelineUtils.AICallTree.AICallTree.fromEvent(event, parsedTrace);
+        const callTree = tree ? this.#formatter.formatCallTree(tree) : 'No call tree found';
+
+        const key = `getDetailedCallTree(${args.eventKey})`;
+        this.#cacheFunctionResult(focus, key, callTree);
+        return {result: {callTree}};
+      },
+
+    });
+
+    const isFresh = TimelineUtils.FreshRecording.Tracker.instance().recordingIsFresh(parsedTrace);
+    const hasScriptContents = traceMetadata.enhancedTraceVersion && parsedTrace.Scripts.scripts.some(s => s.content);
+
+    if (isFresh || hasScriptContents) {
+      this.declareFunction<{url: string}, {content: string}>('getResourceContent', {
+        description: 'Returns the content of the resource with the given url. Only use this for text resource types.',
+        parameters: {
+          type: Host.AidaClient.ParametersTypes.OBJECT,
+          description: '',
+          nullable: false,
+          properties: {
+            url: {
+              type: Host.AidaClient.ParametersTypes.STRING,
+              description: 'The url for the resource.',
+              nullable: false,
+            },
+          },
+        },
+        displayInfoFromArgs: args => {
+          return {title: lockedString('Looking at resource content…'), action: `getResourceContent(${args.url})`};
+        },
+        handler: async args => {
+          debugLog('Function call: getResourceContent');
+
+          const url = args.url as Platform.DevToolsPath.UrlString;
+          const resource = SDK.ResourceTreeModel.ResourceTreeModel.resourceForURL(url);
+          if (!resource) {
+            if (!resource) {
+              return {error: 'Resource not found'};
+            }
+          }
+
+          const content = resource.content;
+          if (!content) {
+            return {error: 'Resource has no content'};
+          }
+
+          const key = `getResourceContent(${args.url})`;
+          this.#cacheFunctionResult(focus, key, content);
+          return {result: {content}};
+        },
+
+      });
+    }
   }
 }

@@ -38,6 +38,11 @@ body {
   outline-width: 0;
 }
 
+/* Prevent UA stylesheet from overriding font-family for HTML elements. */
+code, kbd, samp, pre {
+  font-family: var(--monospace-font-family);
+}
+
 .monospace {
   font-family: var(--monospace-font-family);
   font-size: var(
@@ -139,7 +144,7 @@ iframe.widget {
   display: none !important; /* stylelint-disable-line declaration-no-important */
 }
 
-.highlighted-search-result {
+.highlighted-search-result,::highlight(highlighted-search-result) {
   border-radius: 1px;
   background-color: var(--sys-color-yellow-container);
   outline: 1px solid var(--sys-color-yellow-container);
@@ -324,10 +329,11 @@ input[type='range']:disabled::-webkit-slider-thumb {
   }
 }
 
-.highlighted-search-result.current-search-result {
+.highlighted-search-result.current-search-result,::highlight(current-search-result) {
   /* Note: this value is used in light & dark mode */
   --override-current-search-result-background-color: rgb(255 127 0 / 80%);
 
+  outline: 1px solid var(--sys-color-yellow-container);
   border-radius: 1px;
   padding: 1px;
   margin: -1px;
@@ -647,7 +653,7 @@ input.custom-search-input::-webkit-search-cancel-button:hover {
   border: var(--override-spinner-size, 3px) solid
     var(--override-spinner-color, var(--sys-color-token-subtle));
   border-radius: 12px;
-  clip: rect(0, var(--clip-size, 15px), var(--clip-size, 15px), 0);
+  clip-path: rect(0, var(--clip-size, 15px), var(--clip-size, 15px), 0);
   content: '';
   position: absolute;
   animation: spinner-animation 1s linear infinite;
@@ -774,7 +780,7 @@ devtools-toolbar {
   .toolbar-dropdown-arrow {
     pointer-events: none;
     flex: none;
-    top: 2px;
+    top: var(--sys-size-1);
   }
 
   .toolbar-button.dark-text .toolbar-dropdown-arrow {

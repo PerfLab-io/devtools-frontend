@@ -8,10 +8,9 @@ import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
 import * as Root from '../../core/root/root.js';
 import * as SDK from '../../core/sdk/sdk.js';
-import * as Tracing from '../../services/tracing/tracing.js';
 import * as Snackbars from '../../ui/components/snackbars/snackbars.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
-import type * as Trace from '../trace/trace.js';
+import * as NetworkTimeCalculator from '../network_time_calculator/network_time_calculator.js';
 
 import {
   type AiAgent,
@@ -22,7 +21,7 @@ import {
 } from './agents/AiAgent.js';
 import {FileAgent} from './agents/FileAgent.js';
 import {NetworkAgent, RequestContext} from './agents/NetworkAgent.js';
-import {PerformanceAgent, PerformanceTraceContext} from './agents/PerformanceAgent.js';
+import {PerformanceAgent, type PerformanceTraceContext} from './agents/PerformanceAgent.js';
 import {NodeContext, StylingAgent} from './agents/StylingAgent.js';
 import {
   Conversation,
@@ -43,11 +42,17 @@ interface ExternalNetworkRequestParameters {
   requestUrl: string;
 }
 
-export interface ExternalPerformanceInsightsRequestParameters {
-  conversationType: ConversationType.PERFORMANCE_INSIGHT;
+export interface ExternalPerformanceAIConversationData {
+  conversationHandler: ConversationHandler;
+  conversation: Conversation;
+  agent: AiAgent<unknown>;
+  selected: PerformanceTraceContext;
+}
+
+export interface ExternalPerformanceRequestParameters {
+  conversationType: ConversationType.PERFORMANCE_FULL;
   prompt: string;
-  insightTitle: string;
-  traceModel: Trace.TraceModel.Model;
+  data: ExternalPerformanceAIConversationData;
 }
 
 const UIStrings = {
@@ -178,7 +183,7 @@ export class ConversationHandler {
    */
   async handleExternalRequest(
       parameters: ExternalStylingRequestParameters|ExternalNetworkRequestParameters|
-      ExternalPerformanceInsightsRequestParameters,
+      ExternalPerformanceRequestParameters,
       ): Promise<AsyncGenerator<ExternalRequestResponse, ExternalRequestResponse>> {
     try {
       Snackbars.Snackbar.Snackbar.show({message: i18nString(UIStrings.externalRequestReceived)});
@@ -196,13 +201,8 @@ export class ConversationHandler {
         case ConversationType.STYLING: {
           return await this.#handleExternalStylingConversation(parameters.prompt, parameters.selector);
         }
-        case ConversationType.PERFORMANCE_INSIGHT:
-          if (!parameters.insightTitle) {
-            return this.#generateErrorResponse(
-                'The insightTitle parameter is required for debugging a Performance Insight.');
-          }
-          return await this.#handleExternalPerformanceInsightsConversation(
-              parameters.prompt, parameters.insightTitle, parameters.traceModel);
+        case ConversationType.PERFORMANCE_FULL:
+          return await this.#handleExternalPerformanceConversation(parameters.prompt, parameters.data);
         case ConversationType.NETWORK:
           if (!parameters.requestUrl) {
             return this.#generateErrorResponse('The url is required for debugging a network request.');
@@ -227,22 +227,32 @@ export class ConversationHandler {
     }
   }
 
-  async * #doExternalConversation(opts: {
+  async * #createAndDoExternalConversation(opts: {
     conversationType: ConversationType,
     aiAgent: AiAgent<unknown>,
     prompt: string,
     selected: NodeContext|PerformanceTraceContext|RequestContext|null,
   }): AsyncGenerator<ExternalRequestResponse, ExternalRequestResponse> {
     const {conversationType, aiAgent, prompt, selected} = opts;
-    const externalConversation = new Conversation(
+    const conversation = new Conversation(
         conversationType,
         [],
         aiAgent.id,
         /* isReadOnly */ true,
         /* isExternal */ true,
     );
+    return yield* this.#doExternalConversation({conversation, aiAgent, prompt, selected});
+  }
+
+  async * #doExternalConversation(opts: {
+    conversation: Conversation,
+    aiAgent: AiAgent<unknown>,
+    prompt: string,
+    selected: NodeContext|PerformanceTraceContext|RequestContext|null,
+  }): AsyncGenerator<ExternalRequestResponse, ExternalRequestResponse> {
+    const {conversation, aiAgent, prompt, selected} = opts;
     const generator = aiAgent.run(prompt, {selected});
-    const generatorWithHistory = this.handleConversationWithHistory(generator, externalConversation);
+    const generatorWithHistory = this.handleConversationWithHistory(generator, conversation);
     const devToolsLogs: object[] = [];
     for await (const data of generatorWithHistory) {
       if (data.type !== ResponseType.ANSWER || data.complete) {
@@ -279,7 +289,7 @@ export class ConversationHandler {
       await node.setAsInspectedNode();
     }
     const selected = node ? new NodeContext(node) : null;
-    return this.#doExternalConversation({
+    return this.#createAndDoExternalConversation({
       conversationType: ConversationType.STYLING,
       aiAgent: stylingAgent,
       prompt,
@@ -287,22 +297,13 @@ export class ConversationHandler {
     });
   }
 
-  async #handleExternalPerformanceInsightsConversation(
-      prompt: string, insightTitle: string,
-      traceModel: Trace.TraceModel.Model): Promise<AsyncGenerator<ExternalRequestResponse, ExternalRequestResponse>> {
-    const insightsAgent = this.createAgent(ConversationType.PERFORMANCE_INSIGHT);
-    const focusOrError = await Tracing.ExternalRequests.getInsightAgentFocusToDebug(
-        traceModel,
-        insightTitle,
-    );
-    if ('error' in focusOrError) {
-      return this.#generateErrorResponse(focusOrError.error);
-    }
+  async #handleExternalPerformanceConversation(prompt: string, data: ExternalPerformanceAIConversationData):
+      Promise<AsyncGenerator<ExternalRequestResponse, ExternalRequestResponse>> {
     return this.#doExternalConversation({
-      conversationType: ConversationType.PERFORMANCE_INSIGHT,
-      aiAgent: insightsAgent,
+      conversation: data.conversation,
+      aiAgent: data.agent,
       prompt,
-      selected: new PerformanceTraceContext(focusOrError.focus),
+      selected: data.selected,
     });
   }
 
@@ -313,11 +314,15 @@ export class ConversationHandler {
     if (!request) {
       return this.#generateErrorResponse(`Can't find request with the given selector ${requestUrl}`);
     }
-    return this.#doExternalConversation({
+
+    const calculator = new NetworkTimeCalculator.NetworkTransferTimeCalculator();
+    calculator.updateBoundaries(request);
+
+    return this.#createAndDoExternalConversation({
       conversationType: ConversationType.NETWORK,
       aiAgent: networkAgent,
       prompt,
-      selected: new RequestContext(request),
+      selected: new RequestContext(request, calculator),
     });
   }
 

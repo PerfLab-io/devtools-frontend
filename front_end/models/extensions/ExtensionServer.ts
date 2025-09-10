@@ -42,6 +42,8 @@ import * as SDK from '../../core/sdk/sdk.js';
 import type * as Protocol from '../../generated/protocol.js';
 import * as Logs from '../../models/logs/logs.js';
 import * as Components from '../../ui/legacy/components/utils/utils.js';
+// TODO(crbug.com/442509324): remove UI dependency
+// eslint-disable-next-line rulesdir/no-imports-in-directory
 import * as UI from '../../ui/legacy/legacy.js';
 import * as ThemeSupport from '../../ui/legacy/theme_support/theme_support.js';
 import * as Bindings from '../bindings/bindings.js';
@@ -163,7 +165,7 @@ export class ExtensionServer extends Common.ObjectWrapper.ObjectWrapper<EventTyp
   private lastRequestId: number;
   private registeredExtensions: Map<string, RegisteredExtension>;
   private status: ExtensionStatus;
-  private readonly sidebarPanesInternal: ExtensionSidebarPane[];
+  readonly #sidebarPanes: ExtensionSidebarPane[];
   private extensionsEnabled: boolean;
   private inspectedTabId?: string;
   private readonly extensionAPITestHook?: (server: unknown, api: unknown) => unknown;
@@ -183,7 +185,7 @@ export class ExtensionServer extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     this.lastRequestId = 0;
     this.registeredExtensions = new Map();
     this.status = new ExtensionStatus();
-    this.sidebarPanesInternal = [];
+    this.#sidebarPanes = [];
     // TODO(caseq): properly unload extensions when we disable them.
     this.extensionsEnabled = true;
 
@@ -724,7 +726,7 @@ export class ExtensionServer extends Common.ObjectWrapper.ObjectWrapper<EventTyp
     }
     const id = message.id;
     const sidebar = new ExtensionSidebarPane(this, message.panel, i18n.i18n.lockedString(message.title), id);
-    this.sidebarPanesInternal.push(sidebar);
+    this.#sidebarPanes.push(sidebar);
     this.clientObjects.set(id, sidebar);
     this.dispatchEventToListeners(Events.SidebarPaneAdded, sidebar);
 
@@ -732,7 +734,7 @@ export class ExtensionServer extends Common.ObjectWrapper.ObjectWrapper<EventTyp
   }
 
   sidebarPanes(): ExtensionSidebarPane[] {
-    return this.sidebarPanesInternal;
+    return this.#sidebarPanes;
   }
 
   private onSetSidebarHeight(message: PrivateAPI.ExtensionServerRequestMessage): Record {

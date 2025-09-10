@@ -45,6 +45,7 @@ import * as Protocol from '../../generated/protocol.js';
 import * as Bindings from '../../models/bindings/bindings.js';
 import * as HAR from '../../models/har/har.js';
 import * as Logs from '../../models/logs/logs.js';
+import * as NetworkTimeCalculator from '../../models/network_time_calculator/network_time_calculator.js';
 import * as Persistence from '../../models/persistence/persistence.js';
 import * as TextUtils from '../../models/text_utils/text_utils.js';
 import * as NetworkForward from '../../panels/network/forward/forward.js';
@@ -65,16 +66,11 @@ import {
   type NetworkLogViewInterface,
   type NetworkNode,
   NetworkRequestNode,
+  RequestPanelBehavior,
 } from './NetworkDataGridNode.js';
 import {NetworkFrameGrouper} from './NetworkFrameGrouper.js';
 import networkLogViewStyles from './networkLogView.css.js';
 import {NetworkLogViewColumns} from './NetworkLogViewColumns.js';
-import {
-  NetworkTimeBoundary,
-  type NetworkTimeCalculator,
-  NetworkTransferDurationCalculator,
-  NetworkTransferTimeCalculator,
-} from './NetworkTimeCalculator.js';
 
 const UIStrings = {
   /**
@@ -139,7 +135,7 @@ const UIStrings = {
   /**
    * @description Tooltip for a filter in the Network panel
    */
-  onlyShowIPProtectedRequests: '(Incognito Only) Show only requests sent to IP Protection proxies',
+  onlyShowIPProtectedRequests: 'Show only requests sent to IP Protection proxies. Has no effect in regular browsing.',
   /**
    * @description Text that appears when user drag and drop something (for example, a file) in Network Log View of the Network panel
    */
@@ -517,9 +513,9 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
   private readonly progressBarContainer: Element;
   private readonly networkLogLargeRowsSetting: Common.Settings.Setting<boolean>;
   private rowHeightInternal: number;
-  private readonly timeCalculatorInternal: NetworkTransferTimeCalculator;
-  private readonly durationCalculator: NetworkTransferDurationCalculator;
-  private calculatorInternal: NetworkTransferTimeCalculator;
+  private readonly timeCalculatorInternal: NetworkTimeCalculator.NetworkTransferTimeCalculator;
+  private readonly durationCalculator: NetworkTimeCalculator.NetworkTimeCalculator;
+  private calculatorInternal: NetworkTimeCalculator.NetworkTimeCalculator;
   private readonly columnsInternal: NetworkLogViewColumns;
   private staleRequests: Set<SDK.NetworkRequest.NetworkRequest>;
   private mainRequestLoadTime: number;
@@ -586,8 +582,8 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     this.rowHeightInternal = 0;
     updateRowHeight.call(this);
 
-    this.timeCalculatorInternal = new NetworkTransferTimeCalculator();
-    this.durationCalculator = new NetworkTransferDurationCalculator();
+    this.timeCalculatorInternal = new NetworkTimeCalculator.NetworkTransferTimeCalculator();
+    this.durationCalculator = new NetworkTimeCalculator.NetworkTransferDurationCalculator();
     this.calculatorInternal = this.timeCalculatorInternal;
 
     this.columnsInternal = new NetworkLogViewColumns(
@@ -1022,7 +1018,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
       this.timeCalculatorInternal.setWindow(null);
     } else {
       this.timeFilter = NetworkLogView.requestTimeFilter.bind(null, start, end);
-      this.timeCalculatorInternal.setWindow(new NetworkTimeBoundary(start, end));
+      this.timeCalculatorInternal.setWindow(new NetworkTimeCalculator.NetworkTimeBoundary(start, end));
     }
     this.filterRequests();
   }
@@ -1136,7 +1132,6 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     this.dataGrid.setName('network-log');
     this.dataGrid.setResizeMethod(DataGrid.DataGrid.ResizeMethod.LAST);
     this.dataGrid.element.classList.add('network-log-grid');
-    this.dataGrid.element.addEventListener('mousedown', this.dataGridMouseDown.bind(this), true);
     this.dataGrid.element.addEventListener('mousemove', this.dataGridMouseMove.bind(this), true);
     this.dataGrid.element.addEventListener('mouseleave', () => this.setHoveredNode(null), true);
     this.dataGrid.element.addEventListener('keydown', event => {
@@ -1148,7 +1143,8 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
       }
 
       if (Platform.KeyboardUtilities.isEnterOrSpaceKey(event)) {
-        this.dispatchEventToListeners(Events.RequestActivated, {showPanel: true, takeFocus: true});
+        this.dispatchEventToListeners(
+            Events.RequestActivated, {showPanel: RequestPanelBehavior.ShowPanel, takeFocus: true});
         event.consume(true);
       }
     });
@@ -1188,13 +1184,6 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     this.hoveredNodeInternal = node;
     if (this.hoveredNodeInternal) {
       this.hoveredNodeInternal.setHovered(true, Boolean(highlightInitiatorChain));
-    }
-  }
-
-  private dataGridMouseDown(event: Event): void {
-    const mouseEvent = (event as MouseEvent);
-    if (!this.dataGrid.selectedNode && mouseEvent.button) {
-      mouseEvent.consume();
     }
   }
 
@@ -1341,15 +1330,15 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
     }
   }
 
-  timeCalculator(): NetworkTimeCalculator {
+  timeCalculator(): NetworkTimeCalculator.NetworkTransferTimeCalculator {
     return this.timeCalculatorInternal;
   }
 
-  calculator(): NetworkTimeCalculator {
+  calculator(): NetworkTimeCalculator.NetworkTimeCalculator {
     return this.calculatorInternal;
   }
 
-  setCalculator(x: NetworkTimeCalculator): void {
+  setCalculator(x: NetworkTimeCalculator.NetworkTimeCalculator): void {
     if (!x || this.calculatorInternal === x) {
       return;
     }
@@ -1557,7 +1546,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
   }
 
   private reset(): void {
-    this.dispatchEventToListeners(Events.RequestActivated, {showPanel: false});
+    this.dispatchEventToListeners(Events.RequestActivated, {showPanel: RequestPanelBehavior.HidePanel});
 
     this.setHoveredNode(null);
     this.columnsInternal.reset();
@@ -1972,8 +1961,7 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes, 
       return;
     }
 
-    const progressIndicator = new UI.ProgressIndicator.ProgressIndicator();
-    this.progressBarContainer.appendChild(progressIndicator.element);
+    const progressIndicator = this.progressBarContainer.createChild('devtools-progress');
     await HAR.Writer.Writer.write(stream, this.harRequests(), options, progressIndicator);
     progressIndicator.done();
     void stream.close();
@@ -2754,7 +2742,6 @@ export class MoreFiltersDropDownUI extends Common.ObjectWrapper.ObjectWrapper<UI
           i18nString(UIStrings.ippRequests),
           () => this.networkOnlyIPProtectedRequestsSetting.set(!this.networkOnlyIPProtectedRequestsSetting.get()), {
             checked: this.networkOnlyIPProtectedRequestsSetting.get(),
-            disabled: !Root.Runtime.hostConfig.isOffTheRecord,
             tooltip: i18nString(UIStrings.onlyShowIPProtectedRequests),
             jslogContext: 'only-ip-protected-requests',
           });

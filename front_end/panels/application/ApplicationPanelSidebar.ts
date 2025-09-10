@@ -377,7 +377,7 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
     this.sidebarTree = new UI.TreeOutline.TreeOutlineInShadow(UI.TreeOutline.TreeVariant.NAVIGATION_TREE);
     this.sidebarTree.registerRequiredCSS(resourcesSidebarStyles);
     this.sidebarTree.element.classList.add('resources-sidebar');
-    this.sidebarTree.hideOverflow();
+    this.sidebarTree.setHideOverflow(true);
 
     this.sidebarTree.element.classList.add('filter-all');
     // Listener needs to have been set up before the elements are added
@@ -640,8 +640,8 @@ export class ApplicationPanelSidebar extends UI.Widget.VBox implements SDK.Targe
 
     this.cacheStorageListTreeElement.initialize();
     const backgroundServiceModel = this.target?.model(BackgroundServiceModel) || null;
-    this.backgroundFetchTreeElement && this.backgroundFetchTreeElement.initialize(backgroundServiceModel);
-    this.backgroundSyncTreeElement && this.backgroundSyncTreeElement.initialize(backgroundServiceModel);
+    this.backgroundFetchTreeElement.initialize(backgroundServiceModel);
+    this.backgroundSyncTreeElement.initialize(backgroundServiceModel);
     this.notificationsTreeElement.initialize(backgroundServiceModel);
     this.paymentHandlerTreeElement.initialize(backgroundServiceModel);
     this.periodicBackgroundSyncTreeElement.initialize(backgroundServiceModel);
@@ -1048,7 +1048,7 @@ export class BackgroundServiceTreeElement extends ApplicationPanelTreeElement {
   private serviceName: Protocol.BackgroundService.ServiceName;
   private view: BackgroundServiceView|null;
   private model: BackgroundServiceModel|null;
-  private selectedInternal: boolean;
+  #selected: boolean;
 
   constructor(storagePanel: ResourcesPanel, serviceName: Protocol.BackgroundService.ServiceName) {
     super(
@@ -1058,7 +1058,7 @@ export class BackgroundServiceTreeElement extends ApplicationPanelTreeElement {
     this.serviceName = serviceName;
 
     /* Whether the element has been selected. */
-    this.selectedInternal = false;
+    this.#selected = false;
 
     this.view = null;
 
@@ -1091,7 +1091,7 @@ export class BackgroundServiceTreeElement extends ApplicationPanelTreeElement {
   initialize(model: BackgroundServiceModel|null): void {
     this.model = model;
     // Show the view if the model was initialized after selection.
-    if (this.selectedInternal && !this.view) {
+    if (this.#selected && !this.view) {
       this.onselect(false);
     }
   }
@@ -1109,7 +1109,7 @@ export class BackgroundServiceTreeElement extends ApplicationPanelTreeElement {
 
   override onselect(selectedByUser?: boolean): boolean {
     super.onselect(selectedByUser);
-    this.selectedInternal = true;
+    this.#selected = true;
 
     if (!this.model) {
       return false;
@@ -1843,30 +1843,30 @@ export class ExtensionStorageTreeParentElement extends ApplicationPanelTreeEleme
 
 export class CookieTreeElement extends ApplicationPanelTreeElement {
   private readonly target: SDK.Target.Target;
-  private readonly cookieDomainInternal: string;
+  readonly #cookieDomain: string;
 
   constructor(
       storagePanel: ResourcesPanel, frame: SDK.ResourceTreeModel.ResourceTreeFrame,
       cookieUrl: Common.ParsedURL.ParsedURL) {
     super(storagePanel, cookieUrl.securityOrigin() || i18nString(UIStrings.localFiles), false, 'cookies-for-frame');
     this.target = frame.resourceTreeModel().target();
-    this.cookieDomainInternal = cookieUrl.securityOrigin();
-    this.tooltip = i18nString(UIStrings.cookiesUsedByFramesFromS, {PH1: this.cookieDomainInternal});
+    this.#cookieDomain = cookieUrl.securityOrigin();
+    this.tooltip = i18nString(UIStrings.cookiesUsedByFramesFromS, {PH1: this.#cookieDomain});
     const icon = IconButton.Icon.create('cookie');
     // Note that we cannot use `cookieDomainInternal` here since it contains scheme.
     if (IssuesManager.RelatedIssue.hasThirdPartyPhaseoutCookieIssueForDomain(cookieUrl.domain())) {
       icon.name = 'warning-filled';
-      this.tooltip = i18nString(UIStrings.thirdPartyPhaseout, {PH1: this.cookieDomainInternal});
+      this.tooltip = i18nString(UIStrings.thirdPartyPhaseout, {PH1: this.#cookieDomain});
     }
     this.setLeadingIcons([icon]);
   }
 
   override get itemURL(): Platform.DevToolsPath.UrlString {
-    return 'cookies://' + this.cookieDomainInternal as Platform.DevToolsPath.UrlString;
+    return 'cookies://' + this.#cookieDomain as Platform.DevToolsPath.UrlString;
   }
 
   cookieDomain(): string {
-    return this.cookieDomainInternal;
+    return this.#cookieDomain;
   }
 
   override onattach(): void {
@@ -1877,14 +1877,14 @@ export class CookieTreeElement extends ApplicationPanelTreeElement {
   private handleContextMenuEvent(event: Event): void {
     const contextMenu = new UI.ContextMenu.ContextMenu(event);
     contextMenu.defaultSection().appendItem(
-        i18nString(UIStrings.clear), () => this.resourcesPanel.clearCookies(this.target, this.cookieDomainInternal),
+        i18nString(UIStrings.clear), () => this.resourcesPanel.clearCookies(this.target, this.#cookieDomain),
         {jslogContext: 'clear'});
     void contextMenu.show();
   }
 
   override onselect(selectedByUser?: boolean): boolean {
     super.onselect(selectedByUser);
-    this.resourcesPanel.showCookies(this.target, this.cookieDomainInternal);
+    this.resourcesPanel.showCookies(this.target, this.#cookieDomain);
     Host.userMetrics.panelShown(Host.UserMetrics.PanelCodes[Host.UserMetrics.PanelCodes.cookies]);
     return false;
   }

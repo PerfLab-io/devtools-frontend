@@ -31,6 +31,7 @@
 import * as Common from '../../core/common/common.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Platform from '../../core/platform/platform.js';
+import * as Root from '../../core/root/root.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Protocol from '../../generated/protocol.js';
 import * as TextUtils from '../text_utils/text_utils.js';
@@ -307,9 +308,9 @@ export class ResourceScriptFile extends Common.ObjectWrapper.ObjectWrapper<Resou
   readonly uiSourceCode: Workspace.UISourceCode.UISourceCode;
   readonly script: SDK.Script.Script|null;
   #scriptSource?: string|null;
-  #isDivergingFromVMInternal?: boolean;
-  #hasDivergedFromVMInternal?: boolean;
-  #isMergingToVMInternal?: boolean;
+  #isDivergingFromVM?: boolean;
+  #hasDivergedFromVM?: boolean;
+  #isMergingToVM?: boolean;
   #updateMutex = new Common.Mutex.Mutex();
   constructor(
       resourceScriptMapping: ResourceScriptMapping, uiSourceCode: Workspace.UISourceCode.UISourceCode,
@@ -352,6 +353,11 @@ export class ResourceScriptFile extends Common.ObjectWrapper.ObjectWrapper<Resou
   }
 
   private workingCopyCommitted(): void {
+    // This feature flag is for turning down live edit. If it's not present, we keep the feature enabled.
+    if (Root.Runtime.hostConfig.devToolsLiveEdit?.enabled === false) {
+      return;
+    }
+
     if (this.uiSourceCode.project().canSetFileContent()) {
       return;
     }
@@ -408,9 +414,9 @@ export class ResourceScriptFile extends Common.ObjectWrapper.ObjectWrapper<Resou
     // Do not interleave "divergeFromVM" with "mergeToVM" calls.
     const release = await this.#updateMutex.acquire();
     const diverged = this.isDiverged();
-    if (diverged && !this.#hasDivergedFromVMInternal) {
+    if (diverged && !this.#hasDivergedFromVM) {
       await this.divergeFromVM();
-    } else if (!diverged && this.#hasDivergedFromVMInternal) {
+    } else if (!diverged && this.#hasDivergedFromVM) {
       await this.mergeToVM();
     }
     release();
@@ -418,34 +424,34 @@ export class ResourceScriptFile extends Common.ObjectWrapper.ObjectWrapper<Resou
 
   private async divergeFromVM(): Promise<void> {
     if (this.script) {
-      this.#isDivergingFromVMInternal = true;
+      this.#isDivergingFromVM = true;
       await this.#resourceScriptMapping.debuggerWorkspaceBinding.updateLocations(this.script);
-      this.#isDivergingFromVMInternal = undefined;
-      this.#hasDivergedFromVMInternal = true;
+      this.#isDivergingFromVM = undefined;
+      this.#hasDivergedFromVM = true;
       this.dispatchEventToListeners(ResourceScriptFile.Events.DID_DIVERGE_FROM_VM);
     }
   }
 
   private async mergeToVM(): Promise<void> {
     if (this.script) {
-      this.#hasDivergedFromVMInternal = undefined;
-      this.#isMergingToVMInternal = true;
+      this.#hasDivergedFromVM = undefined;
+      this.#isMergingToVM = true;
       await this.#resourceScriptMapping.debuggerWorkspaceBinding.updateLocations(this.script);
-      this.#isMergingToVMInternal = undefined;
+      this.#isMergingToVM = undefined;
       this.dispatchEventToListeners(ResourceScriptFile.Events.DID_MERGE_TO_VM);
     }
   }
 
   hasDivergedFromVM(): boolean {
-    return Boolean(this.#hasDivergedFromVMInternal);
+    return Boolean(this.#hasDivergedFromVM);
   }
 
   isDivergingFromVM(): boolean {
-    return Boolean(this.#isDivergingFromVMInternal);
+    return Boolean(this.#isDivergingFromVM);
   }
 
   isMergingToVM(): boolean {
-    return Boolean(this.#isMergingToVMInternal);
+    return Boolean(this.#isMergingToVM);
   }
 
   checkMapping(): void {

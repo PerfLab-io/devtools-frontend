@@ -2,23 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import * as Platform from '../../../core/platform/platform.js';
 import * as TimelineUtils from '../../../panels/timeline/utils/utils.js';
 import * as Trace from '../../trace/trace.js';
 
 import {PerformanceInsightFormatter, TraceEventFormatter} from './PerformanceInsightFormatter.js';
-
-const ms = (ms: number): string => `${Platform.NumberUtilities.floor(ms, 1)} ms`;
+import {bytes, micros, millis} from './UnitFormatters.js';
 
 export class PerformanceTraceFormatter {
   #parsedTrace: Trace.Handlers.Types.ParsedTrace;
   #insightSet: Trace.Insights.Types.InsightSet|null;
   #traceMetadata: Trace.Types.File.MetaData;
-  #eventsSerializer: TimelineUtils.EventsSerializer.EventsSerializer;
+  #eventsSerializer: Trace.EventsSerializer.EventsSerializer;
 
-  constructor(
-      focus: TimelineUtils.AIContext.AgentFocus, eventsSerializer: TimelineUtils.EventsSerializer.EventsSerializer) {
-    if (focus.data.type !== 'full') {
+  constructor(focus: TimelineUtils.AIContext.AgentFocus, eventsSerializer: Trace.EventsSerializer.EventsSerializer) {
+    if (focus.data.type !== 'full' && focus.data.type !== 'insight') {
       throw new Error('unexpected agent focus');
     }
 
@@ -56,13 +53,27 @@ export class PerformanceTraceFormatter {
       parts.push('Metrics:');
       if (lcp) {
         parts.push(`  - LCP: ${Math.round(lcp.value / 1000)} ms, event: ${this.serializeEvent(lcp.event)}`);
+        const subparts = insightSet?.model.LCPBreakdown.subparts;
+        if (subparts) {
+          const serializeSubpart = (subpart: Trace.Insights.Models.LCPBreakdown.Subpart): string => {
+            return `${micros(subpart.range)}, bounds: ${this.serializeBounds(subpart)}`;
+          };
+          parts.push(`    - TTFB: ${serializeSubpart(subparts.ttfb)}`);
+          if (subparts.loadDelay !== undefined) {
+            parts.push(`    - Load delay: ${serializeSubpart(subparts.loadDelay)}`);
+          }
+          if (subparts.loadDuration !== undefined) {
+            parts.push(`    - Load duration: ${serializeSubpart(subparts.loadDuration)}`);
+          }
+          parts.push(`    - Render delay: ${serializeSubpart(subparts.renderDelay)}`);
+        }
       }
       if (inp) {
         parts.push(`  - INP: ${Math.round(inp.value / 1000)} ms, event: ${this.serializeEvent(inp.event)}`);
       }
       if (cls) {
         const eventText = cls.worstClusterEvent ? `, event: ${this.serializeEvent(cls.worstClusterEvent)}` : '';
-        parts.push(`  - CLS: ${cls.value}${eventText}`);
+        parts.push(`  - CLS: ${cls.value.toFixed(2)}${eventText}`);
       }
     } else {
       parts.push('Metrics: n/a');
@@ -80,7 +91,7 @@ export class PerformanceTraceFormatter {
           continue;
         }
 
-        const insightBounds = TimelineUtils.InsightAIContext.insightBounds(model, insightSet.bounds);
+        const insightBounds = Trace.Insights.Common.insightBounds(model, insightSet.bounds);
         const insightParts = [
           `insight name: ${insightName}`,
           `description: ${model.description}`,
@@ -91,7 +102,7 @@ export class PerformanceTraceFormatter {
           insightParts.push(`estimated metric savings: ${metricSavingsText}`);
         }
         if (model.wastedBytes) {
-          insightParts.push(`estimated wasted bytes: ${Math.round(model.wastedBytes / 1000)} kB`);
+          insightParts.push(`estimated wasted bytes: ${bytes(model.wastedBytes)}`);
         }
         for (const suggestion of formatter.getSuggestions()) {
           insightParts.push(`example question: ${suggestion.title}`);
@@ -125,6 +136,44 @@ export class PerformanceTraceFormatter {
         TraceEventFormatter.networkRequests(criticalRequests, parsedTrace, {verbose: false});
   }
 
+  #serializeBottomUpRootNode(rootNode: Trace.Extras.TraceTree.BottomUpRootNode, limit: number): string {
+    // Sorted by selfTime.
+    // No nodes less than 1 ms.
+    // Limit.
+    const topNodes = [...rootNode.children().values()]
+                         .filter(n => n.totalTime >= 1)
+                         .sort((a, b) => b.selfTime - a.selfTime)
+                         .slice(0, limit);
+
+    function nodeToText(this: PerformanceTraceFormatter, node: Trace.Extras.TraceTree.Node): string {
+      const event = node.event;
+
+      let frame = Trace.Helpers.Trace.getZeroIndexedStackTraceInEventPayload(event)?.[0];
+      if (Trace.Types.Events.isProfileCall(event)) {
+        frame = event.callFrame;
+      }
+
+      let source = TimelineUtils.EntryName.nameForEntry(event);
+      if (frame?.url) {
+        source += ` (url: ${frame.url}`;
+        if (frame.lineNumber !== -1) {
+          source += `, line: ${frame.lineNumber}`;
+        }
+        if (frame.columnNumber !== -1) {
+          source += `, column: ${frame.columnNumber}`;
+        }
+        source += ')';
+      }
+
+      return `- self: ${millis(node.selfTime)}, total: ${millis(node.totalTime)}, source: ${source}`;
+    }
+
+    const listText = topNodes.map(node => nodeToText.call(this, node)).join('\n');
+    const format = `This is the bottom-up summary for the entire trace. Only the top ${
+        limit} activities (sorted by self time) are shown. An activity is all the aggregated time spent on the same type of work. For example, it can be all the time spent in a specific JavaScript function, or all the time spent in a specific browser rendering stage (like layout, v8 compile, parsing html). "Self time" represents the aggregated time spent directly in an activity, across all occurrences. "Total time" represents the aggregated time spent in an activity or any of its children.`;
+    return `${format}\n\n${listText}`;
+  }
+
   formatMainThreadBottomUpSummary(): string {
     const parsedTrace = this.#parsedTrace;
     const insightSet = this.#insightSet;
@@ -139,46 +188,23 @@ export class PerformanceTraceFormatter {
       return '';
     }
 
-    // Sorted by selfTime.
-    // No nodes less than 1 ms.
-    // Limit 10.
-    const topNodes = [...rootNode.children().values()]
-                         .filter(n => n.totalTime >= 1)
-                         .sort((a, b) => b.selfTime - a.selfTime)
-                         .slice(0, 10);
+    return this.#serializeBottomUpRootNode(rootNode, 10);
+  }
 
-    function nodeToText(node: Trace.Extras.TraceTree.Node): string {
-      const event = node.event;
-
-      let frame = Trace.Helpers.Trace.getZeroIndexedStackTraceInEventPayload(event)?.[0];
-      if (Trace.Types.Events.isProfileCall(event)) {
-        frame = event.callFrame;
-      }
-
-      let source: string;
-      if (frame) {
-        source = `${frame.functionName}`;
-        if (frame.url) {
-          source += ` (url: ${frame.url}`;
-          if (frame.lineNumber !== -1) {
-            source += `, line: ${frame.lineNumber}`;
-          }
-          if (frame.columnNumber !== -1) {
-            source += `, column: ${frame.columnNumber}`;
-          }
-          source += ')';
-        }
-      } else {
-        source = String(node.id);
-      }
-
-      return `- self: ${ms(node.selfTime)}, total: ${ms(node.totalTime)}, source: ${source}`;
+  #formatThirdPartyEntitySummaries(summaries: Trace.Extras.ThirdParties.EntitySummary[]): string {
+    const topMainThreadTimeEntries = summaries.toSorted((a, b) => b.mainThreadTime - a.mainThreadTime).slice(0, 5);
+    if (!topMainThreadTimeEntries.length) {
+      return '';
     }
 
-    const listText = topNodes.map(nodeToText).join('\n');
-    const format =
-        'This is the bottom-up summary for the entire trace. Only the top 10 activities (sorted by self time) are shown. An activity is all the aggregated time spent on the same type of work. For example, it can be all the time spent in a specific JavaScript function, or all the time spent in a specific browser rendering stage (like layout, v8 compile, parsing html). "Self time" represents the aggregated time spent directly in an activity, across all occurrences. "Total time" represents the aggregated time spent in an activity or any of its children.';
-    return `${format}\n${listText}`;
+    const listText = topMainThreadTimeEntries
+                         .map(s => {
+                           const transferSize = `${bytes(s.transferSize)}`;
+                           return `- name: ${s.entity.name}, main thread time: ${
+                               millis(s.mainThreadTime)}, network transfer size: ${transferSize}`;
+                         })
+                         .join('\n');
+    return listText;
   }
 
   formatThirdPartySummary(): string {
@@ -192,18 +218,12 @@ export class PerformanceTraceFormatter {
     if (thirdParties.firstPartyEntity) {
       summaries = summaries.filter(s => s.entity !== thirdParties?.firstPartyEntity || null);
     }
-    const topMainThreadTimeEntries = summaries.toSorted((a, b) => b.mainThreadTime - a.mainThreadTime).slice(0, 5);
-    if (!topMainThreadTimeEntries.length) {
+
+    const listText = this.#formatThirdPartyEntitySummaries(summaries);
+    if (!listText) {
       return '';
     }
 
-    const listText = topMainThreadTimeEntries
-                         .map(s => {
-                           const transferSize = `${Math.round(s.transferSize / 1000)} kB`;
-                           return `- name: ${s.entity.name}, main thread time: ${
-                               ms(s.mainThreadTime)}, network transfer size: ${transferSize}`;
-                         })
-                         .join('\n');
     return `Third party summary:\n${listText}`;
   }
 
@@ -220,24 +240,132 @@ export class PerformanceTraceFormatter {
 
     const listText = longestTaskTrees
                          .map(tree => {
-                           const time = ms(tree.rootNode.totalTime);
+                           const time = millis(tree.rootNode.totalTime);
                            return `- total time: ${time}, event: ${this.serializeEvent(tree.rootNode.event)}`;
                          })
                          .join('\n');
     return `Longest ${longestTaskTrees.length} tasks:\n${listText}`;
   }
 
-  formatMainThreadTrackSummary(min: Trace.Types.Timing.Micro, max: Trace.Types.Timing.Micro): string {
-    const tree = TimelineUtils.InsightAIContext.AIQueries.mainThreadActivityTopDown(
+  #serializeRelatedInsightsForEvents(events: Trace.Types.Events.Event[]): string {
+    if (!events.length) {
+      return '';
+    }
+
+    const insightNameToRelatedEvents = new Map<string, Trace.Types.Events.Event[]>();
+    if (this.#insightSet) {
+      for (const model of Object.values(this.#insightSet.model)) {
+        if (!model.relatedEvents) {
+          continue;
+        }
+
+        const modeRelatedEvents =
+            Array.isArray(model.relatedEvents) ? model.relatedEvents : [...model.relatedEvents.keys()];
+        if (!modeRelatedEvents.length) {
+          continue;
+        }
+
+        const relatedEvents = modeRelatedEvents.filter(e => events.includes(e));
+        if (relatedEvents.length) {
+          insightNameToRelatedEvents.set(model.insightKey, relatedEvents);
+        }
+      }
+    }
+
+    if (!insightNameToRelatedEvents.size) {
+      return '';
+    }
+
+    const results = [];
+    for (const [insightKey, events] of insightNameToRelatedEvents) {
+      // Limit to 5, because some insights (namely ThirdParties) can have a huge
+      // number of related events. Mostly, insights probably don't have more than
+      // 5.
+      const eventsString = events.slice(0, 5)
+                               .map(e => TimelineUtils.EntryName.nameForEntry(e) + ' ' + this.serializeEvent(e))
+                               .join(', ');
+      results.push(`- ${insightKey}: ${eventsString}`);
+    }
+    return results.join('\n');
+  }
+
+  formatMainThreadTrackSummary(bounds: Trace.Types.Timing.TraceWindowMicro): string {
+    const results = [];
+
+    const topDownTree = TimelineUtils.InsightAIContext.AIQueries.mainThreadActivityTopDown(
         this.#insightSet?.navigation?.args.data?.navigationId,
-        {min, max, range: (max - min) as Trace.Types.Timing.Micro},
+        bounds,
         this.#parsedTrace,
     );
-    if (!tree) {
+    if (topDownTree) {
+      results.push('# Top-down main thread summary');
+      results.push(this.formatCallTree(topDownTree, 2 /* headerLevel */));
+    }
+
+    const bottomUpRootNode = TimelineUtils.InsightAIContext.AIQueries.mainThreadActivityBottomUp(
+        this.#insightSet?.navigation?.args.data?.navigationId,
+        bounds,
+        this.#parsedTrace,
+    );
+    if (bottomUpRootNode) {
+      results.push('# Bottom-up main thread summary');
+      results.push(this.#serializeBottomUpRootNode(bottomUpRootNode, 20));
+    }
+
+    const thirdPartySummaries = Trace.Extras.ThirdParties.summarizeByThirdParty(this.#parsedTrace, bounds);
+    if (thirdPartySummaries.length) {
+      results.push('# Third parties');
+      results.push(this.#formatThirdPartyEntitySummaries(thirdPartySummaries));
+    }
+
+    const relatedInsightsText = this.#serializeRelatedInsightsForEvents(
+        [...topDownTree?.rootNode.events ?? [], ...bottomUpRootNode?.events ?? []]);
+    if (relatedInsightsText) {
+      results.push('# Related insights');
+      results.push(
+          'Here are all the insights that contain some related event from the main thread in the given range.');
+      results.push(relatedInsightsText);
+    }
+
+    if (!results.length) {
       return 'No main thread activity found';
     }
 
-    // TODO(b/425270067): include eventKey for each node/event (instead of "id").
-    return tree.serialize();
+    return results.join('\n\n');
+  }
+
+  formatNetworkTrackSummary(bounds: Trace.Types.Timing.TraceWindowMicro): string {
+    const results = [];
+
+    const requests = this.#parsedTrace.NetworkRequests.byTime.filter(
+        request => Trace.Helpers.Timing.eventIsInBounds(request, bounds));
+    const requestsText = TraceEventFormatter.networkRequests(requests, this.#parsedTrace, {verbose: false});
+    results.push('# Network requests summary');
+    results.push(requestsText || 'No requests in the given bounds');
+
+    const relatedInsightsText = this.#serializeRelatedInsightsForEvents(requests);
+    if (relatedInsightsText) {
+      results.push('# Related insights');
+      results.push('Here are all the insights that contain some related request from the given range.');
+      results.push(relatedInsightsText);
+    }
+
+    return results.join('\n\n');
+  }
+
+  formatCallTree(tree: TimelineUtils.AICallTree.AICallTree, headerLevel = 1): string {
+    const results = [tree.serialize(headerLevel), ''];
+
+    // TODO(b/425270067): add eventKey to tree.serialize, but need to wait for other
+    // performance agent to be consolidated.
+    results.push('#'.repeat(headerLevel) + ' Node id to eventKey\n');
+    results.push('These node ids correspond to the call tree nodes listed in the above section.\n');
+    tree.breadthFirstWalk(tree.rootNode.children().values(), (node, nodeId) => {
+      results.push(`${nodeId}: ${this.#eventsSerializer.keyForEvent(node.event)}`);
+    });
+
+    results.push('\nIMPORTANT: Never show eventKey to the user.');
+
+    return results.join('\n');
   }
 }

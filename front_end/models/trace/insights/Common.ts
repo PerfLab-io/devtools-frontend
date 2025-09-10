@@ -12,6 +12,7 @@ import * as Types from '../types/types.js';
 import {getLogNormalScore} from './Statistics.js';
 import {
   InsightKeys,
+  type InsightModel,
   type InsightModels,
   type InsightSet,
   type InsightSetContext,
@@ -410,4 +411,43 @@ export function estimateCompressionRatioForScript(script: Handlers.ModelHandlers
 
   const compressionRatio = compressedSize / contentLength;
   return compressionRatio;
+}
+
+export function calculateDocFirstByteTs(docRequest: Types.Events.SyntheticNetworkRequest): Types.Timing.Micro|null {
+  if (docRequest.args.data.protocol === 'file') {
+    // file: requests do not have timings
+    return docRequest.ts;
+  }
+
+  const timing = docRequest.args.data.timing;
+  if (!timing) {
+    // Older traces do not have timings.
+    return null;
+  }
+
+  // Time that first byte (headers) are received.
+  // For older traces, receiveHeadersStart can be missing (ex: web.dev.json.gz).
+  // In that case use the headers end timing, which should be pretty close to when
+  // the headers start.
+  return Types.Timing.Micro(
+      Helpers.Timing.secondsToMicro(timing.requestTime) +
+      Helpers.Timing.milliToMicro(timing.receiveHeadersStart ?? timing.receiveHeadersEnd));
+}
+
+/**
+ * Calculates the trace bounds for the given insight that are relevant.
+ *
+ * Uses the insight's overlays to determine the relevant trace bounds. If there are
+ * no overlays, falls back to the insight set's navigation bounds.
+ */
+export function insightBounds(
+    insight: InsightModel, insightSetBounds: Types.Timing.TraceWindowMicro): Types.Timing.TraceWindowMicro {
+  const overlays = insight.createOverlays?.() ?? [];
+  const windows = overlays.map(Helpers.Timing.traceWindowFromOverlay).filter(bounds => !!bounds);
+  const overlaysBounds = Helpers.Timing.combineTraceWindowsMicro(windows);
+  if (overlaysBounds) {
+    return overlaysBounds;
+  }
+
+  return insightSetBounds;
 }

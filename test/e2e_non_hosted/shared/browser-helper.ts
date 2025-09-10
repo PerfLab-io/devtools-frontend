@@ -77,15 +77,15 @@ export class BrowserWrapper {
   }
 }
 export class Launcher {
-  static async browserSetup(settings: BrowserSettings) {
-    const browser = await Launcher.launchChrome(settings);
+  static async browserSetup(settings: BrowserSettings, serverPort: number) {
+    const browser = await Launcher.launchChrome(settings, serverPort);
     setupBrowserProcessIO(browser);
     return new BrowserWrapper(browser);
   }
 
-  private static launchChrome(settings: BrowserSettings) {
+  private static launchChrome(settings: BrowserSettings, serverPort: number) {
     const frontEndDirectory = url.pathToFileURL(path.join(GEN_DIR, 'front_end'));
-    const disabledFeatures = settings.enabledBlinkFeatures?.slice() ?? [];
+    const disabledFeatures = settings.disabledFeatures?.slice() ?? [];
     const launchArgs = [
       '--remote-allow-origins=*',
       '--remote-debugging-port=0',
@@ -101,6 +101,7 @@ export class Launcher {
       '--enable-crash-reporter',
       // This has no effect (see https://crbug.com/435638630)
       `--crash-dumps-dir=${TestConfig.artifactsDir}`,
+      `--privacy-sandbox-enrollment-overrides=https://localhost:${serverPort}`,
     ];
     const headless = TestConfig.headless;
     // CDP commands in e2e and interaction should not generally take
@@ -114,6 +115,7 @@ export class Launcher {
       dumpio: !headless || Boolean(process.env['LUCI_CONTEXT']),
       protocolTimeout,
       networkEnabled: false,
+      pipe: true,
       ignoreDefaultArgs: [
         '--disable-crash-reporter',
         '--disable-breakpad',
@@ -138,7 +140,7 @@ export class Launcher {
     if (!headless) {
       launchArgs.push(`--window-size=${windowWidth},${windowHeight}`);
     }
-    const enabledFeatures = settings.enabledBlinkFeatures?.slice() ?? [];
+    const enabledFeatures = settings.enabledFeatures?.slice() ?? [];
     // TODO: remove
     const envChromeFeatures = process.env['CHROME_FEATURES'];
     if (envChromeFeatures) {
@@ -152,13 +154,13 @@ export class Launcher {
 }
 
 export interface BrowserSettings {
-  enabledBlinkFeatures: string[];
+  enabledFeatures: string[];
   disabledFeatures: string[];
 }
 
 export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
   // LINT.IfChange(features)
-  enabledBlinkFeatures: [
+  enabledFeatures: [
     'PartitionedCookies',
     'SharedStorageAPI',
     'FencedFrames',
@@ -172,6 +174,7 @@ export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
     'MojoChannelAssociatedSendUsesRunOrPostTask',  // crbug.com/376228320
     'RasterInducingScroll',                        // crbug.com/381055647
     'CompositeBackgroundColorAnimation',           // crbug.com/381055647
+    'ScriptSrcHashesV1',                           // crbug.com/443216445
   ]
   // LINT.ThenChange(/test/conductor/hooks.ts:features)
 };

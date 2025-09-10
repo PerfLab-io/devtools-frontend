@@ -40,6 +40,7 @@ import * as Platform from '../../core/platform/platform.js';
 import * as Root from '../../core/root/root.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import type * as Protocol from '../../generated/protocol.js';
+import * as TextUtils from '../../models/text_utils/text_utils.js';
 import * as Trace from '../../models/trace/trace.js';
 import * as TraceBounds from '../../services/trace_bounds/trace_bounds.js';
 import * as CodeHighlighter from '../../ui/components/code_highlighter/code_highlighter.js';
@@ -54,7 +55,6 @@ import * as UI from '../../ui/legacy/legacy.js';
 import {getDurationString} from './AppenderUtils.js';
 import * as TimelineComponents from './components/components.js';
 import * as Extensions from './extensions/extensions.js';
-import {Tracker} from './FreshRecording.js';
 import {ModificationsManager} from './ModificationsManager.js';
 import {targetForEvent} from './TargetForEvent.js';
 import * as ThirdPartyTreeView from './ThirdPartyTreeView.js';
@@ -152,6 +152,10 @@ const UIStrings = {
    * @description Text for referring to a timer that has timed-out and therefore is being removed.
    */
   timeout: 'Timeout',
+  /**
+   * @description Text used to refer to a positive timeout value that schedules the idle callback once elapsed, even if no idle time is available.
+   */
+  requestIdleCallbackTimeout: 'Timeout',
   /**
    * @description Text used to indicate that a timer is repeating (e.g. every X seconds) rather than a one off.
    */
@@ -471,6 +475,9 @@ const UIStrings = {
 } as const;
 const str_ = i18n.i18n.registerUIStrings('panels/timeline/TimelineUIUtils.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+
+// Look for scheme:// plus text and exclude any punctuation at the end.
+export const URL_REGEX = /(?:[a-zA-Z][a-zA-Z0-9+.-]{2,}:\/\/)[^\s"]{2,}[^\s"'\)\}\],:;.!?]/u;
 
 let eventDispatchDesciptors: EventDispatchTypeDescriptor[];
 
@@ -869,19 +876,41 @@ export class TimelineUIUtils {
     }
   }
 
-  static maybeCreateLinkElement(link: Trace.Types.Extensions.ExtensionTrackEntryPayloadDeeplink): HTMLElement|null {
-    const protocol = URL.parse(link.url)?.protocol;
-    if (protocol && protocol.length > 0) {
-      const splitResult = Common.ParsedURL.ParsedURL.splitLineAndColumn(link.url);
-      if (splitResult) {
-        const {lineNumber, columnNumber} = splitResult;
-        const options = {text: link.url, lineNumber, columnNumber} as LegacyComponents.Linkifier.LinkifyURLOptions;
-        const linkElement = LegacyComponents.Linkifier.Linkifier.linkifyURL(link.url, (options));
-        return linkElement;
-      }
+  static maybeCreateLinkElement(url: string): HTMLElement|null {
+    const protocol = URL.parse(url)?.protocol;
+    if (!protocol || protocol.length === 0) {
+      return null;
     }
 
-    return null;
+    const splitResult = Common.ParsedURL.ParsedURL.splitLineAndColumn(url);
+    if (!splitResult) {
+      return null;
+    }
+    const {lineNumber, columnNumber} = splitResult;
+    const options = {text: url, lineNumber, columnNumber} as LegacyComponents.Linkifier.LinkifyURLOptions;
+    const linkElement =
+        LegacyComponents.Linkifier.Linkifier.linkifyURL(url as Platform.DevToolsPath.UrlString, (options));
+    return linkElement;
+  }
+
+  /**
+   * Takes an input string and parses it to look for links. It does this by
+   * looking for URLs in the input string. The returned fragment will contain
+   * the same string but with any links wrapped in clickable links. The text
+   * of the link is the URL, so the visible string to the user is unchanged.
+   */
+  static parseStringForLinks(rawString: string): DocumentFragment {
+    const results = TextUtils.TextUtils.Utils.splitStringByRegexes(rawString, [URL_REGEX]);
+    const nodes = results.map(result => {
+      if (result.regexIndex === -1) {
+        return result.value;
+      }
+      return TimelineUIUtils.maybeCreateLinkElement(result.value) ?? result.value;
+    });
+
+    const frag = document.createDocumentFragment();
+    frag.append(...nodes);
+    return frag;
   }
 
   static async buildTraceEventDetails(
@@ -1006,22 +1035,41 @@ export class TimelineUIUtils {
     }
 
     if (Trace.Types.Extensions.isSyntheticExtensionEntry(event)) {
-      const additionalContext = 'additionalContext' in event.args ? event.args.additionalContext : null;
-      if (additionalContext) {
-        if (Boolean(Root.Runtime.hostConfig.devToolsDeepLinksViaExtensibilityApi?.enabled)) {
-          const linkElement = this.maybeCreateLinkElement(additionalContext);
+      // isSyntheticExtensionEntries can be any of: perf.measure, perf.mark or console.timeStamp.
+      const userDetail = structuredClone(event.userDetail) as Record<string, Trace.Types.Extensions.JsonValue>;
+      if (userDetail && Object.keys(userDetail).length) {
+        // E.g. console.timeStamp(name, start, end, track, trackGroup, color,
+        // {url: 'foo-extension://node/1', description: 'Node'});
+        const hasExclusiveLink = typeof userDetail === 'object' && typeof userDetail.url === 'string' &&
+            typeof userDetail.description === 'string';
+        if (hasExclusiveLink && Boolean(Root.Runtime.hostConfig.devToolsDeepLinksViaExtensibilityApi?.enabled)) {
+          const linkElement = this.maybeCreateLinkElement(String(userDetail.url));
           if (linkElement) {
-            contentHelper.appendElementRow(additionalContext.description, linkElement);
+            contentHelper.appendElementRow(String(userDetail.description), linkElement);
+            // Now remove so we don't render them in renderObjectJson.
+            delete userDetail.url;
+            delete userDetail.description;
           }
+        }
+        if (Object.keys(userDetail).length) {
+          // E.g., performance.measure(name, {detail: {important: 42, devtools: {}}})
+          const detailContainer = TimelineUIUtils.renderObjectJson(userDetail);
+          contentHelper.appendElementRow(i18nString(UIStrings.details), detailContainer);
         }
       }
 
-      for (const [key, value] of event.args.properties as Array<[string, string]>|| []) {
-        contentHelper.appendTextRow(key, String(value));
+      // E.g. performance.measure(name, {detail: {devtools: {properties: ['Key', 'Value']}}})
+      if (event.devtoolsObj.properties) {
+        for (const [key, value] of event.devtoolsObj.properties || []) {
+          const renderedValue = typeof value === 'string' ? TimelineUIUtils.parseStringForLinks(value) :
+                                                            TimelineUIUtils.renderObjectJson(value);
+          contentHelper.appendElementRow(key, renderedValue);
+        }
       }
     }
 
-    const isFreshRecording = Boolean(parsedTrace && Tracker.instance().recordingIsFresh(parsedTrace));
+    const isFreshRecording =
+        Boolean(parsedTrace && Utils.FreshRecording.Tracker.instance().recordingIsFresh(parsedTrace));
 
     switch (event.name) {
       case Trace.Types.Events.Name.GC:
@@ -1373,6 +1421,12 @@ export class TimelineUIUtils {
       case Trace.Types.Events.Name.REQUEST_IDLE_CALLBACK:
       case Trace.Types.Events.Name.CANCEL_IDLE_CALLBACK: {
         contentHelper.appendTextRow(i18nString(UIStrings.callbackId), unsafeEventData['id']);
+
+        if (Trace.Types.Events.isRequestIdleCallback(event)) {
+          contentHelper.appendTextRow(
+              i18nString(UIStrings.requestIdleCallbackTimeout),
+              i18n.TimeUtilities.preciseMillisToString(event.args.data.timeout));
+        }
         break;
       }
 
@@ -1607,7 +1661,7 @@ export class TimelineUIUtils {
     contentHelper.appendElementRow('', highlightContainer);
   }
 
-  private static renderObjectJson(obj: Object): HTMLDivElement {
+  private static renderObjectJson(obj: Object|Trace.Types.Extensions.JsonValue): HTMLDivElement {
     const indentLength = Common.Settings.Settings.instance().moduleSetting('text-editor-indent').get().length;
     // Elide if the data is huge. Then remove the initial new-line for a denser UI
     const eventStr = JSON.stringify(obj, null, indentLength).slice(0, 10_000).replace(/{\n  /, '{ ');
@@ -1618,7 +1672,23 @@ export class TimelineUIUtils {
     const elem = shadowRoot.createChild('div');
     elem.classList.add('monospace', 'source-code');
     elem.textContent = eventStr;
-    void CodeHighlighter.CodeHighlighter.highlightNode(elem, 'text/javascript');
+    // Highlighting is done async (shrug), but we'll return the container immediately.
+    void CodeHighlighter.CodeHighlighter.highlightNode(elem, 'text/javascript').then(() => {
+      // Linkify any URLs within the text nodes.
+      // Use a TreeWalker to find all our text nodes
+      function* iterateTreeWalker(walker: TreeWalker): IterableIterator<Node> {
+        while (walker.nextNode()) {
+          yield walker.currentNode;
+        }
+      }
+      const walker = document.createTreeWalker(elem, NodeFilter.SHOW_TEXT);
+      // Gather all the nodes first, then we'll potentially replace them.
+      for (const node of Array.from(iterateTreeWalker(walker))) {
+        const frag = TimelineUIUtils.parseStringForLinks(node.textContent || '');
+        node.parentNode?.replaceChild(frag, node);
+      }
+    });
+
     return highlightContainer;
   }
 
@@ -2277,7 +2347,7 @@ export class EventDispatchTypeDescriptor {
 
 export class TimelineDetailsContentHelper {
   fragment: DocumentFragment;
-  private linkifierInternal: LegacyComponents.Linkifier.Linkifier|null;
+  #linkifier: LegacyComponents.Linkifier.Linkifier|null;
   private target: SDK.Target.Target|null;
   element: HTMLDivElement;
   private tableElement: HTMLElement;
@@ -2285,7 +2355,7 @@ export class TimelineDetailsContentHelper {
   constructor(target: SDK.Target.Target|null, linkifier: LegacyComponents.Linkifier.Linkifier|null) {
     this.fragment = document.createDocumentFragment();
 
-    this.linkifierInternal = linkifier;
+    this.#linkifier = linkifier;
     this.target = target;
 
     this.element = document.createElement('div');
@@ -2316,7 +2386,7 @@ export class TimelineDetailsContentHelper {
   }
 
   linkifier(): LegacyComponents.Linkifier.Linkifier|null {
-    return this.linkifierInternal;
+    return this.#linkifier;
   }
 
   appendTextRow(title: string, value: string|number|boolean): void {
@@ -2346,7 +2416,7 @@ export class TimelineDetailsContentHelper {
 
   appendLocationRow(
       title: string, url: string, startLine: number, startColumn?: number, text?: string, omitOrigin?: boolean): void {
-    if (!this.linkifierInternal) {
+    if (!this.#linkifier) {
       return;
     }
 
@@ -2358,7 +2428,7 @@ export class TimelineDetailsContentHelper {
       text,
       omitOrigin,
     };
-    const link = this.linkifierInternal.maybeLinkifyScriptLocation(
+    const link = this.#linkifier.maybeLinkifyScriptLocation(
         this.target, null, url as Platform.DevToolsPath.UrlString, startLine, options);
     if (!link) {
       return;
@@ -2367,11 +2437,11 @@ export class TimelineDetailsContentHelper {
   }
 
   appendLocationRange(title: string, url: Platform.DevToolsPath.UrlString, startLine: number, endLine?: number): void {
-    if (!this.linkifierInternal || !this.target) {
+    if (!this.#linkifier || !this.target) {
       return;
     }
     const locationContent = document.createElement('span');
-    const link = this.linkifierInternal.maybeLinkifyScriptLocation(
+    const link = this.#linkifier.maybeLinkifyScriptLocation(
         this.target, null, url, startLine, {tabStop: true, inlineFrameIndex: 0});
     if (!link) {
       return;
@@ -2383,7 +2453,7 @@ export class TimelineDetailsContentHelper {
   }
 
   createChildStackTraceElement(stackTrace: Protocol.Runtime.StackTrace): void {
-    if (!this.linkifierInternal) {
+    if (!this.#linkifier) {
       return;
     }
     const resolvedStackTrace: Protocol.Runtime.StackTrace = structuredClone(stackTrace);
@@ -2401,7 +2471,7 @@ export class TimelineDetailsContentHelper {
     const stackTraceElement =
         this.tableElement.createChild('div', 'timeline-details-view-row timeline-details-stack-values');
     const callFrameContents = new LegacyComponents.JSPresentationUtils.StackTracePreviewContent(
-        undefined, this.target ?? undefined, this.linkifierInternal,
+        undefined, this.target ?? undefined, this.#linkifier,
         {stackTrace: resolvedStackTrace, tabStops: true, showColumnNumber: true});
     callFrameContents.markAsRoot();
     callFrameContents.show(stackTraceElement);

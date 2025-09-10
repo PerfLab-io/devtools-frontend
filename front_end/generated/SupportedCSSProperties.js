@@ -7,6 +7,7 @@ export const generatedProperties = [
  {
   "longhands": [
    "max-lines",
+   "block-ellipsis",
    "continue"
   ],
   "name": "-alternative-webkit-line-clamp"
@@ -94,14 +95,12 @@ export const generatedProperties = [
   "name": "-webkit-font-smoothing"
  },
  {
-  "inherited": true,
   "keywords": [
    "auto",
    "loose",
    "normal",
    "strict",
-   "after-white-space",
-   "anywhere"
+   "after-white-space"
   ],
   "name": "-webkit-line-break"
  },
@@ -352,6 +351,7 @@ export const generatedProperties = [
    "base-palette",
    "baseline-shift",
    "baseline-source",
+   "block-ellipsis",
    "block-size",
    "border-block-end-color",
    "border-block-end-style",
@@ -891,6 +891,9 @@ export const generatedProperties = [
   "name": "animation-timing-function"
  },
  {
+  "keywords": [
+   "none"
+  ],
   "name": "animation-trigger"
  },
  {
@@ -1041,6 +1044,14 @@ export const generatedProperties = [
    "last"
   ],
   "name": "baseline-source"
+ },
+ {
+  "inherited": true,
+  "keywords": [
+   "auto",
+   "no-ellipsis"
+  ],
+  "name": "block-ellipsis"
  },
  {
   "keywords": [
@@ -1754,7 +1765,9 @@ export const generatedProperties = [
  {
   "longhands": [
    "column-width",
-   "column-count"
+   "column-count",
+   "column-height",
+   "column-wrap"
   ],
   "name": "columns"
  },
@@ -2805,13 +2818,15 @@ export const generatedProperties = [
    "loose",
    "normal",
    "strict",
-   "anywhere"
+   "anywhere",
+   "after-white-space"
   ],
   "name": "line-break"
  },
  {
   "longhands": [
    "max-lines",
+   "block-ellipsis",
    "continue"
   ],
   "name": "line-clamp"
@@ -4736,8 +4751,7 @@ export const generatedPropertyValues = {
    "loose",
    "normal",
    "strict",
-   "after-white-space",
-   "anywhere"
+   "after-white-space"
   ]
  },
  "-webkit-line-clamp": {
@@ -4866,6 +4880,11 @@ export const generatedPropertyValues = {
    "step-end"
   ]
  },
+ "animation-trigger": {
+  "values": [
+   "none"
+  ]
+ },
  "app-region": {
   "values": [
    "none",
@@ -4961,6 +4980,12 @@ export const generatedPropertyValues = {
    "auto",
    "first",
    "last"
+  ]
+ },
+ "block-ellipsis": {
+  "values": [
+   "auto",
+   "no-ellipsis"
   ]
  },
  "block-size": {
@@ -5937,7 +5962,8 @@ export const generatedPropertyValues = {
    "loose",
    "normal",
    "strict",
-   "anywhere"
+   "anywhere",
+   "after-white-space"
   ]
  },
  "line-height": {

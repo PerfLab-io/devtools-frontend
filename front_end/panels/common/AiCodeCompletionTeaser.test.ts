@@ -4,7 +4,6 @@
 
 import * as Common from '../../core/common/common.js';
 import * as Host from '../../core/host/host.js';
-import {assertNotNullOrUndefined} from '../../core/platform/platform.js';
 import * as Root from '../../core/root/root.js';
 import {renderElementIntoDOM} from '../../testing/DOMHelpers.js';
 import {describeWithEnvironment, updateHostConfig} from '../../testing/EnvironmentHelpers.js';
@@ -17,11 +16,12 @@ import * as FreDialog from './FreDialog.js';
 
 describeWithEnvironment('AiCodeCompletionTeaser', () => {
   let showFreDialogStub: sinon.SinonStub<Parameters<typeof FreDialog.FreDialog.show>, Promise<boolean>>;
+  let checkAccessPreconditionsStub: sinon.SinonStub;
 
   beforeEach(() => {
     showFreDialogStub = sinon.stub(FreDialog.FreDialog, 'show');
-    sinon.stub(Host.AidaClient.AidaClient, 'checkAccessPreconditions')
-        .resolves(Host.AidaClient.AidaAccessPreconditions.AVAILABLE);
+    checkAccessPreconditionsStub = sinon.stub(Host.AidaClient.AidaClient, 'checkAccessPreconditions');
+    checkAccessPreconditionsStub.resolves(Host.AidaClient.AidaAccessPreconditions.AVAILABLE);
   });
 
   async function createTeaser() {
@@ -36,7 +36,6 @@ describeWithEnvironment('AiCodeCompletionTeaser', () => {
   afterEach(() => {
     Common.Settings.Settings.instance().settingForTest('ai-code-completion-teaser-dismissed').set(false);
     Common.Settings.Settings.instance().settingForTest('ai-code-completion-enabled').set(false);
-    sinon.restore();
   });
 
   it('should dismiss and open snackbar on dismiss click', async () => {
@@ -44,7 +43,7 @@ describeWithEnvironment('AiCodeCompletionTeaser', () => {
     const showSnackbar = sinon.stub(Snackbars.Snackbar.Snackbar, 'show');
 
     assert.isTrue(widget.isShowing());
-    assertNotNullOrUndefined(view.input.onDismiss);
+    assert.exists(view.input.onDismiss);
     view.input.onDismiss(new Event('click'));
     await widget.updateComplete;
 
@@ -57,12 +56,12 @@ describeWithEnvironment('AiCodeCompletionTeaser', () => {
     const {view, widget} = await createTeaser();
     const showSnackbar = sinon.stub(Snackbars.Snackbar.Snackbar, 'show');
     const showViewStub = sinon.stub(UI.ViewManager.ViewManager.instance(), 'showView');
-    assertNotNullOrUndefined(view.input.onDismiss);
+    assert.exists(view.input.onDismiss);
     view.input.onDismiss(new Event('click'));
 
     sinon.assert.calledOnce(showSnackbar);
     const snackbarOptions = showSnackbar.firstCall.args[0];
-    assertNotNullOrUndefined(snackbarOptions.actionProperties);
+    assert.exists(snackbarOptions.actionProperties);
     snackbarOptions.actionProperties.onClick();
 
     assert.isTrue(showViewStub.calledOnceWith('chrome-ai'));
@@ -93,6 +92,40 @@ describeWithEnvironment('AiCodeCompletionTeaser', () => {
     assert.notExists(showFreDialogStub.lastCall.args[0].reminderItems.find(
         reminderItem =>
             reminderItem.content.toString().includes('This data will not be used to improve Google’s AI models.')));
+    widget.detach();
+  });
+
+  it('renders when AIDA becomes available', async () => {
+    checkAccessPreconditionsStub.resolves(Host.AidaClient.AidaAccessPreconditions.NO_ACCOUNT_EMAIL);
+
+    const {view, widget} = await createTeaser();
+
+    assert.strictEqual(view.input.aidaAvailability, Host.AidaClient.AidaAccessPreconditions.NO_ACCOUNT_EMAIL);
+
+    checkAccessPreconditionsStub.resolves(Host.AidaClient.AidaAccessPreconditions.AVAILABLE);
+    Host.AidaClient.HostConfigTracker.instance().dispatchEventToListeners(
+        Host.AidaClient.Events.AIDA_AVAILABILITY_CHANGED);
+
+    await view.nextInput;
+
+    assert.strictEqual(view.input.aidaAvailability, Host.AidaClient.AidaAccessPreconditions.AVAILABLE);
+    widget.detach();
+  });
+
+  it('does not render when AIDA becomes unavailable', async () => {
+    checkAccessPreconditionsStub.resolves(Host.AidaClient.AidaAccessPreconditions.AVAILABLE);
+
+    const {view, widget} = await createTeaser();
+
+    assert.strictEqual(view.input.aidaAvailability, Host.AidaClient.AidaAccessPreconditions.AVAILABLE);
+
+    checkAccessPreconditionsStub.resolves(Host.AidaClient.AidaAccessPreconditions.NO_ACCOUNT_EMAIL);
+    Host.AidaClient.HostConfigTracker.instance().dispatchEventToListeners(
+        Host.AidaClient.Events.AIDA_AVAILABILITY_CHANGED);
+
+    await view.nextInput;
+
+    assert.strictEqual(view.input.aidaAvailability, Host.AidaClient.AidaAccessPreconditions.NO_ACCOUNT_EMAIL);
     widget.detach();
   });
 });

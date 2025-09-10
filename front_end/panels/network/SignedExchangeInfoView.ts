@@ -117,7 +117,7 @@ export class SignedExchangeInfoView extends UI.Widget.VBox {
     root.registerRequiredCSS(signedExchangeInfoTreeStyles);
     root.element.classList.add('signed-exchange-info-tree');
     root.setFocusable(false);
-    root.makeDense();
+    root.setDense(true);
     root.expandTreeElementsWhenArrowing = true;
     this.element.appendChild(root.element);
 
@@ -128,7 +128,7 @@ export class SignedExchangeInfoView extends UI.Widget.VBox {
       for (const error of signedExchangeInfo.errors) {
         const fragment = document.createDocumentFragment();
         const icon = new IconButton.Icon.Icon();
-        icon.data = {iconName: 'cross-circle-filled', color: 'var(--icon-error)'};
+        icon.name = 'cross-circle-filled';
         icon.classList.add('prompt-icon', 'small');
         fragment.appendChild(icon);
         fragment.createChild('div', 'error-log').textContent = error.message;

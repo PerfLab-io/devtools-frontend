@@ -31,6 +31,7 @@
 import * as Common from '../../core/common/common.js';
 import * as Platform from '../../core/platform/platform.js';
 import * as SDK from '../../core/sdk/sdk.js';
+import type * as StackTraceImpl from '../stack_trace/stack_trace_impl.js';
 import * as TextUtils from '../text_utils/text_utils.js';
 import * as Workspace from '../workspace/workspace.js';
 
@@ -130,7 +131,7 @@ export class CompilerScriptMapping implements DebuggerSourceMapping {
     // Find the source location for the raw location.
     const {lineNumber, columnNumber} = script.rawLocationToRelativeLocation(rawLocation);
     const entry = sourceMap.findEntry(lineNumber, columnNumber);
-    if (!entry || !entry.sourceURL) {
+    if (!entry?.sourceURL) {
       return [];
     }
 
@@ -214,7 +215,7 @@ export class CompilerScriptMapping implements DebuggerSourceMapping {
     }
 
     const entry = sourceMap.findEntry(lineNumber, columnNumber, rawLocation.inlineFrameIndex);
-    if (!entry || !entry.sourceURL) {
+    if (!entry?.sourceURL) {
       return null;
     }
 
@@ -288,6 +289,13 @@ export class CompilerScriptMapping implements DebuggerSourceMapping {
       }
     }
     return ranges;
+  }
+
+  translateRawFramesStep(
+      _rawFrames: StackTraceImpl.Trie.RawFrame[],
+      _translatedFrames: Awaited<ReturnType<StackTraceImpl.StackTraceModel.TranslateRawFrames>>): boolean {
+    // TODO(crbug.com/433162438): Implement source map stack trace translation.
+    return false;
   }
 
   /**

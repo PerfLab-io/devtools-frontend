@@ -2454,7 +2454,7 @@
                     "properties": [
                         {
                             "name": "name",
-                            "description": "address field name, for example GIVEN_NAME.",
+                            "description": "address field name, for example GIVEN_NAME.\nThe full list of supported field names:\nhttps://source.chromium.org/chromium/chromium/src/+/main:components/autofill/core/browser/field_types.cc;l=38",
                             "type": "string"
                         },
                         {
@@ -2602,8 +2602,15 @@
                         },
                         {
                             "name": "card",
-                            "description": "Credit card information to fill out the form. Credit card data is not saved.",
+                            "description": "Credit card information to fill out the form. Credit card data is not saved.  Mutually exclusive with `address`.",
+                            "optional": true,
                             "$ref": "CreditCard"
+                        },
+                        {
+                            "name": "address",
+                            "description": "Address to fill out the form. Address data is not saved. Mutually exclusive with `card`.",
+                            "optional": true,
+                            "$ref": "Address"
                         }
                     ]
                 },
@@ -3506,7 +3513,7 @@
             "commands": [
                 {
                     "name": "setPermission",
-                    "description": "Set permission settings for given origin.",
+                    "description": "Set permission settings for given requesting and embedding origins.",
                     "experimental": true,
                     "parameters": [
                         {
@@ -3521,7 +3528,13 @@
                         },
                         {
                             "name": "origin",
-                            "description": "Origin the permission applies to, all origins if not specified.",
+                            "description": "Requesting origin the permission applies to, all origins if not specified.",
+                            "optional": true,
+                            "type": "string"
+                        },
+                        {
+                            "name": "embeddingOrigin",
+                            "description": "Embedding origin the permission applies to. It is ignored unless the requesting origin is\npresent and valid. If the requesting origin is provided but the embedding origin isn't, the\nrequesting origin is used as the embedding origin.",
                             "optional": true,
                             "type": "string"
                         },
@@ -4484,6 +4497,18 @@
                             "name": "value",
                             "description": "Computed style property value.",
                             "type": "string"
+                        }
+                    ]
+                },
+                {
+                    "id": "ComputedStyleExtraFields",
+                    "experimental": true,
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "isAppearanceBase",
+                            "description": "Returns whether or not this node is being rendered with base appearance,\nwhich happens when it has its appearance property set to base/base-select\nor it is in the subtree of an element being rendered with base appearance.",
+                            "type": "boolean"
                         }
                     ]
                 },
@@ -5489,6 +5514,12 @@
                             "items": {
                                 "$ref": "CSSComputedStyleProperty"
                             }
+                        },
+                        {
+                            "name": "extraFields",
+                            "description": "A list of non-standard \"extra fields\" which blink stores alongside each\ncomputed style.",
+                            "experimental": true,
+                            "$ref": "ComputedStyleExtraFields"
                         }
                     ]
                 },
@@ -14435,6 +14466,21 @@
                             "type": "object"
                         }
                     ]
+                },
+                {
+                    "id": "Player",
+                    "type": "object",
+                    "properties": [
+                        {
+                            "name": "playerId",
+                            "$ref": "PlayerId"
+                        },
+                        {
+                            "name": "domNodeId",
+                            "optional": true,
+                            "$ref": "DOM.BackendNodeId"
+                        }
+                    ]
                 }
             ],
             "events": [
@@ -14507,15 +14553,12 @@
                     ]
                 },
                 {
-                    "name": "playersCreated",
-                    "description": "Called whenever a player is created, or when a new agent joins and receives\na list of active players. If an agent is restored, it will receive the full\nlist of player ids and all events again.",
+                    "name": "playerCreated",
+                    "description": "Called whenever a player is created, or when a new agent joins and receives\na list of active players. If an agent is restored, it will receive one\nevent for each active player.",
                     "parameters": [
                         {
-                            "name": "players",
-                            "type": "array",
-                            "items": {
-                                "$ref": "PlayerId"
-                            }
+                            "name": "player",
+                            "$ref": "Player"
                         }
                     ]
                 }
@@ -15299,6 +15342,21 @@
                         "corp-not-same-origin-after-defaulted-to-same-origin-by-coep-and-dip",
                         "corp-not-same-site",
                         "sri-message-signature-mismatch"
+                    ]
+                },
+                {
+                    "id": "IpProxyStatus",
+                    "description": "Sets Controls for IP Proxy of requests.\nPage reload is required before the new behavior will be observed.",
+                    "experimental": true,
+                    "type": "string",
+                    "enum": [
+                        "Available",
+                        "FeatureNotEnabled",
+                        "MaskedDomainListNotEnabled",
+                        "MaskedDomainListNotPopulated",
+                        "AuthTokensUnavailable",
+                        "Unavailable",
+                        "BypassedByDevTools"
                     ]
                 },
                 {
@@ -16868,6 +16926,30 @@
             ],
             "commands": [
                 {
+                    "name": "getIPProtectionProxyStatus",
+                    "description": "Returns enum representing if IP Proxy of requests is available\nor reason it is not active.",
+                    "experimental": true,
+                    "returns": [
+                        {
+                            "name": "status",
+                            "description": "Whether IP proxy is available",
+                            "$ref": "IpProxyStatus"
+                        }
+                    ]
+                },
+                {
+                    "name": "setIPProtectionProxyBypassEnabled",
+                    "description": "Sets bypass IP Protection Proxy boolean.",
+                    "experimental": true,
+                    "parameters": [
+                        {
+                            "name": "enabled",
+                            "description": "Whether IP Proxy is being bypassed by devtools; false by default.",
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                {
                     "name": "setAcceptedEncodings",
                     "description": "Sets a list of content encodings that will be accepted. Empty list means no encoding is accepted.",
                     "experimental": true,
@@ -17105,6 +17187,13 @@
                         {
                             "name": "reportDirectSocketTraffic",
                             "description": "Whether DirectSocket chunk send/receive events should be reported.",
+                            "experimental": true,
+                            "optional": true,
+                            "type": "boolean"
+                        },
+                        {
+                            "name": "enableDurableMessages",
+                            "description": "Enable storing response bodies outside of renderer, so that these survive\na cross-process navigation. Requires maxTotalBufferSize to be set.\nCurrently defaults to false.",
                             "experimental": true,
                             "optional": true,
                             "type": "boolean"
@@ -19997,7 +20086,7 @@
                 },
                 {
                     "name": "install",
-                    "description": "Installs the given manifest identity, optionally using the given installUrlOrBundleUrl\n\nIWA-specific install description:\nmanifestId corresponds to isolated-app:// + web_package::SignedWebBundleId\n\nFile installation mode:\nThe installUrlOrBundleUrl can be either file:// or http(s):// pointing\nto a signed web bundle (.swbn). In this case SignedWebBundleId must correspond to\nThe .swbn file's signing key.\n\nDev proxy installation mode:\ninstallUrlOrBundleUrl must be http(s):// that serves dev mode IWA.\nweb_package::SignedWebBundleId must be of type dev proxy.\n\nThe advantage of dev proxy mode is that all changes to IWA\nautomatically will be reflected in the running app without\nreinstallation.\n\nTo generate bundle id for proxy mode:\n1. Generate 32 random bytes.\n2. Add a specific suffix 0x00 at the end.\n3. Encode the entire sequence using Base32 without padding.\n\nIf Chrome is not in IWA dev\nmode, the installation will fail, regardless of the state of the allowlist.",
+                    "description": "Installs the given manifest identity, optionally using the given installUrlOrBundleUrl\n\nIWA-specific install description:\nmanifestId corresponds to isolated-app:// + web_package::SignedWebBundleId\n\nFile installation mode:\nThe installUrlOrBundleUrl can be either file:// or http(s):// pointing\nto a signed web bundle (.swbn). In this case SignedWebBundleId must correspond to\nThe .swbn file's signing key.\n\nDev proxy installation mode:\ninstallUrlOrBundleUrl must be http(s):// that serves dev mode IWA.\nweb_package::SignedWebBundleId must be of type dev proxy.\n\nThe advantage of dev proxy mode is that all changes to IWA\nautomatically will be reflected in the running app without\nreinstallation.\n\nTo generate bundle id for proxy mode:\n1. Generate 32 random bytes.\n2. Add a specific suffix at the end following the documentation\n   https://github.com/WICG/isolated-web-apps/blob/main/Scheme.md#suffix\n3. Encode the entire sequence using Base32 without padding.\n\nIf Chrome is not in IWA dev\nmode, the installation will fail, regardless of the state of the allowlist.",
                     "parameters": [
                         {
                             "name": "manifestId",
@@ -20285,6 +20374,7 @@
                         "digital-credentials-create",
                         "digital-credentials-get",
                         "direct-sockets",
+                        "direct-sockets-multicast",
                         "direct-sockets-private",
                         "display-capture",
                         "document-domain",
@@ -21659,9 +21749,9 @@
                         "IndexedDBEvent",
                         "Dummy",
                         "JsNetworkRequestReceivedCacheControlNoStoreResource",
-                        "WebRTCSticky",
-                        "WebTransportSticky",
-                        "WebSocketSticky",
+                        "WebRTCUsedWithCCNS",
+                        "WebTransportUsedWithCCNS",
+                        "WebSocketUsedWithCCNS",
                         "SmartCard",
                         "LiveMediaStreamTrack",
                         "UnloadHandler",

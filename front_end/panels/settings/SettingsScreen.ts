@@ -275,7 +275,7 @@ export class GenericSettingsTab extends UI.Widget.VBox implements SettingsTab {
       Common.Settings.SettingCategory.PERSISTENCE,
       Common.Settings.SettingCategory.DEBUGGER,
       Common.Settings.SettingCategory.GLOBAL,
-      Common.Settings.SettingCategory.SYNC,
+      Common.Settings.SettingCategory.ACCOUNT,
     ];
 
     // Some settings define their initial ordering.
@@ -335,15 +335,19 @@ export class GenericSettingsTab extends UI.Widget.VBox implements SettingsTab {
       window.clearTimeout(this.#updateSyncSectionTimerId);
       this.#updateSyncSectionTimerId = -1;
     }
-    Host.InspectorFrontendHost.InspectorFrontendHostInstance.getSyncInformation(syncInfo => {
-      this.syncSection.data = {
-        syncInfo,
-        syncSetting: Common.Settings.moduleSetting('sync-preferences') as Common.Settings.Setting<boolean>,
-      };
-      if (!syncInfo.isSyncActive || !syncInfo.arePreferencesSynced) {
-        this.#updateSyncSectionTimerId = window.setTimeout(this.updateSyncSection.bind(this), 500);
-      }
-    });
+
+    void new Promise<Host.InspectorFrontendHostAPI.SyncInformation>(
+        resolve => Host.InspectorFrontendHost.InspectorFrontendHostInstance.getSyncInformation(resolve))
+        .then(syncInfo => {
+          this.syncSection.data = {
+            syncInfo,
+            syncSetting: Common.Settings.moduleSetting('sync-preferences') as Common.Settings.Setting<boolean>,
+            receiveBadgesSetting: Common.Settings.Settings.instance().moduleSetting('receive-gdp-badges'),
+          };
+          if (!syncInfo.isSyncActive || !syncInfo.arePreferencesSynced) {
+            this.#updateSyncSectionTimerId = window.setTimeout(this.updateSyncSection.bind(this), 500);
+          }
+        });
   }
 
   private createExtensionSection(settings: Common.Settings.SettingRegistration[]): void {
@@ -360,9 +364,9 @@ export class GenericSettingsTab extends UI.Widget.VBox implements SettingsTab {
     // Always create the EXTENSIONS section and append the link handling control.
     if (category === Common.Settings.SettingCategory.EXTENSIONS) {
       this.createExtensionSection(settings);
-    } else if (category === Common.Settings.SettingCategory.SYNC && settings.length > 0) {
+    } else if (category === Common.Settings.SettingCategory.ACCOUNT && settings.length > 0) {
       const syncCard = createSettingsCard(
-          Common.SettingRegistration.getLocalizedSettingsCategory(Common.SettingRegistration.SettingCategory.SYNC),
+          Common.SettingRegistration.getLocalizedSettingsCategory(Common.SettingRegistration.SettingCategory.ACCOUNT),
           this.syncSection);
       this.containerElement.appendChild(syncCard);
     } else if (settings.length > 0) {

@@ -33,6 +33,7 @@
 import * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as Platform from '../../../../core/platform/platform.js';
+import type * as NetworkTimeCalculator from '../../../../models/network_time_calculator/network_time_calculator.js';
 import * as Trace from '../../../../models/trace/trace.js';
 import * as VisualLogging from '../../../../ui/visual_logging/visual_logging.js';
 import * as Buttons from '../../../components/buttons/buttons.js';
@@ -43,7 +44,7 @@ import {drawExpansionArrow, drawIcon, horizontalLine} from './CanvasHelper.js';
 import {ChartViewport, type ChartViewportDelegate} from './ChartViewport.js';
 import flameChartStyles from './flameChart.css.js';
 import {DEFAULT_FONT_SIZE, getFontFamilyForCanvas} from './Font.js';
-import {type Calculator, TimelineGrid} from './TimelineGrid.js';
+import {TimelineGrid} from './TimelineGrid.js';
 
 /**
  * Set as the `details` value on the fake context menu event we dispatch to
@@ -256,7 +257,7 @@ export type DrawOverride =
      timeToPosition: (time: number) => number, transformColor: (color: string) => string) => PositionOverride;
 
 export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, typeof UI.Widget.VBox>(UI.Widget.VBox)
-    implements Calculator, ChartViewportDelegate {
+    implements NetworkTimeCalculator.Calculator, ChartViewportDelegate {
   private readonly flameChartDelegate: FlameChartDelegate;
   private chartViewport: ChartViewport;
   private dataProvider: FlameChartDataProvider;
@@ -300,7 +301,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
   private dragStartX!: number;
   private dragStartY!: number;
   private lastMouseOffsetY!: number;
-  private minimumBoundaryInternal!: number;
+  #minimumBoundary!: number;
   private maxDragOffset!: number;
   private timelineLevels?: number[][]|null;
   private visibleLevelOffsets?: Uint32Array|null;
@@ -463,6 +464,10 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     }
     this.#canvasBoundingClientRect = this.canvas.getBoundingClientRect();
     return this.#canvasBoundingClientRect;
+  }
+
+  verticalScrollBarVisible(): boolean {
+    return this.chartViewport.verticalScrollBarVisible();
   }
 
   /**
@@ -1358,6 +1363,26 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.#toggleGroupHiddenState(groupIndex, /* hidden= */ false);
   }
 
+  showAllGroups(): void {
+    if (!this.rawTimelineData?.groups) {
+      return;
+    }
+
+    for (const group of this.rawTimelineData.groups) {
+      group.hidden = false;
+    }
+
+    this.updateLevelPositions();
+    this.updateHighlight();
+    this.updateHeight();
+    this.draw();
+    this.#notifyProviderOfConfigurationChange();
+
+    // When you show all groups, the UI can change quite significantly, so
+    // scroll the user back up to the top to orient them.
+    this.scrollGroupIntoView(0);
+  }
+
   #toggleGroupHiddenState(groupIndex: number, hidden: boolean): void {
     if (groupIndex < 0) {
       return;
@@ -1399,7 +1424,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.contextMenu = new UI.ContextMenu.ContextMenu(event);
     const label = i18nString(UIStrings.enterTrackConfigurationMode);
     this.contextMenu.defaultSection().appendItem(label, () => {
-      this.#enterEditMode();
+      this.enterTrackConfigurationMode();
     }, {
       jslogContext: 'track-configuration-enter',
     });
@@ -2143,7 +2168,10 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     return {groupIndex: -1, hoverType: HoverType.OUTSIDE_TRACKS};
   }
 
-  #enterEditMode(): void {
+  enterTrackConfigurationMode(): void {
+    if (!this.#hasTrackConfigurationMode()) {
+      return;
+    }
     const div = document.createElement('div');
     div.classList.add('flame-chart-edit-confirm');
     const button = new Buttons.Button.Button();
@@ -2162,6 +2190,11 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.dispatchEventToListeners(Events.TRACKS_REORDER_STATE_CHANGED, true);
     this.updateLevelPositions();
     this.draw();
+    // When we collapse all the tracks into edit mode, we can leave the user at
+    // the bottom of the panel which can look very empty.
+    // So, scroll the user to the top so they can see all of the collapsed
+    // tracks.
+    this.scrollGroupIntoView(0);
   }
 
   #removeEditModeButton(): void {
@@ -2231,28 +2264,9 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     context.font = this.#font;
 
     const {markerIndices, drawBatches, titleIndices} = this.getDrawBatches(context, timelineData);
-
-    const groups = this.rawTimelineData?.groups || [];
-    const trackIndex = groups.findIndex(g => g.name.includes('Main'));
-    const group = groups.at(trackIndex);
-    const startLevel = group?.startLevel;
-    const endLevel = groups.at(trackIndex + 1)?.startLevel;
-    const entryIndexIsInTrack = (index: number): boolean => {
-      if (trackIndex < 0 || startLevel === undefined || endLevel === undefined) {
-        return false;
-      }
-      const barWidth = Math.min(this.#eventBarWidth(timelineData, index), canvasWidth);
-      return timelineData.entryLevels[index] >= startLevel && timelineData.entryLevels[index] < endLevel &&
-          barWidth > 10;
-    };
-    let wideEntryExists = false;
     for (const [{color, outline}, {indexes}] of drawBatches) {
-      if (!wideEntryExists) {
-        wideEntryExists = indexes.some(entryIndexIsInTrack);
-      }
       this.#drawBatchEvents(context, timelineData, color, indexes, outline);
     }
-    this.dispatchEventToListeners(Events.CHART_PLAYABLE_STATE_CHANGED, wideEntryExists);
 
     if (!this.#inTrackConfigEditMode) {
       // In configuration mode, we do not render the actual flame chart, so we
@@ -3445,8 +3459,15 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.timelineLevels = levelIndexes;
     const groups = this.rawTimelineData.groups || [];
     for (let i = 0; i < groups.length; ++i) {
-      const expanded = groups[i].expanded ?? this.#persistedGroupConfig?.[i]?.expanded ?? false;
-      const hidden = groups[i].hidden ?? this.#persistedGroupConfig?.[i]?.hidden ?? false;
+      // Find matching config based on the name of the track.
+      const matchingConfig = this.#persistedGroupConfig?.find(c => c.trackName === groups[i].name);
+
+      // Priority:
+      // 1. Prefer the active track config.
+      // 2. If that doesn't exist, prefer any explicit state set on the group.
+      // 3. If that doesn't exist, set defaults.
+      const expanded = matchingConfig?.expanded ?? groups[i].expanded ?? false;
+      const hidden = matchingConfig?.hidden ?? groups[i].hidden ?? false;
       groups[i].expanded = expanded;
       groups[i].hidden = hidden;
     }
@@ -3478,7 +3499,11 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     }
 
     // If we have persisted track config, apply it. This method can get called when there is no timeline data, so we check for that.
-    // It shouldn't happen, but if the length of the persisted config does not match, we bail, rather than apply some invalid state.
+    // For now, we only apply the sorting persistence if the length of the
+    // groups in the config matches the length of the current trace. In the
+    // future we might want to adjust this because it means that the persisted
+    // config sorting isn't that useful; the moment you import a trace with a
+    // new set of groups that are a different length, we don't use it.
     if (this.#persistedGroupConfig && groups.length > 0 && this.#groupTreeRoot &&
         this.#persistedGroupConfig.length === groups.length) {
       this.#reOrderGroupsBasedOnPersistedConfig(this.#persistedGroupConfig, this.#groupTreeRoot);
@@ -3998,13 +4023,20 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
 
   private updateBoundaries(): void {
     this.totalTime = this.dataProvider.totalTime();
-    this.minimumBoundaryInternal = this.dataProvider.minimumBoundary();
-    this.chartViewport.setBoundaries(this.minimumBoundaryInternal, this.totalTime);
+    this.#minimumBoundary = this.dataProvider.minimumBoundary();
+    this.chartViewport.setBoundaries(this.#minimumBoundary, this.totalTime);
   }
 
   private updateHeight(): void {
-    const height = this.levelToOffset(this.dataProvider.maxStackDepth()) + 2;
-    this.chartViewport.setContentHeight(height);
+    this.chartViewport.setContentHeight(this.totalContentHeight());
+  }
+
+  /**
+   * This is the total height that would be required to render the flame chart
+   * with no overflows.
+   */
+  totalContentHeight(): number {
+    return this.levelToOffset(this.dataProvider.maxStackDepth()) + 2;
   }
 
   override onResize(): void {
@@ -4013,7 +4045,7 @@ export class FlameChart extends Common.ObjectWrapper.eventMixin<EventTypes, type
     this.scheduleUpdate();
   }
 
-  setPersistedConfig(config: PersistedGroupConfig[]): void {
+  setPersistedConfig(config: PersistedGroupConfig[]|null): void {
     this.#persistedGroupConfig = config;
   }
 
@@ -4163,6 +4195,18 @@ export class FlameChartTimelineData {
    **/
   entryDecorations: FlameChartDecoration[][];
   groups: Group[];
+
+  /**
+   * Markers are events with vertical lines that go down the entire timeline at their start time.
+   * These are only used now in the Extensibility API; users can provide a
+   * `marker` event
+   * (https://developer.chrome.com/docs/devtools/performance/extension#inject_your_data_with_the_user_timings_api)
+   * which will render with a vertical line.
+   * If you are wondering what we use to draw page events like LCP, those are
+   * done via the overlays system. In time, it probably makes sense to use the
+   * overlays for e11y marker events too, and then we can remove markers from
+   * TimelineData, rather than have two systems to build the same UI...
+   */
   markers: FlameChartMarker[];
 
   // These four arrays are used to draw the initiator arrows, and if there are
@@ -4228,7 +4272,7 @@ export interface DataProviderSearchResult {
 }
 
 export interface FlameChartDataProvider {
-  setPersistedGroupConfigSetting?(setting: Common.Settings.Setting<PersistedConfigPerTrace>): void;
+  setPersistedGroupConfigSetting?(setting: Common.Settings.Setting<PersistedGroupConfig[]|null>): void;
 
   minimumBoundary(): number;
 
@@ -4352,7 +4396,6 @@ export const enum Events {
    * mouse off the event)
    */
   ENTRY_HOVERED = 'EntryHovered',
-  CHART_PLAYABLE_STATE_CHANGED = 'ChartPlayableStateChange',
 
   LATEST_DRAW_DIMENSIONS = 'LatestDrawDimensions',
 
@@ -4372,7 +4415,6 @@ export interface EventTypes {
   [Events.ENTRY_INVOKED]: number;
   [Events.ENTRY_SELECTED]: number;
   [Events.ENTRY_HOVERED]: number;
-  [Events.CHART_PLAYABLE_STATE_CHANGED]: boolean;
   [Events.LATEST_DRAW_DIMENSIONS]: {
     chart: {
       widthPixels: number,
@@ -4423,22 +4465,15 @@ export interface GroupStyle {
   useDecoratorsForOverview?: boolean;
 }
 
+/**
+ * Persists the configuration state of a group. When a trace is recorded /
+ * imported, we see if we can match any persisted config to each track based on
+ * its name, and if we can, we apply the config to it.
+ */
 export interface PersistedGroupConfig {
+  trackName: string;
   hidden: boolean;
   expanded: boolean;
   originalIndex: number;
   visualIndex: number;
 }
-
-/**
- * Used to persist into memory the configuration, so that if the user imports a
- * new trace and then navigates back to the old one, the configuration is
- * restored.
- * The key here is the `traceBounds.min` time from the trace. Given this is
- * monotonic, the chances of it clashing within traces the user records are very
- * low. It could happen, but we accept that this is best effort.
- * Note: the value type includes `undefined` to make sure that anyone can't do
- * value[traceMin] and not check that it exists. If the user has not manually
- * edited the track config, it will not be stored.
- */
-export type PersistedConfigPerTrace = Record<Trace.Types.Timing.Micro, PersistedGroupConfig[]|undefined>;

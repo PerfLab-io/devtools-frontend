@@ -811,8 +811,8 @@ describeWithMockConnection('TimelineUIUtils', function() {
 
       const mutableEntry: Trace.Types.Extensions.SyntheticExtensionEntry = {
         ...extensionEntry,
-        args: {
-          ...extensionEntry.args,
+        devtoolsObj: {
+          ...extensionEntry.devtoolsObj,
           // Note: we do not support this, but bad values can come in via mistakes in user code.
           properties: [['key', null]]
         }
@@ -1024,7 +1024,7 @@ describeWithMockConnection('TimelineUIUtils', function() {
         ts: function3.ts,
         pid: function3.pid,
         tid: function3.tid,
-        args: {},
+        devtoolsObj: {},
         rawSourceEvent: mark,
       } as unknown as Trace.Types.Extensions.SyntheticExtensionEntry;
 
@@ -1050,7 +1050,7 @@ describeWithMockConnection('TimelineUIUtils', function() {
         ts: function2.ts,
         pid: function2.pid,
         tid: function2.tid,
-        args: {},
+        devtoolsObj: {},
         rawSourceEvent: {
           cat: 'blink.user_timing',
           args: {traceId: measure.args.traceId},
@@ -1142,6 +1142,33 @@ describeWithMockConnection('TimelineUIUtils', function() {
       );
     });
 
+    it('includes the timeout for a RequestIdleCallback event', async function() {
+      const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-dev-with-timings.json.gz');
+      const events = allThreadEntriesInTrace(parsedTrace);
+      const requestIdleCallback = events.find(e => {
+        return Trace.Types.Events.isRequestIdleCallback(e) && e.ts === 10041020329;
+      });
+      assert.isOk(requestIdleCallback);
+      const details = await Timeline.TimelineUIUtils.TimelineUIUtils.buildTraceEventDetails(
+          parsedTrace,
+          requestIdleCallback,
+          new Components.Linkifier.Linkifier(),
+          false,
+          null,
+      );
+      const rowData = getRowDataForDetailsElement(details);
+      assert.deepEqual(
+          rowData.slice(0, 2),  // Don't care about the stack trace or initiator
+          [
+            {
+              title: 'Callback ID',
+              value: '1',
+            },
+            {title: 'Timeout', value: '4\xA0ms'},
+          ],
+      );
+    });
+
     it('shows information for the WebSocketCreate initiator when viewing a WebSocketSendHandshakeRequest event',
        async function() {
          const {parsedTrace} = await TraceLoader.traceEngine(this, 'web-sockets.json.gz');
@@ -1226,10 +1253,10 @@ describeWithMockConnection('TimelineUIUtils', function() {
 
       const expectedPieChartData = [
         {title: 'System (self)', value: '2\u00A0ms'},
-        {title: 'System (children)', value: '2\u00A0ms'},
+        {title: 'System (children)', value: '0\u00A0ms'},
         {title: 'Rendering', value: '28\u00A0ms'},
         {title: 'Painting', value: '2\u00A0ms'},
-        {title: 'Total', value: '34\u00A0ms'},
+        {title: 'Total', value: '32\u00A0ms'},
       ];
       assert.deepEqual(
           pieChartData,
@@ -1789,5 +1816,111 @@ describeWithMockConnection('TimelineUIUtils', function() {
       assert.strictEqual(url, 'https://web.dev/user-centric-performance-metrics/');
       assert.strictEqual(html.innerText, 'Learn more about page performance metrics.');
     });
+  });
+
+  describe('parseStringForLinks', () => {
+    it('should handle a string with no links', () => {
+      const rawString = 'This is a string with no links.';
+      const fragment = Timeline.TimelineUIUtils.TimelineUIUtils.parseStringForLinks(rawString);
+      const container = document.createElement('div');
+      container.appendChild(fragment);
+      assert.strictEqual(container.innerHTML, 'This is a string with no links.');
+    });
+
+    it('should handle a url and terminating punctuation', () => {
+      const rawString = 'Check out: https://example.com.';
+      const fragment = Timeline.TimelineUIUtils.TimelineUIUtils.parseStringForLinks(rawString);
+      const container = document.createElement('div');
+      container.appendChild(fragment);
+      assert.strictEqual(
+          container.innerHTML,
+          'Check out: <button class="devtools-link text-button link-style" jslog="Link; context: url; track: click" role="link" tabindex="-1">https://example.com</button>.');
+    });
+
+    it('should handle URLs anywhere within the string', () => {
+      const rawString =
+          'http://example.com at the beginning. http://example.com in the middle or at the end: http://example.com';
+      const fragment = Timeline.TimelineUIUtils.TimelineUIUtils.parseStringForLinks(rawString);
+      const container = document.createElement('div');
+      container.appendChild(fragment);
+      assert.strictEqual(
+          container.innerHTML,
+          `<button class="devtools-link text-button link-style" jslog="Link; context: url; track: click" role="link" tabindex="-1">http://example.com</button>
+at the beginning. <button class="devtools-link text-button link-style" jslog="Link; context: url; track: click" role="link" tabindex="-1">http://example.com</button>
+in the middle or at the end: <button class="devtools-link text-button link-style" jslog="Link; context: url; track: click" role="link" tabindex="-1">http://example.com</button>`
+              .replace(/\n/g, ' '));
+    });
+
+    it('should parse a string with multiple links and create link elements for them', () => {
+      const rawString = 'Node: ext://node/123   Root Cause: ext://node/13566';
+      const fragment = Timeline.TimelineUIUtils.TimelineUIUtils.parseStringForLinks(rawString);
+      const container = document.createElement('div');
+      container.appendChild(fragment);
+      assert.strictEqual(
+          container.innerHTML,
+          'Node: <button class="devtools-link text-button link-style" jslog="Link; context: url; track: click" role="link" tabindex="-1">ext://node/123</button>   Root Cause: <button class="devtools-link text-button link-style" jslog="Link; context: url; track: click" role="link" tabindex="-1">ext://node/13566</button>');
+    });
+
+    it('does not linkify data URI or www. prefixed text handle a data URI', () => {
+      const rawString =
+          'so data:text/html,%3Cscript%3Ealert%28%27hi%27%29%3B%3C%2Fscript%3E and www.site.com remain plain';
+      const fragment = Timeline.TimelineUIUtils.TimelineUIUtils.parseStringForLinks(rawString);
+      const container = document.createElement('div');
+      container.appendChild(fragment);
+      assert.strictEqual(
+          container.innerHTML,
+          'so data:text/html,%3Cscript%3Ealert%28%27hi%27%29%3B%3C%2Fscript%3E and www.site.com remain plain');
+    });
+  });
+
+  describe('URL regex in parseStringForLinks', () => {
+    const urlRegex = Timeline.TimelineUIUtils.URL_REGEX;
+
+    const testCases: Array<{url: string, matches: boolean}> = [
+      // Matching URLs:
+      {url: 'http://example.com', matches: true},
+      {url: 'https://example.com', matches: true},
+      {url: 'https://www.xn--examl-gsa.com', matches: true},
+      {url: 'https://example.com/path/to/resource', matches: true},
+      {url: 'https://example.com?query=param&another=param', matches: true},
+      {url: 'https://example.com#fragment', matches: true},
+      {url: 'ftp://files.example.com', matches: true},
+      {url: 'custom-scheme://resource/123', matches: true},
+      {url: 'ext://node/123', matches: true},
+      {url: 'http://a.z', matches: true},
+      {url: '9http://example.com', matches: true},
+      // URLs with trailing punctuation should still match the URL part.
+      {url: 'https://example.com(', matches: true},
+      {url: 'https://example.com)', matches: true},
+      {url: 'https://example.com[', matches: true},
+      {url: 'https://example.com]', matches: true},
+      {url: 'https://example.com{', matches: true},
+      {url: 'https://example.com}', matches: true},
+      {url: 'https://example.com,', matches: true},
+      {url: 'https://example.com:', matches: true},
+      {url: 'https://example.com;', matches: true},
+      {url: 'https://example.com.', matches: true},
+      {url: 'https://example.com!', matches: true},
+      {url: 'https://example.com?', matches: true},
+
+      // Non-matching strings:
+      {url: 'www.example.com', matches: false},
+      {url: 'example.com', matches: false},
+      {url: 'data:text/html,hello', matches: false},
+      {url: 'mailto:test@example.com', matches: false},
+      {url: 'javascript:void(0)', matches: false},
+      {url: 'not a url', matches: false},
+      {url: 'http://', matches: false},
+      {url: 'https://a', matches: false},
+      {url: 'http://a .com', matches: false},
+      {url: 'http://a".com', matches: false},
+      {url: 'ht://example.com)', matches: false},  // protocol must be 3 or more letters.
+    ];
+
+    for (const {url, matches} of testCases) {
+      it(`correctly validates "${url}" as ${matches ? 'matching' : 'not matching'}`, () => {
+        assert.strictEqual(urlRegex.test(url), matches);
+      });
+    }
   });
 });

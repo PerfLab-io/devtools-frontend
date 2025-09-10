@@ -93,7 +93,7 @@ export default defineConfig([
         'single',
         {
           avoidEscape: true,
-          allowTemplateLiterals: false,
+          allowTemplateLiterals: 'always',
         },
       ],
 
@@ -292,12 +292,13 @@ export default defineConfig([
        */
       'jsdoc/check-alignment': 'error',
       'jsdoc/check-tag-names': [
-        'error', {
+        'error',
+        {
           definedTags: [
             'attribute',  // @attribute is used by lit-analyzer (through web-component-analyzer)
             'meaning',    // @meaning is used by localization
           ],
-        }
+        },
       ],
       'jsdoc/empty-tags': 'error',
       'jsdoc/multiline-blocks': 'error',
@@ -310,10 +311,7 @@ export default defineConfig([
       ],
       'jsdoc/require-asterisk-prefix': 'error',
       'jsdoc/require-param-name': 'error',
-      'jsdoc/require-hyphen-before-param-description': [
-        'error',
-        'never',
-      ],
+      'jsdoc/require-hyphen-before-param-description': ['error', 'never'],
       'jsdoc/sort-tags': 'error',
     },
   },
@@ -697,7 +695,7 @@ export default defineConfig([
       // errors on {describe, it}.only
       'mocha/no-exclusive-tests': 'error',
 
-      'mocha/no-async-suite': 'error',
+      'mocha/no-async-describe': 'error',
       'mocha/no-global-tests': 'error',
       'mocha/no-nested-tests': 'error',
 
@@ -741,22 +739,22 @@ export default defineConfig([
         {
           name: 'describeWithDevtoolsExtension',
           type: 'suite',
-          interface: 'BDD',
+          interfaces: ['BDD', 'TDD'],
         },
         {
           name: 'describeWithEnvironment',
           type: 'suite',
-          interface: 'BDD',
+          interfaces: ['BDD', 'TDD'],
         },
         {
           name: 'describeWithLocale',
           type: 'suite',
-          interface: 'BDD',
+          interfaces: ['BDD', 'TDD'],
         },
         {
           name: 'describeWithMockConnection',
           type: 'suite',
-          interface: 'BDD',
+          interfaces: ['BDD', 'TDD'],
         },
       ],
     },
@@ -821,7 +819,7 @@ export default defineConfig([
     },
   },
   {
-    name: 'No SDK in models/trace',
+    name: 'Keep models/trace isolated',
     files: ['front_end/models/trace/**/*.ts'],
     ignores: ['front_end/models/trace/**/*.test.ts'],
     rules: {
@@ -838,6 +836,50 @@ export default defineConfig([
                   'sdk.js',
                   ),
               allowTypeImports: true,
+            },
+            {
+              bannedPath: join(
+                  import.meta.dirname,
+                  'front_end',
+                  'ui',
+                  'legacy',
+                  'legacy.js',
+                  ),
+              allowTypeImports: false,
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    name: 'No UI in models',
+    files: ['front_end/models/**/*.ts'],
+    ignores: ['front_end/models/**/*.test.ts'],
+    rules: {
+      'rulesdir/no-imports-in-directory': [
+        'error',
+        {
+          bannedImportPaths: [
+            {
+              bannedPath: join(
+                  import.meta.dirname,
+                  'front_end',
+                  'ui',
+                  'legacy',
+                  'legacy.js',
+                  ),
+              allowTypeImports: false,
+            },
+            {
+              bannedPath: join(
+                  import.meta.dirname,
+                  'front_end',
+                  'ui',
+                  'lit',
+                  'lit.js',
+                  ),
+              allowTypeImports: false,
             },
           ],
         },

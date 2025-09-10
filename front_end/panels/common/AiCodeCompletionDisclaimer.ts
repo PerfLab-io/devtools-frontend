@@ -5,6 +5,7 @@
 import '../../ui/components/spinners/spinners.js';
 import '../../ui/components/tooltips/tooltips.js';
 
+import * as Host from '../../core/host/host.js';
 import * as i18n from '../../core/i18n/i18n.js';
 import * as Root from '../../core/root/root.js';
 import * as UI from '../../ui/legacy/legacy.js';
@@ -47,6 +48,7 @@ const lockedString = i18n.i18n.lockedString;
 export interface ViewInput {
   disclaimerTooltipId?: string;
   noLogging: boolean;
+  aidaAvailability?: Host.AidaClient.AidaAccessPreconditions;
   onManageInSettingsTooltipClick: () => void;
 }
 
@@ -57,13 +59,12 @@ export interface ViewOutput {
 
 export type View = (input: ViewInput, output: ViewOutput, target: HTMLElement) => void;
 
-export const DEFAULT_SUMMARY_TOOLBAR_VIEW: View =
-    (input, output, target) => {
-      if (!input.disclaimerTooltipId) {
-        render(nothing, target);
-        return;
-      }
-      // clang-format off
+export const DEFAULT_SUMMARY_TOOLBAR_VIEW: View = (input, output, target) => {
+  if (input.aidaAvailability !== Host.AidaClient.AidaAccessPreconditions.AVAILABLE || !input.disclaimerTooltipId) {
+    render(nothing, target);
+    return;
+  }
+  // clang-format off
   render(
     html`
         <style>${styles}</style>
@@ -104,6 +105,7 @@ export const DEFAULT_SUMMARY_TOOLBAR_VIEW: View =
                 ${input.noLogging ? lockedString(UIStringsNotTranslate.tooltipDisclaimerTextForAiCodeCompletionNoLogging) : lockedString(UIStringsNotTranslate.tooltipDisclaimerTextForAiCodeCompletion)}
                 </div>
                 <span
+                    tabIndex="0"
                     class="link"
                     role="link"
                     jslog=${VisualLogging.link('open-ai-settings').track({
@@ -111,10 +113,10 @@ export const DEFAULT_SUMMARY_TOOLBAR_VIEW: View =
                     })}
                     @click=${input.onManageInSettingsTooltipClick}
                 >${lockedString(UIStringsNotTranslate.manageInSettings)}</span></div></devtools-tooltip>
-          </div class="ai-code-completion-disclaimer">
+          </div>
         `, target);
-      // clang-format on
-    };
+  // clang-format on
+};
 
 const MINIMUM_LOADING_STATE_TIMEOUT = 1000;
 
@@ -128,11 +130,15 @@ export class AiCodeCompletionDisclaimer extends UI.Widget.Widget {
   #loadingStartTime = 0;
   #spinnerLoadingTimeout: number|undefined;
 
+  #aidaAvailability?: Host.AidaClient.AidaAccessPreconditions;
+  #boundOnAidaAvailabilityChange: () => Promise<void>;
+
   constructor(element?: HTMLElement, view: View = DEFAULT_SUMMARY_TOOLBAR_VIEW) {
     super(element);
     this.markAsExternallyManaged();
     this.#noLogging = Root.Runtime.hostConfig.aidaAvailability?.enterprisePolicyValue ===
         Root.Runtime.GenAiEnterprisePolicyValue.ALLOW_WITHOUT_LOGGING;
+    this.#boundOnAidaAvailabilityChange = this.#onAidaAvailabilityChange.bind(this);
     this.#view = view;
   }
 
@@ -168,6 +174,14 @@ export class AiCodeCompletionDisclaimer extends UI.Widget.Widget {
     }
   }
 
+  async #onAidaAvailabilityChange(): Promise<void> {
+    const currentAidaAvailability = await Host.AidaClient.AidaClient.checkAccessPreconditions();
+    if (currentAidaAvailability !== this.#aidaAvailability) {
+      this.#aidaAvailability = currentAidaAvailability;
+      this.requestUpdate();
+    }
+  }
+
   #onManageInSettingsTooltipClick(): void {
     this.#viewOutput.hideTooltip?.();
     void UI.ViewManager.ViewManager.instance().showView('chrome-ai');
@@ -178,8 +192,22 @@ export class AiCodeCompletionDisclaimer extends UI.Widget.Widget {
         {
           disclaimerTooltipId: this.#disclaimerTooltipId,
           noLogging: this.#noLogging,
+          aidaAvailability: this.#aidaAvailability,
           onManageInSettingsTooltipClick: this.#onManageInSettingsTooltipClick.bind(this),
         },
         this.#viewOutput, this.contentElement);
+  }
+
+  override wasShown(): void {
+    super.wasShown();
+    Host.AidaClient.HostConfigTracker.instance().addEventListener(
+        Host.AidaClient.Events.AIDA_AVAILABILITY_CHANGED, this.#boundOnAidaAvailabilityChange);
+    void this.#onAidaAvailabilityChange();
+  }
+
+  override willHide(): void {
+    super.willHide();
+    Host.AidaClient.HostConfigTracker.instance().removeEventListener(
+        Host.AidaClient.Events.AIDA_AVAILABILITY_CHANGED, this.#boundOnAidaAvailabilityChange);
   }
 }

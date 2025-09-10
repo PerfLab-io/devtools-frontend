@@ -41,6 +41,7 @@ import * as Platform from '../../core/platform/platform.js';
 import * as Root from '../../core/root/root.js';
 import * as SDK from '../../core/sdk/sdk.js';
 import * as Protocol from '../../generated/protocol.js';
+import * as Badges from '../../models/badges/badges.js';
 import * as Bindings from '../../models/bindings/bindings.js';
 import * as TextUtils from '../../models/text_utils/text_utils.js';
 import * as Buttons from '../../ui/components/buttons/buttons.js';
@@ -147,7 +148,7 @@ export class StylePropertiesSection {
   navigable: boolean|null|undefined;
   protected readonly selectorRefElement: HTMLElement;
   private hoverableSelectorsMode: boolean;
-  private isHiddenInternal: boolean;
+  #isHidden: boolean;
   protected customPopulateCallback: () => void;
 
   nestingLevel = 0;
@@ -316,7 +317,7 @@ export class StylePropertiesSection {
       this.propertiesTreeOutline.element.classList.add('read-only');
     }
     this.hoverableSelectorsMode = false;
-    this.isHiddenInternal = false;
+    this.#isHidden = false;
     this.markSelectorMatches();
     this.onpopulate();
   }
@@ -958,7 +959,8 @@ export class StylePropertiesSection {
       queryName: containerQuery.name,
       onContainerLinkClick: event => {
         event.preventDefault();
-        void ElementsPanel.instance().revealAndSelectNode(container.containerNode, true, true);
+        void ElementsPanel.instance().revealAndSelectNode(
+            container.containerNode, {showPanel: true, focusNode: true, highlightInOverlay: false});
         void container.containerNode.scrollIntoView();
       },
     };
@@ -1130,7 +1132,7 @@ export class StylePropertiesSection {
 
     const regex = this.parentPane.filterRegex();
     const hideRule = !hasMatchingChild && regex !== null && !regex.test(this.element.deepTextContent());
-    this.isHiddenInternal = hideRule;
+    this.#isHidden = hideRule;
     this.element.classList.toggle('hidden', hideRule);
     if (!hideRule && this.styleInternal.parentRule) {
       this.markSelectorHighlights();
@@ -1139,7 +1141,7 @@ export class StylePropertiesSection {
   }
 
   isHidden(): boolean {
-    return this.isHiddenInternal;
+    return this.#isHidden;
   }
 
   markSelectorMatches(): void {
@@ -1545,6 +1547,8 @@ export class StylePropertiesSection {
       if (!success) {
         return Promise.resolve();
       }
+
+      Badges.UserBadges.instance().recordAction(Badges.BadgeAction.CSS_RULE_MODIFIED);
       return this.matchedStyles.recomputeMatchingSelectors(rule).then(updateSourceRanges.bind(this, rule));
     }
 

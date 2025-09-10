@@ -1617,6 +1617,8 @@ export namespace Autofill {
   export interface AddressField {
     /**
      * address field name, for example GIVEN_NAME.
+     * The full list of supported field names:
+     * https://source.chromium.org/chromium/chromium/src/+/main:components/autofill/core/browser/field_types.cc;l=38
      */
     name: string;
     /**
@@ -1708,9 +1710,13 @@ export namespace Autofill {
      */
     frameId?: Page.FrameId;
     /**
-     * Credit card information to fill out the form. Credit card data is not saved.
+     * Credit card information to fill out the form. Credit card data is not saved.  Mutually exclusive with `address`.
      */
-    card: CreditCard;
+    card?: CreditCard;
+    /**
+     * Address to fill out the form. Address data is not saved. Mutually exclusive with `card`.
+     */
+    address?: Address;
   }
 
   export interface SetAddressesRequest {
@@ -2263,9 +2269,15 @@ export namespace Browser {
      */
     setting: PermissionSetting;
     /**
-     * Origin the permission applies to, all origins if not specified.
+     * Requesting origin the permission applies to, all origins if not specified.
      */
     origin?: string;
+    /**
+     * Embedding origin the permission applies to. It is ignored unless the requesting origin is
+     * present and valid. If the requesting origin is provided but the embedding origin isn't, the
+     * requesting origin is used as the embedding origin.
+     */
+    embeddingOrigin?: string;
     /**
      * Context to override. When omitted, default browser context is used.
      */
@@ -2935,6 +2947,15 @@ export namespace CSS {
      * Computed style property value.
      */
     value: string;
+  }
+
+  export interface ComputedStyleExtraFields {
+    /**
+     * Returns whether or not this node is being rendered with base appearance,
+     * which happens when it has its appearance property set to base/base-select
+     * or it is in the subtree of an element being rendered with base appearance.
+     */
+    isAppearanceBase: boolean;
   }
 
   /**
@@ -3670,6 +3691,11 @@ export namespace CSS {
      * Computed style for the specified DOM node.
      */
     computedStyle: CSSComputedStyleProperty[];
+    /**
+     * A list of non-standard "extra fields" which blink stores alongside each
+     * computed style.
+     */
+    extraFields: ComputedStyleExtraFields;
   }
 
   export interface ResolveValuesRequest {
@@ -9418,6 +9444,11 @@ export namespace Media {
     data: any;
   }
 
+  export interface Player {
+    playerId: PlayerId;
+    domNodeId?: DOM.BackendNodeId;
+  }
+
   /**
    * This can be called multiple times, and can be used to set / override /
    * remove player properties. A null propValue indicates removal.
@@ -9454,11 +9485,11 @@ export namespace Media {
 
   /**
    * Called whenever a player is created, or when a new agent joins and receives
-   * a list of active players. If an agent is restored, it will receive the full
-   * list of player ids and all events again.
+   * a list of active players. If an agent is restored, it will receive one
+   * event for each active player.
    */
-  export interface PlayersCreatedEvent {
-    players: PlayerId[];
+  export interface PlayerCreatedEvent {
+    player: Player;
   }
 }
 
@@ -10036,6 +10067,20 @@ export namespace Network {
     CorpNotSameOriginAfterDefaultedToSameOriginByCoepAndDip = 'corp-not-same-origin-after-defaulted-to-same-origin-by-coep-and-dip',
     CorpNotSameSite = 'corp-not-same-site',
     SriMessageSignatureMismatch = 'sri-message-signature-mismatch',
+  }
+
+  /**
+   * Sets Controls for IP Proxy of requests.
+   * Page reload is required before the new behavior will be observed.
+   */
+  export const enum IpProxyStatus {
+    Available = 'Available',
+    FeatureNotEnabled = 'FeatureNotEnabled',
+    MaskedDomainListNotEnabled = 'MaskedDomainListNotEnabled',
+    MaskedDomainListNotPopulated = 'MaskedDomainListNotPopulated',
+    AuthTokensUnavailable = 'AuthTokensUnavailable',
+    Unavailable = 'Unavailable',
+    BypassedByDevTools = 'BypassedByDevTools',
   }
 
   /**
@@ -11143,6 +11188,20 @@ export namespace Network {
     includeCredentials: boolean;
   }
 
+  export interface GetIPProtectionProxyStatusResponse extends ProtocolResponseWithError {
+    /**
+     * Whether IP proxy is available
+     */
+    status: IpProxyStatus;
+  }
+
+  export interface SetIPProtectionProxyBypassEnabledRequest {
+    /**
+     * Whether IP Proxy is being bypassed by devtools; false by default.
+     */
+    enabled: boolean;
+  }
+
   export interface SetAcceptedEncodingsRequest {
     /**
      * List of accepted content encodings.
@@ -11286,6 +11345,12 @@ export namespace Network {
      * Whether DirectSocket chunk send/receive events should be reported.
      */
     reportDirectSocketTraffic?: boolean;
+    /**
+     * Enable storing response bodies outside of renderer, so that these survive
+     * a cross-process navigation. Requires maxTotalBufferSize to be set.
+     * Currently defaults to false.
+     */
+    enableDurableMessages?: boolean;
   }
 
   export interface GetAllCookiesResponse extends ProtocolResponseWithError {
@@ -13479,6 +13544,7 @@ export namespace Page {
     DigitalCredentialsCreate = 'digital-credentials-create',
     DigitalCredentialsGet = 'digital-credentials-get',
     DirectSockets = 'direct-sockets',
+    DirectSocketsMulticast = 'direct-sockets-multicast',
     DirectSocketsPrivate = 'direct-sockets-private',
     DisplayCapture = 'display-capture',
     DocumentDomain = 'document-domain',
@@ -14365,9 +14431,9 @@ export namespace Page {
     IndexedDBEvent = 'IndexedDBEvent',
     Dummy = 'Dummy',
     JsNetworkRequestReceivedCacheControlNoStoreResource = 'JsNetworkRequestReceivedCacheControlNoStoreResource',
-    WebRTCSticky = 'WebRTCSticky',
-    WebTransportSticky = 'WebTransportSticky',
-    WebSocketSticky = 'WebSocketSticky',
+    WebRTCUsedWithCCNS = 'WebRTCUsedWithCCNS',
+    WebTransportUsedWithCCNS = 'WebTransportUsedWithCCNS',
+    WebSocketUsedWithCCNS = 'WebSocketUsedWithCCNS',
     SmartCard = 'SmartCard',
     LiveMediaStreamTrack = 'LiveMediaStreamTrack',
     UnloadHandler = 'UnloadHandler',

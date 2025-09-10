@@ -83,11 +83,11 @@ const UIStringsNotTranslate = {
    * @description The footer disclaimer that links to more information
    * about the AI feature. Same text as in ChatView.
    */
-  learnMore: 'Learn about AI in DevTools',
+  learnMore: 'Learn more',
   /**
    * @description Header text for the AI-powered code suggestions disclaimer dialog.
    */
-  freDisclaimerHeader: 'Get AI-powered code suggestions for your workspace',
+  freDisclaimerHeader: 'Apply changes directly to your project’s source code',
   /**
    * @description First disclaimer item text for the fre dialog.
    */
@@ -95,12 +95,13 @@ const UIStringsNotTranslate = {
   /**
    * @description Second disclaimer item text for the fre dialog.
    */
-  freDisclaimerTextPrivacy: 'Source code from the selected folder is sent to Google to generate code suggestions',
+  freDisclaimerTextPrivacy:
+      'To generate code suggestions, source code from the selected folder is sent to Google. This data may be seen by human reviewers to improve this feature.',
   /**
    * @description Second disclaimer item text for the fre dialog when enterprise logging is off.
    */
   freDisclaimerTextPrivacyNoLogging:
-      'Source code from the selected folder is sent to Google to generate code suggestions. This data will not be used to improve Google’s AI models.',
+      'To generate code suggestions, source code from the selected folder is sent to Google. This data will not be used to improve Google’s AI models. Your organization may change these settings at any time.',
   /**
    * @description Third disclaimer item text for the fre dialog.
    */
@@ -248,7 +249,7 @@ export class PatchWidget extends UI.Widget.Widget {
       function renderHeader(): LitTemplate {
         if (input.savedToDisk) {
           return html`
-            <devtools-icon class="green-bright-icon summary-badge" .name=${'check-circle'}></devtools-icon>
+            <devtools-icon class="green-bright-icon summary-badge" name="check-circle"></devtools-icon>
             <span class="header-text">
               ${lockedString(UIStringsNotTranslate.savedToDisk)}
             </span>
@@ -257,25 +258,25 @@ export class PatchWidget extends UI.Widget.Widget {
 
         if (input.patchSuggestionState === PatchSuggestionState.SUCCESS) {
           return html`
-            <devtools-icon class="on-tonal-icon summary-badge" .name=${'difference'}></devtools-icon>
+            <devtools-icon class="on-tonal-icon summary-badge" name="difference"></devtools-icon>
             <span class="header-text">
               ${lockedString(`File changes in ${input.projectName}`)}
             </span>
             <devtools-icon
               class="arrow"
-              .name=${'chevron-down'}
+              name="chevron-down"
             ></devtools-icon>
           `;
         }
 
         return html`
-          <devtools-icon class="on-tonal-icon summary-badge" .name=${'pen-spark'}></devtools-icon>
+          <devtools-icon class="on-tonal-icon summary-badge" name="pen-spark"></devtools-icon>
           <span class="header-text">
             ${lockedString(UIStringsNotTranslate.unsavedChanges)}
           </span>
           <devtools-icon
             class="arrow"
-            .name=${'chevron-down'}
+            name="chevron-down"
           ></devtools-icon>
         `;
       }
@@ -300,7 +301,7 @@ export class PatchWidget extends UI.Widget.Widget {
         ></devtools-code-block>
         ${input.patchSuggestionState === PatchSuggestionState.ERROR
           ? html`<div class="error-container">
-              <devtools-icon .name=${'cross-circle-filled'}></devtools-icon>${
+              <devtools-icon name="cross-circle-filled"></devtools-icon>${
               lockedString(UIStringsNotTranslate.genericErrorMessage)
               } ${renderSourcesLink()}
             </div>`
@@ -598,7 +599,7 @@ export class PatchWidget extends UI.Widget.Widget {
         void UI.ViewManager.ViewManager.instance().showView('chrome-ai');
       },
       ariaLabel: lockedString(UIStringsNotTranslate.freDisclaimerHeader),
-      learnMoreButtonTitle: lockedString(UIStringsNotTranslate.learnMore),
+      learnMoreButtonText: lockedString(UIStringsNotTranslate.learnMore),
     });
 
     if (result) {

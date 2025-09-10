@@ -10,7 +10,6 @@ import {installPageErrorHandlers} from '../../conductor/events.js';
 import {platform} from '../../conductor/platform.js';
 import {TestConfig} from '../../conductor/test_config.js';
 
-import type {BrowserWrapper} from './browser-helper.js';
 import {PageWrapper} from './page-wrapper.js';
 import type {InspectedPage} from './target-helper.js';
 
@@ -35,8 +34,14 @@ const CONTROL_OR_META = platform === 'mac' ? 'Meta' : 'Control';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const globalThis: any = global;
 
+interface DevToolsReloadParams {
+  canDock?: boolean;
+  panel?: string;
+}
+
 export class DevToolsPage extends PageWrapper {
   #currentHighlightedElement?: HighlightedElement;
+  #cdpSession?: puppeteer.CDPSession;
 
   constructor(page: puppeteer.Page) {
     super(page);
@@ -71,12 +76,12 @@ export class DevToolsPage extends PageWrapper {
     const url = this.page.url();
     this.#heartbeatInterval = setInterval(async () => {
       // 1 - success, -1 - eval error, -2 - eval timeout.
-      const status = (await Promise.race([
+      const status = await Promise.race([
         this.page.evaluate(() => 1).catch(() => {
           return -1;
         }),
-        new Promise(resolve => setTimeout(() => resolve(-2), 1000))
-      ]) as number);
+        new Promise<number>(resolve => setTimeout(() => resolve(-2), 1000))
+      ]);
       if (status <= 0) {
         clearInterval(this.#heartbeatInterval);
       }
@@ -92,7 +97,7 @@ export class DevToolsPage extends PageWrapper {
     }
     /* eslint-disable-next-line no-console */
     console.log(`Throttling CPU: ${TestConfig.cpuThrottle}x slowdown`);
-    const client = await this.page.createCDPSession();
+    const client = await this.#getCDPSession();
     await client.send('Emulation.setCPUThrottlingRate', {
       rate: TestConfig.cpuThrottle,
     });
@@ -101,6 +106,42 @@ export class DevToolsPage extends PageWrapper {
   override async reload() {
     await super.reload();
     await this.ensureReadyForTesting();
+  }
+
+  /**
+   * Use the Runtime.setQueryParamForTesting to mock the parameter before
+   * DevTools is loaded.
+   *
+   * Important information for the implementation:
+   * Trying to change the url and then reload or navigate to the new one will
+   * hit this check in the back end:
+   * https://crsrc.org/c/chrome/browser/devtools/devtools_ui_bindings.cc;l=406?q=devtools_ui_b&ss=chromium
+   *
+   * @param panel Mocks DevTools URL search params to make it open a specific panel on load.
+   * @param canDock Mocks DevTools URL search params to make it think whether it can dock or not.
+   * This does not control whether or not the panel can actually dock or not.
+   */
+  async reloadWithParams({panel, canDock}: DevToolsReloadParams) {
+    // evaluateOnNewDocument is ran before all other JS is loaded
+    // ES Modules are only resolved once and always resolved asynchronously
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules#other_differences_between_modules_and_classic_scripts
+    // This means this will always resolve before DevTools tries to read the values
+    const token = await this.page.evaluateOnNewDocument(async (panelName, canDockDevTools) => {
+      // @ts-expect-error Evaluated in DevTools context
+      const Root = await import('./core/root/root.js');
+      if (panelName) {
+        Root.Runtime.Runtime.setQueryParamForTesting('panel', panelName);
+      }
+      if (canDockDevTools) {
+        Root.Runtime.Runtime.setQueryParamForTesting('can_dock', `${canDockDevTools}`);
+      }
+    }, panel, canDock);
+
+    await this.reload();
+    await this.page.removeScriptToEvaluateOnNewDocument(token.identifier);
+    if (panel) {
+      await this.waitFor(`.panel.${panel}`);
+    }
   }
 
   async ensureReadyForTesting() {
@@ -620,11 +661,80 @@ export class DevToolsPage extends PageWrapper {
     await this.pressKey('f', {control: true});
   }
 
-  async readClipboard(browserWrapper: BrowserWrapper) {
-    await browserWrapper.browser.defaultBrowserContext().overridePermissions(this.page.url(), ['clipboard-read']);
+  async readClipboard() {
+    await this.page.browserContext().overridePermissions(this.page.url(), ['clipboard-read', 'clipboard-write']);
     const clipboard = await this.page.evaluate(async () => await navigator.clipboard.readText());
-    await browserWrapper.browser.defaultBrowserContext().clearPermissionOverrides();
+    await this.page.browserContext().clearPermissionOverrides();
     return clipboard;
+  }
+
+  async setupOverridesFSMocks() {
+    await this.evaluateOnNewDocument(`
+      Object.defineProperty(window, 'InspectorFrontendHost', {
+        configurable: true,
+        enumerable: true,
+        get() {
+            return this._InspectorFrontendHost;
+        },
+        set(value) {
+            this._InspectorFrontendHost = value;
+            this._InspectorFrontendHost.fileSystem = null;
+            this._InspectorFrontendHost.addFileSystem = (type) => {
+              const onFileSystem = (fs) => {
+                this._InspectorFrontendHost.fileSystem = fs;
+                const fileSystem = {
+                  fileSystemName: 'sandboxedRequestedFileSystem',
+                  fileSystemPath: '/overrides',
+                  rootURL: 'filesystem:devtools://devtools/isolated/',
+                  type: 'overrides',
+                };
+                this._InspectorFrontendHost.events.dispatchEventToListeners('fileSystemAdded', {fileSystem});
+              };
+              window.webkitRequestFileSystem(window.TEMPORARY, 1024 * 1024, onFileSystem);
+            };
+            this._InspectorFrontendHost.removeFileSystem = (fileSystemPath) => {
+              const removalCallback = (entries) => {
+                entries.forEach(entry => {
+                  if (entry.isDirectory) {
+                    entry.removeRecursively(() => {});
+                  } else if (entry.isFile) {
+                    entry.remove(() => {});
+                  }
+                });
+              };
+
+              if (this._InspectorFrontendHost.fileSystem) {
+                this._InspectorFrontendHost.fileSystem.root.createReader().readEntries(removalCallback);
+              }
+
+              this._InspectorFrontendHost.fileSystem = null;
+              this._InspectorFrontendHost.events.dispatchEventToListeners('fileSystemRemoved', '/overrides');
+            }
+            this._InspectorFrontendHost.isolatedFileSystem = (_fileSystemId, _registeredName) => {
+              return this._InspectorFrontendHost.fileSystem;
+            };
+        }
+      });
+    `);
+    await this.reload();
+  }
+
+  async #getCDPSession() {
+    if (!this.#cdpSession) {
+      this.#cdpSession = await this.page.createCDPSession();
+    }
+    return this.#cdpSession;
+  }
+
+  async disableAnimations() {
+    const session = await this.#getCDPSession();
+    await session.send('Animation.enable');
+    await session.send('Animation.setPlaybackRate', {playbackRate: 30_000});
+  }
+
+  async enableAnimations() {
+    const session = await this.#getCDPSession();
+    await session.send('Animation.setPlaybackRate', {playbackRate: 1});
   }
 }
 
@@ -697,12 +807,6 @@ async function setDevToolsExperiments(devToolsPage: DevToolsPage, experiments: s
   }, experiments);
 }
 
-async function disableAnimations(devToolsPage: DevToolsPage) {
-  const session = await devToolsPage.page.createCDPSession();
-  await session.send('Animation.enable');
-  await session.send('Animation.setPlaybackRate', {playbackRate: 30_000});
-}
-
 /**
  * @internal
  */
@@ -751,7 +855,7 @@ export async function setupDevToolsPage(
   const devToolsPage = new DevToolsPage(frontend);
   await devToolsPage.ensureReadyForTesting();
   await Promise.all([
-    disableAnimations(devToolsPage),
+    devToolsPage.disableAnimations(),
     setDevToolsSettings(devToolsPage, settings.devToolsSettings),
     setDevToolsExperiments(devToolsPage, settings.enabledDevToolsExperiments),
     setDisabledDevToolsExperiments(devToolsPage, settings.disabledDevToolsExperiments),

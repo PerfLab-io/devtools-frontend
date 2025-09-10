@@ -20,6 +20,7 @@ import * as UI from '../../ui/legacy/legacy.js';
 import * as Lit from '../../ui/lit/lit.js';
 import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
 import * as NetworkForward from '../network/forward/forward.js';
+import * as NetworkPanel from '../network/network.js';
 import * as TimelinePanel from '../timeline/timeline.js';
 import * as TimelineUtils from '../timeline/utils/utils.js';
 
@@ -428,7 +429,8 @@ function createRequestContext(request: SDK.NetworkRequest.NetworkRequest|null): 
   if (!request) {
     return null;
   }
-  return new AiAssistanceModel.RequestContext(request);
+  const calculator = NetworkPanel.NetworkPanel.NetworkPanel.instance().networkLogView.timeCalculator();
+  return new AiAssistanceModel.RequestContext(request, calculator);
 }
 
 function createPerformanceTraceContext(focus: TimelineUtils.AIContext.AgentFocus|null):
@@ -743,6 +745,7 @@ export class AiAssistancePanel extends UI.Panel.Panel {
     UI.Context.Context.instance().addFlavorChangeListener(
         TimelinePanel.TimelinePanel.TimelinePanel, this.#bindTimelineTraceListener, this);
     this.#bindTimelineTraceListener();
+    this.#selectDefaultAgentIfNeeded();
 
     Host.userMetrics.actionTaken(Host.UserMetrics.Action.AiAssistancePanelOpened);
   }
@@ -825,7 +828,12 @@ export class AiAssistancePanel extends UI.Panel.Panel {
           return;
         }
 
-        this.#selectedRequest = Boolean(ev.data) ? new AiAssistanceModel.RequestContext(ev.data) : null;
+        if (Boolean(ev.data)) {
+          const calculator = NetworkPanel.NetworkPanel.NetworkPanel.instance().networkLogView.timeCalculator();
+          this.#selectedRequest = new AiAssistanceModel.RequestContext(ev.data, calculator);
+        } else {
+          this.#selectedRequest = null;
+        }
         this.#updateConversationState({agent: this.#conversationAgent});
       };
 
@@ -964,6 +972,8 @@ export class AiAssistancePanel extends UI.Panel.Panel {
   }
 
   #handleSelectElementClick(): void {
+    UI.Context.Context.instance().setFlavor(
+        Common.ReturnToPanel.ReturnToPanelFlavor, new Common.ReturnToPanel.ReturnToPanelFlavor(this.panelName));
     void this.#toggleSearchElementAction?.execute();
   }
 
@@ -1265,10 +1275,20 @@ export class AiAssistancePanel extends UI.Panel.Panel {
     if (!this.#conversation) {
       return;
     }
+
     const markdownContent = this.#conversation.getConversationMarkdown();
-    const titleFormatted = Platform.StringUtilities.toSnakeCase(this.#conversation.title || '');
     const contentData = new TextUtils.ContentData.ContentData(markdownContent, false, 'text/markdown');
-    const filename = `devtools_${titleFormatted || 'conversation'}.md` as Platform.DevToolsPath.RawPathString;
+
+    const titleFormatted = Platform.StringUtilities.toSnakeCase(this.#conversation.title || '');
+    const prefix = 'devtools_';
+    const suffix = '.md';
+    const maxTitleLength = 64 - prefix.length - suffix.length;
+    let finalTitle = titleFormatted || 'conversation';
+    if (finalTitle.length > maxTitleLength) {
+      finalTitle = finalTitle.substring(0, maxTitleLength);
+    }
+    const filename = `${prefix}${finalTitle}${suffix}` as Platform.DevToolsPath.RawPathString;
+
     await Workspace.FileManager.FileManager.instance().save(filename, contentData, true);
     Workspace.FileManager.FileManager.instance().close(filename);
   }
@@ -1466,6 +1486,7 @@ export class AiAssistancePanel extends UI.Panel.Panel {
     if (this.#conversation) {
       void VisualLogging.logFunctionCall(`start-conversation-${this.#conversation.type}`, 'ui');
     }
+
     const generator = this.#conversationAgent.run(
         text, {
           signal,
@@ -1639,50 +1660,29 @@ export class AiAssistancePanel extends UI.Panel.Panel {
 }
 
 export function getResponseMarkdown(message: ModelChatMessage): string {
-  let markdown = '';
-
-  const generateContextDetailsMarkdown = (details: Array<{title: string, text: string, codeLang?: string}>): string => {
-    let detailsMarkdown = '**Details**:\n\n';
-    for (const detail of details) {
-      const text = detail.codeLang ? `\`\`\`${detail.codeLang}\n${detail.text}\n\`\`\`\n` : `${detail.text}`;
-      detailsMarkdown += `**${detail.title}:**\n\n${text}\n\n`;
-    }
-    return detailsMarkdown;
-  };
+  const contentParts = ['## AI'];
 
   for (const step of message.steps) {
-    if (step.contextDetails) {
-      markdown += '### Context:\n';
-      markdown += generateContextDetailsMarkdown(step.contextDetails);
-    }
     if (step.title) {
-      markdown += `### AI (Title):\n${step.title}\n\n`;
+      contentParts.push(`### ${step.title}`);
+    }
+    if (step.contextDetails) {
+      contentParts.push(AiAssistanceModel.Conversation.generateContextDetailsMarkdown(step.contextDetails));
     }
     if (step.thought) {
-      markdown += `### AI (Thought):\n${step.thought}\n\n`;
+      contentParts.push(step.thought);
     }
     if (step.code) {
-      markdown += '### AI (Action):\n';
-      markdown += `**Code executed:**\n\`\`\`\n${step.code.trim()}\n\`\`\`\n`;
+      contentParts.push(`**Code executed:**\n\`\`\`\n${step.code.trim()}\n\`\`\``);
     }
     if (step.output) {
-      if (!step.code) {  // Add action header if not already added by code
-        markdown += '### AI (Action):\n';
-      }
-      markdown += `**Output:**\n\`\`\`\n${step.output}\n\`\`\`\n`;
+      contentParts.push(`**Data returned:**\n\`\`\`\n${step.output}\n\`\`\``);
     }
-    if (step.canceled) {
-      if (!step.code && !step.output) {  // Add action header if not already added
-        markdown += '### AI (Action):\n';
-      }
-      markdown += '**(Action Canceled)**\n';
-    }
-    markdown += '\n';
   }
   if (message.answer) {
-    markdown += `### AI (Answer):\n${message.answer}\n`;
+    contentParts.push(`### Answer\n\n${message.answer}`);
   }
-  return markdown;
+  return contentParts.join('\n\n');
 }
 
 export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
@@ -1690,6 +1690,7 @@ export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
     switch (actionId) {
       case 'freestyler.elements-floating-button':
       case 'freestyler.element-panel-context':
+      case 'freestyler.main-menu':
       case 'drjones.network-floating-button':
       case 'drjones.network-panel-context':
       case 'drjones.performance-panel-full-context':

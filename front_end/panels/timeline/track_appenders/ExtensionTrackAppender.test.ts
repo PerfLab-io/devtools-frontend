@@ -4,11 +4,10 @@
 
 import { // eslint-disable-line rulesdir/es-modules-import
   createTraceExtensionDataFromPerformanceAPITestInput,
-  type PerformanceAPIExtensionTestData,
 } from '../../../models/trace/handlers/ExtensionTraceDataHandler.test.js';
 import * as Trace from '../../../models/trace/trace.js';
 import {describeWithEnvironment} from '../../../testing/EnvironmentHelpers.js';
-import {getBaseTraceParseModelData} from '../../../testing/TraceHelpers.js';
+import {getBaseTraceParseModelData, type PerformanceAPIExtensionTestData} from '../../../testing/TraceHelpers.js';
 import {TraceLoader} from '../../../testing/TraceLoader.js';
 import * as PerfUI from '../../../ui/legacy/components/perf_ui/perf_ui.js';
 import * as ThemeSupport from '../../../ui/legacy/theme_support/theme_support.js';
@@ -166,7 +165,7 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
           parsedTrace.ExtensionTraceData.extensionTrackData.map(track => Object.values(track.entriesByTrack)).flat(2);
       for (const event of allExtensionTrackEntries) {
         assert.strictEqual(extensionTrackAppenders[0].titleForEvent(event), event.name);
-        if (event.args.color === 'tertiary') {
+        if (event.devtoolsObj.color === 'tertiary') {
           // "tertiary" color category is mapped to --ref-palette-green70
           // which is faked out to 10, 10, 10
           assert.strictEqual(extensionTrackAppenders[0].colorForEvent(event), 'rgb(10 10 10)');
@@ -181,21 +180,21 @@ describeWithEnvironment('ExtensionTrackAppender', function() {
 
     it('sets a default value when a color is not set or is set an unknown value', function() {
       const mockExtensionEntryNoColor = {
-        args: {
+        devtoolsObj: {
           metadata: {dataType: 'track-entry', extensionName: 'Extension'},
           track: 'A track',
         },
         cat: 'devtools.extension',
-      } as unknown as Trace.Types.Events.Event;
+      } as unknown as Trace.Types.Extensions.SyntheticExtensionTrackEntry;
 
       const mockExtensionEntryUnknownColor = {
-        args: {
+        devtoolsObj: {
           metadata: {dataType: 'track-entry', extensionName: 'Extension'},
           track: 'A track',
           color: 'anUnknownColor',
         },
         cat: 'devtools.extension',
-      } as unknown as Trace.Types.Events.Event;
+      } as unknown as Trace.Types.Extensions.SyntheticExtensionTrackEntry;
       // "primary" color category is mapped to --ref-palette-blue70
       // which is faked out to 4, 4, 4
       assert.strictEqual(extensionTrackAppenders[0].colorForEvent(mockExtensionEntryNoColor), 'rgb(4 4 4)');

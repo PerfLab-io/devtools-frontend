@@ -7,7 +7,7 @@ import type * as puppeteer from 'puppeteer-core';
 
 import {AsyncScope} from '../conductor/async-scope.js';
 import type {DevToolsFrontendReloadOptions} from '../conductor/frontend_tab.js';
-import {getDevToolsFrontendHostname, reloadDevTools} from '../conductor/hooks.js';
+import {reloadDevTools} from '../conductor/hooks.js';
 import {getBrowserAndPages} from '../conductor/puppeteer-state.js';
 import {getTestServerPort} from '../conductor/server_port.js';
 import type {DevToolsPage} from '../e2e_non_hosted/shared/frontend-helper.js';
@@ -15,7 +15,7 @@ import type {InspectedPage} from '../e2e_non_hosted/shared/target-helper.js';
 
 import {getBrowserAndPagesWrappers} from './non_hosted_wrappers.js';
 
-export {platform} from '../conductor/mocha-interface-helpers.js';
+export {platform} from '../conductor/platform.js';
 
 declare global {
   interface Window {
@@ -485,7 +485,7 @@ export const waitForClass = async (element: puppeteer.ElementHandle<Element>, cl
   return await devToolsPage.waitForClass(element, classname);
 };
 
-export {getBrowserAndPages, getDevToolsFrontendHostname, getTestServerPort, reloadDevTools};
+export {getBrowserAndPages, getTestServerPort, reloadDevTools};
 
 export function matchString(actual: string, expected: string|RegExp): true|string {
   if (typeof expected === 'string') {
@@ -540,8 +540,8 @@ export async function renderCoordinatorQueueEmpty(): Promise<void> {
   await devToolsPage.renderCoordinatorQueueEmpty();
 }
 
-export async function setCheckBox(selector: string, wantChecked: boolean): Promise<void> {
-  const {devToolsPage} = getBrowserAndPagesWrappers();
+export async function setCheckBox(
+    selector: string, wantChecked: boolean, devToolsPage = getBrowserAndPagesWrappers().devToolsPage): Promise<void> {
   await devToolsPage.setCheckBox(selector, wantChecked);
 }
 
@@ -565,6 +565,6 @@ export async function raf(page: puppeteer.Page): Promise<void> {
 }
 
 export async function readClipboard() {
-  const {devToolsPage, browserWrapper} = getBrowserAndPagesWrappers();
-  return await devToolsPage.readClipboard(browserWrapper);
+  const {devToolsPage} = getBrowserAndPagesWrappers();
+  return await devToolsPage.readClipboard();
 }

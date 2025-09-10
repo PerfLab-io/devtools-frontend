@@ -6,13 +6,12 @@ import * as Host from '../../../core/host/host.js';
 import * as Platform from '../../../core/platform/platform.js';
 import * as SDK from '../../../core/sdk/sdk.js';
 import type * as Protocol from '../../../generated/protocol.js';
-import type * as Network from '../../../panels/network/network.js';
 import {mockAidaClient} from '../../../testing/AiAssistanceHelpers.js';
 import {updateHostConfig} from '../../../testing/EnvironmentHelpers.js';
 import {describeWithMockConnection} from '../../../testing/MockConnection.js';
-import {createNetworkPanelForMockConnection} from '../../../testing/NetworkHelpers.js';
 import * as RenderCoordinator from '../../../ui/components/render_coordinator/render_coordinator.js';
 import * as Logs from '../../logs/logs.js';
+import * as NetworkTimeCalculator from '../../network_time_calculator/network_time_calculator.js';
 import {
   NetworkAgent,
   RequestContext,
@@ -22,8 +21,6 @@ import {
 const {urlString} = Platform.DevToolsPath;
 
 describeWithMockConnection('NetworkAgent', () => {
-  let networkPanel: Network.NetworkPanel.NetworkPanel;
-
   function mockHostConfig(modelId?: string, temperature?: number) {
     updateHostConfig({
       devToolsAiAssistanceNetworkAgent: {
@@ -33,20 +30,11 @@ describeWithMockConnection('NetworkAgent', () => {
     });
   }
 
-  beforeEach(async () => {
-    networkPanel = await createNetworkPanelForMockConnection();
-  });
-
   afterEach(async () => {
     await RenderCoordinator.done();
-    networkPanel.detach();
   });
 
   describe('buildRequest', () => {
-    beforeEach(() => {
-      sinon.restore();
-    });
-
     it('builds a request with a model id', async () => {
       mockHostConfig('test model');
       const agent = new NetworkAgent({
@@ -71,6 +59,7 @@ describeWithMockConnection('NetworkAgent', () => {
   });
   describe('run', () => {
     let selectedNetworkRequest: SDK.NetworkRequest.NetworkRequest;
+    let calculator: NetworkTimeCalculator.NetworkTransferTimeCalculator;
     const timingInfo: Protocol.Network.ResourceTiming = {
       requestTime: 500,
       proxyStart: 0,
@@ -132,10 +121,9 @@ describeWithMockConnection('NetworkAgent', () => {
               [initiatedNetworkRequest2, selectedNetworkRequest],
             ]),
           });
-    });
 
-    afterEach(() => {
-      sinon.restore();
+      calculator = new NetworkTimeCalculator.NetworkTransferTimeCalculator();
+      calculator.updateBoundaries(selectedNetworkRequest);
     });
 
     it('generates an answer', async () => {
@@ -149,7 +137,7 @@ describeWithMockConnection('NetworkAgent', () => {
       });
 
       const responses =
-          await Array.fromAsync(agent.run('test', {selected: new RequestContext(selectedNetworkRequest)}));
+          await Array.fromAsync(agent.run('test', {selected: new RequestContext(selectedNetworkRequest, calculator)}));
       assert.deepEqual(responses, [
         {
           type: ResponseType.USER_QUERY,
@@ -172,7 +160,7 @@ describeWithMockConnection('NetworkAgent', () => {
             {
               title: 'Timing',
               text:
-                  'Queued at (timestamp): 0 μs\nStarted at (timestamp): 8.4 min\nQueueing (duration): 8.4 min\nConnection start (stalled) (duration): 800.00 ms\nRequest sent (duration): 100.00 ms\nDuration (duration): 8.4 min',
+                  'Queued at (timestamp): 0 s\nStarted at (timestamp): 501 s\nQueueing (duration): 501 s\nConnection start (stalled) (duration): 800 ms\nRequest sent (duration): 100 ms\nDuration (duration): 501 s',
             },
             {
               title: 'Request initiator chain',
@@ -209,12 +197,12 @@ x-forwarded-for: bar3
 
 Response status: 200 \n
 Request timing:
-Queued at (timestamp): 0 μs
-Started at (timestamp): 8.4 min
-Queueing (duration): 8.4 min
-Connection start (stalled) (duration): 800.00 ms
-Request sent (duration): 100.00 ms
-Duration (duration): 8.4 min
+Queued at (timestamp): 0 s
+Started at (timestamp): 501 s
+Queueing (duration): 501 s
+Connection start (stalled) (duration): 800 ms
+Request sent (duration): 100 ms
+Duration (duration): 501 s
 
 Request initiator chain:
 - URL: <redacted cross-origin initiator URL>

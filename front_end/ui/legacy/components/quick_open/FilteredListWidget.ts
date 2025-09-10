@@ -6,6 +6,7 @@
 import * as Common from '../../../../core/common/common.js';
 import * as i18n from '../../../../core/i18n/i18n.js';
 import * as Platform from '../../../../core/platform/platform.js';
+import * as Geometry from '../../../../models/geometry/geometry.js';
 import * as TextUtils from '../../../../models/text_utils/text_utils.js';
 import * as Diff from '../../../../third_party/diff/diff.js';
 import * as TextPrompt from '../../../../ui/components/text_prompt/text_prompt.js';
@@ -34,6 +35,10 @@ const UIStrings = {
    * @example {5} PH3
    */
   sItemSOfS: '{PH1}, item {PH2} of {PH3}',
+  /**
+   * @description Text that should be read out by screen readers when a new badge is available
+   */
+  newFeature: 'This is a new feature',
 } as const;
 const str_ = i18n.i18n.registerUIStrings('ui/legacy/components/quick_open/FilteredListWidget.ts', UIStrings);
 const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
@@ -167,7 +172,7 @@ export class FilteredListWidget extends Common.ObjectWrapper.eventMixin<EventTyp
 
     this.dialog = new UI.Dialog.Dialog('quick-open');
     UI.ARIAUtils.setLabel(this.dialog.contentElement, dialogTitle);
-    this.dialog.setMaxContentSize(new UI.Geometry.Size(576, 320));
+    this.dialog.setMaxContentSize(new Geometry.Size(576, 320));
     this.dialog.setSizeBehavior(UI.GlassPane.SizeBehavior.SET_EXACT_WIDTH_MAX_HEIGHT);
     this.dialog.setContentPosition(null, 22);
     this.dialog.contentElement.style.setProperty('border-radius', 'var(--sys-shape-corner-medium)');
@@ -331,7 +336,12 @@ export class FilteredListWidget extends Common.ObjectWrapper.eventMixin<EventTyp
       return;
     }
     this.list.selectItem(item);
-    const text = this.list.elementAtIndex(this.list.selectedIndex())?.textContent;
+    const selectedElement = this.list.elementAtIndex(this.list.selectedIndex());
+    const children = selectedElement.querySelectorAll('*');
+    const text = Array.from(children)
+                     .filter(e => !e.children.length)
+                     .map(e => e.classList.contains('new-badge') ? i18nString(UIStrings.newFeature) : e.textContent)
+                     .join();
     if (text) {
       UI.ARIAUtils.LiveAnnouncer.alert(
           i18nString(UIStrings.sItemSOfS, {PH1: text, PH2: this.list.selectedIndex() + 1, PH3: this.items.length}));

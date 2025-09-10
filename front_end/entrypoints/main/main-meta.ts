@@ -193,6 +193,11 @@ const UIStrings = {
    */
   enableSync: 'Enable settings sync',
   /**
+   * @description Label for a checkbox in the settings UI. Allows developers to opt-in/opt-out
+   * of receiving Google Developer Program (GDP) badges based on their activity in Chrome DevTools.
+   */
+  receiveBadges: 'Receive badges',
+  /**
    * @description A command available in the command menu to perform searches, for example in the
    * elements panel, as user types, rather than only when they press Enter.
    */
@@ -781,11 +786,21 @@ function createOptionForLocale(localeString: string): Common.Settings.SettingExt
 }
 
 Common.Settings.registerSettingExtension({
-  category: Common.Settings.SettingCategory.SYNC,
+  category: Common.Settings.SettingCategory.ACCOUNT,
   // This name must be kept in sync with DevToolsSettings::kSyncDevToolsPreferencesFrontendName.
   settingName: 'sync-preferences',
   settingType: Common.Settings.SettingType.BOOLEAN,
   title: i18nLazyString(UIStrings.enableSync),
+  defaultValue: false,
+  reloadRequired: true,
+});
+
+Common.Settings.registerSettingExtension({
+  category: Common.Settings.SettingCategory.ACCOUNT,
+  settingName: 'receive-gdp-badges',
+  settingType: Common.Settings.SettingType.BOOLEAN,
+  storageType: Common.Settings.SettingStorageType.SYNCED,
+  title: i18nLazyString(UIStrings.receiveBadges),
   defaultValue: false,
   reloadRequired: true,
 });
@@ -887,7 +902,27 @@ UI.Toolbar.registerToolbarItem({
 
 UI.Toolbar.registerToolbarItem({
   separator: true,
-  order: 97,
+  order: 96,
+  location: UI.Toolbar.ToolbarItemLocation.MAIN_TOOLBAR_RIGHT,
+});
+
+UI.Toolbar.registerToolbarItem({
+  condition(config) {
+    const isFlagEnabled = config?.devToolsGlobalAiButton?.enabled;
+
+    const devtoolsLocale = i18n.DevToolsLocale.DevToolsLocale.instance();
+    const isLocaleRestricted = !devtoolsLocale.locale.startsWith('en-');
+
+    const isGeoRestricted = config?.aidaAvailability?.blockedByGeo === true;
+    const isPolicyRestricted = config?.aidaAvailability?.blockedByEnterprisePolicy === true;
+    const isAgeRestricted = Boolean(config?.aidaAvailability?.blockedByAge);
+    return Boolean(isFlagEnabled && !isLocaleRestricted && !isGeoRestricted && !isPolicyRestricted && !isAgeRestricted);
+  },
+  async loadItem() {
+    const Main = await loadMainModule();
+    return Main.GlobalAiButton.GlobalAiButtonToolbarProvider.instance();
+  },
+  order: 98,
   location: UI.Toolbar.ToolbarItemLocation.MAIN_TOOLBAR_RIGHT,
 });
 

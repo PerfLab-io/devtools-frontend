@@ -45,6 +45,7 @@ import * as Protocol from '../../generated/protocol.js';
 import * as Bindings from '../../models/bindings/bindings.js';
 import type * as HAR from '../../models/har/har.js';
 import * as Logs from '../../models/logs/logs.js';
+import type * as NetworkTimeCalculator from '../../models/network_time_calculator/network_time_calculator.js';
 import * as NetworkForward from '../../panels/network/forward/forward.js';
 import * as Buttons from '../../ui/components/buttons/buttons.js';
 import * as IconButton from '../../ui/components/icon_button/icon_button.js';
@@ -54,8 +55,6 @@ import * as Components from '../../ui/legacy/components/utils/utils.js';
 import * as UI from '../../ui/legacy/legacy.js';
 import {render} from '../../ui/lit/lit.js';
 import {PanelUtils} from '../utils/utils.js';
-
-import type {NetworkTimeCalculator} from './NetworkTimeCalculator.js';
 
 const UIStrings = {
   /**
@@ -350,8 +349,14 @@ export const enum Events {
   RequestActivated = 'RequestActivated',
 }
 
+export const enum RequestPanelBehavior {
+  ShowPanel = 'ShowPanel',
+  HidePanel = 'HidePanel',
+  Unchanged = 'Unchanged',
+}
+
 export interface RequestActivatedEvent {
-  showPanel: boolean;
+  showPanel: RequestPanelBehavior;
   takeFocus?: boolean;
   tab?: NetworkForward.UIRequestLocation.UIRequestTabs;
 }
@@ -374,9 +379,9 @@ export interface NetworkLogViewInterface extends Common.EventTarget.EventTarget<
   addFilmStripFrames(times: number[]): void;
   selectFilmStripFrame(time: number): void;
   clearFilmStripFrame(): void;
-  timeCalculator(): NetworkTimeCalculator;
-  calculator(): NetworkTimeCalculator;
-  setCalculator(x: NetworkTimeCalculator): void;
+  timeCalculator(): NetworkTimeCalculator.NetworkTimeCalculator;
+  calculator(): NetworkTimeCalculator.NetworkTimeCalculator;
+  setCalculator(x: NetworkTimeCalculator.NetworkTimeCalculator): void;
   flatNodesList(): NetworkNode[];
   updateNodeBackground(): void;
   updateNodeSelectedClass(isSelected: boolean): void;
@@ -1145,11 +1150,13 @@ export class NetworkRequestNode extends NetworkNode {
       cell.style.setProperty('padding-left', leftPadding);
       cell.tabIndex = -1;
       cell.addEventListener('dblclick', this.openInNewTab.bind(this), false);
-      cell.addEventListener('mousedown', () => {
+      cell.addEventListener('mousedown', (event: MouseEvent) => {
         // When the request panel isn't visible yet, firing the RequestActivated event
         // doesn't make it visible if no request is selected. So we'll select it first.
         this.select();
-        this.parentView().dispatchEventToListeners(Events.RequestActivated, {showPanel: true});
+        // Only open panel on mousedown with left mouse button.
+        const showPanel = event.button ? RequestPanelBehavior.Unchanged : RequestPanelBehavior.ShowPanel;
+        this.parentView().dispatchEventToListeners(Events.RequestActivated, {showPanel});
       });
       cell.addEventListener('focus', () => this.parentView().resetFocus());
 
@@ -1285,7 +1292,7 @@ export class NetworkRequestNode extends NetworkNode {
         this.setTextAndTitleAsLink(
             cell, i18nString(UIStrings.blockeds, {PH1: reason}), i18nString(UIStrings.blockedTooltip), () => {
               this.parentView().dispatchEventToListeners(Events.RequestActivated, {
-                showPanel: true,
+                showPanel: RequestPanelBehavior.ShowPanel,
                 tab: NetworkForward.UIRequestLocation.UIRequestTabs.HEADERS_COMPONENT,
               });
             });

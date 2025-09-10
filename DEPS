@@ -12,19 +12,19 @@ vars = {
   'build_with_chromium': False,
 
   'build_url': 'https://chromium.googlesource.com/chromium/src/build.git',
-  'build_revision': '5186bdb29837c8866a55ddd56bda74b0f3d2316e',
+  'build_revision': '361d91951de5c18a19de6e3c4b8b4dcfa4b6f45a',
 
   'buildtools_url': 'https://chromium.googlesource.com/chromium/src/buildtools.git',
-  'buildtools_revision': '7e649e5e2f323758ce921ce2dd042768d427fe3d',
+  'buildtools_revision': 'd20625351b59ae23cd8d2dead19ff75f82a2790b',
 
   'depot_tools_url': 'https://chromium.googlesource.com/chromium/tools/depot_tools.git',
-  'depot_tools_revision': '57f57b09600f6969f7ac912079671830da88e127',
+  'depot_tools_revision': '958e89cc4131478e1770d4b7f5a1521048fdfd8a',
 
   'inspector_protocol_url': 'https://chromium.googlesource.com/deps/inspector_protocol',
   'inspector_protocol_revision': '07272ab9a30fd555890fda0718f4c2c25931653a',
 
   # Keeping track of the last time we rolled the browser protocol files.
-  'chromium_browser_protocol_revision' : 'fcc57b29528453871e79f6b2a76a7126187dc2fb',
+  'chromium_browser_protocol_revision' : 'd0d9f2b0d3e1daf7927b10daf0688057cce1eee3',
 
   'clang_format_url': 'https://chromium.googlesource.com/external/github.com/llvm/llvm-project/clang/tools/clang-format.git',
   'clang_format_revision': '37f6e68a107df43b7d7e044fd36a13cbae3413f2',
@@ -32,7 +32,7 @@ vars = {
   'emscripten_tag': 'ade9d780ff17c88d81aa13860361743e3c1e1396',
 
   # GN CIPD package version.
-  'gn_version': 'git_revision:ee5b7e32b961a9da1933e9f46a018ba6cac8ef60',
+  'gn_version': 'git_revision:5d0a4153b0bcc86c5a23310d5b648a587be3c56d',
 
   'cmake_version': 'version:2@3.21.3',
 
@@ -49,7 +49,7 @@ vars = {
   # Chrome version used for tests. It should be regularly updated to
   # match the Canary version listed here:
   # https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json
-  'chrome': '141.0.7362.0',
+  'chrome': '142.0.7402.0',
 
   # 'magic' text to tell depot_tools that git submodules should be accepted but
   # but parity with DEPS file is expected.
@@ -59,7 +59,7 @@ vars = {
   'non_git_source': 'True',
 
   # siso CIPD package version
-  'siso_version': 'git_revision:7e3433bde6dcf9d760b0423c5f47c51e65c7c0fa',
+  'siso_version': 'git_revision:39f570f121d63078bca79de500f4f2a50cb37456',
 }
 
 # Only these hosts are allowed for dependencies in this DEPS file.
@@ -148,7 +148,7 @@ deps = {
   'third_party/siso': {
     'packages': [
       {
-        'package': 'infra/build/siso/${{platform}}',
+        'package': 'build/siso/${{platform}}',
         'version': Var('siso_version'),
       }
     ],
@@ -215,6 +215,19 @@ deps = {
               'output_file': 'node-darwin-arm64.tar.gz',
           },
       ],
+  },
+  "scripts/ai_assistance/suite/outputs": {
+    "dep_type": "gcs",
+    'condition': 'checkout_ai_evals == True',
+    "bucket": "chrome-devtools-ai-evals",
+    "objects": [
+      {
+        "object_name": "8aaaea341cac9e6dad90a0685f4eeae39fabb9f655761eed9c3af16795a40f14",
+        "sha256sum": "c2e5b18a77095451dbaae27cea913aace1fc267e8e9e0f0b4f297a6215eb5299",
+        "size_bytes": 6801,
+        "generation": 1756718606230139
+      }
+    ]
   },
   'third_party/node/win': {
       'dep_type': 'gcs',

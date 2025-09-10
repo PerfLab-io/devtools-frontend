@@ -289,7 +289,8 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
     element: HTMLElement,
     forceSelect: () => void,
   }>;
-  private readonly messageResized: (arg0: Common.EventTarget.EventTargetEvent<UI.TreeOutline.TreeElement>) => void;
+  private readonly messageResized:
+      (arg0: Common.EventTarget.EventTargetEvent<HTMLElement|UI.TreeOutline.TreeElement>) => void;
   // The wrapper that contains consoleRowWrapper and other elements in a column.
   protected elementInternal: HTMLElement|null;
   // The element that wraps console message elements in a row.
@@ -323,7 +324,7 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
   constructor(
       consoleMessage: SDK.ConsoleModel.ConsoleMessage, linkifier: Components.Linkifier.Linkifier,
       requestResolver: Logs.RequestResolver.RequestResolver, issueResolver: IssuesManager.IssueResolver.IssueResolver,
-      onResize: (arg0: Common.EventTarget.EventTargetEvent<UI.TreeOutline.TreeElement>) => void) {
+      onResize: (arg0: Common.EventTarget.EventTargetEvent<HTMLElement|UI.TreeOutline.TreeElement>) => void) {
     this.message = consoleMessage;
     this.linkifier = linkifier;
     this.requestResolver = requestResolver;
@@ -662,7 +663,7 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
       if (UI.UIUtils.isEditing() || contentElement.hasSelection()) {
         return;
       }
-      this.expandTrace && this.expandTrace(stackTraceElement.classList.contains('hidden-stack-trace'));
+      this.expandTrace?.(stackTraceElement.classList.contains('hidden-stack-trace'));
       event.consume();
     };
 
@@ -943,15 +944,14 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
         result.appendChild(this.formatParameterAsObject(remoteObject, false));
         return;
       }
-      const renderResult = await UI.UIUtils.Renderer.render((node as Object));
+      const renderResult = await UI.UIUtils.Renderer.render(node);
       if (renderResult) {
-        if (renderResult.tree) {
-          this.selectableChildren.push(renderResult.tree);
-          renderResult.tree.addEventListener(UI.TreeOutline.Events.ElementAttached, this.messageResized);
-          renderResult.tree.addEventListener(UI.TreeOutline.Events.ElementExpanded, this.messageResized);
-          renderResult.tree.addEventListener(UI.TreeOutline.Events.ElementCollapsed, this.messageResized);
-        }
-        result.appendChild(renderResult.node);
+        this.selectableChildren.push(renderResult);
+        const resizeObserver = new ResizeObserver(() => {
+          this.messageResized({data: renderResult.element});
+        });
+        resizeObserver.observe(renderResult.element);
+        result.appendChild(renderResult.element);
       } else {
         result.appendChild(this.formatParameterAsObject(remoteObject, false));
       }
@@ -1229,7 +1229,7 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
     }
 
     if (event.key === 'ArrowLeft') {
-      this.elementInternal && this.elementInternal.focus();
+      this.elementInternal?.focus();
       return true;
     }
     if (event.key === 'ArrowRight') {
@@ -1240,7 +1240,7 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
     if (event.key === 'ArrowUp') {
       const firstVisibleChild = this.nearestVisibleChild(0);
       if (this.selectableChildren[focusedChildIndex] === firstVisibleChild && firstVisibleChild) {
-        this.elementInternal && this.elementInternal.focus();
+        this.elementInternal?.focus();
         return true;
       }
       if (this.selectNearestVisibleChild(focusedChildIndex - 1, true /* backwards */)) {
@@ -1462,10 +1462,8 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
 
   #createHoverButton(): HTMLButtonElement {
     const icon = new IconButton.Icon.Icon();
-    icon.data = {
-      iconName: 'lightbulb-spark',
-      color: 'var(--devtools-icon-color)',
-    };
+    icon.name = 'lightbulb-spark';
+    icon.style.color = 'var(--devtools-icon-color)';
     icon.classList.add('medium');
     const button = document.createElement('button');
     button.append(icon);
@@ -1506,14 +1504,13 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
       this.messageIcon = null;
     }
 
-    let color = '';
+    const color = '';
     let iconName = '';
     let accessibleName = '';
     if (this.message.level === Protocol.Log.LogEntryLevel.Warning) {
       iconName = 'warning-filled';
       accessibleName = i18nString(UIStrings.warning);
     } else if (this.message.level === Protocol.Log.LogEntryLevel.Error) {
-      color = 'var(--icon-error)';
       iconName = 'cross-circle-filled';
       accessibleName = i18nString(UIStrings.error);
     } else if (this.message.originatesFromLogpoint) {
@@ -1528,10 +1525,8 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
     }
 
     this.messageIcon = new IconButton.Icon.Icon();
-    this.messageIcon.data = {
-      iconName,
-      color,
-    };
+    this.messageIcon.name = iconName;
+    this.messageIcon.style.color = color;
     this.messageIcon.classList.add('message-level-icon', 'small');
     if (this.contentElementInternal) {
       this.contentElementInternal.insertBefore(this.messageIcon, this.contentElementInternal.firstChild);
@@ -1972,7 +1967,8 @@ export class ConsoleGroupViewMessage extends ConsoleViewMessage {
   constructor(
       consoleMessage: SDK.ConsoleModel.ConsoleMessage, linkifier: Components.Linkifier.Linkifier,
       requestResolver: Logs.RequestResolver.RequestResolver, issueResolver: IssuesManager.IssueResolver.IssueResolver,
-      onToggle: () => void, onResize: (arg0: Common.EventTarget.EventTargetEvent<UI.TreeOutline.TreeElement>) => void) {
+      onToggle: () => void,
+      onResize: (arg0: Common.EventTarget.EventTargetEvent<HTMLElement|UI.TreeOutline.TreeElement>) => void) {
     console.assert(consoleMessage.isGroupStartMessage());
     super(consoleMessage, linkifier, requestResolver, issueResolver, onResize);
     this.collapsedInternal = consoleMessage.type === Protocol.Runtime.ConsoleAPICalledEventType.StartGroupCollapsed;
@@ -2059,7 +2055,7 @@ export class ConsoleCommand extends ConsoleViewMessage {
   constructor(
       consoleMessage: SDK.ConsoleModel.ConsoleMessage, linkifier: Components.Linkifier.Linkifier,
       requestResolver: Logs.RequestResolver.RequestResolver, issueResolver: IssuesManager.IssueResolver.IssueResolver,
-      onResize: (arg0: Common.EventTarget.EventTargetEvent<UI.TreeOutline.TreeElement>) => void) {
+      onResize: (arg0: Common.EventTarget.EventTargetEvent<HTMLElement|UI.TreeOutline.TreeElement>) => void) {
     super(consoleMessage, linkifier, requestResolver, issueResolver, onResize);
     this.formattedCommand = null;
   }
@@ -2121,7 +2117,7 @@ export class ConsoleTableMessageView extends ConsoleViewMessage {
   constructor(
       consoleMessage: SDK.ConsoleModel.ConsoleMessage, linkifier: Components.Linkifier.Linkifier,
       requestResolver: Logs.RequestResolver.RequestResolver, issueResolver: IssuesManager.IssueResolver.IssueResolver,
-      onResize: (arg0: Common.EventTarget.EventTargetEvent<UI.TreeOutline.TreeElement>) => void) {
+      onResize: (arg0: Common.EventTarget.EventTargetEvent<HTMLElement|UI.TreeOutline.TreeElement>) => void) {
     super(consoleMessage, linkifier, requestResolver, issueResolver, onResize);
     console.assert(consoleMessage.type === Protocol.Runtime.ConsoleAPICalledEventType.Table);
     this.dataGrid = null;
