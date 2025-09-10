@@ -104,7 +104,7 @@ export const createOverlayFnForEvent = (
     end: Trace.Types.Timing.Micro,
   }[],
   entry?: Trace.Types.Events.Event,
-) => (): Overlays.Overlays.TimelineOverlay[] => {
+) => ():  Trace.Types.Overlays.Overlay[] => {
   return [{
     type: 'TIMESPAN_BREAKDOWN',
     sections: phases.map(({ start, end, name }) => ({

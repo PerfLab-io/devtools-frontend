@@ -98,15 +98,15 @@ const UIStrings = {
   /**
    * @description Title of disable capture jsprofile setting in timeline panel of the performance panel
    */
-  // disableJavascriptSamples: 'Disable JavaScript samples',
+  disableJavascriptSamples: 'Disable JavaScript samples',
   /**
    *@description Title of capture layers and pictures setting in timeline panel of the performance panel
    */
-  // enableAdvancedPaint: 'Enable advanced paint instrumentation (slow)',
+  enableAdvancedPaint: 'Enable advanced paint instrumentation (slow)',
   /**
    * @description Title of CSS selector stats setting in timeline panel of the performance panel
    */
-  // enableSelectorStats: 'Enable CSS selector stats (slow)',
+  enableSelectorStats: 'Enable CSS selector stats (slow)',
   /**
    * @description Title of show screenshots setting in timeline panel of the performance panel
    */
@@ -118,11 +118,11 @@ const UIStrings = {
   /**
    * @description Text to clear content
    */
-  // clear: 'Clear',
+  clear: 'Clear',
   /**
    * @description A label for a button that fixes something.
    */
-  // fixMe: 'Fix me',
+  fixMe: 'Fix me',
   /**
    * @description Tooltip text that appears when hovering over the largeicon load button
    */
@@ -130,7 +130,7 @@ const UIStrings = {
   /**
    * @description Text to take screenshots
    */
-  // saveProfile: 'Save profile…',
+  captureScreenshots: 'Capture screenshots',
   /**
    * @description Text in Timeline Panel of the Performance panel
    */
@@ -198,11 +198,11 @@ const UIStrings = {
   /**
    * @description Text to close something
    */
-  // downloadAfterError: 'Download trace',
+  close: 'Close',
   /**
    * @description Status text to indicate the recording has failed in the Performance panel
    */
-  // recordingFailed: 'Recording failed',
+  recordingFailed: 'Recording failed',
   /**
    * @description Status text to indicate that exporting the trace has failed
    */
@@ -605,33 +605,40 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
       this.#setActiveOverlays((() => {
           // We should have the current active trace index on the model loaded
           const traceInsightsData = this.#traceEngineModel.traceInsights(this.#activeTraceIndex() || 0);
-          const insight = Trace.Insights.Common.getInsight('ThirdParties', traceInsightsData, navigationId);
+          if (!traceInsightsData) {
+            return [];
+          }
+          const traceInsightSets = traceInsightsData.get(navigationId);
+          if (!traceInsightSets) {
+            return [];
+          }
+          const insight = Trace.Insights.Common.getInsight('ThirdParties', traceInsightSets);
           if (!insight) {
             return [];
           }
 
-          const overlays: Overlays.Overlays.TimelineOverlay[] = [];
-          for (const [entity, events] of insight.eventsByEntity) {
-            if (entity === insight.firstPartyEntity || (filterByThirdParty && entity.name !== filterByThirdParty)) {
-              continue;
-            }
-
-            for (const event of events) {
-              if (filterByTimestamp && event.ts > filterByTimestamp) {
-                continue;
-              }
-
-              // The overlay entry can be used to highlight any trace entry, including network track entries.
-              // This function is extracted from the ThirdParties overlay component, since it is not accessible
-              // from outside the component.
-              overlays.push({
-                type: 'ENTRY_OUTLINE',
-                entry: event,
-                outlineReason: 'INFO',
-              });
-            }
+          const relatedEventsIsValidEvent = (relatedEvents?: Trace.Insights.Types.RelatedEventsMap | Trace.Types.Events.Event[]): relatedEvents is Trace.Types.Events.Event[] => {
+            return relatedEvents instanceof Array;
           }
 
+          const overlays: Trace.Types.Overlays.EntryOutline[] = [];
+          if(relatedEventsIsValidEvent(insight.relatedEvents)) {
+            for (const event of insight.relatedEvents) {
+                if (filterByTimestamp && event.ts > filterByTimestamp) {
+                  continue;
+                }
+
+                // The overlay entry can be used to highlight any trace entry, including network track entries.
+                // This function is extracted from the ThirdParties overlay component, since it is not accessible
+                // from outside the component.
+                overlays.push({
+                  type: 'ENTRY_OUTLINE',
+                  entry: event,
+                  outlineReason: 'INFO',
+                });
+            }
+
+          }
           return overlays;
         })());
     });
@@ -641,7 +648,7 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
       const {entries} = event.detail;
       this.#setActiveOverlays((() => {
 
-          const overlays: Overlays.Overlays.TimelineOverlay[] = [];
+          const overlays: Trace.Types.Overlays.EntryOutline[] = [];
           for (const entry of entries) {
 
             // The overlay entry can be used to highlight any trace entry, including network track entries.
@@ -652,7 +659,7 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
               entry: entry.entry,
               outlineReason: 'INFO',
             });
-            ModificationsManager.activeManager()?.createAnnotation(entry);
+            ModificationsManager.activeManager()?.createAnnotation(entry, {loadedFromFile: false, muteAriaNotifications: false});
           }
 
           return overlays;
@@ -663,9 +670,8 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
     document.getElementById('-blink-dev-tools')?.addEventListener(HighlightLCPImageWithDelayEvent.eventName, (event: HighlightLCPImageWithDelayEvent) => {
       const {entry} = event.detail;
       this.#setActiveOverlays((() => {
-
           // Creates an overlay scheme similar to the LCP resource breakdown.
-          const overlays: Overlays.Overlays.TimelineOverlay[] = [
+          const overlays: Trace.Types.Overlays.Overlay[] = [
             {
               type: 'ENTRY_OUTLINE',
               entry: entry.entry,
@@ -790,7 +796,7 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
     }
   }
 
-  #setActiveOverlays(overlays: Overlays.Overlays.TimelineOverlay[]): void {
+  #setActiveOverlays(overlays: Trace.Types.Overlays.Overlay[]): void {
     this.flameChart.setOverlays(overlays, {updateTraceWindow: true});
   }
 
@@ -1184,12 +1190,12 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
   private populateToolbar(): void {
     const canRecord = this.canRecord();
 
-    if (canRecord || isNode) {
+    // if (canRecord || isNode) {
     //   this.panelToolbar.appendToolbarItem(UI.Toolbar.Toolbar.createActionButton(this.toggleRecordAction));
-    }
-    if (canRecord) {
+    // }
+    // if (canRecord) {
     //   this.panelToolbar.appendToolbarItem(UI.Toolbar.Toolbar.createActionButton(this.recordReloadAction));
-    }
+    // }
 
     // this.clearButton = new UI.Toolbar.ToolbarButton(i18nString(UIStrings.clear), 'clear', undefined, 'timeline.clear');
     // this.clearButton.addEventListener(UI.Toolbar.ToolbarButton.Events.CLICK, () => this.onClearButton());
@@ -1215,7 +1221,7 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
     //     event.preventDefault();
     //     event.stopPropagation();
 
-    if (canRecord) {
+    // if (canRecord) {
     //       const contextMenu = new UI.ContextMenu.ContextMenu(event);
     //       contextMenu.saveSection().appendItem(i18nString(UIStrings.exportNormalTraces), () => {
     //         void this.saveToFile();
@@ -1224,16 +1230,16 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
     //         void this.saveToFile(/* isEnhancedTraces */ true);
     //   this.panelToolbar.appendSeparator();
 
-      if (!isNode) {
-        this.homeButton = new UI.Toolbar.ToolbarButton(
-            i18nString(UIStrings.backToLiveMetrics), 'home', undefined, 'timeline.back-to-live-metrics');
-        this.homeButton.addEventListener(UI.Toolbar.ToolbarButton.Events.CLICK, () => {
-          this.#changeView({mode: 'LANDING_PAGE'});
-          this.#historyManager.navigateToLandingPage();
-        });
-        this.panelToolbar.appendToolbarItem(this.homeButton);
-        this.panelToolbar.appendSeparator();
-      }
+    //   if (!isNode) {
+    //     this.homeButton = new UI.Toolbar.ToolbarButton(
+    //         i18nString(UIStrings.backToLiveMetrics), 'home', undefined, 'timeline.back-to-live-metrics');
+    //     this.homeButton.addEventListener(UI.Toolbar.ToolbarButton.Events.CLICK, () => {
+    //       this.#changeView({mode: 'LANDING_PAGE'});
+    //       this.#historyManager.navigateToLandingPage();
+    //     });
+    //     this.panelToolbar.appendToolbarItem(this.homeButton);
+    //     this.panelToolbar.appendSeparator();
+    //   }
     // }
 
     // TODO(crbug.com/337909145): need to hide "Live metrics" option if !canRecord.
@@ -1534,23 +1540,8 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
 
     try {
       let traceAsString;
-      if (metadata?.dataOrigin === Trace.Types.File.DataOrigin.CPU_PROFILE) {
-        const profileEvent = traceEvents.find(e => e.name === 'CpuProfile');
-        if (!profileEvent || !profileEvent.args?.data) {
-          return;
-        }
-
-        await this.yieldToMain();
-
-        const profileEventData = profileEvent.args?.data;
-        if (profileEventData.hasOwnProperty('cpuProfile')) {
-          const profile = (profileEventData as {cpuProfile: Protocol.Profiler.Profile}).cpuProfile;
-          traceAsString = cpuprofileJsonGenerator(profile as Protocol.Profiler.Profile);
-        }
-      } else {
-        const formattedTraceIter = traceJsonGenerator(traceEvents, metadata);
+      const formattedTraceIter = traceJsonGenerator(traceEvents, metadata);
         traceAsString = Array.from(formattedTraceIter).join('');
-      }
 
       await this.yieldToMain();
 
@@ -1587,7 +1578,11 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
   }
 
   async exportTrace(): Promise<void> {
-    void this.saveToFile();
+    void this.saveToFile({
+      includeScriptContent: false,
+      includeSourceMaps: false,
+      addModifications: false,
+    });
   }
 
   /**
@@ -1967,12 +1962,12 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
     // this.showSettingsPaneButton.element.style.setProperty('--dot-toggle-top', '16px');
     // this.showSettingsPaneButton.element.style.setProperty('--dot-toggle-left', '15px');
 
-    if (messages.length) {
-      const tooltipElement = document.createElement('div');
-      messages.forEach(message => {
-        tooltipElement.createChild('div').textContent = message;
-      });
-      this.showSettingsPaneButton.setTitle(tooltipElement.textContent || '');
+    // if (messages.length) {
+    //   const tooltipElement = document.createElement('div');
+    //   messages.forEach(message => {
+    //     tooltipElement.createChild('div').textContent = message;
+    //   });
+    //   this.showSettingsPaneButton.setTitle(tooltipElement.textContent || '');
     // } else {
     //   this.showSettingsPaneButton.setTitle(i18nString(UIStrings.captureSettings));
     // }
@@ -2216,12 +2211,12 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
       this.#addSidebarIconToToolbar();
     }
 
-    const exportTraceOptionsElement =
-        this.saveButton.element as TimelineComponents.ExportTraceOptions.ExportTraceOptions;
-    exportTraceOptionsElement.data = {
-      onExport: this.saveToFile.bind(this),
-      buttonEnabled: this.state === State.IDLE && this.#hasActiveTrace(),
-    };
+    // const exportTraceOptionsElement =
+    //     this.saveButton.element as TimelineComponents.ExportTraceOptions.ExportTraceOptions;
+    // exportTraceOptionsElement.data = {
+    //   onExport: this.saveToFile.bind(this),
+    //   buttonEnabled: this.state === State.IDLE && this.#hasActiveTrace(),
+    // };
 
     this.#historyManager.setEnabled(this.state === State.IDLE);
     // this.clearButton.setEnabled(this.state === State.IDLE);
@@ -2360,8 +2355,8 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
 
     const exclusiveFilter = this.#exclusiveFilterPerTrace.get(traceIndex) ?? null;
     this.#applyActiveFilters(parsedTrace.Meta.traceIsGeneric, exclusiveFilter);
-    (this.saveButton.element as TimelineComponents.ExportTraceOptions.ExportTraceOptions)
-        .updateContentVisibility(currentManager ? currentManager.getAnnotations()?.length > 0 : false);
+    // (this.saveButton.element as TimelineComponents.ExportTraceOptions.ExportTraceOptions)
+    //     .updateContentVisibility(currentManager ? currentManager.getAnnotations()?.length > 0 : false);
 
     // Add ModificationsManager listeners for annotations change to update the
     // Annotation Overlays.
@@ -2494,8 +2489,8 @@ export class TimelinePanel extends Common.ObjectWrapper.eventMixin<EventTypes, t
     const annotations = currentManager?.getAnnotations() ?? [];
     const annotationEntryToColorMap = this.buildColorsAnnotationsMap(annotations);
     this.#sideBar.setAnnotations(annotations, annotationEntryToColorMap);
-    (this.saveButton.element as TimelineComponents.ExportTraceOptions.ExportTraceOptions)
-        .updateContentVisibility(currentManager ? currentManager.getAnnotations()?.length > 0 : false);
+    // (this.saveButton.element as TimelineComponents.ExportTraceOptions.ExportTraceOptions)
+    //     .updateContentVisibility(currentManager ? currentManager.getAnnotations()?.length > 0 : false);
   }
 
   /**
@@ -3340,7 +3335,7 @@ ${responseTextForPassedInsights}`;
       }
       panelInstance.addEventListener(Events.RECORDING_COMPLETED, listener);
 
-      panelInstance.recordReload();
+      // panelInstance.recordReload();
     });
   }
 
@@ -3425,12 +3420,12 @@ export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
       return false;
     }
     switch (actionId) {
-      case 'timeline.toggle-recording':
-        void panel.toggleRecording();
-        return true;
-      case 'timeline.record-reload':
-        panel.recordReload();
-        return true;
+      // case 'timeline.toggle-recording':
+        // void panel.toggleRecording();
+        // return true;
+      // case 'timeline.record-reload':
+        // panel.recordReload();
+        // return true;
       case 'timeline.save-to-file':
         void panel.saveToFile({includeScriptContent: false, includeSourceMaps: false, addModifications: false});
         return true;
@@ -3469,13 +3464,6 @@ export class SelectedInsight {
 export const enum Events {
   IS_VIEWING_TRACE = 'IsViewingTrace',
   RECORDING_COMPLETED = 'RecordingCompleted',
-}
-export interface EventTypes {
-  [Events.IS_VIEWING_TRACE]: boolean;
-  [Events.RECORDING_COMPLETED]: {traceIndex: number}|{errorText: string};
-}
-
-export const enum Events {
   OpenTraceFile = 'opentracefile',
   LoadRawTraceData = 'loadrawtracedata',
   RawTraceDataLoaded = 'rawtracedataloaded',
@@ -3487,8 +3475,9 @@ export const enum Events {
   ShowThirdParties = 'showthirdparties',
   ClearActiveOverlays = 'clearactiveoverlays',
 }
-
 export interface EventTypes {
+  [Events.IS_VIEWING_TRACE]: boolean;
+  [Events.RECORDING_COMPLETED]: {traceIndex: number}|{errorText: string};
   [Events.RawTraceDataLoaded]: {
     rawTraceData: Blob | string | null,
   };
